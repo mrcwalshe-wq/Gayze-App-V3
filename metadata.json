@@ -1,0 +1,6 @@
+{
+  "name": "gayze",
+  "description": "Encrypted community networking and location-based safety for gay men. Spontaneous right-now meetups, planned gatherings, and verifiable peer-to-peer privacy.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
