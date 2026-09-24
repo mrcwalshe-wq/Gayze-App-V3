@@ -320,7 +320,7 @@ export const INITIAL_ROOMS: SwarmRoom[] = [
   },
   {
     id: 'room_gath_1',
-    name: 'Queer Board Games Swarm',
+    name: 'Queer Board Games Group',
     type: 'gathering',
     safetyNumber: '78291 00192 48194 92817 38471 29481',
     swarmSecretKeyHex: 'seed_gathering_board_games_swarm_7718',

@@ -298,21 +298,34 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     <div className="relative space-y-4 max-w-xl mx-auto px-1 sm:px-0 pb-12">
       {/* =========================================================================
           1. RESTRAINED PURPLE ATMOSPHERE
-          Radiating from the live discovery center, dark edges, subtly subdued on LATER
+          Multi-layer radial purple atmosphere radiating outward from the live
+          discovery area. Edges fade into almost pure deep black (#0B0C10).
+          Subtly subdued when LATER is selected.
          ========================================================================= */}
+      {/* Outer ambient glow */}
       <div
-        className={`pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 w-full max-w-lg h-[480px] rounded-full blur-3xl transition-opacity duration-700 ease-out z-0 ${
-          isRightNowMode ? 'opacity-35' : 'opacity-15'
+        className={`pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 w-full max-w-2xl h-[540px] rounded-full blur-3xl transition-all duration-700 ease-out z-0 ${
+          isRightNowMode ? 'opacity-40' : 'opacity-15'
         }`}
         style={{
-          background: 'radial-gradient(ellipse at 50% 35%, rgba(111, 60, 195, 0.45) 0%, rgba(111, 60, 195, 0.12) 50%, rgba(11, 12, 16, 0) 75%)',
+          background: 'radial-gradient(ellipse at 50% 28%, rgba(111, 60, 195, 0.38) 0%, rgba(111, 60, 195, 0.12) 42%, rgba(11, 12, 16, 0) 72%)',
+        }}
+        aria-hidden="true"
+      />
+      {/* Focused live core radiation */}
+      <div
+        className={`pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 w-[340px] sm:w-[460px] h-[340px] rounded-full blur-2xl transition-all duration-700 ease-out z-0 ${
+          isRightNowMode ? 'opacity-30' : 'opacity-10'
+        }`}
+        style={{
+          background: 'radial-gradient(circle at 50% 40%, rgba(111, 60, 195, 0.5) 0%, rgba(201, 162, 77, 0.08) 38%, rgba(11, 12, 16, 0) 65%)',
         }}
         aria-hidden="true"
       />
 
       {/* Subtle Toast / Status Notification */}
       {statusMessage && (
-        <div className="relative z-20 bg-[#141620] border border-[#C9A24D]/40 text-white text-xs px-3.5 py-2 rounded-xl flex items-center justify-between shadow-lg animate-in fade-in duration-150">
+        <div className="relative z-20 bg-[#141620] border border-[#C9A24D]/40 text-white text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between shadow-lg animate-in fade-in duration-150">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#C9A24D] animate-pulse" />
             <span className="font-semibold">{statusMessage}</span>
@@ -320,7 +333,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           <button
             type="button"
             onClick={() => setStatusMessage(null)}
-            className="text-zinc-400 hover:text-white text-xs cursor-pointer p-1"
+            className="text-zinc-400 hover:text-white text-xs cursor-pointer p-1 min-h-[32px] min-w-[32px] flex items-center justify-center"
             aria-label="Dismiss message"
           >
             ✕
@@ -345,7 +358,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 RIGHT NOW
               </h1>
               {isRightNowMode && (
-                <span className="w-2 h-2 rounded-full bg-[#C9A24D] shadow-[0_0_8px_#C9A24D] animate-pulse" />
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C9A24D] shadow-[0_0_8px_#C9A24D]"></span>
+                </span>
               )}
             </div>
             <p className="text-[11px] sm:text-xs text-zinc-400 font-medium">
@@ -355,7 +371,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           <button
             type="button"
             onClick={scrollToMap}
-            className="flex items-center gap-1.5 text-[11px] font-mono text-[#C9A24D] hover:underline cursor-pointer bg-[#141620] border border-white/10 px-2.5 py-1 rounded-lg"
+            className="min-h-[44px] flex items-center gap-1.5 text-[11px] font-mono text-[#C9A24D] hover:underline cursor-pointer bg-[#141620] hover:bg-[#1a1d2e] border border-white/10 px-3 py-1.5 rounded-xl transition-colors"
           >
             <MapIcon className="w-3.5 h-3.5" />
             <span>View Map</span>
@@ -570,13 +586,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         </div>
 
         {/* SIGNATURE INTENT SELECTOR (Selected intent pops with purple backing & amber foreground) */}
-        <div className="pt-2 border-t border-white/[0.06] space-y-1.5">
+        <div className="pt-2.5 border-t border-white/[0.06] space-y-2">
           <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 uppercase tracking-wider px-0.5">
             <span>Intent Selection</span>
-            {selectedIntentChip !== 'All' && (
+            {selectedIntentChip !== 'All' ? (
               <span className="text-[#C9A24D] font-bold">
-                Filtered: {selectedIntentChip}
+                Filtered: {selectedIntentChip.toUpperCase()}
               </span>
+            ) : (
+              <span className="text-zinc-500">All connection types</span>
             )}
           </div>
 
@@ -591,15 +609,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     hapticLight();
                     setSelectedIntentChip(intent);
                   }}
-                  className={`h-9 min-h-[36px] px-3.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 border relative shrink-0 ${
+                  className={`h-11 min-h-[44px] px-4 rounded-xl text-xs whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 border relative shrink-0 ${
                     isSelected
-                      ? 'scale-[1.04] bg-gradient-to-b from-[#6F3CC3]/25 via-[#1c1628] to-[#12111b] text-[#C9A24D] border-[#C9A24D] shadow-[0_0_18px_rgba(111,60,195,0.4),0_0_8px_rgba(201,162,77,0.3)] font-black uppercase tracking-wider z-10'
-                      : 'bg-[#08090e] text-zinc-400 border-white/[0.07] hover:text-zinc-200 hover:border-white/20'
+                      ? 'scale-[1.05] bg-gradient-to-b from-[#6F3CC3]/35 via-[#231735] to-[#12111c] text-[#C9A24D] border-[#C9A24D] shadow-[0_0_20px_rgba(111,60,195,0.45),0_0_8px_rgba(201,162,77,0.35)] font-black uppercase tracking-wider z-10 ring-1 ring-[#C9A24D]/40'
+                      : 'bg-[#08090e] text-zinc-400 border-white/[0.07] hover:text-zinc-200 hover:border-white/20 font-semibold'
                   }`}
                 >
-                  {/* Subtle active glow dot on selected */}
+                  {/* Active glowing indicator on selected intent */}
                   {isSelected && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] shadow-[0_0_6px_#C9A24D]" />
+                    <span className="w-2 h-2 rounded-full bg-[#C9A24D] shadow-[0_0_8px_#C9A24D] animate-pulse" />
                   )}
                   {intent === 'Hookup' && !isSelected && (
                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
@@ -883,7 +901,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 setMapDisplayType('map');
               }}
-              className={`h-8 min-h-[36px] px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`h-10 min-h-[44px] px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 mapDisplayType === 'map'
                   ? 'bg-[#181a24] text-[#C9A24D] border border-[#C9A24D]/50 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
@@ -899,7 +917,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 setMapDisplayType('radar');
               }}
-              className={`h-8 min-h-[36px] px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`h-10 min-h-[44px] px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 mapDisplayType === 'radar'
                   ? 'bg-[#181a24] text-[#C9A24D] border border-[#C9A24D]/50 shadow-sm'
                   : 'text-zinc-400 hover:text-white'

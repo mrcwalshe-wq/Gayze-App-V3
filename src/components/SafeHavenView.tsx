@@ -145,14 +145,14 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
             <div className="mt-4 pt-3 border-t border-white/[0.07] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
               <button
                 onClick={() => onStartSafeCheckinWithVenue(haven)}
-                className="h-9 min-h-[38px] px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl border border-white/10 transition-colors cursor-pointer"
+                className="h-11 min-h-[44px] px-4 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl border border-white/10 transition-colors cursor-pointer flex items-center justify-center"
               >
                 Set Safety Beacon Here
               </button>
 
               <button
                 onClick={() => onSelectVenueForPulse(haven)}
-                className="h-9 min-h-[38px] flex items-center justify-center gap-1.5 px-3.5 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
+                className="h-11 min-h-[44px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
               >
                 <span>Broadcast Pulse Here</span>
                 <ArrowRight className="w-3.5 h-3.5" />

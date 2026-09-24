@@ -349,7 +349,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
 
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.06] cursor-pointer"
+                  className="w-11 h-11 min-h-[44px] min-w-[44px] flex items-center justify-center text-zinc-400 hover:text-white rounded-xl hover:bg-white/[0.06] cursor-pointer shrink-0"
                   aria-label="Close details"
                 >
                   <X className="w-4 h-4" />
@@ -377,14 +377,14 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
               <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                 <button
                   onClick={() => onBroadcastHere(selectedItem.item.venueName)}
-                  className="h-10 min-h-[40px] px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl transition-colors border border-white/10 cursor-pointer"
+                  className="h-11 min-h-[44px] px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl transition-colors border border-white/10 cursor-pointer flex items-center justify-center"
                 >
                   Meet Nearby
                 </button>
 
                 <button
                   onClick={() => onOpenDirectChat(selectedItem.item)}
-                  className="h-10 min-h-[40px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
+                  className="h-11 min-h-[44px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   <Lock className="w-3.5 h-3.5" />
                   <span>Connect & Chat</span>
@@ -408,7 +408,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
 
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.06] cursor-pointer"
+                  className="w-11 h-11 min-h-[44px] min-w-[44px] flex items-center justify-center text-zinc-400 hover:text-white rounded-xl hover:bg-white/[0.06] cursor-pointer shrink-0"
                   aria-label="Close details"
                 >
                   <X className="w-4 h-4" />
@@ -432,14 +432,14 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
               <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                 <button
                   onClick={() => onSelectHaven(selectedItem.item)}
-                  className="h-10 min-h-[40px] px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl transition-colors border border-white/10 cursor-pointer"
+                  className="h-11 min-h-[44px] px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl transition-colors border border-white/10 cursor-pointer flex items-center justify-center"
                 >
                   View Details
                 </button>
 
                 <button
                   onClick={() => onBroadcastHere(selectedItem.item.name)}
-                  className="h-10 min-h-[40px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
+                  className="h-11 min-h-[44px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   <Radio className="w-3.5 h-3.5" />
                   <span>Meetup Here</span>

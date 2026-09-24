@@ -97,7 +97,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
         <button
           onClick={() => setIsHostModalOpen(true)}
-          className="h-9 min-h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors shadow-sm self-start sm:self-auto cursor-pointer"
+          className="h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors shadow-sm self-start sm:self-auto cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Host Gathering</span>
@@ -242,7 +242,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 {/* RSVP Toggle Button */}
                 <button
                   onClick={() => onToggleRsvp(gathering.id)}
-                  className={`h-9 min-h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
+                  className={`h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
                     gathering.isAttending
                       ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/50'
                       : 'bg-[#1c1f2b] hover:bg-[#252838] text-zinc-200 border border-white/10'
@@ -261,7 +261,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 {/* Open Group Chat */}
                 <button
                   onClick={() => onOpenGatheringChat(gathering)}
-                  className="h-9 min-h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
+                  className="h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   <Lock className="w-3.5 h-3.5" />
                   <span>Group Room</span>

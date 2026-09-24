@@ -129,14 +129,14 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={() => onExtendTimer(30)}
-                className="h-10 min-h-[40px] py-2 px-3 text-xs font-medium text-zinc-200 bg-[#1c1f2b] hover:bg-[#252838] rounded-xl border border-white/10 transition-colors cursor-pointer"
+                className="h-11 min-h-[44px] py-2 px-3 text-xs font-medium text-zinc-200 bg-[#1c1f2b] hover:bg-[#252838] rounded-xl border border-white/10 transition-colors cursor-pointer flex items-center justify-center"
               >
                 +30 min extension
               </button>
 
               <button
                 onClick={onEndCheckin}
-                className="h-10 min-h-[40px] py-2 px-3 text-xs font-semibold text-black bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                className="h-11 min-h-[44px] py-2 px-3 text-xs font-semibold text-black bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>I'm Safe / End</span>
@@ -152,7 +152,7 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
               ) : (
                 <button
                   onClick={handleSendDistress}
-                  className="w-full min-h-[42px] py-2.5 px-3 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-rose-950/40"
+                  className="w-full h-11 min-h-[44px] py-2.5 px-3 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-rose-950/40"
                 >
                   <ShieldAlert className="w-4 h-4" />
                   <span>Send Emergency Alert Now</span>
@@ -230,13 +230,13 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="min-h-[42px] px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white cursor-pointer"
+                className="h-11 min-h-[44px] px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white cursor-pointer flex items-center justify-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="min-h-[42px] px-4 py-2 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="h-11 min-h-[44px] px-4 py-2 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
               >
                 <Clock className="w-3.5 h-3.5" />
                 <span>Start Safety Beacon</span>
