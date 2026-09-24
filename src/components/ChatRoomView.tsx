@@ -116,7 +116,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-emerald-400" />
             <span className="text-xs font-semibold text-zinc-200 tracking-wide uppercase font-sans">
-              Encrypted Swarms ({rooms.length})
+              Encrypted Groups ({rooms.length})
             </span>
           </div>
           <span className="text-[10px] text-zinc-400 bg-[#171922] px-2 py-0.5 rounded-md border border-white/10 font-mono">
@@ -224,7 +224,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                   <span className="truncate font-mono">
-                    {currentRoom.peerKey ? `Key: ${currentRoom.peerKey.substring(0, 12)}...` : 'Group Swarm'}
+                    {currentRoom.peerKey ? `Key: ${currentRoom.peerKey.substring(0, 12)}...` : 'Group'}
                   </span>
                 </div>
               </div>
@@ -388,7 +388,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center p-8 text-center text-zinc-500 text-xs sm:text-sm">
-          Select a swarm room to view encrypted communications
+          Select a group room to view encrypted communications
         </div>
       )}
 

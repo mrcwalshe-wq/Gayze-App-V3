@@ -91,7 +91,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
             </h1>
           </div>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Curated group sessions and social circles with encrypted attendee swarms
+            Curated group sessions and social circles with encrypted attendee groups
           </p>
         </div>
 
@@ -258,13 +258,13 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   )}
                 </button>
 
-                {/* Open Group Swarm Chat */}
+                {/* Open Group Chat */}
                 <button
                   onClick={() => onOpenGatheringChat(gathering)}
                   className="h-9 min-h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   <Lock className="w-3.5 h-3.5" />
-                  <span>Swarm Room</span>
+                  <span>Group Room</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -285,7 +285,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <div>
                   <h3 className="text-base font-bold text-white">Host a Community Gathering</h3>
                   <span className="text-[11px] text-zinc-400">
-                    Creates an encrypted group swarm for confirmed attendees
+                    Creates an encrypted group for confirmed attendees
                   </span>
                 </div>
               </div>

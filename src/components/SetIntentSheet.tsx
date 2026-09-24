@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShieldCheck, Zap, Check, ChevronDown, MapPin } from 'lucide-react';
+import { X, ShieldCheck, Zap, Check, MapPin } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import { SafeHaven } from '../types';
 
 export type EncounterIntentType = 'Meet' | 'Hookup' | 'Date' | 'Drinks' | 'Chat' | 'Group';
 export type IntentWhenType = 'Now' | 'Next 2 hours' | 'Tonight';
 export type IntentDurationType = '1 hr' | '2 hrs' | 'Tonight' | 'Flexible';
+export type IntentContextType = 'Private' | 'Public' | 'Either';
 
 export interface UserActiveIntent {
   intent: EncounterIntentType;
   when: IntentWhenType;
   duration: IntentDurationType;
+  context?: IntentContextType;
   area: string;
   isNearSafeHaven?: boolean;
   safeHavenName?: string;
@@ -43,7 +45,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   // Step 2: When?
   const [when, setWhen] = useState<IntentWhenType>(existingIntent?.when || defaultWhen);
   
-  // How long? (Optional)
+  // Step 3: Context & Duration (Optional)
+  const [context, setContext] = useState<IntentContextType>(existingIntent?.context || 'Either');
   const [duration, setDuration] = useState<IntentDurationType>(existingIntent?.duration || '2 hrs');
   
   // Optional Location / Safe Haven
@@ -58,6 +61,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
         setIntent(existingIntent.intent);
         setWhen(existingIntent.when);
         setDuration(existingIntent.duration);
+        setContext(existingIntent.context || 'Either');
         setUseSafeHaven(Boolean(existingIntent.isNearSafeHaven));
         if (existingIntent.safeHavenName) {
           const match = safeHavens.find((h) => h.name === existingIntent.safeHavenName);
@@ -67,6 +71,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
         setIntent('Hookup');
         setWhen(defaultWhen);
         setDuration('2 hrs');
+        setContext('Either');
         setUseSafeHaven(false);
       }
     }
@@ -92,6 +97,11 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     setDuration(val);
   };
 
+  const handleSelectContext = (val: IntentContextType) => {
+    hapticLight();
+    setContext(val);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     hapticSensitiveAction();
@@ -113,6 +123,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       intent,
       when,
       duration,
+      context,
       area: areaText,
       isNearSafeHaven: useSafeHaven,
       safeHavenName: useSafeHaven && selectedHaven ? selectedHaven.name : undefined,
@@ -145,6 +156,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     'Flexible',
   ];
 
+  const contextOptions: IntentContextType[] = [
+    'Private',
+    'Public',
+    'Either',
+  ];
+
   const isEditing = Boolean(existingIntent);
 
   return (
@@ -156,14 +173,14 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       aria-labelledby="set-intent-title"
     >
       <div
-        className="relative w-full max-w-md bg-[#0d0e14] border border-white/10 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto"
+        className="relative w-full max-w-md bg-[#0d0e14] border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90dvh] sm:max-h-[85vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Mobile Pull Indicator */}
-        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto -mt-1 mb-2 sm:hidden" />
+        {/* Mobile Pull Handle Indicator */}
+        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
 
-        {/* Header */}
-        <div className="flex items-start justify-between pb-3 border-b border-white/[0.08]">
+        {/* Pinned Header */}
+        <div className="flex items-center justify-between px-5 pt-3 pb-3 border-b border-white/[0.08] shrink-0 bg-[#0d0e14]">
           <div>
             <h2
               id="set-intent-title"
@@ -171,181 +188,206 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             >
               {isEditing ? 'CHANGE YOUR INTENT' : 'SET YOUR INTENT'}
             </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Tell nearby people what you’re open to.
+            <p className="text-[11px] text-zinc-400">
+              Real intent. Real time.
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl text-zinc-400 hover:text-white flex items-center justify-center hover:bg-white/[0.06] transition-colors cursor-pointer"
+            className="w-11 h-11 rounded-xl text-zinc-400 hover:text-white flex items-center justify-center hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0"
             aria-label="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* STEP 1: What are you open to? */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
-                STEP 1 — WHAT ARE YOU OPEN TO?
-              </span>
-              <span className="text-xs font-bold text-[#C9A24D] uppercase font-mono">
-                {intent}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {intentOptions.map((opt) => {
-                const isSelected = intent === opt;
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => handleSelectIntent(opt)}
-                    className={`h-12 px-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center border relative ${
-                      isSelected
-                        ? 'bg-[#1a1b24] text-white border-[#C9A24D] shadow-[0_0_12px_rgba(201,162,77,0.2)] font-black uppercase tracking-wide'
-                        : 'bg-[#101118] text-zinc-400 border-white/[0.08] hover:text-zinc-200 hover:border-white/20'
-                    }`}
-                  >
-                    <span>{opt}</span>
-                    {isSelected && (
-                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#C9A24D]" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* STEP 2: WHEN? */}
-          <div className="space-y-1.5 pt-2 border-t border-white/[0.06]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
-                WHEN?
-              </span>
-              <span className="text-xs text-zinc-300 font-mono">
-                {when}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {whenOptions.map((w) => {
-                const isSelected = when === w;
-                return (
-                  <button
-                    key={w}
-                    type="button"
-                    onClick={() => handleSelectWhen(w)}
-                    className={`h-11 px-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5 border ${
-                      isSelected
-                        ? 'bg-[#1a1b24] text-[#C9A24D] border-[#C9A24D]/70 shadow-sm'
-                        : 'bg-[#101118] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
-                    }`}
-                  >
-                    <span>{w}</span>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#C9A24D]" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* OPTIONAL: HOW LONG? */}
-          <div className="space-y-1.5 pt-2 border-t border-white/[0.06]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
-                HOW LONG? <span className="text-[10px] text-zinc-400 font-sans font-normal">(Optional)</span>
-              </span>
-              <span className="text-xs text-zinc-300 font-mono">
-                {duration}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-4 gap-1.5">
-              {durationOptions.map((d) => {
-                const isSelected = duration === d;
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => handleSelectDuration(d)}
-                    className={`h-9 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'bg-[#1a1b24] text-white border-[#C9A24D]/60 font-bold'
-                        : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
-                    }`}
-                  >
-                    {d}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* OPTIONAL LOCATION */}
-          <div className="pt-2 border-t border-white/[0.06] space-y-2">
-            <div className="flex items-center justify-between text-xs text-zinc-300">
-              <div className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#C9A24D]" />
-                <span className="font-medium">Approximate area</span>
+        {/* Scrollable Form Content */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
+            {/* STEP 1: What are you open to? */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                  STEP 1 — WHAT?
+                </span>
+                <span className="text-xs font-bold text-[#C9A24D] uppercase font-mono">
+                  {intent}
+                </span>
               </div>
-              <span className="text-[11px] text-zinc-400 font-mono">Protected automatically (±300m)</span>
+
+              <div className="grid grid-cols-3 gap-2">
+                {intentOptions.map((opt) => {
+                  const isSelected = intent === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => handleSelectIntent(opt)}
+                      className={`h-12 min-h-[48px] px-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center border relative ${
+                        isSelected
+                          ? 'bg-[#181524] text-[#C9A24D] border-[#C9A24D] shadow-[0_0_12px_rgba(201,162,77,0.25)] font-black uppercase tracking-wide scale-[1.02]'
+                          : 'bg-[#101118] text-zinc-300 border-white/[0.08] hover:text-white hover:border-white/20'
+                      }`}
+                    >
+                      <span>{opt}</span>
+                      {isSelected && (
+                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#C9A24D]" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Meet near a Safe Haven toggle */}
-            {safeHavens.length > 0 && (
-              <div className="p-2.5 bg-[#101118] border border-white/[0.06] rounded-xl flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
-                  <span className="text-xs text-zinc-200">Meet near a Safe Haven</span>
+            {/* STEP 2: WHEN? */}
+            <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                  STEP 2 — WHEN?
+                </span>
+                <span className="text-xs text-zinc-300 font-mono">
+                  {when}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {whenOptions.map((w) => {
+                  const isSelected = when === w;
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => handleSelectWhen(w)}
+                      className={`h-11 min-h-[44px] px-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center gap-1 border ${
+                        isSelected
+                          ? 'bg-[#1a1b24] text-[#C9A24D] border-[#C9A24D]/70 shadow-sm'
+                          : 'bg-[#101118] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
+                      }`}
+                    >
+                      <span>{w}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-[#C9A24D]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* STEP 3: OPTIONAL CONTEXT & DURATION */}
+            <div className="space-y-3 pt-2 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                  STEP 3 — OPTIONAL CONTEXT
+                </span>
+                <span className="text-[10px] text-zinc-400 font-mono">
+                  (Optional)
+                </span>
+              </div>
+
+              {/* Open to: Private / Public / Either */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
+                  Open to:
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {contextOptions.map((c) => {
+                    const isSelected = context === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => handleSelectContext(c)}
+                        className={`h-10 min-h-[40px] rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                          isSelected
+                            ? 'bg-[#181a24] text-[#C9A24D] border-[#C9A24D]/60 font-bold'
+                            : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    hapticLight();
-                    setUseSafeHaven(!useSafeHaven);
-                  }}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
-                    useSafeHaven
-                      ? 'bg-[#C9A24D] text-black border-[#C9A24D]'
-                      : 'bg-transparent text-zinc-400 border-white/10 hover:text-white'
-                  }`}
-                >
-                  {useSafeHaven ? 'Selected' : 'Select'}
-                </button>
               </div>
-            )}
+
+              {/* Duration: 1 hr / 2 hrs / Tonight / Flexible */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
+                  Duration:
+                </span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {durationOptions.map((d) => {
+                    const isSelected = duration === d;
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => handleSelectDuration(d)}
+                        className={`h-9 min-h-[38px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                          isSelected
+                            ? 'bg-[#181a24] text-white border-[#C9A24D]/60 font-bold'
+                            : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Safe Haven Meetup spot toggle */}
+              {safeHavens.length > 0 && (
+                <div className="p-2.5 bg-[#101118] border border-white/[0.06] rounded-xl flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
+                    <span className="text-xs text-zinc-300 truncate">Meet near Safe Haven</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      setUseSafeHaven(!useSafeHaven);
+                    }}
+                    className={`h-8 px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer border shrink-0 ${
+                      useSafeHaven
+                        ? 'bg-[#C9A24D] text-black border-[#C9A24D]'
+                        : 'bg-transparent text-zinc-400 border-white/10 hover:text-white'
+                    }`}
+                  >
+                    {useSafeHaven ? 'Selected' : 'Select'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* FINAL COMPACT PREVIEW */}
+            <div className="p-3 bg-[#13141d] border border-[#C9A24D]/35 rounded-xl space-y-1">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold">
+                YOUR INTENT
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <span className="text-base sm:text-lg font-black text-white font-sans uppercase tracking-wide">
+                  {intent}
+                </span>
+                <span className="text-xs font-mono font-bold text-[#C9A24D] uppercase">
+                  {when} · ~{duration}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 pt-0.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
+                <span>Approximate location protected (±300m)</span>
+              </div>
+            </div>
           </div>
 
-          {/* FINAL COMPACT PREVIEW */}
-          <div className="p-3 bg-[#13141d] border border-[#C9A24D]/35 rounded-xl space-y-1.5">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold">
-              YOUR INTENT
-            </div>
-
-            <div className="flex items-baseline justify-between">
-              <span className="text-lg font-black text-white font-sans uppercase tracking-wide">
-                {intent}
-              </span>
-              <span className="text-xs font-mono font-bold text-[#C9A24D] uppercase">
-                {when} · ~{duration}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 pt-0.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
-              <span>Approximate location protected</span>
-            </div>
-          </div>
-
-          {/* CONFIDENT FINAL CTA: GO LIVE */}
-          <div className="pt-1">
+          {/* PINNED BOTTOM CTA WITH SAFE-AREA INSET SUPPORT */}
+          <div className="p-4 sm:p-5 pt-3 border-t border-white/[0.08] bg-[#0d0e14] shrink-0 pb-[max(1rem,env(safe-area-inset-bottom,16px))]">
             <button
               type="submit"
-              className="w-full h-12 text-sm font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] rounded-xl transition-all duration-150 cursor-pointer shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider font-sans"
+              className="w-full h-12 min-h-[48px] text-sm font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] rounded-xl transition-all duration-150 cursor-pointer shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider font-sans"
             >
               <Zap className="w-4 h-4 fill-black" />
               <span>{isEditing ? 'Update Intent' : 'GO LIVE'}</span>

@@ -138,7 +138,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                 Reliability Score: <span className="text-[#C9A24D] font-mono">{user.reliabilityScore || 94}/100</span>
               </div>
               <div className="text-[11px] text-zinc-400">
-                {user.verifiedPeersCount || 14} in-person Swarm verifications
+                {user.verifiedPeersCount || 14} in-person Group verifications
               </div>
             </div>
           </div>

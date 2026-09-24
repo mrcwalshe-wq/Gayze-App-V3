@@ -284,7 +284,7 @@ export default function App() {
 
     setActiveRoomId(roomId);
     setActiveTab('swarms');
-    showToast(`End-to-End Encrypted Swarm opened with ${pulse.peerName}`);
+    showToast(`End-to-End Encrypted Group opened with ${pulse.peerName}`);
   };
 
   // Handlers for "Dating"
@@ -419,7 +419,7 @@ export default function App() {
         peerAvatar: payload.displayName.toLowerCase().slice(0, 8),
         safetyNumber,
         swarmSecretKeyHex: 'seed_qr_swarm_' + Math.random().toString(36).substring(2),
-        lastMessage: `Verified in-person via Swarm QR · Reliability Score: ${peerScore}/100`,
+        lastMessage: `Verified in-person via Group QR · Reliability Score: ${peerScore}/100`,
         lastTimestamp: Date.now(),
         ephemeralTtlSeconds: 86400,
         verifiedViaQR: true,
@@ -436,7 +436,7 @@ export default function App() {
                 verifiedViaQR: true,
                 verifiedAt: Date.now(),
                 peerReliabilityScore: peerScore,
-                lastMessage: `Verified in-person via Swarm QR · Reliability Score: ${peerScore}/100`,
+                lastMessage: `Verified in-person via Group QR · Reliability Score: ${peerScore}/100`,
                 lastTimestamp: Date.now(),
               }
             : r
@@ -453,7 +453,7 @@ export default function App() {
       timestamp: Date.now(),
       cipherText: '3a0b9f...verified_handshake',
       nonceHex: '891048192038471029384710',
-      plainText: `🔒 In-Person Swarm QR verification complete. Mutual public keys authenticated. Safety fingerprint matched. Reliability score boosted (+3 pts to both peers).`,
+      plainText: `🔒 In-Person Group QR verification complete. Mutual public keys authenticated. Safety fingerprint matched. Reliability score boosted (+3 pts to both peers).`,
       isSystem: true,
     };
 
@@ -495,7 +495,7 @@ export default function App() {
     const roomId = 'room_' + gathering.id;
     const newRoom: SwarmRoom = {
       id: roomId,
-      name: gathering.title + ' Swarm',
+      name: gathering.title + ' Group',
       type: 'gathering',
       safetyNumber: '88201 94819 20491 58190 29481 02938',
       swarmSecretKeyHex: 'seed_gathering_' + gathering.id,

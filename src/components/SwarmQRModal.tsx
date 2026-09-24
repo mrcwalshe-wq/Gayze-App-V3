@@ -179,7 +179,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
         setManualPayloadInput('');
         setVerificationSuccess(false);
       } else {
-        alert('Invalid Gayze Swarm payload format. Missing public key or identity header.');
+        alert('Invalid Gayze Group payload format. Missing public key or identity header.');
       }
     } catch (err) {
       alert('Could not parse payload as valid JSON. Please check formatting.');

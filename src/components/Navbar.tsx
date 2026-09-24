@@ -120,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Chats</span>
+              <span>Groups</span>
               {unreadCount > 0 && (
                 <span className="w-2 h-2 rounded-full bg-[#C9A24D] inline-block ml-0.5" />
               )}
@@ -158,10 +158,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
 
-            {/* QR Swarm Key Exchanger */}
+            {/* QR Group Key Exchanger */}
             <button
               onClick={onOpenQR}
-              title="Swarm QR Code & Key Exchange"
+              title="Group QR Code & Key Exchange"
               aria-label="QR Code Key Exchange"
               className="h-9 px-2.5 sm:px-3 flex items-center gap-1.5 text-xs font-medium bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] hover:border-[#C9A24D]/40 text-zinc-300 hover:text-white rounded-xl transition-all cursor-pointer"
             >
@@ -188,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* User Identity Key Avatar */}
             <button
               onClick={onOpenIdentity}
-              title="Your Swarm Identity Key"
+              title="Your Identity Key"
               aria-label="Open Identity Settings"
               className="h-9 w-9 rounded-xl bg-[#141620] border border-white/[0.10] hover:border-white/25 flex items-center justify-center text-zinc-200 transition-all cursor-pointer font-mono text-xs font-semibold"
             >
@@ -219,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={() => onTabChange('right_now')}
             className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'right_now' ? 'text-emerald-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+              activeTab === 'right_now' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Radio className="w-4 h-4 mb-0.5" />
@@ -237,7 +237,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-[10px] tracking-tight">Later</span>
           </button>
 
-          {/* Tab 4: Swarms */}
+          {/* Tab 4: Groups */}
           <button
             onClick={() => onTabChange('swarms')}
             className={`relative min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
@@ -250,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-[#C9A24D]" />
               )}
             </div>
-            <span className="text-[10px] tracking-tight">Chats</span>
+            <span className="text-[10px] tracking-tight">Groups</span>
           </button>
 
           {/* Tab 5: Safe Havens */}
