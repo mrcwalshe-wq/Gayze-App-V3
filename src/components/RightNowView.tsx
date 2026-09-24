@@ -12,18 +12,16 @@ import {
   MapPin, 
   ArrowRight,
   X,
-  Flame,
   Zap,
-  Coffee,
-  Wine,
-  Sparkles,
-  Users,
   Compass,
-  Check,
-  CheckCircle2
+  CheckCircle2,
+  SlidersHorizontal,
+  Flame,
+  MessageSquare
 } from 'lucide-react';
 
 export type EncounterIntent = 'All' | 'Meet' | 'Hookup' | 'Date' | 'Drinks' | 'Chat' | 'Group';
+export type AvailabilityWindow = 'now' | '2h' | 'tonight';
 
 interface RightNowViewProps {
   pulses: Pulse[];
@@ -44,8 +42,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onSelectHaven,
   onCreatePulse,
 }) => {
-  // IntentMode: 'now' (immediate) vs 'later' (tonight)
-  const [intentMode, setIntentMode] = useState<'now' | 'later'>('now');
+  // IntentMode State: Active Time-based Availability & Selectable Intent Chips
+  const [availabilityWindow, setAvailabilityWindow] = useState<AvailabilityWindow>('now');
   const [selectedIntent, setSelectedIntent] = useState<EncounterIntent>('All');
   const [maxDistanceKm, setMaxDistanceKm] = useState<number>(5);
   const [viewMode, setViewMode] = useState<'feed' | 'map' | 'radar'>('feed');
@@ -54,7 +52,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
   // Fast "I'm Available" Flow State
   const [availIntent, setAvailIntent] = useState<Exclude<EncounterIntent, 'All'>>('Meet');
-  const [availWindow, setAvailWindow] = useState<'now' | '2h' | 'tonight'>('now');
+  const [availWindow, setAvailWindow] = useState<AvailabilityWindow>('now');
   const [availVenue, setAvailVenue] = useState('Timberyard Cafe (Safe Haven)');
   const [availNote, setAvailNote] = useState('');
 
@@ -94,7 +92,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     return `Available now · ~${hours} hrs`;
   };
 
-  // Filter pulses by intent, distance, and intentMode urgency
+  // Filter pulses by intent, time-based availability window, and distance
   const filteredPulses = useMemo(() => {
     return pulses.filter((p) => {
       const intent = getPulseIntent(p);
@@ -104,21 +102,26 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       if (p.approxDistanceKm > maxDistanceKm) {
         return false;
       }
-      if (intentMode === 'now') {
-        // Prioritize active, immediate duration (<= 3 hours)
-        return p.durationHours <= 3;
+      if (availabilityWindow === 'now') {
+        // Immediate encounters (duration <= 2 hours or recently created)
+        return p.durationHours <= 2;
       }
+      if (availabilityWindow === '2h') {
+        // Next 2 hours window
+        return p.durationHours <= 2.5;
+      }
+      // 'tonight' allows broader evening encounters
       return true;
     });
-  }, [pulses, selectedIntent, maxDistanceKm, intentMode]);
+  }, [pulses, selectedIntent, maxDistanceKm, availabilityWindow]);
 
-  const activeCount = pulses.length + 8; // realistic contextual activity count
+  const activeCount = pulses.length + 8;
   const meetingCount = pulses.length;
 
   const handleCreateAvailableSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const durationMap = {
+    const durationMap: Record<AvailabilityWindow, number> = {
       now: 1,
       '2h': 2,
       tonight: 4,
@@ -167,106 +170,91 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   return (
     <div className="space-y-4">
       {/* =========================================================================
-          1. HERO HEADER: LIVE RADAR FEEL & INTENTMODE™
+          1. HERO HEADER: LIVE RADAR STATUS & PRIMARY ACTION
          ========================================================================= */}
-      <div className="flex flex-col gap-3 pb-3 border-b border-white/[0.08]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Title & Live Status */}
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C9A24D]"></span>
-              </span>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-sans uppercase">
-                RIGHT NOW
-              </h1>
-              <span className="text-xs font-mono text-zinc-400 bg-[#141620] px-2 py-0.5 rounded-md border border-white/10">
-                {userNeighborhood}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-zinc-400 mt-1">
-              <span>{activeCount} active nearby</span>
-              <span className="text-zinc-600">·</span>
-              <span className="text-zinc-200 font-medium">{meetingCount} ready to meet</span>
-              <span className="text-zinc-600">·</span>
-              <span className="text-[#C9A24D] flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-[#C9A24D]" />
-                Cloaked ±300m
-              </span>
-            </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C9A24D]"></span>
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-sans uppercase">
+              RIGHT NOW
+            </h1>
+            <span className="text-xs font-mono text-zinc-400 bg-[#141620] px-2 py-0.5 rounded-md border border-white/10">
+              {userNeighborhood}
+            </span>
           </div>
 
-          {/* Header Controls: IntentMode™ Signature Slider + Primary "I'm Available" CTA */}
-          <div className="flex items-center gap-2.5">
-            {/* Signature IntentMode™ Switcher */}
-            <div className="flex items-center p-1 bg-[#11131a] rounded-xl border border-white/10 shadow-inner">
-              <button
-                onClick={() => setIntentMode('now')}
-                className={`h-8 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                  intentMode === 'now'
-                    ? 'bg-[#C9A24D] text-black shadow-md'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5 fill-current" />
-                <span>RIGHT NOW</span>
-              </button>
-
-              <button
-                onClick={() => setIntentMode('later')}
-                className={`h-8 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                  intentMode === 'later'
-                    ? 'bg-[#6F3CC3] text-white shadow-md'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span>LATER</span>
-              </button>
-            </div>
-
-            {/* Primary Action Button */}
-            <button
-              onClick={() => setIsAvailableModalOpen(true)}
-              className="h-10 px-4 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1.5 active:scale-95 shrink-0"
-            >
-              <Zap className="w-4 h-4 fill-black" />
-              <span>I'm Available</span>
-            </button>
+          <div className="flex items-center gap-2 text-xs text-zinc-400 mt-1">
+            <span>{activeCount} active nearby</span>
+            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-200 font-medium">{meetingCount} open to meeting</span>
+            <span className="text-zinc-600">·</span>
+            <span className="text-[#C9A24D] flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-[#C9A24D]" />
+              Cloaked ±300m
+            </span>
           </div>
         </div>
 
-        {/* View Switcher: Feed / Map / Radar */}
-        <div className="flex items-center justify-between gap-2 pt-1">
-          {/* Intent Filters */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-            {(['All', 'Meet', 'Hookup', 'Drinks', 'Date', 'Chat', 'Group'] as EncounterIntent[]).map((intent) => {
-              const isActive = selectedIntent === intent;
-              return (
-                <button
-                  key={intent}
-                  onClick={() => setSelectedIntent(intent)}
-                  className={`h-8 px-3 text-xs font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-[#1c1f2b] text-white border border-[#C9A24D]/40 shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
-                  }`}
-                >
-                  {intent === 'Hookup' && <span className="text-[#C9A24D] mr-1">●</span>}
-                  {intent}
-                </button>
-              );
-            })}
+        {/* Primary Intent Action: "I'm Available" */}
+        <button
+          onClick={() => setIsAvailableModalOpen(true)}
+          className="h-10 px-4 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shrink-0 self-start sm:self-auto"
+        >
+          <Zap className="w-4 h-4 fill-black" />
+          <span>I'm Available</span>
+        </button>
+      </div>
+
+      {/* =========================================================================
+          2. SIGNATURE 'INTENTMODE' INTERFACE: TIME TOGGLE + SELECTABLE INTENT CHIPS
+         ========================================================================= */}
+      <div className="bg-[#11131a] border border-white/[0.08] rounded-2xl p-3 sm:p-4 space-y-3 shadow-sm">
+        {/* Top Controls Row: Availability Window Toggle + View Switcher + Distance */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Time-Based Availability Toggle: Now · 2h · Tonight */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1 shrink-0">
+              <Clock className="w-3.5 h-3.5 text-[#C9A24D]" />
+              <span>Available:</span>
+            </span>
+
+            <div className="flex items-center p-1 bg-[#090a0e] rounded-xl border border-white/10 shadow-inner">
+              {(
+                [
+                  { id: 'now', label: 'Now' },
+                  { id: '2h', label: '2h' },
+                  { id: 'tonight', label: 'Tonight' },
+                ] as const
+              ).map((tab) => {
+                const isActive = availabilityWindow === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setAvailabilityWindow(tab.id)}
+                    className={`h-7 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#C9A24D] text-black shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Right: Distance & Display toggles */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Right Controls: Distance Filter + View Mode Switcher */}
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            {/* Distance Select */}
             <select
               value={maxDistanceKm}
               onChange={(e) => setMaxDistanceKm(Number(e.target.value))}
-              className="h-8 bg-[#11131a] border border-white/10 rounded-lg px-2 text-xs text-zinc-300 focus:outline-none focus:border-[#C9A24D] cursor-pointer"
+              className="h-8 bg-[#090a0e] border border-white/10 rounded-lg px-2 text-xs text-zinc-300 focus:outline-none focus:border-[#C9A24D] cursor-pointer"
             >
               <option value={1}>&lt; 1 km</option>
               <option value={2}>&lt; 2 km</option>
@@ -274,10 +262,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <option value={20}>Any distance</option>
             </select>
 
-            <div className="flex items-center p-0.5 bg-[#11131a] rounded-lg border border-white/10">
+            {/* View Mode Toggle */}
+            <div className="flex items-center p-0.5 bg-[#090a0e] rounded-lg border border-white/10">
               <button
                 onClick={() => setViewMode('feed')}
-                title="Feed View"
+                title="Feed List"
                 className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer ${
                   viewMode === 'feed'
                     ? 'bg-[#1c1f2b] text-white font-semibold'
@@ -285,7 +274,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 }`}
               >
                 <List className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Feed</span>
+                <span className="hidden sm:inline">List</span>
               </button>
 
               <button
@@ -316,44 +305,71 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Selectable Intent Chips: Meet, Hookup, Date, Drinks, Chat, Group */}
+        <div className="pt-2 border-t border-white/[0.06] flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mr-1 shrink-0 hidden sm:inline">
+            Intent:
+          </span>
+          {(['All', 'Meet', 'Hookup', 'Date', 'Drinks', 'Chat', 'Group'] as EncounterIntent[]).map((intent) => {
+            const isActive = selectedIntent === intent;
+            const isHookup = intent === 'Hookup';
+
+            return (
+              <button
+                key={intent}
+                onClick={() => setSelectedIntent(intent)}
+                className={`h-8 px-3 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 border ${
+                  isActive
+                    ? 'bg-[#1c1f2b] text-white border-[#C9A24D]/60 shadow-sm font-bold'
+                    : 'bg-[#090a0e] text-zinc-400 border-white/[0.08] hover:text-zinc-200 hover:border-white/20'
+                }`}
+              >
+                {isHookup && (
+                  <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-[#C9A24D]' : 'bg-zinc-500'}`} />
+                )}
+                <span>{intent}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* =========================================================================
-          2. FEED VIEW: HIGH-INTENT DISCOVERY CARDS
+          3. FEED VIEW: MINIMAL, HIGH-INTENT DISCOVERY (ZERO CARD CLUTTER)
          ========================================================================= */}
       {viewMode === 'feed' && (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {filteredPulses.length === 0 ? (
             <div className="p-10 text-center rounded-2xl bg-[#11131a] border border-white/[0.08] space-y-3">
               <Compass className="w-8 h-8 text-zinc-500 mx-auto" />
-              <h3 className="text-sm font-semibold text-white">No active intent matches right now</h3>
+              <h3 className="text-sm font-semibold text-white">No members matching this intent window</h3>
               <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                No one nearby is broadcasting for this specific intent. Be the first to let nearby members know you are free!
+                No active pulses for {selectedIntent === 'All' ? 'this time frame' : selectedIntent} right now. Broadcast your intent to nearby members!
               </p>
               <button
                 onClick={() => setIsAvailableModalOpen(true)}
                 className="h-9 px-4 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer"
               >
-                Set My Intent Now
+                Set My Intent
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
               {filteredPulses.map((pulse) => {
                 const intent = getPulseIntent(pulse);
                 const availability = getPulseAvailability(pulse);
-                const reliability = 96; // confident trust score indicator
+                const reliability = 96;
 
                 return (
                   <div
                     key={pulse.id}
                     className="group bg-[#11131a] hover:bg-[#141620] border border-white/[0.08] hover:border-[#C9A24D]/40 rounded-2xl p-4 transition-all flex flex-col justify-between shadow-sm relative overflow-hidden"
                   >
-                    {/* Top Identity & Status Row */}
                     <div>
+                      {/* Top Row: Identity, Distance & Intent */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
-                          {/* Avatar Monogram */}
                           <div className="w-10 h-10 rounded-xl bg-[#1c1f2b] border border-white/10 flex items-center justify-center text-sm font-bold text-[#C9A24D] shrink-0">
                             {pulse.peerName.charAt(0)}
                           </div>
@@ -368,7 +384,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                               </span>
                             </div>
 
-                            {/* Active & Availability Status */}
+                            {/* Active & Availability Status - Clean Unboxed Text */}
                             <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
                               <span className="flex items-center gap-1 text-emerald-400 font-medium">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -380,45 +396,38 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Intent Tag Pill */}
-                        <div className="px-2.5 py-1 rounded-lg bg-[#1c1f2b] border border-[#C9A24D]/30 text-xs font-bold text-[#C9A24D] tracking-wider uppercase shrink-0">
-                          {intent}
+                        {/* Quiet Intent Indicator */}
+                        <div className="text-right shrink-0">
+                          <span className="text-[11px] font-black tracking-wider uppercase text-[#C9A24D]">
+                            {intent}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Headline / What they are looking for */}
-                      <div className="mt-3">
-                        <div className="text-xs font-semibold text-white tracking-tight">
-                          {pulse.title}
-                        </div>
-                        <p className="text-xs text-zinc-300 mt-1 leading-relaxed line-clamp-2">
-                          {pulse.description}
+                      {/* Headline / What they are open to (Minimal, no long blocks) */}
+                      <div className="mt-2.5">
+                        <p className="text-xs font-medium text-zinc-200 line-clamp-1 leading-snug">
+                          "{pulse.title}"
                         </p>
                       </div>
 
-                      {/* Meeting Context & Cloaked Location */}
-                      <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-xs text-zinc-400">
-                        <div className="flex items-center gap-1.5 truncate max-w-[220px]">
-                          <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                      {/* Approximate Cloaked Venue & Trust */}
+                      <div className="mt-2.5 pt-2 border-t border-white/[0.05] flex items-center justify-between text-[11px] text-zinc-400">
+                        <div className="flex items-center gap-1 truncate max-w-[200px]">
+                          <MapPin className="w-3 h-3 text-[#C9A24D] shrink-0" />
                           <span className="truncate">{pulse.venueName}</span>
-                          {pulse.safeHavenVenue && (
-                            <span title="Safe Haven Verified" className="shrink-0 text-emerald-400">
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                            </span>
-                          )}
                         </div>
 
-                        {/* Trust indicator */}
-                        <div className="flex items-center gap-1 text-[11px] text-emerald-300 font-mono shrink-0">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Verified · {reliability} trust</span>
+                        <div className="flex items-center gap-1 text-emerald-400 font-mono shrink-0">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>Verified · {reliability}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Bottom Action Row */}
+                    {/* Bottom Action Row: Message & I'm Interested */}
                     <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-mono">
+                      <div className="flex items-center gap-1 text-[10px] text-zinc-500 font-mono">
                         <Lock className="w-3 h-3 text-[#C9A24D]" />
                         <span>E2EE Swarm</span>
                       </div>
@@ -426,14 +435,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => onOpenDirectChat(pulse)}
-                          className="h-9 px-3 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 rounded-xl transition-colors cursor-pointer"
+                          className="h-8 px-3 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 rounded-xl transition-colors cursor-pointer"
                         >
                           Message
                         </button>
 
                         <button
                           onClick={() => onOpenDirectChat(pulse)}
-                          className="h-9 px-3.5 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+                          className="h-8 px-3.5 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-sm active:scale-95"
                         >
                           <span>I'm Interested</span>
                           <ArrowRight className="w-3 h-3" />
@@ -449,7 +458,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          3. MAP VIEW (PRESERVED IMPLEMENTATION, INTENT-FOCUSED CONTEXT)
+          4. MAP VIEW (INTENT-FOCUSED CONTEXT)
          ========================================================================= */}
       {viewMode === 'map' && (
         <div className="space-y-3">
@@ -479,7 +488,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          4. TACTICAL RADAR VIEW
+          5. TACTICAL RADAR VIEW
          ========================================================================= */}
       {viewMode === 'radar' && (
         <div className="space-y-4">
@@ -500,7 +509,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-white">{selectedPulseForDetail.peerName}</span>
-                    <span className="px-2 py-0.5 rounded bg-[#1c1f2b] text-[10px] font-bold text-[#C9A24D] uppercase">
+                    <span className="text-[11px] font-bold text-[#C9A24D] uppercase">
                       {getPulseIntent(selectedPulseForDetail)}
                     </span>
                   </div>
@@ -535,7 +544,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          5. "I'M AVAILABLE" / FAST INTENT MODAL (2-3 STEP EXPERIENCE)
+          6. "I'M AVAILABLE" / FAST INTENT MODAL (2-3 STEP EXPERIENCE)
          ========================================================================= */}
       {isAvailableModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
@@ -563,7 +572,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </div>
 
             <form onSubmit={handleCreateAvailableSubmit} className="space-y-4">
-              {/* Step 1: What are you open to? */}
+              {/* Step 1: Select Intent */}
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
                   1. What are you open to?
@@ -605,7 +614,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       <button
                         key={win.id}
                         type="button"
-                        onClick={() => setAvailWindow(win.id as any)}
+                        onClick={() => setAvailWindow(win.id as AvailabilityWindow)}
                         className={`h-12 px-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex flex-col items-center justify-center border ${
                           isSelected
                             ? 'bg-[#1c1f2b] text-[#C9A24D] border-[#C9A24D]/50 shadow-sm'
@@ -647,7 +656,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 </div>
               </div>
 
-              {/* Step 4: Optional Vibe / Note */}
+              {/* Step 4: Short Note */}
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
                   4. Short Note (Optional)
@@ -661,13 +670,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 />
               </div>
 
-              {/* Privacy Cloaking Notice */}
+              {/* Cloaking Notice */}
               <div className="p-2.5 rounded-xl bg-[#141620] border border-white/[0.07] text-[11px] text-zinc-400 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>Zero precise GPS stored. Automatically expires when timer finishes.</span>
               </div>
 
-              {/* Actions */}
+              {/* Submit Buttons */}
               <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-white/[0.08]">
                 <button
                   type="button"
