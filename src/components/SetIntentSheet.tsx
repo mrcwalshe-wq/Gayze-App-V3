@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShieldCheck, Zap, Clock, MapPin, Eye, Check, ChevronRight } from 'lucide-react';
+import { X, ShieldCheck, Zap, Check, ChevronDown, MapPin } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import { SafeHaven } from '../types';
 
-export type EncounterIntentType = 'Meet' | 'Hookup' | 'Date' | 'Drinks' | 'Chat' | 'Group' | 'Explore';
-export type IntentWhenType = 'Now' | 'Next 2 hours' | 'Tonight' | 'Tomorrow' | 'Choose time';
-export type IntentOpenToType = 'Private' | 'Public' | 'Either';
+export type EncounterIntentType = 'Meet' | 'Hookup' | 'Date' | 'Drinks' | 'Chat' | 'Group';
+export type IntentWhenType = 'Now' | 'Next 2 hours' | 'Tonight';
 export type IntentDurationType = '1 hr' | '2 hrs' | 'Tonight' | 'Flexible';
 
 export interface UserActiveIntent {
   intent: EncounterIntentType;
   when: IntentWhenType;
-  openTo: IntentOpenToType;
   duration: IntentDurationType;
   area: string;
-  note?: string;
+  isNearSafeHaven?: boolean;
+  safeHavenName?: string;
   activatedAt: number;
   expiresAt: number;
 }
@@ -26,6 +25,7 @@ interface SetIntentSheetProps {
   existingIntent?: UserActiveIntent | null;
   safeHavens?: SafeHaven[];
   userNeighborhood: string;
+  defaultWhen?: IntentWhenType;
 }
 
 export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
@@ -35,40 +35,42 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   existingIntent,
   safeHavens = [],
   userNeighborhood,
+  defaultWhen = 'Now',
 }) => {
-  // Step 1: WHAT?
+  // Step 1: What are you open to?
   const [intent, setIntent] = useState<EncounterIntentType>(existingIntent?.intent || 'Hookup');
-  // Step 2: WHEN?
-  const [when, setWhen] = useState<IntentWhenType>(existingIntent?.when || 'Now');
-  // Step 3: OPTIONAL CONTEXT
-  const [openTo, setOpenTo] = useState<IntentOpenToType>(existingIntent?.openTo || 'Either');
+  
+  // Step 2: When?
+  const [when, setWhen] = useState<IntentWhenType>(existingIntent?.when || defaultWhen);
+  
+  // How long? (Optional)
   const [duration, setDuration] = useState<IntentDurationType>(existingIntent?.duration || '2 hrs');
-  const [area, setArea] = useState<string>(
-    existingIntent?.area || `${userNeighborhood} (Approximate ±300m)`
+  
+  // Optional Location / Safe Haven
+  const [useSafeHaven, setUseSafeHaven] = useState<boolean>(existingIntent?.isNearSafeHaven || false);
+  const [selectedHaven, setSelectedHaven] = useState<SafeHaven | null>(
+    safeHavens.length > 0 ? safeHavens[0] : null
   );
-  const [note, setNote] = useState<string>(existingIntent?.note || '');
-  const [showAdvancedContext, setShowAdvancedContext] = useState<boolean>(false);
 
-  // Sync state whenever opened or existingIntent updates
   useEffect(() => {
     if (isOpen) {
       if (existingIntent) {
         setIntent(existingIntent.intent);
         setWhen(existingIntent.when);
-        setOpenTo(existingIntent.openTo);
         setDuration(existingIntent.duration);
-        setArea(existingIntent.area);
-        setNote(existingIntent.note || '');
+        setUseSafeHaven(Boolean(existingIntent.isNearSafeHaven));
+        if (existingIntent.safeHavenName) {
+          const match = safeHavens.find((h) => h.name === existingIntent.safeHavenName);
+          if (match) setSelectedHaven(match);
+        }
       } else {
         setIntent('Hookup');
-        setWhen('Now');
-        setOpenTo('Either');
+        setWhen(defaultWhen);
         setDuration('2 hrs');
-        setArea(`${userNeighborhood} (Approximate ±300m)`);
-        setNote('');
+        setUseSafeHaven(false);
       }
     }
-  }, [isOpen, existingIntent, userNeighborhood]);
+  }, [isOpen, existingIntent, defaultWhen, safeHavens]);
 
   if (!isOpen) return null;
 
@@ -83,12 +85,6 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     if (val === 'Now') setDuration('2 hrs');
     else if (val === 'Next 2 hours') setDuration('2 hrs');
     else if (val === 'Tonight') setDuration('Tonight');
-    else if (val === 'Tomorrow') setDuration('Flexible');
-  };
-
-  const handleSelectOpenTo = (val: IntentOpenToType) => {
-    hapticLight();
-    setOpenTo(val);
   };
 
   const handleSelectDuration = (val: IntentDurationType) => {
@@ -100,7 +96,6 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     e.preventDefault();
     hapticSensitiveAction();
 
-    // Calculate duration in milliseconds
     let durationMs = 2 * 3600 * 1000;
     if (duration === '1 hr') durationMs = 1 * 3600 * 1000;
     else if (duration === '2 hrs') durationMs = 2 * 3600 * 1000;
@@ -110,13 +105,17 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     const activatedAt = Date.now();
     const expiresAt = activatedAt + durationMs;
 
+    const areaText = useSafeHaven && selectedHaven
+      ? `${selectedHaven.name} (Safe Haven, ${userNeighborhood})`
+      : `${userNeighborhood} (Approximate ±300m)`;
+
     onSaveIntent({
       intent,
       when,
-      openTo,
       duration,
-      area,
-      note: note.trim() || undefined,
+      area: areaText,
+      isNearSafeHaven: useSafeHaven,
+      safeHavenName: useSafeHaven && selectedHaven ? selectedHaven.name : undefined,
       activatedAt,
       expiresAt,
     });
@@ -124,22 +123,26 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     onClose();
   };
 
-  const intentOptions: { id: EncounterIntentType; label: string; desc: string }[] = [
-    { id: 'Meet', label: 'Meet', desc: 'Spontaneous meetup & social chemistry' },
-    { id: 'Hookup', label: 'Hookup', desc: 'Adult consensual intimate encounter' },
-    { id: 'Date', label: 'Date', desc: 'Drinks, coffee or evening dinner' },
-    { id: 'Drinks', label: 'Drinks', desc: 'Cocktails, wine or casual pub stop' },
-    { id: 'Chat', label: 'Chat', desc: 'Low-key conversation & connection' },
-    { id: 'Group', label: 'Group', desc: 'Shared activity, nightlife or gathering' },
-    { id: 'Explore', label: 'Explore', desc: 'Spontaneous neighborhood discovery' },
+  const intentOptions: EncounterIntentType[] = [
+    'Meet',
+    'Hookup',
+    'Date',
+    'Drinks',
+    'Chat',
+    'Group',
   ];
 
   const whenOptions: IntentWhenType[] = [
     'Now',
     'Next 2 hours',
     'Tonight',
-    'Tomorrow',
-    'Choose time',
+  ];
+
+  const durationOptions: IntentDurationType[] = [
+    '1 hr',
+    '2 hrs',
+    'Tonight',
+    'Flexible',
   ];
 
   const isEditing = Boolean(existingIntent);
@@ -148,93 +151,87 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="set-intent-title"
     >
       <div
-        className="relative w-full max-w-lg bg-[#0d0e14] border border-white/10 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto"
+        className="relative w-full max-w-md bg-[#0d0e14] border border-white/10 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Handle for mobile gestures */}
+        {/* Mobile Pull Indicator */}
         <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto -mt-1 mb-2 sm:hidden" />
 
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#C9A24D]/15 border border-[#C9A24D]/30 flex items-center justify-center text-[#C9A24D]">
-              <Zap className="w-4 h-4 fill-current" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black tracking-tight text-white uppercase font-sans">
-                {isEditing ? 'CHANGE YOUR INTENT' : 'SET MY INTENT'}
-              </h2>
-              <p className="text-[11px] text-zinc-400">
-                Real intent · Real time · Approximate location protected
-              </p>
-            </div>
+        <div className="flex items-start justify-between pb-3 border-b border-white/[0.08]">
+          <div>
+            <h2
+              id="set-intent-title"
+              className="text-base sm:text-lg font-black tracking-tight text-white uppercase font-sans"
+            >
+              {isEditing ? 'CHANGE YOUR INTENT' : 'SET YOUR INTENT'}
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Tell nearby people what you’re open to.
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl text-zinc-400 hover:text-white flex items-center justify-center hover:bg-white/[0.06] transition-colors cursor-pointer"
-            aria-label="Close sheet"
+            className="w-9 h-9 rounded-xl text-zinc-400 hover:text-white flex items-center justify-center hover:bg-white/[0.06] transition-colors cursor-pointer"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* STEP 1 — WHAT? Large, easy-to-tap choices */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
-                STEP 1 — WHAT DO YOU WANT?
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* STEP 1: What are you open to? */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                STEP 1 — WHAT ARE YOU OPEN TO?
               </span>
-              <span className="text-xs font-mono font-bold text-[#C9A24D] uppercase">
+              <span className="text-xs font-bold text-[#C9A24D] uppercase font-mono">
                 {intent}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {intentOptions.map((opt) => {
-                const isSelected = intent === opt.id;
+                const isSelected = intent === opt;
                 return (
                   <button
-                    key={opt.id}
+                    key={opt}
                     type="button"
-                    onClick={() => handleSelectIntent(opt.id)}
-                    className={`h-14 px-3 rounded-xl text-left transition-all duration-150 cursor-pointer flex flex-col justify-center border relative ${
+                    onClick={() => handleSelectIntent(opt)}
+                    className={`h-12 px-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center border relative ${
                       isSelected
-                        ? 'bg-[#181a24] text-white border-[#C9A24D] shadow-[0_0_12px_rgba(201,162,77,0.25)] scale-[1.02]'
-                        : 'bg-[#111219] text-zinc-300 border-white/[0.07] hover:border-white/20 hover:text-white'
+                        ? 'bg-[#1a1b24] text-white border-[#C9A24D] shadow-[0_0_12px_rgba(201,162,77,0.2)] font-black uppercase tracking-wide'
+                        : 'bg-[#101118] text-zinc-400 border-white/[0.08] hover:text-zinc-200 hover:border-white/20'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-black tracking-wide font-sans uppercase">
-                        {opt.label}
-                      </span>
-                      {isSelected && (
-                        <span className="w-2 h-2 rounded-full bg-[#C9A24D] shadow-[0_0_6px_#C9A24D]" />
-                      )}
-                    </div>
-                    <span className="text-[10px] text-zinc-400 truncate mt-0.5">
-                      {opt.desc}
-                    </span>
+                    <span>{opt}</span>
+                    {isSelected && (
+                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#C9A24D]" />
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* STEP 2 — WHEN? When are you available? */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
-                STEP 2 — WHEN ARE YOU AVAILABLE?
+          {/* STEP 2: WHEN? */}
+          <div className="space-y-1.5 pt-2 border-t border-white/[0.06]">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                WHEN?
               </span>
-              <span className="text-xs font-mono text-zinc-300">
+              <span className="text-xs text-zinc-300 font-mono">
                 {when}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               {whenOptions.map((w) => {
                 const isSelected = when === w;
                 return (
@@ -242,10 +239,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     key={w}
                     type="button"
                     onClick={() => handleSelectWhen(w)}
-                    className={`h-10 px-3 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-between border ${
+                    className={`h-11 px-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5 border ${
                       isSelected
-                        ? 'bg-[#181a24] text-[#C9A24D] border-[#C9A24D]/70 shadow-sm'
-                        : 'bg-[#111219] text-zinc-400 border-white/[0.07] hover:text-zinc-200'
+                        ? 'bg-[#1a1b24] text-[#C9A24D] border-[#C9A24D]/70 shadow-sm'
+                        : 'bg-[#101118] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
                     }`}
                   >
                     <span>{w}</span>
@@ -256,181 +253,102 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             </div>
           </div>
 
-          {/* STEP 3 — OPTIONAL CONTEXT (Foldable or minimal, never forced) */}
-          <div className="pt-2 border-t border-white/[0.06] space-y-3">
-            <button
-              type="button"
-              onClick={() => setShowAdvancedContext(!showAdvancedContext)}
-              className="w-full flex items-center justify-between text-left cursor-pointer group py-1"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest group-hover:text-zinc-300 transition-colors">
-                  OPTIONAL CONTEXT
-                </span>
-                <span className="text-[10px] text-zinc-400 font-mono">
-                  (open to, area, duration)
-                </span>
-              </div>
-              <span className="text-xs font-mono text-[#C9A24D] flex items-center gap-1">
-                {showAdvancedContext ? 'Collapse' : 'Customize'}
-                <ChevronRight
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                    showAdvancedContext ? 'rotate-90' : ''
-                  }`}
-                />
+          {/* OPTIONAL: HOW LONG? */}
+          <div className="space-y-1.5 pt-2 border-t border-white/[0.06]">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                HOW LONG? <span className="text-[10px] text-zinc-400 font-sans font-normal">(Optional)</span>
               </span>
-            </button>
+              <span className="text-xs text-zinc-300 font-mono">
+                {duration}
+              </span>
+            </div>
 
-            {showAdvancedContext && (
-              <div className="p-3 bg-[#111219] border border-white/[0.06] rounded-xl space-y-3 animate-in fade-in duration-150">
-                {/* Open to: Private | Public | Either */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                    Open to
-                  </label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {(['Private', 'Public', 'Either'] as IntentOpenToType[]).map((o) => (
-                      <button
-                        key={o}
-                        type="button"
-                        onClick={() => handleSelectOpenTo(o)}
-                        className={`h-8 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
-                          openTo === o
-                            ? 'bg-[#181a24] text-white border-[#C9A24D]/60 font-bold'
-                            : 'bg-[#0d0e14] text-zinc-400 border-white/[0.06] hover:text-white'
-                        }`}
-                      >
-                        {o}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {durationOptions.map((d) => {
+                const isSelected = duration === d;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => handleSelectDuration(d)}
+                    className={`h-9 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                      isSelected
+                        ? 'bg-[#1a1b24] text-white border-[#C9A24D]/60 font-bold'
+                        : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
+                    }`}
+                  >
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                {/* Duration */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                    Duration
-                  </label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {(['1 hr', '2 hrs', 'Tonight', 'Flexible'] as IntentDurationType[]).map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => handleSelectDuration(d)}
-                        className={`h-8 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
-                          duration === d
-                            ? 'bg-[#181a24] text-white border-[#C9A24D]/60 font-bold'
-                            : 'bg-[#0d0e14] text-zinc-400 border-white/[0.06] hover:text-white'
-                        }`}
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+          {/* OPTIONAL LOCATION */}
+          <div className="pt-2 border-t border-white/[0.06] space-y-2">
+            <div className="flex items-center justify-between text-xs text-zinc-300">
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C9A24D]" />
+                <span className="font-medium">Approximate area</span>
+              </div>
+              <span className="text-[11px] text-zinc-400 font-mono">Protected automatically (±300m)</span>
+            </div>
 
-                {/* Area: Approximate only */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                      Area (Approximate only)
-                    </label>
-                    <span className="text-[10px] text-zinc-400 flex items-center gap-1 font-mono">
-                      <ShieldCheck className="w-3 h-3 text-[#C9A24D]" />
-                      Cloaked ±300m
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    value={area}
-                    onChange={(e) => setArea(e.target.value)}
-                    placeholder="e.g. Soho Square, Seven Dials, or My Place"
-                    className="w-full bg-[#0d0e14] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
-                  />
-                  {safeHavens.length > 0 && (
-                    <div className="flex items-center gap-1.5 mt-1.5 overflow-x-auto no-scrollbar">
-                      {safeHavens.slice(0, 3).map((haven) => (
-                        <button
-                          key={haven.id}
-                          type="button"
-                          onClick={() => {
-                            hapticLight();
-                            setArea(`${haven.name} (Safe Haven)`);
-                          }}
-                          className="px-2 py-0.5 rounded-md bg-[#141620] hover:bg-[#1a1d2c] text-[10px] text-zinc-300 border border-white/[0.07] whitespace-nowrap cursor-pointer"
-                        >
-                          ★ {haven.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+            {/* Meet near a Safe Haven toggle */}
+            {safeHavens.length > 0 && (
+              <div className="p-2.5 bg-[#101118] border border-white/[0.06] rounded-xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
+                  <span className="text-xs text-zinc-200">Meet near a Safe Haven</span>
                 </div>
-
-                {/* Note (optional) */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                    Short Note (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="e.g. Hosting or can travel nearby · relaxed & discreet"
-                    className="w-full bg-[#0d0e14] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    setUseSafeHaven(!useSafeHaven);
+                  }}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
+                    useSafeHaven
+                      ? 'bg-[#C9A24D] text-black border-[#C9A24D]'
+                      : 'bg-transparent text-zinc-400 border-white/10 hover:text-white'
+                  }`}
+                >
+                  {useSafeHaven ? 'Selected' : 'Select'}
+                </button>
               </div>
             )}
           </div>
 
-          {/* FINAL CONFIRMATION SUMMARY */}
-          <div className="p-3.5 bg-[#141620] border border-[#C9A24D]/30 rounded-2xl space-y-2">
-            <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-zinc-400 font-bold">
-              <span>YOUR INTENT</span>
-              <span className="text-[#C9A24D] font-mono">CONFIRMATION</span>
+          {/* FINAL COMPACT PREVIEW */}
+          <div className="p-3 bg-[#13141d] border border-[#C9A24D]/35 rounded-xl space-y-1.5">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold">
+              YOUR INTENT
             </div>
 
             <div className="flex items-baseline justify-between">
-              <span className="text-xl font-black text-white font-sans tracking-wide uppercase">
+              <span className="text-lg font-black text-white font-sans uppercase tracking-wide">
                 {intent}
               </span>
-              <span className="text-xs font-bold text-[#C9A24D] uppercase">
-                {when}
+              <span className="text-xs font-mono font-bold text-[#C9A24D] uppercase">
+                {when} · ~{duration}
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-zinc-300 pt-1 border-t border-white/[0.06]">
-              <span>~{duration}</span>
-              <span className="text-zinc-600">·</span>
-              <span className="text-zinc-300">Open to: {openTo}</span>
-              <span className="text-zinc-600">·</span>
-              <span className="text-zinc-400 text-[11px] truncate">
-                {area}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 pt-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 pt-0.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Zero exact GPS exposed · Ends automatically when window finishes</span>
+              <span>Approximate location protected</span>
             </div>
           </div>
 
-          {/* Primary CTA: GO LIVE (Visually dominant, GAYZE amber) */}
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-12 px-4 text-xs font-semibold text-zinc-400 hover:text-white cursor-pointer rounded-xl transition-colors"
-            >
-              Cancel
-            </button>
-
+          {/* CONFIDENT FINAL CTA: GO LIVE */}
+          <div className="pt-1">
             <button
               type="submit"
-              className="flex-1 h-12 px-6 text-sm font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] rounded-xl transition-all duration-150 cursor-pointer shadow-lg flex items-center justify-center gap-2 tracking-wide uppercase font-sans"
+              className="w-full h-12 text-sm font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] rounded-xl transition-all duration-150 cursor-pointer shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider font-sans"
             >
               <Zap className="w-4 h-4 fill-black" />
-              <span>{isEditing ? 'Update My Intent' : 'Go Live'}</span>
+              <span>{isEditing ? 'Update Intent' : 'GO LIVE'}</span>
             </button>
           </div>
         </form>
