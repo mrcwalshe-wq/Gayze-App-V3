@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   Heart,
   Users,
-  QrCode
+  QrCode,
+  Flame
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -42,22 +43,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Top App Header */}
-      <header className="sticky top-0 z-40 w-full bg-[#090a0f]/90 backdrop-blur-md border-b border-zinc-800/80 transition-colors">
-        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 h-13 sm:h-14 flex items-center justify-between gap-2 sm:gap-4">
+      <header className="sticky top-0 z-40 w-full bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07] transition-colors">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 h-14 flex items-center justify-between gap-2 sm:gap-4">
           
-          {/* Brand Wordmark & Neighborhood */}
+          {/* Brand Wordmark & Neighborhood Tag */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               onClick={() => onTabChange('dating')}
-              className="flex items-center gap-2 group text-left cursor-pointer focus:outline-none"
-              aria-label="gayze home"
+              className="flex items-center gap-2.5 group text-left cursor-pointer focus:outline-none"
+              aria-label="GAYZE Home"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-800 border border-zinc-700/80 flex items-center justify-center text-zinc-100 group-hover:border-zinc-500 transition-colors">
-                <Eye className="w-4 h-4 text-amber-400" />
+              <div className="w-8 h-8 rounded-lg bg-[#141620] border border-white/10 flex items-center justify-center text-white group-hover:border-[#C9A24D]/50 transition-colors">
+                <span className="font-bold text-sm tracking-tight text-[#C9A24D]">G</span>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-xl font-bold tracking-tight text-white font-sans">
-                  gayze
+                <span className="text-base sm:text-lg font-bold tracking-wider text-white uppercase font-sans">
+                  GAYZE
                 </span>
                 <span className="hidden xs:inline text-[11px] font-medium text-zinc-400">
                   · Soho
@@ -66,74 +67,74 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Subtle E2EE Security Tag (Desktop) */}
-            <div className="hidden lg:flex items-center gap-1.5 pl-2.5 border-l border-zinc-800 text-[11px] text-zinc-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Encrypted P2P</span>
+            <div className="hidden lg:flex items-center gap-1.5 pl-3 border-l border-white/[0.08] text-[11px] text-zinc-400 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>P2P ENCRYPTED</span>
             </div>
           </div>
 
           {/* Desktop Navigation Tabs (Hidden on Mobile) */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1 bg-[#11131a] p-1 rounded-xl border border-white/[0.07]">
             <button
               onClick={() => onTabChange('dating')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === 'dating'
-                  ? 'text-white bg-zinc-800 border border-zinc-700/80 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Heart className="w-3.5 h-3.5 text-rose-400" />
-              <span>Dating</span>
+              <Heart className={`w-3.5 h-3.5 ${activeTab === 'dating' ? 'text-[#C9A24D] fill-[#C9A24D]' : 'text-zinc-400'}`} />
+              <span>Discover</span>
             </button>
 
             <button
               onClick={() => onTabChange('right_now')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === 'right_now'
-                  ? 'text-white bg-zinc-800 border border-zinc-700/80 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Radio className="w-3.5 h-3.5 text-amber-400" />
+              <Radio className={`w-3.5 h-3.5 ${activeTab === 'right_now' ? 'text-emerald-400' : 'text-zinc-400'}`} />
               <span>Right Now</span>
             </button>
 
             <button
               onClick={() => onTabChange('later')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === 'later'
-                  ? 'text-white bg-zinc-800 border border-zinc-700/80 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5 text-zinc-300" />
+              <Calendar className={`w-3.5 h-3.5 ${activeTab === 'later' ? 'text-[#C9A24D]' : 'text-zinc-400'}`} />
               <span>Later</span>
             </button>
 
             <button
               onClick={() => onTabChange('swarms')}
-              className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === 'swarms'
-                  ? 'text-white bg-zinc-800 border border-zinc-700/80 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <MessageSquare className="w-3.5 h-3.5 text-zinc-300" />
+              <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
               <span>Chats</span>
               {unreadCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block ml-0.5" />
+                <span className="w-2 h-2 rounded-full bg-[#C9A24D] inline-block ml-0.5" />
               )}
             </button>
 
             <button
               onClick={() => onTabChange('safe_havens')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === 'safe_havens'
-                  ? 'text-white bg-zinc-800 border border-zinc-700/80 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Shield className="w-3.5 h-3.5 text-emerald-400" />
+              <Shield className={`w-3.5 h-3.5 ${activeTab === 'safe_havens' ? 'text-emerald-400' : 'text-zinc-400'}`} />
               <span>Safe Havens</span>
             </button>
           </nav>
@@ -145,15 +146,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenSafetyTimer}
               title="Safety Timer Beacon"
               aria-label="Safety Check-in Timer"
-              className={`min-h-[38px] min-w-[38px] sm:min-h-[36px] flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
+              className={`h-9 px-2.5 sm:px-3 flex items-center gap-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${
                 isSafetyTimerActive
-                  ? 'bg-rose-950/40 text-rose-300 border-rose-600/50 animate-pulse'
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700 hover:text-white'
+                  ? 'bg-rose-950/50 text-rose-300 border-rose-500/60 shadow-sm shadow-rose-950 animate-pulse'
+                  : 'bg-[#11131a] text-zinc-300 border-white/[0.08] hover:border-white/20 hover:text-white'
               }`}
             >
               <Shield className={`w-3.5 h-3.5 ${isSafetyTimerActive ? 'text-rose-400' : 'text-emerald-400'}`} />
-              <span className="text-[11px] sm:text-xs">
-                {isSafetyTimerActive ? 'Beacon ON' : 'Safety'}
+              <span className="text-[11px] sm:text-xs font-medium">
+                {isSafetyTimerActive ? 'Beacon Active' : 'Safety'}
               </span>
             </button>
 
@@ -162,10 +163,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenQR}
               title="Swarm QR Code & Key Exchange"
               aria-label="QR Code Key Exchange"
-              className="min-h-[38px] min-w-[38px] sm:min-h-[36px] flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 text-zinc-300 hover:text-white rounded-lg transition-colors cursor-pointer"
+              className="h-9 px-2.5 sm:px-3 flex items-center gap-1.5 text-xs font-medium bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] hover:border-[#C9A24D]/40 text-zinc-300 hover:text-white rounded-xl transition-all cursor-pointer"
             >
-              <QrCode className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline text-xs">QR Key</span>
+              <QrCode className="w-3.5 h-3.5 text-[#C9A24D]" />
+              <span className="hidden sm:inline text-xs">Verify</span>
               {reliabilityScore && (
                 <span className="text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-700/40">
                   {reliabilityScore}
@@ -178,9 +179,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenMask}
               title="Discreet Disguise (Esc)"
               aria-label="Toggle Discreet Mask"
-              className="min-h-[38px] min-w-[38px] sm:min-h-[36px] flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg hover:text-white transition-colors cursor-pointer"
+              className="h-9 px-2.5 flex items-center gap-1.5 text-xs font-medium text-zinc-400 bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] rounded-xl hover:text-white transition-all cursor-pointer"
             >
-              <EyeOff className="w-3.5 h-3.5 text-zinc-400" />
+              <EyeOff className="w-3.5 h-3.5" />
               <span className="hidden sm:inline text-xs">Mask</span>
             </button>
 
@@ -189,7 +190,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenIdentity}
               title="Your Swarm Identity Key"
               aria-label="Open Identity Settings"
-              className="min-h-[38px] min-w-[38px] sm:min-h-[36px] px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-600 flex items-center justify-center text-zinc-200 transition-colors cursor-pointer font-mono text-xs font-semibold"
+              className="h-9 w-9 rounded-xl bg-[#141620] border border-white/[0.10] hover:border-white/25 flex items-center justify-center text-zinc-200 transition-all cursor-pointer font-mono text-xs font-semibold"
             >
               JK
             </button>
@@ -199,54 +200,54 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Fixed Bottom Tab Bar (Thumb Zone) */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090a0f]/95 backdrop-blur-xl border-t border-zinc-800/90 pb-safe shadow-lg"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090a0e]/95 backdrop-blur-xl border-t border-white/[0.08] pb-safe shadow-2xl"
         aria-label="Mobile Navigation"
       >
-        <div className="grid grid-cols-5 h-15 items-center px-1">
-          {/* Tab 1: Dating */}
+        <div className="grid grid-cols-5 h-14 items-center px-1">
+          {/* Tab 1: Discover / Dating */}
           <button
             onClick={() => onTabChange('dating')}
-            className={`min-h-[48px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'dating' ? 'text-amber-400 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              activeTab === 'dating' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Heart className={`w-4.5 h-4.5 mb-0.5 ${activeTab === 'dating' ? 'fill-amber-400 text-amber-400' : ''}`} />
-            <span className="text-[10px] tracking-tight">Dating</span>
+            <Heart className={`w-4 h-4 mb-0.5 ${activeTab === 'dating' ? 'fill-[#C9A24D] text-[#C9A24D]' : ''}`} />
+            <span className="text-[10px] tracking-tight">Discover</span>
           </button>
 
           {/* Tab 2: Right Now */}
           <button
             onClick={() => onTabChange('right_now')}
-            className={`min-h-[48px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'right_now' ? 'text-amber-400 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              activeTab === 'right_now' ? 'text-emerald-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Radio className="w-4.5 h-4.5 mb-0.5" />
+            <Radio className="w-4 h-4 mb-0.5" />
             <span className="text-[10px] tracking-tight">Right Now</span>
           </button>
 
           {/* Tab 3: Later */}
           <button
             onClick={() => onTabChange('later')}
-            className={`min-h-[48px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'later' ? 'text-amber-400 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              activeTab === 'later' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Calendar className="w-4.5 h-4.5 mb-0.5" />
+            <Calendar className="w-4 h-4 mb-0.5" />
             <span className="text-[10px] tracking-tight">Later</span>
           </button>
 
           {/* Tab 4: Swarms */}
           <button
             onClick={() => onTabChange('swarms')}
-            className={`relative min-h-[48px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'swarms' ? 'text-amber-400 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+            className={`relative min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              activeTab === 'swarms' ? 'text-white font-semibold' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <div className="relative">
-              <MessageSquare className="w-4.5 h-4.5 mb-0.5" />
+              <MessageSquare className="w-4 h-4 mb-0.5" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-amber-400" />
+                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-[#C9A24D]" />
               )}
             </div>
             <span className="text-[10px] tracking-tight">Chats</span>
@@ -255,11 +256,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Tab 5: Safe Havens */}
           <button
             onClick={() => onTabChange('safe_havens')}
-            className={`min-h-[48px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'safe_havens' ? 'text-emerald-400 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
+              activeTab === 'safe_havens' ? 'text-emerald-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Shield className="w-4.5 h-4.5 mb-0.5" />
+            <Shield className="w-4 h-4 mb-0.5" />
             <span className="text-[10px] tracking-tight">Havens</span>
           </button>
         </div>
@@ -267,4 +268,5 @@ export const Navbar: React.FC<NavbarProps> = ({
     </>
   );
 };
+
 

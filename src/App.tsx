@@ -662,12 +662,12 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0c10] text-[#e1e4ea] flex flex-col font-sans selection:bg-amber-500/20 selection:text-amber-300">
+    <div className="min-h-screen bg-[#090a0f] text-[#f1f3f7] flex flex-col font-sans selection:bg-[#C9A24D]/25 selection:text-[#C9A24D]">
       {/* Toast Notification */}
       {notificationToast && (
-        <div className="fixed top-15 left-3 right-3 sm:left-auto sm:right-4 z-50 bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs px-3.5 py-2.5 rounded-xl shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-          <Shield className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="truncate">{notificationToast}</span>
+        <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-4 z-50 bg-[#11131a]/95 backdrop-blur-md border border-white/10 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2">
+          <Shield className="w-4 h-4 text-[#C9A24D] shrink-0" />
+          <span className="truncate font-medium">{notificationToast}</span>
         </div>
       )}
 

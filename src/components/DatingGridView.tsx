@@ -6,20 +6,19 @@ import {
   ShieldCheck, 
   Lock, 
   Search, 
-  Filter, 
   X, 
-  MessageSquare, 
   Coffee, 
-  Sparkles, 
-  Check, 
   Clock, 
   Compass, 
-  UserCheck, 
-  ExternalLink,
+  CheckCircle2, 
   ChevronRight,
   Award,
-  QrCode
+  QrCode,
+  Zap,
+  Radio
 } from 'lucide-react';
+
+export type EncounterIntent = 'All' | 'Meet' | 'Hookup' | 'Drinks' | 'Date' | 'Chat' | 'Group';
 
 interface DatingGridViewProps {
   profiles: DatingProfile[];
@@ -41,15 +40,40 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
   onOpenQRWithPeer,
 }) => {
   const [selectedProfile, setSelectedProfile] = useState<DatingProfile | null>(null);
-  const [filterIntent, setFilterIntent] = useState<string>('all');
+  const [filterIntent, setFilterIntent] = useState<EncounterIntent>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [onlyOnline, setOnlyOnline] = useState<boolean>(false);
   const [maxDistanceKm, setMaxDistanceKm] = useState<number>(5);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
+  // Map each profile to a primary encounter intent
+  const getProfileIntent = (profile: DatingProfile): Exclude<EncounterIntent, 'All'> => {
+    switch (profile.lookingFor) {
+      case 'casual':
+        return 'Hookup';
+      case 'dates_coffee':
+        return 'Drinks';
+      case 'dating':
+        return 'Date';
+      case 'friends':
+        return 'Meet';
+      case 'relationship':
+        return 'Chat';
+      default:
+        return 'Meet';
+    }
+  };
+
+  const getProfileAvailability = (profile: DatingProfile): string => {
+    if (profile.isOnline) return 'Available now · ~2 hrs';
+    if (profile.lastActive?.includes('m') || profile.lastActive?.includes('now')) return 'Available tonight';
+    return 'Open to meeting';
+  };
+
   const filteredProfiles = useMemo(() => {
     return profiles.filter((p) => {
-      if (filterIntent !== 'all' && p.lookingFor !== filterIntent) {
+      const intent = getProfileIntent(p);
+      if (filterIntent !== 'All' && intent !== filterIntent) {
         return false;
       }
       if (onlyOnline && !p.isOnline) {
@@ -79,17 +103,19 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-zinc-800/80">
+      {/* =========================================================================
+          1. HEADER & DISCOVERY INTENT
+         ========================================================================= */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white font-sans">
-              Dating & Connections
+            <span className="w-2 h-2 rounded-full bg-[#C9A24D]" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
+              PEOPLE & INTENT
             </h1>
           </div>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Nearby members · End-to-end encrypted chats · Privacy cloaked by ~300m
+            Who is nearby and what they are looking for · Encrypted & cloaked by ~300m
           </p>
         </div>
 
@@ -100,8 +126,8 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, interests..."
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-8 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+            placeholder="Search by name, intent, vibe..."
+            className="w-full bg-[#11131a] border border-white/10 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
           />
           {searchQuery && (
             <button
@@ -115,50 +141,46 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
         </div>
       </div>
 
-      {/* Filter Segmented Controls */}
+      {/* =========================================================================
+          2. INTENT FILTERS & CONTROLS
+         ========================================================================= */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        {/* Intent filter */}
-        <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800 overflow-x-auto no-scrollbar">
-          {[
-            { id: 'all', label: 'All Profiles' },
-            { id: 'dating', label: 'Dates & Romance' },
-            { id: 'dates_coffee', label: 'Coffee & Walks' },
-            { id: 'relationship', label: 'Long-term' },
-            { id: 'casual', label: 'Spontaneous' },
-            { id: 'friends', label: 'Friends' },
-          ].map((item) => (
+        {/* Intent Filters */}
+        <div className="flex items-center gap-1 p-1 bg-[#11131a] rounded-xl border border-white/10 overflow-x-auto no-scrollbar">
+          {(['All', 'Meet', 'Hookup', 'Drinks', 'Date', 'Chat', 'Group'] as EncounterIntent[]).map((intent) => (
             <button
-              key={item.id}
-              onClick={() => setFilterIntent(item.id)}
-              className={`min-h-[32px] px-3 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                filterIntent === item.id
-                  ? 'bg-zinc-800 text-white font-semibold'
+              key={intent}
+              onClick={() => setFilterIntent(intent)}
+              className={`h-8 px-3 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                filterIntent === intent
+                  ? 'bg-[#1c1f2b] text-white font-bold border border-[#C9A24D]/40 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              {item.label}
+              {intent === 'Hookup' && <span className="text-[#C9A24D] mr-1">●</span>}
+              {intent}
             </button>
           ))}
         </div>
 
-        {/* Secondary filters: Online only + Distance */}
+        {/* Distance + Online Filter */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => setOnlyOnline((prev) => !prev)}
-            className={`min-h-[34px] px-3 py-1 text-xs font-medium rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer ${
+            className={`h-9 px-3 text-xs font-semibold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
               onlyOnline
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-600/50'
-                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                ? 'bg-emerald-950/50 text-emerald-300 border-emerald-500/50 shadow-sm'
+                : 'bg-[#11131a] text-zinc-400 border-white/10 hover:text-white'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${onlyOnline ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
-            <span>Online now</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${onlyOnline ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
+            <span>Active now</span>
           </button>
 
           <select
             value={maxDistanceKm}
             onChange={(e) => setMaxDistanceKm(Number(e.target.value))}
-            className="min-h-[34px] bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1 text-xs text-zinc-300 focus:outline-none focus:border-amber-400 cursor-pointer"
+            className="h-9 bg-[#11131a] border border-white/10 rounded-xl px-2.5 text-xs text-zinc-300 focus:outline-none focus:border-[#C9A24D] cursor-pointer"
           >
             <option value={1}>Within 1 km</option>
             <option value={2}>Within 2 km</option>
@@ -168,33 +190,35 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
         </div>
       </div>
 
-      {/* Grid count & safety reminder */}
+      {/* Counter summary */}
       <div className="flex items-center justify-between text-xs text-zinc-400 px-1">
         <div>
-          <span className="font-semibold text-zinc-200">{filteredProfiles.length}</span> profiles nearby in {userNeighborhood}
+          <span className="font-semibold text-white">{filteredProfiles.length}</span> members nearby in {userNeighborhood}
         </div>
-        <div className="flex items-center gap-1 text-[11px] text-zinc-500">
-          <Lock className="w-3 h-3 text-emerald-400" />
-          <span>E2EE Swarm Ready</span>
+        <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 font-mono">
+          <ShieldCheck className="w-3.5 h-3.5 text-[#C9A24D]" />
+          <span>Encrypted Intent</span>
         </div>
       </div>
 
-      {/* Profile Grid */}
+      {/* =========================================================================
+          3. PROFILE GRID: CLEAN, HIGH-INTENT DISCOVERY CARDS
+         ========================================================================= */}
       {filteredProfiles.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-zinc-900/40 border border-zinc-800 space-y-2">
+        <div className="p-12 text-center rounded-2xl bg-[#11131a] border border-white/10 space-y-3">
           <Compass className="w-8 h-8 text-zinc-500 mx-auto" />
-          <h3 className="text-sm font-semibold text-white">No profiles found</h3>
+          <h3 className="text-sm font-semibold text-white">No members match this intent</h3>
           <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-            Try adjusting your distance radius or search keywords to discover more members.
+            Try adjusting your intent filter or increasing the distance radius to see more members nearby.
           </p>
           <button
             onClick={() => {
-              setFilterIntent('all');
+              setFilterIntent('All');
               setSearchQuery('');
               setOnlyOnline(false);
               setMaxDistanceKm(20);
             }}
-            className="min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-amber-400 bg-amber-950/30 border border-amber-800/40 rounded-xl hover:bg-amber-900/40 cursor-pointer"
+            className="h-9 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer"
           >
             Reset Filters
           </button>
@@ -203,15 +227,17 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-4">
           {filteredProfiles.map((profile) => {
             const hasError = imageErrors[profile.id];
+            const intent = getProfileIntent(profile);
+            const reliability = profile.reliabilityScore || 96;
 
             return (
               <div
                 key={profile.id}
                 onClick={() => setSelectedProfile(profile)}
-                className="group relative bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800/90 hover:border-zinc-700 transition-all cursor-pointer flex flex-col justify-end aspect-[3/4] select-none"
+                className="group relative bg-[#11131a] rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#C9A24D]/50 transition-all cursor-pointer flex flex-col justify-end aspect-[3/4] select-none shadow-md"
               >
-                {/* Photo / Fallback Container */}
-                <div className="absolute inset-0 bg-zinc-950">
+                {/* Photo Container */}
+                <div className="absolute inset-0 bg-[#090a0e]">
                   {!hasError ? (
                     <img
                       src={profile.photoUrl}
@@ -221,47 +247,38 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-950 flex flex-col items-center justify-center p-4 text-center">
-                      <div className="w-14 h-14 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-base font-bold text-amber-400">
+                    <div className="w-full h-full bg-gradient-to-br from-[#171922] to-[#090a0e] flex flex-col items-center justify-center p-4 text-center">
+                      <div className="w-14 h-14 rounded-full bg-[#1c1f2b] border border-white/10 flex items-center justify-center text-base font-bold text-[#C9A24D]">
                         {profile.name.charAt(0)}
                       </div>
                       <span className="text-xs font-semibold text-zinc-200 mt-2">{profile.name}</span>
                     </div>
                   )}
 
-                  {/* Scrim Gradient for Legibility */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent pointer-events-none" />
+                  {/* High contrast gradient scrim */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#090a0e] via-[#090a0e]/45 to-transparent pointer-events-none" />
                 </div>
 
-                {/* Top Corner Badges */}
+                {/* Top Corner Overlays: Active Status & Favorite */}
                 <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
-                  {/* Online / Active status & Reliability Badge */}
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-[10px] text-zinc-300">
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          profile.isOnline ? 'bg-emerald-400' : 'bg-zinc-500'
-                        }`}
-                      />
-                      <span>{profile.isOnline ? 'Online' : profile.lastActive}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-black/60 backdrop-blur-md border border-emerald-500/30 text-[10px] text-emerald-300 font-mono" title={`Reliability Score: ${profile.reliabilityScore || 95}/100`}>
-                      <Award className="w-3 h-3 text-emerald-400" />
-                      <span>{profile.reliabilityScore || 95}</span>
-                    </div>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-[10px] text-zinc-200 font-medium">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        profile.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
+                      }`}
+                    />
+                    <span>{profile.isOnline ? 'Active' : profile.lastActive}</span>
                   </div>
 
-                  {/* Favorite Bookmark */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleFavorite(profile.id);
                     }}
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center backdrop-blur-md border transition-colors ${
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center backdrop-blur-md border transition-colors ${
                       profile.isFavorited
-                        ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-                        : 'bg-black/50 border-white/10 text-zinc-300 hover:text-white'
+                        ? 'bg-rose-500/25 border-rose-500/50 text-rose-400'
+                        : 'bg-black/60 border-white/10 text-zinc-300 hover:text-white'
                     }`}
                     aria-label="Favorite profile"
                   >
@@ -269,26 +286,35 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                   </button>
                 </div>
 
-                {/* Bottom Content Area */}
+                {/* Bottom Card Content: Name, Distance, Intent, Headline, Trust */}
                 <div className="relative z-10 p-3 text-left space-y-1">
+                  {/* Name, Age & Distance */}
                   <div className="flex items-baseline justify-between gap-1">
                     <h3 className="text-sm font-bold text-white tracking-tight truncate">
                       {profile.name}, {profile.age}
                     </h3>
-                    <span className="text-[11px] font-mono text-amber-300 shrink-0">
+                    <span className="text-[11px] font-mono text-zinc-400 shrink-0 font-medium">
                       {profile.approxDistanceKm} km
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-zinc-300 line-clamp-1 leading-snug">
-                    {profile.headline}
-                  </p>
+                  {/* Intent & Headline */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.2 rounded bg-[#C9A24D]/20 text-[#C9A24D] border border-[#C9A24D]/30 text-[10px] font-bold uppercase tracking-wider">
+                      {intent}
+                    </span>
+                    <p className="text-[11px] text-zinc-300 line-clamp-1 leading-snug">
+                      "{profile.headline}"
+                    </p>
+                  </div>
 
-                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 pt-0.5">
-                    <MapPin className="w-3 h-3 text-zinc-500 shrink-0" />
-                    <span className="truncate">{profile.neighborhood}</span>
-                    <span>·</span>
-                    <span className="text-zinc-300 truncate">{profile.lookingForLabel}</span>
+                  {/* Trust indicator */}
+                  <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-0.5 border-t border-white/[0.08]">
+                    <span className="text-emerald-400 font-mono flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      Verified · {reliability}
+                    </span>
+                    <span className="text-zinc-500 truncate max-w-[80px]">{profile.neighborhood}</span>
                   </div>
                 </div>
               </div>
@@ -297,12 +323,14 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
         </div>
       )}
 
-      {/* Profile Detail Slide-up Sheet / Modal */}
+      {/* =========================================================================
+          4. PROFILE DETAIL MODAL (INSTANT ACTIONABLE INTENT AT THE TOP)
+         ========================================================================= */}
       {selectedProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg bg-[#111219] border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
-            {/* Header image area */}
-            <div className="relative w-full h-72 sm:h-80 bg-zinc-950 shrink-0 select-none">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-lg bg-[#11131a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+            {/* Photo Header */}
+            <div className="relative w-full h-64 sm:h-72 bg-[#090a0e] shrink-0 select-none">
               {!imageErrors[selectedProfile.id] ? (
                 <img
                   src={selectedProfile.photoUrl}
@@ -311,22 +339,22 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                   className="w-full h-full object-cover object-center"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-950 flex flex-col items-center justify-center p-4">
-                  <div className="w-16 h-16 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xl font-bold text-amber-400">
+                <div className="w-full h-full bg-gradient-to-br from-[#171922] to-[#090a0e] flex flex-col items-center justify-center p-4">
+                  <div className="w-16 h-16 rounded-full bg-[#1c1f2b] border border-white/10 flex items-center justify-center text-xl font-bold text-[#C9A24D]">
                     {selectedProfile.name.charAt(0)}
                   </div>
                 </div>
               )}
 
               {/* Scrim Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#111219] via-black/40 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#11131a] via-black/35 to-transparent" />
 
               {/* Top Controls */}
               <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-xs text-zinc-200">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-xs text-zinc-200">
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      selectedProfile.isOnline ? 'bg-emerald-400' : 'bg-zinc-500'
+                      selectedProfile.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
                     }`}
                   />
                   <span>{selectedProfile.isOnline ? 'Active now' : selectedProfile.lastActive}</span>
@@ -335,9 +363,9 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onToggleFavorite(selectedProfile.id)}
-                    className={`min-h-[36px] min-w-[36px] rounded-xl flex items-center justify-center backdrop-blur-md border transition-colors cursor-pointer ${
+                    className={`h-9 w-9 rounded-xl flex items-center justify-center backdrop-blur-md border transition-colors cursor-pointer ${
                       selectedProfile.isFavorited
-                        ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+                        ? 'bg-rose-500/25 border-rose-500/50 text-rose-400'
                         : 'bg-black/60 border-white/10 text-zinc-300 hover:text-white'
                     }`}
                     aria-label="Favorite"
@@ -347,7 +375,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
 
                   <button
                     onClick={() => setSelectedProfile(null)}
-                    className="min-h-[36px] min-w-[36px] rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    className="h-9 w-9 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                     aria-label="Close profile"
                   >
                     <X className="w-4 h-4" />
@@ -358,7 +386,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
               {/* Identity on photo bottom */}
               <div className="absolute bottom-3 left-4 right-4 z-10">
                 <div className="flex items-baseline gap-2">
-                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                     {selectedProfile.name}, {selectedProfile.age}
                   </h2>
                   {selectedProfile.rolePronouns && (
@@ -369,49 +397,141 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-zinc-300 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
                   <span>{selectedProfile.neighborhood}</span>
                   <span>·</span>
-                  <span>~{selectedProfile.approxDistanceKm} km</span>
+                  <span>~{selectedProfile.approxDistanceKm} km away</span>
                   <span>·</span>
                   <span>{selectedProfile.heightCm} cm</span>
                 </div>
               </div>
             </div>
 
-            {/* Scrollable Details Body */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
-              {/* Privacy and Verification Badge */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400">
+            {/* ACTION-FIRST TOP VIEWPORT: Intent, Availability, Trust, Actions */}
+            <div className="p-4 sm:p-5 border-b border-white/[0.08] bg-[#141620]/60 space-y-3 shrink-0">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="text-[11px] text-zinc-300">
-                    Location cloaked (±300m) · Direct device key
+                  <span className="px-2.5 py-1 rounded-lg bg-[#C9A24D]/15 border border-[#C9A24D]/35 text-xs font-black text-[#C9A24D] uppercase tracking-wider">
+                    LOOKING FOR: {getProfileIntent(selectedProfile)}
+                  </span>
+                  <span className="text-xs text-zinc-300 font-medium">
+                    {getProfileAvailability(selectedProfile)}
                   </span>
                 </div>
-                <span className="font-mono text-[10px] text-zinc-500">
-                  {selectedProfile.peerPublicKey.slice(0, 10)}...
-                </span>
+
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Verified · {selectedProfile.reliabilityScore || 96}</span>
+                </div>
               </div>
 
-              {/* Reliability Score & In-Person Swarm Status Card */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between gap-3">
+              {/* Immediate Primary Actions Right in the Top Viewport */}
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
+                <button
+                  onClick={() => {
+                    onProposeHavenDate(selectedProfile, selectedProfile.favoriteSafeHaven);
+                    setSelectedProfile(null);
+                  }}
+                  className="h-11 px-4 text-xs font-bold text-white bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
+                >
+                  <Zap className="w-4 h-4 text-[#C9A24D] fill-current" />
+                  <span>I'm Interested</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenDirectChatWithProfile(selectedProfile);
+                    setSelectedProfile(null);
+                  }}
+                  className="h-11 px-4 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-95"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Message</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Body: Headline, Bio, Circles, Safe Haven, Peer Key */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
+              {/* Headline & Bio */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">About</h4>
+                <p className="text-sm font-semibold text-white leading-snug">
+                  "{selectedProfile.headline}"
+                </p>
+                <p className="text-zinc-300 leading-relaxed text-xs">
+                  {selectedProfile.bio}
+                </p>
+              </div>
+
+              {/* Circles & Interests */}
+              <div className="space-y-2 pt-2 border-t border-white/[0.07]">
+                <h4 className="text-xs font-semibold text-zinc-400">Interests & Circles</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedProfile.interests.map((interest, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-lg bg-[#141620] border border-white/[0.08] text-zinc-300 text-xs"
+                    >
+                      {interest}
+                    </span>
+                  ))}
+                  {selectedProfile.tribes.map((tribe, idx) => (
+                    <span
+                      key={'t_' + idx}
+                      className="px-2.5 py-1 rounded-lg bg-[#141620]/60 border border-white/[0.05] text-zinc-400 text-xs font-mono"
+                    >
+                      #{tribe}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Favorite Safe Haven */}
+              {selectedProfile.favoriteSafeHaven && (
+                <div className="p-3 rounded-xl bg-[#141620] border border-white/[0.08] space-y-1.5">
+                  <div className="text-[10px] uppercase font-mono tracking-wider text-zinc-400">
+                    Preferred First Meeting Spot:
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Coffee className="w-4 h-4 text-[#C9A24D]" />
+                      <span className="text-xs font-semibold text-white">
+                        {selectedProfile.favoriteSafeHaven}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        onProposeHavenDate(selectedProfile, selectedProfile.favoriteSafeHaven);
+                        setSelectedProfile(null);
+                      }}
+                      className="text-xs font-medium text-[#C9A24D] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Suggest Here</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* In-Person Verification & Trust Score */}
+              <div className="p-3 rounded-xl bg-[#141620] border border-white/[0.08] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-emerald-950/60 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
                     <Award className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-white flex items-center gap-1.5">
-                      <span>Reliability Score:</span>
-                      <span className="text-amber-300">{selectedProfile.reliabilityScore || 95}/100</span>
+                      <span>Trust Score:</span>
+                      <span className="text-[#C9A24D] font-mono">{selectedProfile.reliabilityScore || 96}/100</span>
                       {selectedProfile.verifiedViaQR && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700/50 font-mono">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-mono">
                           QR Verified
                         </span>
                       )}
                     </div>
                     <div className="text-[11px] text-zinc-400">
-                      {selectedProfile.verifiedPeersCount || 10} verified physical Swarm meetups
+                      {selectedProfile.verifiedPeersCount || 12} in-person physical verifications
                     </div>
                   </div>
                 </div>
@@ -423,105 +543,13 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                       setSelectedProfile(null);
                       onOpenQRWithPeer(prof);
                     }}
-                    className="min-h-[34px] px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center gap-1.5 cursor-pointer shrink-0 border border-zinc-700 transition-colors"
-                    title="Scan peer QR to verify public keys"
+                    className="h-8 px-2.5 rounded-lg bg-[#1c1f2b] hover:bg-[#252838] text-zinc-200 text-xs font-medium flex items-center gap-1.5 cursor-pointer shrink-0 border border-white/10 transition-colors"
                   >
-                    <QrCode className="w-3.5 h-3.5 text-amber-400" />
+                    <QrCode className="w-3.5 h-3.5 text-[#C9A24D]" />
                     <span>Scan Key</span>
                   </button>
                 )}
               </div>
-
-              {/* Headline & Bio */}
-              <div className="space-y-1.5">
-                <h4 className="text-sm font-semibold text-white">About Me</h4>
-                <p className="text-zinc-300 leading-relaxed text-xs">
-                  {selectedProfile.bio}
-                </p>
-              </div>
-
-              {/* Looking for */}
-              <div className="space-y-1.5 pt-2 border-t border-zinc-800/80">
-                <h4 className="text-xs font-semibold text-zinc-200">Looking For</h4>
-                <div className="text-xs text-amber-300 font-medium">
-                  {selectedProfile.lookingForLabel}
-                </div>
-              </div>
-
-              {/* Interests & Tribes */}
-              <div className="space-y-2 pt-2 border-t border-zinc-800/80">
-                <h4 className="text-xs font-semibold text-zinc-200">Interests & Activities</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedProfile.interests.map((interest, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs"
-                    >
-                      {interest}
-                    </span>
-                  ))}
-                  {selectedProfile.tribes.map((tribe, idx) => (
-                    <span
-                      key={'t_' + idx}
-                      className="px-2.5 py-1 rounded-lg bg-zinc-900/60 border border-zinc-800/60 text-zinc-400 text-xs"
-                    >
-                      #{tribe}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Favorite Safe Haven */}
-              {selectedProfile.favoriteSafeHaven && (
-                <div className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1.5">
-                  <div className="text-[10px] uppercase font-mono tracking-wider text-zinc-400">
-                    Preferred First Meet Spot:
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Coffee className="w-4 h-4 text-amber-400" />
-                      <span className="text-xs font-semibold text-white">
-                        {selectedProfile.favoriteSafeHaven}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        onProposeHavenDate(selectedProfile, selectedProfile.favoriteSafeHaven);
-                        setSelectedProfile(null);
-                      }}
-                      className="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Suggest Here</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Bottom Actions Sticky Bar */}
-            <div className="p-3 sm:p-4 bg-zinc-950 border-t border-zinc-800 flex items-center justify-between gap-3 shrink-0">
-              <button
-                onClick={() => {
-                  onProposeHavenDate(selectedProfile, selectedProfile.favoriteSafeHaven);
-                  setSelectedProfile(null);
-                }}
-                className="flex-1 min-h-[42px] px-3 py-2 text-xs font-medium text-zinc-200 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Coffee className="w-3.5 h-3.5 text-amber-400" />
-                <span>Propose Date</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  onOpenDirectChatWithProfile(selectedProfile);
-                  setSelectedProfile(null);
-                }}
-                className="flex-1 min-h-[42px] px-4 py-2 text-xs font-semibold text-black bg-amber-400 hover:bg-amber-300 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Encrypted Chat</span>
-              </button>
             </div>
           </div>
         </div>

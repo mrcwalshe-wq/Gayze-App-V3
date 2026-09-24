@@ -221,14 +221,14 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[380px] sm:h-[480px] lg:h-[560px] bg-[#090a0f] rounded-2xl border border-zinc-800/80 overflow-hidden flex flex-col shadow-lg">
+    <div className="relative w-full h-[380px] sm:h-[480px] lg:h-[560px] bg-[#0a0b10] rounded-2xl border border-white/[0.08] overflow-hidden flex flex-col shadow-lg">
       {/* Top Floating Controls Bar */}
       <div className="absolute top-2.5 left-2.5 right-2.5 z-[400] flex flex-col sm:flex-row sm:items-center justify-between gap-2 pointer-events-none">
         
         {/* Left: Discreet Privacy Status */}
-        <div className="pointer-events-auto self-start flex items-center gap-2 px-3 py-1.5 bg-[#0e1017]/90 backdrop-blur-md rounded-xl border border-zinc-800 text-xs shadow-md">
-          <div className="flex items-center gap-1 text-zinc-300 font-medium">
-            <MapPin className="w-3.5 h-3.5 text-amber-400" />
+        <div className="pointer-events-auto self-start flex items-center gap-2 px-3 py-1.5 bg-[#11131a]/95 backdrop-blur-md rounded-xl border border-white/10 text-xs shadow-md">
+          <div className="flex items-center gap-1.5 text-zinc-200 font-medium">
+            <MapPin className="w-3.5 h-3.5 text-[#C9A24D]" />
             <span>{userNeighborhood}</span>
           </div>
           <span className="text-zinc-600">·</span>
@@ -236,42 +236,42 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
         </div>
 
         {/* Right Controls: Filter Buttons & Tools */}
-        <div className="pointer-events-auto flex items-center gap-1 bg-[#0e1017]/90 backdrop-blur-md p-1 rounded-xl border border-zinc-800 shadow-md overflow-x-auto max-w-full">
+        <div className="pointer-events-auto flex items-center gap-1 bg-[#11131a]/95 backdrop-blur-md p-1 rounded-xl border border-white/10 shadow-md overflow-x-auto max-w-full">
           <button
             onClick={() => setFilter('all')}
-            className={`min-h-[32px] px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-              filter === 'all' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-400 hover:text-white'
+            className={`h-8 px-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              filter === 'all' ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10' : 'text-zinc-400 hover:text-white'
             }`}
           >
             All
           </button>
           <button
             onClick={() => setFilter('coffee')}
-            className={`min-h-[32px] px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-              filter === 'coffee' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-400 hover:text-white'
+            className={`h-8 px-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              filter === 'coffee' ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Coffee
           </button>
           <button
             onClick={() => setFilter('drinks')}
-            className={`min-h-[32px] px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-              filter === 'drinks' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-400 hover:text-white'
+            className={`h-8 px-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              filter === 'drinks' ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Drinks
           </button>
           <button
             onClick={() => setFilter('active')}
-            className={`min-h-[32px] px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-              filter === 'active' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-400 hover:text-white'
+            className={`h-8 px-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              filter === 'active' ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Active
           </button>
           <button
             onClick={() => setFilter('havens')}
-            className={`min-h-[32px] flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+            className={`h-8 flex items-center gap-1 px-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               filter === 'havens' ? 'bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/40' : 'text-emerald-400 hover:text-white'
             }`}
           >
@@ -279,15 +279,15 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
             <span>Havens</span>
           </button>
 
-          <div className="w-[1px] h-4 bg-zinc-700 mx-1 shrink-0" />
+          <div className="w-[1px] h-4 bg-white/10 mx-1 shrink-0" />
 
           {/* Toggle Jitter Circles */}
           <button
             onClick={() => setShowJitterCircles(!showJitterCircles)}
             title="Toggle Privacy Area Circles"
             aria-label="Toggle Privacy Area"
-            className={`min-h-[32px] min-w-[32px] p-1.5 rounded-lg text-xs transition-colors flex items-center justify-center cursor-pointer ${
-              showJitterCircles ? 'text-amber-400 bg-zinc-800' : 'text-zinc-500 hover:text-zinc-300'
+            className={`w-8 h-8 rounded-lg text-xs transition-colors flex items-center justify-center cursor-pointer ${
+              showJitterCircles ? 'text-[#C9A24D] bg-[#1c1f2b] border border-white/10' : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Radio className="w-3.5 h-3.5" />
@@ -298,7 +298,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
             onClick={handleRecenter}
             title="Recenter map"
             aria-label="Recenter map"
-            className="min-h-[32px] min-w-[32px] p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors flex items-center justify-center cursor-pointer"
           >
             <Compass className="w-3.5 h-3.5" />
           </button>
@@ -309,9 +309,9 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* Bottom Floating Legend (Compact) */}
-      <div className="hidden sm:flex absolute bottom-2.5 left-2.5 z-[400] items-center gap-3 bg-[#0e1017]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-zinc-800 text-[11px] text-zinc-400 shadow-md">
+      <div className="hidden sm:flex absolute bottom-2.5 left-2.5 z-[400] items-center gap-3 bg-[#11131a]/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-[11px] text-zinc-400 shadow-md">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="w-2 h-2 rounded-full bg-[#C9A24D]" />
           <span className="text-zinc-300">Pulse</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -326,13 +326,13 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
 
       {/* Selected Item Sliding Detail Sheet (Mobile Docked Bottom Card) */}
       {selectedItem && (
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:left-auto sm:right-2.5 sm:max-w-md z-[400] bg-[#12131a]/95 backdrop-blur-md border border-zinc-700/80 rounded-2xl p-4 shadow-2xl animate-in fade-in">
+        <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:left-auto sm:right-2.5 sm:max-w-md z-[400] bg-[#11131a]/95 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl animate-in fade-in">
           {selectedItem.type === 'pulse' ? (
             /* Selected Pulse Details */
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm font-semibold text-amber-400">
+                  <div className="w-8 h-8 rounded-lg bg-[#171922] border border-white/10 flex items-center justify-center text-sm font-semibold text-[#C9A24D]">
                     {selectedItem.item.peerName.charAt(0)}
                   </div>
                   <div>
@@ -349,7 +349,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
 
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="min-h-[32px] min-w-[32px] flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+                  className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.06] cursor-pointer"
                   aria-label="Close details"
                 >
                   <X className="w-4 h-4" />
@@ -361,14 +361,14 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
                 <p className="text-xs text-zinc-300 mt-1 leading-relaxed">{selectedItem.item.description}</p>
               </div>
 
-              <div className="pt-2 border-t border-zinc-800 flex items-center justify-between text-xs">
+              <div className="pt-2 border-t border-white/[0.07] flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5 text-zinc-300">
-                  <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
                   <span className="truncate max-w-[200px]">{selectedItem.item.venueName}</span>
                 </div>
 
-                <div className="flex items-center gap-1 text-[11px] text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700 font-mono">
-                  <Clock className="w-3 h-3" />
+                <div className="flex items-center gap-1 text-[11px] text-zinc-300 bg-[#171922] px-2 py-0.5 rounded-md border border-white/10 font-mono">
+                  <Clock className="w-3 h-3 text-[#C9A24D]" />
                   <span>{selectedItem.item.durationHours}h left</span>
                 </div>
               </div>
@@ -377,14 +377,14 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
               <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                 <button
                   onClick={() => onBroadcastHere(selectedItem.item.venueName)}
-                  className="min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors border border-zinc-700 cursor-pointer"
+                  className="h-10 min-h-[40px] px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl transition-colors border border-white/10 cursor-pointer"
                 >
                   Meet Nearby
                 </button>
 
                 <button
                   onClick={() => onOpenDirectChat(selectedItem.item)}
-                  className="min-h-[40px] flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-black bg-amber-400 hover:bg-amber-300 rounded-xl transition-colors cursor-pointer"
+                  className="h-10 min-h-[40px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   <Lock className="w-3.5 h-3.5" />
                   <span>Connect & Chat</span>
@@ -408,7 +408,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
 
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="min-h-[32px] min-w-[32px] flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+                  className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.06] cursor-pointer"
                   aria-label="Close details"
                 >
                   <X className="w-4 h-4" />
@@ -416,13 +416,13 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
               </div>
 
               <div className="flex items-center gap-2 text-xs">
-                <span className="font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-800/40">
+                <span className="font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-500/30">
                   ★ {selectedItem.item.safetyScore} Safety Score
                 </span>
                 <span className="text-zinc-400">{selectedItem.item.openHours}</span>
               </div>
 
-              <div className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-300 space-y-1">
+              <div className="p-2.5 bg-[#141620] border border-white/[0.07] rounded-xl text-xs text-zinc-300 space-y-1">
                 <div className="text-[11px] text-zinc-400 font-medium">Features:</div>
                 <div className="text-[11px] text-zinc-300">
                   {selectedItem.item.features.join(' · ')}
@@ -432,14 +432,14 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
               <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                 <button
                   onClick={() => onSelectHaven(selectedItem.item)}
-                  className="min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors border border-zinc-700 cursor-pointer"
+                  className="h-10 min-h-[40px] px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl transition-colors border border-white/10 cursor-pointer"
                 >
                   View Details
                 </button>
 
                 <button
                   onClick={() => onBroadcastHere(selectedItem.item.name)}
-                  className="min-h-[40px] flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-black bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-colors cursor-pointer"
+                  className="h-10 min-h-[40px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   <Radio className="w-3.5 h-3.5" />
                   <span>Meetup Here</span>

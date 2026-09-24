@@ -1,18 +1,75 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
-/* Leaflet Dark Aesthetic overrides */
+/* ==========================================================================
+   GAYZE DESIGN SYSTEM FOUNDATION
+   Brand colors: Purple #6F3CC3 · Amber #C9A24D
+   Foundation: dark, minimal, urban, discreet, warm, high-contrast legibility.
+   ========================================================================== */
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Neutrals: Deep charcoal / slate with warm tint */
+  --bg-app: #090a0e;
+  --bg-surface-1: #11131a;
+  --bg-surface-2: #171922;
+  --bg-surface-3: #1f222e;
+  --bg-surface-elevated: #262938;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-medium: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.20);
+
+  /* Brand Accents */
+  --brand-purple: #6F3CC3;
+  --brand-purple-hover: #5d2fae;
+  --brand-purple-dim: rgba(111, 60, 195, 0.15);
+
+  --brand-amber: #C9A24D;
+  --brand-amber-hover: #b58f3b;
+  --brand-amber-dim: rgba(201, 162, 77, 0.14);
+
+  /* Status Colors */
+  --status-emerald: #10b981;
+  --status-emerald-dim: rgba(16, 185, 129, 0.12);
+  --status-rose: #f43f5e;
+  --status-rose-dim: rgba(244, 63, 94, 0.12);
+
+  /* Typography Colors */
+  --text-primary: #f4f5f8;
+  --text-secondary: #9da3af;
+  --text-muted: #6b7280;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Touch target comfort on mobile */
+button, input, select, textarea, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Leaflet Map Dark Aesthetic Overrides */
 .leaflet-container {
-  background-color: #0c0d12 !important;
+  background-color: #090a0e !important;
   font-family: inherit !important;
 }
 
 .leaflet-popup-content-wrapper {
-  background: #12141c !important;
-  color: #e2e8f0 !important;
+  background: #11131a !important;
+  color: #f4f5f8 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 12px !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.7) !important;
   padding: 0 !important;
 }
 
@@ -22,7 +79,7 @@
 }
 
 .leaflet-popup-tip {
-  background: #12141c !important;
+  background: #11131a !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
 }
 
@@ -34,18 +91,18 @@
 }
 
 .leaflet-bar a {
-  background-color: #161822 !important;
+  background-color: #141620 !important;
   color: #d1d5db !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .leaflet-bar a:hover {
-  background-color: #1f2230 !important;
+  background-color: #1d202d !important;
   color: #ffffff !important;
 }
 
 .leaflet-control-attribution {
-  background-color: rgba(12, 13, 18, 0.8) !important;
+  background-color: rgba(9, 10, 14, 0.85) !important;
   color: #6b7280 !important;
   font-size: 9px !important;
   backdrop-filter: blur(4px);
@@ -63,3 +120,12 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Safe Area Insets for modern mobile viewports (iPhone notch / home bar) */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
