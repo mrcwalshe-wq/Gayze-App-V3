@@ -336,7 +336,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 pt-0.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <ShieldCheck className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
               <span>Approximate location protected</span>
             </div>
           </div>

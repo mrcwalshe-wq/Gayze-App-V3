@@ -3,7 +3,7 @@ import { Pulse, SafeHaven, LocationPrivacy } from '../types';
 import { PrivacyGeographicMap } from './PrivacyGeographicMap';
 import { RadarMap } from './RadarMap';
 import { IntentMode, IntentTimingMode } from './IntentMode';
-import { SetIntentSheet, UserActiveIntent, EncounterIntentType, IntentWhenType } from './SetIntentSheet';
+import { SetIntentSheet, UserActiveIntent, EncounterIntentType } from './SetIntentSheet';
 import { 
   Radio, 
   Map as MapIcon, 
@@ -255,7 +255,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setTimeout(() => setStatusMessage(null), 2500);
   };
 
-  // Tap "I'm Interested"
+  // Tap "Interested"
   const handleTapInterested = (pulse: Pulse) => {
     hapticLight();
     const nextSet = new Set(interestedPulseIds);
@@ -284,11 +284,27 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     return `${m}m`;
   };
 
+  const isRightNowMode = intentTimingMode === 'right_now';
+
   return (
-    <div className="space-y-4 max-w-xl mx-auto">
+    <div className="relative space-y-4 max-w-xl mx-auto">
+      {/* =========================================================================
+          1. RESTRAINED PURPLE ATMOSPHERE
+          Radiating from the live discovery center, dark edges, subtly subdued on LATER
+         ========================================================================= */}
+      <div
+        className={`pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 w-full max-w-lg h-[480px] rounded-full blur-3xl transition-opacity duration-700 ease-out z-0 ${
+          isRightNowMode ? 'opacity-35' : 'opacity-15'
+        }`}
+        style={{
+          background: 'radial-gradient(ellipse at 50% 35%, rgba(111, 60, 195, 0.45) 0%, rgba(111, 60, 195, 0.12) 50%, rgba(11, 12, 16, 0) 75%)',
+        }}
+        aria-hidden="true"
+      />
+
       {/* Subtle Toast / Status Notification */}
       {statusMessage && (
-        <div className="bg-[#141620] border border-[#C9A24D]/40 text-white text-xs px-3.5 py-2 rounded-xl flex items-center justify-between shadow-lg animate-in fade-in duration-150">
+        <div className="relative z-20 bg-[#141620] border border-[#C9A24D]/40 text-white text-xs px-3.5 py-2 rounded-xl flex items-center justify-between shadow-lg animate-in fade-in duration-150">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#C9A24D] animate-pulse" />
             <span className="font-semibold">{statusMessage}</span>
@@ -303,20 +319,25 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          MOBILE-OPTIMIZED TOP HIERARCHY (~390px):
+          2. MOBILE-FIRST TOP HIERARCHY (~390px):
           RIGHT NOW
           IntentMode™
           [ RIGHT NOW –––– LATER ]
           12 active nearby · 4 open to meeting
-          [ I’m Available ] (or [ ● LIVE ] state)
+          AVAILABILITY BUTTON (OFF / ACTIVE)
          ========================================================================= */}
-      <div className="space-y-3">
-        {/* Header Title */}
+      <div className="relative z-10 space-y-3">
+        {/* Header Title & Protection Indicator */}
         <div className="flex items-center justify-between px-1">
           <div>
-            <h1 className="text-xl font-black tracking-tight text-white uppercase font-sans">
-              RIGHT NOW
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black tracking-tight text-white uppercase font-sans">
+                RIGHT NOW
+              </h1>
+              {isRightNowMode && (
+                <span className="w-2 h-2 rounded-full bg-[#C9A24D] shadow-[0_0_8px_#C9A24D] animate-pulse" />
+              )}
+            </div>
             <p className="text-[11px] text-zinc-400 font-medium">
               Real intent. Real time. {userNeighborhood}
             </p>
@@ -327,10 +348,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </div>
         </div>
 
-        {/* 1. Dedicated IntentMode™ Component */}
+        {/* IntentMode™ Signature Control */}
         <IntentMode
           mode={intentTimingMode}
           onChangeMode={(newMode) => setIntentTimingMode(newMode)}
+          activeCount={activeNearbyCount}
+          plannedCount={6}
         />
 
         {/* Proximity / Intent Summary Stats */}
@@ -344,71 +367,96 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </span>
         </div>
 
-        {/* 2. Persistent Live State OR "I'm Available" Button */}
+        {/* =======================================================================
+            3. AVAILABILITY BUTTON COLOUR & ACTIVE TREATMENT:
+            OFF STATE: Premium neutral/dark with subtle amber edge
+            ACTIVE STATE: Amber + purple live treatment with ● LIVE NOW
+           ======================================================================= */}
         {activeUserIntent ? (
-          /* Discreet Persistent Live State */
-          <div className="bg-[#11131a] border border-[#C9A24D]/50 rounded-2xl p-3 sm:p-3.5 shadow-sm flex items-center justify-between gap-3 animate-in fade-in duration-150">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#C9A24D] shadow-[0_0_8px_#C9A24D] shrink-0 animate-pulse" />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black tracking-wider text-[#C9A24D] uppercase font-mono">
-                    ● LIVE
+          /* ACTIVE STATE: Amber + Purple live treatment */
+          <div className="space-y-1.5 animate-in fade-in duration-200">
+            <div className="relative group">
+              {/* Purple atmospheric halo behind active button */}
+              <div className="absolute -inset-1 rounded-2xl bg-[#6F3CC3]/30 blur-md pointer-events-none" />
+
+              <div className="relative w-full h-12 bg-gradient-to-r from-[#C9A24D] via-[#deb85e] to-[#C9A24D] border border-[#C9A24D] rounded-xl shadow-[0_0_22px_rgba(111,60,195,0.4)] flex items-center justify-between px-4">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {/* Subtle animated live indicator */}
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-50"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-black"></span>
                   </span>
-                  <span className="text-xs sm:text-sm font-black text-white uppercase tracking-wide font-sans truncate">
-                    {activeUserIntent.intent}
+                  <span className="text-xs sm:text-sm font-black tracking-widest text-black uppercase font-sans shrink-0">
+                    ● LIVE NOW
+                  </span>
+                  <span className="text-xs font-bold text-black/80 font-mono truncate">
+                    · {activeUserIntent.intent.toUpperCase()}
                   </span>
                 </div>
-                <p className="text-[11px] text-zinc-400 truncate mt-0.5">
-                  Available now · {formatRemainingTime(remainingMinutes)} remaining
-                </p>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      setIsSetIntentOpen(true);
+                    }}
+                    className="h-7 px-2.5 text-[11px] font-black text-black bg-black/10 hover:bg-black/20 rounded-lg transition-colors cursor-pointer uppercase font-mono"
+                  >
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleEndIntent}
+                    className="h-7 px-2.5 text-[11px] font-black text-black bg-black/10 hover:bg-black/20 rounded-lg transition-colors cursor-pointer uppercase font-mono"
+                  >
+                    End
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  setIsSetIntentOpen(true);
-                }}
-                className="h-8 px-3 text-xs font-semibold text-zinc-200 hover:text-white bg-[#1a1d28] hover:bg-[#232736] border border-white/10 rounded-xl transition-all cursor-pointer"
-              >
-                Change
-              </button>
-              <button
-                type="button"
-                onClick={handleEndIntent}
-                className="h-8 px-3 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all cursor-pointer"
-              >
-                End
-              </button>
+            {/* 4. Subordinate Compact Availability Status Indicator */}
+            <div className="flex items-center justify-between px-1 text-[11px] font-mono text-zinc-400">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#C9A24D] font-bold">● LIVE</span>
+                <span className="text-zinc-600">·</span>
+                <span className="text-white font-bold">{activeUserIntent.intent} · NOW</span>
+                <span className="text-zinc-600">·</span>
+                <span className="text-zinc-300">{formatRemainingTime(remainingMinutes)} remaining</span>
+              </div>
+              <span className="text-[10px] text-zinc-500 font-sans hidden sm:inline">
+                Approximate ±300m
+              </span>
             </div>
           </div>
         ) : (
-          /* Primary Action: I'm Available (44px min touch target) */
+          /* OFF STATE: Premium neutral/dark with subtle amber edge */
           <button
             type="button"
             onClick={() => {
               hapticLight();
               setIsSetIntentOpen(true);
             }}
-            className="w-full h-12 bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] text-black font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl transition-all duration-150 cursor-pointer shadow-lg flex items-center justify-center gap-2 font-sans"
+            className="w-full h-12 bg-[#12131a] hover:bg-[#181a24] active:scale-[0.99] border border-[#C9A24D]/35 hover:border-[#C9A24D]/75 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 group shadow-sm"
           >
-            <Zap className="w-4 h-4 fill-black" />
-            <span>I’m Available</span>
+            <span className="w-2 h-2 rounded-full bg-[#C9A24D]/60 group-hover:bg-[#C9A24D] transition-colors" />
+            <span className="text-xs sm:text-sm font-black tracking-widest text-zinc-100 group-hover:text-white uppercase font-sans">
+              I’M AVAILABLE
+            </span>
           </button>
         )}
       </div>
 
       {/* =========================================================================
-          3. SURROUNDING CONTROLS:
-          TRANSFORMS DYNAMICALLY BETWEEN "RIGHT NOW" & "LATER"
+          5. SURROUNDING CONTROLS & POPPING SELECTED INTENT:
+          Selected intent has strong typography, amber foreground, subtle purple backing,
+          slightly increased scale, restrained glow, and excellent contrast.
          ========================================================================= */}
-      <div className="bg-[#101118] border border-white/[0.08] rounded-2xl p-3 sm:p-3.5 space-y-2.5">
+      <div className="relative z-10 bg-[#101118] border border-white/[0.08] rounded-2xl p-3 sm:p-3.5 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          {/* Availability / When Control */}
-          {intentTimingMode === 'right_now' ? (
+          {/* Availability / When Segment */}
+          {isRightNowMode ? (
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1 shrink-0 font-mono">
                 <Clock className="w-3 h-3 text-[#C9A24D]" />
@@ -543,45 +591,54 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </div>
         </div>
 
-        {/* Restrained Secondary Intent Choices:
-            All · Meet · Hookup · Date · Drinks · Chat · Group
-            Selected option is obvious, unselected understated
-        */}
-        <div className="pt-2 border-t border-white/[0.06] flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mr-1 shrink-0 font-mono hidden sm:inline">
-            Intent:
-          </span>
-          {(['All', 'Meet', 'Hookup', 'Date', 'Drinks', 'Chat', 'Group'] as (EncounterIntentType | 'All')[]).map((intent) => {
-            const isActive = selectedIntentChip === intent;
-            return (
-              <button
-                key={intent}
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  setSelectedIntentChip(intent);
-                }}
-                className={`h-7 px-3 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer flex items-center gap-1.5 border ${
-                  isActive
-                    ? 'bg-[#181a24] text-[#C9A24D] border-[#C9A24D] shadow-sm font-black'
-                    : 'bg-[#07080b] text-zinc-400 border-white/[0.08] hover:text-zinc-200 hover:border-white/20'
-                }`}
-              >
-                {intent === 'Hookup' && (
-                  <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-[#C9A24D]' : 'bg-zinc-600'}`} />
-                )}
-                <span>{intent}</span>
-              </button>
-            );
-          })}
+        {/* SIGNATURE INTENT SELECTOR (Selected intent pops with purple backing & amber foreground) */}
+        <div className="pt-2 border-t border-white/[0.06] space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 uppercase tracking-wider px-0.5">
+            <span>Intent Selection</span>
+            {selectedIntentChip !== 'All' && (
+              <span className="text-[#C9A24D] font-bold">
+                Filtered: {selectedIntentChip}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+            {(['All', 'Meet', 'Hookup', 'Date', 'Drinks', 'Chat', 'Group'] as (EncounterIntentType | 'All')[]).map((intent) => {
+              const isSelected = selectedIntentChip === intent;
+              return (
+                <button
+                  key={intent}
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    setSelectedIntentChip(intent);
+                  }}
+                  className={`h-8 sm:h-9 px-3.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 border relative ${
+                    isSelected
+                      ? 'scale-[1.04] bg-gradient-to-b from-[#6F3CC3]/25 via-[#1c1628] to-[#12111b] text-[#C9A24D] border-[#C9A24D] shadow-[0_0_18px_rgba(111,60,195,0.4),0_0_8px_rgba(201,162,77,0.3)] font-black uppercase tracking-wider z-10'
+                      : 'bg-[#08090e] text-zinc-400 border-white/[0.07] hover:text-zinc-200 hover:border-white/20'
+                  }`}
+                >
+                  {/* Subtle active glow dot on selected */}
+                  {isSelected && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] shadow-[0_0_6px_#C9A24D]" />
+                  )}
+                  {intent === 'Hookup' && !isSelected && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+                  )}
+                  <span>{intent}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* =========================================================================
-          4. MUTUAL INTEREST / MATCH CARD (DISCREET & CONFIDENT)
+          6. MUTUAL INTEREST / MATCH CARD (PURE GAYZE PALETTE, NO GREEN)
          ========================================================================= */}
       {mutualMatchPulse && (
-        <div className="p-4 bg-[#141620] border border-[#C9A24D] rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 space-y-3">
+        <div className="relative z-10 p-4 bg-[#141620] border border-[#C9A24D] rounded-2xl shadow-[0_0_30px_rgba(111,60,195,0.4)] animate-in fade-in zoom-in-95 duration-200 space-y-3">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2">
@@ -609,7 +666,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </div>
 
           <div className="p-2.5 bg-[#0a0b10] rounded-xl border border-white/[0.06] text-[11px] text-zinc-400 space-y-1.5">
-            <div className="flex items-center gap-2 text-emerald-400 font-medium">
+            <div className="flex items-center gap-2 text-[#C9A24D] font-medium font-mono">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Identity verified · Approximate location protected (±300m)</span>
             </div>
@@ -654,16 +711,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          5. DISCOVERY FEED:
-          Presents Active Encounters or Planned Connections
+          7. LIVE DISCOVERY CARDS:
+          WHO → INTENT → WHEN → DISTANCE → TRUST → ACTION
          ========================================================================= */}
       {viewMode === 'feed' && (
-        <div className="space-y-2.5">
+        <div className="relative z-10 space-y-2.5">
           {filteredPulses.length === 0 ? (
             <div className="p-8 text-center rounded-2xl bg-[#101118] border border-white/[0.08] space-y-3">
               <Compass className="w-8 h-8 text-zinc-500 mx-auto" />
               <h3 className="text-sm font-semibold text-white">
-                {intentTimingMode === 'right_now'
+                {isRightNowMode
                   ? 'No active encounters matching this window'
                   : 'No planned connections posted yet'}
               </h3>
@@ -678,7 +735,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 }}
                 className="h-9 px-4 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer"
               >
-                I’m Available
+                I’M AVAILABLE
               </button>
             </div>
           ) : (
@@ -687,15 +744,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 const intent = getEncounterIntent(pulse);
                 const compatibility = getCompatibility(intent);
                 const isInterested = interestedPulseIds.has(pulse.id);
-                const isLiveNow = intentTimingMode === 'right_now';
 
                 return (
                   <div
                     key={pulse.id}
-                    className="group bg-[#101118] hover:bg-[#141620] border border-white/[0.08] hover:border-[#C9A24D]/40 rounded-2xl p-4 transition-all duration-150 flex flex-col justify-between shadow-sm relative overflow-hidden"
+                    className="group bg-[#101118] hover:bg-[#141620] border border-white/[0.08] hover:border-[#C9A24D]/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between shadow-sm relative overflow-hidden"
                   >
                     <div>
-                      {/* Compatibility Indicator (deterministic, no score) */}
+                      {/* Compatibility Indicator (deterministic, human) */}
                       {compatibility && (
                         <div className="flex items-center gap-1.5 mb-2 text-[10px] font-mono font-bold text-[#C9A24D]">
                           <Sparkles className="w-3 h-3" />
@@ -705,73 +761,63 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         </div>
                       )}
 
-                      {/* Header: Name, Age, Status & Distance */}
+                      {/* 1. WHO: Avatar & Name + Age */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-10 h-10 rounded-xl bg-[#1a1b24] border border-white/10 flex items-center justify-center text-sm font-black text-[#C9A24D] shrink-0 font-sans">
+                          <div className="w-11 h-11 rounded-xl bg-[#181a24] border border-white/10 flex items-center justify-center text-sm font-black text-[#C9A24D] shrink-0 font-sans shadow-inner">
                             {pulse.peerName.charAt(0)}
                           </div>
 
                           <div>
-                            <div className="flex items-baseline gap-1.5">
-                              <span className="text-sm font-bold text-white tracking-tight">
-                                {pulse.peerName}, 32
+                            <span className="text-sm sm:text-base font-bold text-white tracking-tight">
+                              {pulse.peerName} · 34
+                            </span>
+                            {/* Proximity & Live dot */}
+                            <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5 font-mono">
+                              <span className="flex items-center gap-1 text-[#C9A24D] font-semibold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] animate-pulse" />
+                                {isRightNowMode ? 'Active now' : 'Upcoming'}
                               </span>
-                              <span className="text-[11px] font-mono text-zinc-400">
-                                · {pulse.approxDistanceKm} km
-                              </span>
-                            </div>
-
-                            {/* Active Status */}
-                            <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
-                              {isLiveNow ? (
-                                <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                  Active now
-                                </span>
-                              ) : (
-                                <span className="text-zinc-300 font-medium">
-                                  Planned encounter
-                                </span>
-                              )}
+                              <span>·</span>
+                              <span>{pulse.approxDistanceKm} km</span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Intent Name: Prominent & Crisp */}
+                        {/* 2. INTENT: Prominently displayed */}
                         <div className="text-right shrink-0">
-                          <span className="text-xs font-black tracking-wider uppercase text-[#C9A24D] font-sans">
+                          <span className="inline-block px-2.5 py-1 rounded-lg bg-[#181424] border border-[#6F3CC3]/40 text-[#C9A24D] text-xs font-black tracking-wider uppercase font-sans shadow-[0_0_10px_rgba(111,60,195,0.25)]">
                             {intent}
                           </span>
                         </div>
                       </div>
 
-                      {/* Availability Window */}
-                      <div className="mt-2.5">
+                      {/* 3. WHEN: Availability window */}
+                      <div className="mt-3">
                         <p className="text-xs font-medium text-zinc-200">
-                          {isLiveNow ? 'Available now · ~2 hrs' : 'Available for tonight'}
+                          {isRightNowMode ? 'Available now · ~2 hrs' : 'Available for tonight'}
                         </p>
                       </div>
 
-                      {/* Protected Area & Verification */}
-                      <div className="mt-2 pt-2 border-t border-white/[0.05] flex items-center justify-between text-[11px] text-zinc-400">
+                      {/* 4. TRUST: Protected Area & Verified */}
+                      <div className="mt-2.5 pt-2 border-t border-white/[0.05] flex items-center justify-between text-[11px] text-zinc-400">
                         <div className="flex items-center gap-1 truncate max-w-[210px]">
                           <MapPin className="w-3 h-3 text-[#C9A24D] shrink-0" />
                           <span className="truncate">{pulse.venueName}</span>
                         </div>
 
-                        <div className="flex items-center gap-1 text-emerald-400 font-mono shrink-0">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          <span>Verified</span>
+                        <div className="flex items-center gap-1 text-[#C9A24D] font-mono shrink-0">
+                          <CheckCircle2 className="w-3 h-3 text-[#C9A24D]" />
+                          <span>Verified · 94</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Action Row: [ Interested ] [ Message ] */}
-                    <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between gap-2">
+                    {/* 5. ACTION: [ Interested ] [ Message ] */}
+                    <div className="mt-3.5 pt-2.5 border-t border-white/[0.06] flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1 text-[10px] text-zinc-500 font-mono">
                         <Lock className="w-3 h-3 text-[#C9A24D]" />
-                        <span>E2EE</span>
+                        <span>E2EE Swarm</span>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -781,7 +827,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onClick={() => handleTapInterested(pulse)}
                           className={`h-8 px-3.5 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
                             isInterested
-                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                              ? 'bg-[#181a24] text-[#C9A24D] border border-[#C9A24D]/40'
                               : 'bg-[#C9A24D] hover:bg-[#b58f3b] text-black shadow-sm'
                           }`}
                         >
@@ -817,19 +863,21 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          6. MAP VIEW (INTENT & PRIVACY PRESERVED)
+          8. MAP VIEW (SUBTLE PURPLE ATMOSPHERIC HALO, READABLE)
          ========================================================================= */}
       {viewMode === 'map' && (
-        <div className="space-y-3">
-          <PrivacyGeographicMap
-            pulses={filteredPulses}
-            safeHavens={safeHavens}
-            userNeighborhood={userNeighborhood}
-            privacySetting={privacySetting}
-            onOpenDirectChat={onOpenDirectChat}
-            onSelectHaven={onSelectHaven}
-            onBroadcastHere={handleBroadcastHere}
-          />
+        <div className="relative z-10 space-y-3">
+          <div className="relative rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(111,60,195,0.2)] border border-white/10">
+            <PrivacyGeographicMap
+              pulses={filteredPulses}
+              safeHavens={safeHavens}
+              userNeighborhood={userNeighborhood}
+              privacySetting={privacySetting}
+              onOpenDirectChat={onOpenDirectChat}
+              onSelectHaven={onSelectHaven}
+              onBroadcastHere={handleBroadcastHere}
+            />
+          </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3.5 py-2.5 bg-[#101118] border border-white/10 rounded-xl text-xs text-zinc-400">
             <div className="flex items-center gap-2">
@@ -847,17 +895,19 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          7. TACTICAL RADAR VIEW
+          9. TACTICAL RADAR VIEW
          ========================================================================= */}
       {viewMode === 'radar' && (
-        <div className="space-y-4">
-          <RadarMap
-            pulses={filteredPulses}
-            safeHavens={safeHavens}
-            userNeighborhood={userNeighborhood}
-            onSelectPulse={(p) => setSelectedPulseForDetail(p)}
-            onSelectHaven={(h) => onSelectHaven(h)}
-          />
+        <div className="relative z-10 space-y-4">
+          <div className="relative rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(111,60,195,0.2)] border border-white/10">
+            <RadarMap
+              pulses={filteredPulses}
+              safeHavens={safeHavens}
+              userNeighborhood={userNeighborhood}
+              onSelectPulse={(p) => setSelectedPulseForDetail(p)}
+              onSelectHaven={(h) => onSelectHaven(h)}
+            />
+          </div>
 
           {selectedPulseForDetail && (
             <div className="p-4 bg-[#101118] border border-white/10 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
@@ -905,7 +955,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          8. REFINED "SET YOUR INTENT" BOTTOM SHEET / MODAL
+          10. REFINED "SET YOUR INTENT" BOTTOM SHEET / MODAL
          ========================================================================= */}
       <SetIntentSheet
         isOpen={isSetIntentOpen}
@@ -914,7 +964,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
         userNeighborhood={userNeighborhood}
-        defaultWhen={intentTimingMode === 'right_now' ? 'Now' : 'Tonight'}
+        defaultWhen={isRightNowMode ? 'Now' : 'Tonight'}
       />
     </div>
   );

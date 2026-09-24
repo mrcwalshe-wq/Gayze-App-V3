@@ -6,16 +6,15 @@ export type IntentTimingMode = 'right_now' | 'later';
 interface IntentModeProps {
   mode: IntentTimingMode;
   onChangeMode: (mode: IntentTimingMode) => void;
-  // Time selection for active mode
-  selectedTime?: string;
-  onSelectTime?: (time: string) => void;
+  activeCount?: number;
+  plannedCount?: number;
 }
 
 export const IntentMode: React.FC<IntentModeProps> = ({
   mode,
   onChangeMode,
-  selectedTime,
-  onSelectTime,
+  activeCount = 12,
+  plannedCount = 6,
 }) => {
   const isRightNow = mode === 'right_now';
 
@@ -27,10 +26,10 @@ export const IntentMode: React.FC<IntentModeProps> = ({
   };
 
   return (
-    <div className="w-full select-none space-y-2">
+    <div className="w-full select-none space-y-1.5">
       {/* Centered Distinctive Feature Header */}
       <div className="flex items-center justify-center">
-        <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.25em] text-[#C9A24D] font-bold">
+        <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.28em] text-[#C9A24D] font-bold">
           INTENTMODE™
         </span>
       </div>
@@ -40,8 +39,8 @@ export const IntentMode: React.FC<IntentModeProps> = ({
           With smooth sliding thumb, mobile-native 44px+ touch targets
       */}
       <div className="relative w-full max-w-md mx-auto bg-[#07080b] border border-white/[0.08] rounded-2xl p-1 shadow-inner">
-        {/* Background track line */}
-        <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-[2px] bg-zinc-800/80 pointer-events-none" />
+        {/* Subtle connecting rail line */}
+        <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-[1px] bg-zinc-800/80 pointer-events-none" />
 
         {/* Sliding Amber/Purple Indicator Plate */}
         <div
@@ -51,14 +50,14 @@ export const IntentMode: React.FC<IntentModeProps> = ({
             width: 'calc(50% - 4px)',
             left: isRightNow ? '4px' : 'calc(50%)',
             background: isRightNow
-              ? 'linear-gradient(180deg, #1f1b13 0%, #151410 100%)'
-              : 'linear-gradient(180deg, #191424 0%, #121019 100%)',
+              ? 'linear-gradient(180deg, #201a14 0%, #151310 100%)'
+              : 'linear-gradient(180deg, #1c152a 0%, #121019 100%)',
             border: isRightNow
-              ? '1px solid rgba(201, 162, 77, 0.45)'
-              : '1px solid rgba(111, 60, 195, 0.45)',
+              ? '1px solid rgba(201, 162, 77, 0.55)'
+              : '1px solid rgba(111, 60, 195, 0.55)',
             boxShadow: isRightNow
-              ? '0 0 16px rgba(201, 162, 77, 0.15)'
-              : '0 0 16px rgba(111, 60, 195, 0.15)',
+              ? '0 0 16px rgba(201, 162, 77, 0.18), 0 0 28px rgba(111, 60, 195, 0.25)'
+              : '0 0 16px rgba(111, 60, 195, 0.25)',
           }}
         />
 
