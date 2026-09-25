@@ -274,17 +274,6 @@ export interface RecoveryBundle {
   iterations: number;
 }
 
-function concatBytes(...parts: Uint8Array[]): Uint8Array {
-  const length = parts.reduce((total, part) => total + part.byteLength, 0);
-  const output = new Uint8Array(length);
-  let offset = 0;
-  for (const part of parts) {
-    output.set(part, offset);
-    offset += part.byteLength;
-  }
-  return output;
-}
-
 async function passwordWrappingKey(password: string, salt: Uint8Array, iterations: number) {
   const material = await window.crypto.subtle.importKey(
     'raw',
@@ -303,7 +292,7 @@ async function passwordWrappingKey(password: string, salt: Uint8Array, iteration
 }
 
 export async function createRecoveryBundle(password: string): Promise<RecoveryBundle> {
-  if (password.length < 12) throw new Error('Recovery password must be at least 12 characters');
+  if (password.length < 15) throw new Error('Recovery passphrase must be at least 15 characters');
 
   const identity = await readStoredIdentity();
   if (!identity) throw new Error('Device identity is not initialized');
