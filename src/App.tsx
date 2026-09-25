@@ -44,6 +44,8 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, generateSafetyFingerprint, generateRandomKey } from './services/cryptoService';
+import { isSupabaseConfigured } from './services/supabaseClient';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow } from './services/supabaseService';
 import { 
   hapticQRHandshake, 
   hapticTimerWarning, 
@@ -210,6 +212,39 @@ export default function App() {
       return null;
     }
   });
+
+  const [supabaseRightNowPulses, setSupabaseRightNowPulses] = useState<Pulse[]>([]);
+  const [supabaseReady, setSupabaseReady] = useState(false);
+
+  // Bootstrap a real Supabase session/profile and keep Right Now discovery live.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let disposed = false;
+
+    const refreshDiscovery = async () => {
+      try {
+        const user = await ensureSupabaseSession();
+        if (!user) return;
+        await ensureSupabaseProfile(user.id, currentUser);
+        const rows = await discoverRightNow({ radiusMeters: 5000 });
+        if (!disposed) {
+          setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
+          setSupabaseReady(true);
+        }
+      } catch (error) {
+        console.error('[GAYZE] Supabase Right Now bootstrap failed', error);
+        if (!disposed) setSupabaseReady(false);
+      }
+    };
+
+    void refreshDiscovery();
+    const unsubscribe = subscribeToRightNow(() => { void refreshDiscovery(); });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [currentUser]);
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -807,6 +842,30 @@ export default function App() {
   const handleSaveUserIntent = (intent: UserActiveIntent) => {
     hapticSensitiveAction();
     setActiveUserIntent(intent);
+
+    if (isSupabaseConfigured) {
+      void (async () => {
+        try {
+          let location: { lat: number; lng: number } | undefined;
+          if ('geolocation' in navigator) {
+            location = await new Promise<{ lat: number; lng: number } | undefined>((resolve) => {
+              navigator.geolocation.getCurrentPosition(
+                (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+                () => resolve(undefined),
+                { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
+              );
+            });
+          }
+          await saveActiveIntentWithSession(intent, location, currentUser);
+          const rows = await discoverRightNow({ radiusMeters: 5000 });
+          setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
+          showToast('✓ Right Now intent is live on Supabase');
+        } catch (error) {
+          console.error('[GAYZE] Failed to persist Right Now intent', error);
+          showToast('Right Now saved locally; secure sync is unavailable');
+        }
+      })();
+    }
     setIsSetIntentOpen(false);
 
     // Add as a live story
@@ -949,7 +1008,7 @@ export default function App() {
 
         {activeTab === 'right_now' && (
           <RightNowView
-            pulses={pulses}
+            pulses={supabaseReady ? [...supabaseRightNowPulses, ...pulses] : pulses}
             safeHavens={safeHavens}
             userNeighborhood={currentUser.neighborhood}
             privacySetting={currentUser.privacySetting}
