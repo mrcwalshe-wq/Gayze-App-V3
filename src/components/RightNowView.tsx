@@ -331,7 +331,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden select-none bg-[#07080b]">
+    <div className="absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none bg-[#07080b]">
       {/* =========================================================================
           1. RESTRAINED PURPLE ATMOSPHERE
           Deep radial purple atmospheric glow radiating outward over the map canvas.
