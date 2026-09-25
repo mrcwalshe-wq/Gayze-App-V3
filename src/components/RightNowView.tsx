@@ -526,7 +526,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           - actions (Interested, Safe Meet, Message)
          ========================================================================= */}
       {selectedItem && !isCardExpanded && (
-        <div className="absolute bottom-[4.25rem] md:bottom-5 left-2.5 right-2.5 max-w-lg mx-auto z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="absolute bottom-[7.5rem] md:bottom-5 left-2.5 right-2.5 max-w-lg mx-auto z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
           <div className="relative group bg-[#0e1017]/92 backdrop-blur-xl border border-white/[0.14] hover:border-white/25 rounded-2xl p-3 sm:p-3.5 shadow-2xl transition-all">
             
             {/* Ambient subtle glow based on intent type */}
