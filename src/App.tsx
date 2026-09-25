@@ -691,19 +691,6 @@ export default function App() {
 
         const peerPublicKey = JSON.parse(peer.peer_public_key) as JsonWebKey;
         conversationKey = await deriveConversationKey(activeRoomId, peerPublicKey);
-        const safetyNumber = await generateSafetyFingerprint(currentUser.publicKey, peer.peer_public_key);
-
-        setRooms((prev) => prev.map((room) => room.id === activeRoomId
-          ? {
-              ...room,
-              peerKey: peer.peer_public_key || room.peerKey,
-              peerName: peer.peer_display_name || room.peerName,
-              name: peer.peer_display_name || room.name,
-              safetyNumber,
-            }
-          : room
-        ));
-
         const rows = await loadConversationMessages(activeRoomId);
         for (const row of rows) await applyRow(row);
       } catch (error) {
