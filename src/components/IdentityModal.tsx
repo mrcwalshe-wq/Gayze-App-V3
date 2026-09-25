@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, LocationPrivacy } from '../types';
+import type { IdentityDevice } from '../services/supabaseService';
 import { 
   hapticQRHandshake, 
   hapticTimerWarning, 
@@ -35,6 +36,9 @@ interface IdentityModalProps {
   onOpenQR?: () => void;
   onCreateRecovery?: () => Promise<void>;
   onRestoreRecovery?: () => Promise<void>;
+  devices?: IdentityDevice[];
+  currentDeviceFingerprint?: string | null;
+  onRevokeDevice?: (deviceId: string) => Promise<void>;
 }
 
 export const IdentityModal: React.FC<IdentityModalProps> = ({
@@ -46,6 +50,9 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   onOpenQR,
   onCreateRecovery,
   onRestoreRecovery,
+  devices = [],
+  currentDeviceFingerprint,
+  onRevokeDevice,
 }) => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [handle, setHandle] = useState(user.handle);
@@ -157,6 +164,23 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           </p>
         </div>
 
+        {/* Authorised devices */}
+        <div className="p-3 bg-[#141620] border border-white/[0.07] rounded-xl space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[#C9A24D]" />
+              <div><div className="text-xs font-semibold text-white">Authorised devices</div><div className="text-[11px] text-zinc-400">{devices.length} device{devices.length === 1 ? '' : 's'} linked to this identity</div></div>
+            </div>
+          </div>
+          {devices.length === 0 ? <div className="text-[11px] text-zinc-500 bg-[#0f1118] rounded-lg px-3 py-2">Device registry will appear here once this account is connected.</div> :
+            <div className="space-y-1.5">{devices.map((device) => {
+              const isCurrent = device.device_fingerprint === currentDeviceFingerprint;
+              return <div key={device.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#0f1118] border border-white/[0.06]">
+                <div className="min-w-0"><div className="flex items-center gap-1.5"><span className="text-xs font-medium text-white truncate">{device.device_label || 'GAYZE device'}</span>{isCurrent && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">CURRENT</span>}</div><div className="text-[10px] text-zinc-500 mt-0.5">{device.status === 'revoked' ? 'Revoked' : 'Last seen ' + new Date(device.last_seen_at).toLocaleString()}</div></div>
+                {device.status === 'active' && !isCurrent && onRevokeDevice && <button type="button" onClick={() => { if (confirm('Revoke this device? It will no longer be authorised for this identity.')) void onRevokeDevice(device.id); }} className="shrink-0 text-[10px] font-semibold text-rose-400 hover:text-rose-300 px-2 py-1.5 rounded-lg border border-rose-500/20 hover:bg-rose-500/10">Revoke</button>}
+              </div>;
+            })}</div>}
+        </div>
         {/* Reliability Score & In-Person QR Verification Action */}
         <div className="p-3 bg-[#141620] border border-white/[0.07] rounded-xl flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
