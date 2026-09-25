@@ -62,6 +62,7 @@ interface RightNowViewProps {
   onGazeAtPeer?: (peerName: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
+  onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -79,6 +80,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onGazeAtPeer,
   onOpenScheduleMeeting,
   onOpenSetIntent,
+  onUpdateActiveUserIntent,
 }) => {
   // 1. User's Personal Active Right Now Intent State
   const [localActiveUserIntent, setLocalActiveUserIntent] = useState<UserActiveIntent | null>(() => {
@@ -94,7 +96,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
   const activeUserIntent = propActiveUserIntent !== undefined ? propActiveUserIntent : localActiveUserIntent;
   const setActiveUserIntent = (val: UserActiveIntent | null) => {
-    setLocalActiveUserIntent(val);
+    if (onUpdateActiveUserIntent) {
+      onUpdateActiveUserIntent(val);
+    } else {
+      setLocalActiveUserIntent(val);
+    }
     if (val) {
       localStorage.setItem('gayze_active_user_intent', JSON.stringify(val));
     } else {
@@ -155,7 +161,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     updateRemaining();
     const interval = setInterval(updateRemaining, 30000);
     return () => clearInterval(interval);
-  }, [activeUserIntent]);
+  }, [activeUserIntent, onUpdateActiveUserIntent]);
 
   // Handle saving newly created or edited Right Now intent
   const handleSaveIntent = (intentData: UserActiveIntent) => {
