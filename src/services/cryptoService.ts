@@ -129,3 +129,136 @@ export function generateRandomKey(): string {
   const randomBytes = window.crypto.getRandomValues(new Uint8Array(32));
   return 'pk_' + bufToHex(randomBytes.buffer);
 }
+
+
+export interface DeviceIdentity {
+  publicKeyJwk: JsonWebKey;
+  publicKeyJwkString: string;
+  fingerprint: string;
+}
+
+const IDENTITY_DB_NAME = 'gayze-crypto';
+const IDENTITY_STORE_NAME = 'identity';
+const IDENTITY_KEY = 'device';
+
+function openIdentityDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(IDENTITY_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(IDENTITY_STORE_NAME)) {
+        request.result.createObjectStore(IDENTITY_STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('Unable to open identity store'));
+  });
+}
+
+async function readStoredIdentity(): Promise<CryptoKeyPair | null> {
+  if (typeof indexedDB === 'undefined') return null;
+  const db = await openIdentityDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDENTITY_STORE_NAME, 'readonly');
+    const request = tx.objectStore(IDENTITY_STORE_NAME).get(IDENTITY_KEY);
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => reject(request.error ?? new Error('Unable to read identity'));
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => db.close();
+  });
+}
+
+async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
+  const db = await openIdentityDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(IDENTITY_STORE_NAME, 'readwrite');
+    tx.objectStore(IDENTITY_STORE_NAME).put(identity, IDENTITY_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Unable to store identity'));
+    tx.onabort = () => reject(tx.error ?? new Error('Unable to store identity'));
+  });
+  db.close();
+}
+
+export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
+  let identity = await readStoredIdentity();
+  if (!identity) {
+    identity = await window.crypto.subtle.generateKey(
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false,
+      ['deriveBits'],
+    ) as CryptoKeyPair;
+    await writeStoredIdentity(identity);
+  }
+
+  const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', identity.publicKey);
+  const publicKeyJwkString = JSON.stringify(publicKeyJwk);
+  const digest = await window.crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(publicKeyJwkString),
+  );
+  const fingerprint = 'pk_' + bufToHex(digest).slice(0, 64);
+
+  return { publicKeyJwk, publicKeyJwkString, fingerprint };
+}
+
+export async function deriveConversationKey(
+  conversationId: string,
+  peerPublicKeyJwk: JsonWebKey,
+): Promise<CryptoKey> {
+  const identity = await readStoredIdentity();
+  if (!identity) throw new Error('Device cryptographic identity is not initialized');
+
+  const peerPublicKey = await window.crypto.subtle.importKey(
+    'jwk',
+    peerPublicKeyJwk,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    [],
+  );
+
+  const sharedSecret = await window.crypto.subtle.deriveBits(
+    { name: 'ECDH', public: peerPublicKey },
+    identity.privateKey,
+    256,
+  );
+
+  const context = new TextEncoder().encode(`GAYZE-CONVERSATION-v1:${conversationId}`);
+  const material = new Uint8Array(sharedSecret.byteLength + context.byteLength);
+  material.set(new Uint8Array(sharedSecret), 0);
+  material.set(context, sharedSecret.byteLength);
+
+  const digest = await window.crypto.subtle.digest('SHA-256', material);
+  return window.crypto.subtle.importKey(
+    'raw',
+    digest,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+export async function encryptWithConversationKey(
+  text: string,
+  key: CryptoKey,
+): Promise<{ cipherHex: string; nonceHex: string }> {
+  const nonce = window.crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce, tagLength: 128 },
+    key,
+    new TextEncoder().encode(text),
+  );
+  return { cipherHex: bufToHex(ciphertext), nonceHex: bufToHex(nonce.buffer) };
+}
+
+export async function decryptWithConversationKey(
+  cipherHex: string,
+  nonceHex: string,
+  key: CryptoKey,
+): Promise<string> {
+  const plaintext = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: hexToBuf(nonceHex), tagLength: 128 },
+    key,
+    hexToBuf(cipherHex),
+  );
+  return new TextDecoder().decode(plaintext);
+}
