@@ -8,13 +8,10 @@ import {
   UserActiveIntent,
 } from '../types';
 import { PrivacyGeographicMap, MapDiscoveryItem } from './PrivacyGeographicMap';
-import { RadarMap } from './RadarMap';
 import { SetIntentSheet } from './SetIntentSheet';
 import { CountdownPill } from './CountdownPill';
 import { CompatibilitySnapshot } from './CompatibilitySnapshot';
 import { 
-  Radio, 
-  Map as MapIcon, 
   ShieldCheck, 
   Lock, 
   Clock, 
@@ -44,8 +41,6 @@ import {
   hapticSensitiveAction, 
   triggerVibration 
 } from '../services/hapticService';
-
-export type MapDisplayType = 'map' | 'radar';
 
 interface RightNowViewProps {
   pulses: Pulse[];
@@ -111,9 +106,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [isSetIntentOpen, setIsSetIntentOpen] = useState<boolean>(false);
   const [isUserIntentDrawerOpen, setIsUserIntentDrawerOpen] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-
-  // 2. Map / Radar Display Toggle
-  const [mapDisplayType, setMapDisplayType] = useState<MapDisplayType>('map');
 
   // Map Imperative Controls ref
   const mapControlsRef = useRef<{ zoomIn: () => void; zoomOut: () => void; recenter: () => void } | null>(null);
@@ -375,179 +367,31 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           The map is the central full-screen experience behind all UI.
          ========================================================================= */}
       <div className="w-full h-full absolute inset-0 z-0">
-        {mapDisplayType === 'map' ? (
-          <PrivacyGeographicMap
-            pulses={pulses}
-            safeHavens={safeHavens}
-            profiles={datingProfiles}
-            userNeighborhood={userNeighborhood}
-            privacySetting={privacySetting}
-            filter={activeCategory}
-            intentModeFilter={activeIntentMode}
-            showJitterCircles={showJitterCircles}
-            selectedItem={selectedItem}
-            onSelectItem={(item) => {
-              hapticLight();
-              setSelectedItem(item);
-              setIsCardExpanded(false);
-            }}
-            onOpenDirectChat={onOpenDirectChat}
-            onOpenDirectChatWithProfile={onOpenDirectChatWithProfile}
-            onSelectHaven={onSelectHaven}
-            onGazeAtPeer={onGazeAtPeer}
-            onOpenScheduleMeeting={onOpenScheduleMeeting}
-            onMapReady={(controls) => {
-              mapControlsRef.current = controls;
-            }}
-          />
-        ) : (
-          <RadarMap
-            pulses={pulses}
-            safeHavens={safeHavens}
-            userNeighborhood={userNeighborhood}
-            selectedId={selectedItem?.item.id}
-            onSelectPulse={(p) => {
-              hapticLight();
-              setSelectedItem({ type: 'pulse', item: p });
-              setIsCardExpanded(false);
-            }}
-            onSelectHaven={(h) => {
-              hapticLight();
-              setSelectedItem({ type: 'haven', item: h });
-              setIsCardExpanded(false);
-            }}
-          />
-        )}
+        <PrivacyGeographicMap
+          pulses={pulses}
+          safeHavens={safeHavens}
+          profiles={datingProfiles}
+          userNeighborhood={userNeighborhood}
+          privacySetting={privacySetting}
+          filter={activeCategory}
+          intentModeFilter={activeIntentMode}
+          showJitterCircles={showJitterCircles}
+          selectedItem={selectedItem}
+          onSelectItem={(item) => {
+            hapticLight();
+            setSelectedItem(item);
+            setIsCardExpanded(false);
+          }}
+          onOpenDirectChat={onOpenDirectChat}
+          onOpenDirectChatWithProfile={onOpenDirectChatWithProfile}
+          onSelectHaven={onSelectHaven}
+          onGazeAtPeer={onGazeAtPeer}
+          onOpenScheduleMeeting={onOpenScheduleMeeting}
+          onMapReady={(controls) => {
+            mapControlsRef.current = controls;
+          }}
+        />
       </div>
-
-      {/* =========================================================================
-          3. TOP FLOATING INTENT & STATUS CONTROLS
-          A compact floating bar with:
-          - Floating Intent & Status Pill (e.g. "RIGHT NOW · 6 active nearby")
-          - Compact Filter Control ("Filters · 2")
-          - Compact Map/Radar selector
-         ========================================================================= */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 z-30 flex items-center justify-between gap-1.5 sm:gap-2 pointer-events-none">
-        
-        {/* Left: Compact Floating Intent / Status Pill */}
-        <div className="pointer-events-auto flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              hapticLight();
-              if (activeUserIntent) {
-                setIsUserIntentDrawerOpen(true);
-              } else {
-                setIsSetIntentOpen(true);
-              }
-            }}
-            className="h-10 px-3 bg-[#0e1017]/85 hover:bg-[#151722]/95 backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 rounded-full shadow-lg transition-all duration-200 cursor-pointer flex items-center gap-2 group active:scale-98"
-            aria-label="Open Right Now Intent Status"
-          >
-            <span className="relative flex h-2.5 w-2.5 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C9A24D] shadow-[0_0_8px_#C9A24D]"></span>
-            </span>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black uppercase tracking-wider text-white font-sans">
-                RIGHT NOW
-              </span>
-              <span className="text-zinc-500 text-xs">·</span>
-              <span className="text-xs font-mono font-semibold text-[#C9A24D]">
-                {filteredActiveCount} nearby
-              </span>
-              <span className="hidden sm:inline text-zinc-500 text-xs">·</span>
-              <span className="hidden sm:inline text-[11px] text-zinc-400 font-mono">
-                {userNeighborhood}
-              </span>
-            </div>
-
-            {/* If user has an active intent live on map */}
-            {activeUserIntent ? (
-              <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${
-                activeUserIntent.isPaused
-                  ? 'bg-zinc-800 text-zinc-300 border-zinc-600'
-                  : activeUserIntent.mode === 'private'
-                  ? 'bg-[#6F3CC3]/40 text-purple-200 border-purple-400/50 shadow-[0_0_8px_rgba(111,60,195,0.4)]'
-                  : 'bg-[#C9A24D]/25 text-[#C9A24D] border-[#C9A24D]/50 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
-              }`}>
-                {activeUserIntent.isPaused ? 'Paused' : `Live · ${formatRemainingTime(remainingMinutes)}`}
-              </span>
-            ) : (
-              <span className="text-[10px] text-zinc-400 group-hover:text-white flex items-center gap-0.5 font-medium ml-0.5">
-                <Sparkles className="w-3 h-3 text-[#C9A24D]" />
-                <span className="hidden xs:inline">Broadcast</span>
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Right: Compact Filter Button & Map/Radar View Switcher */}
-        <div className="pointer-events-auto flex items-center gap-1.5 shrink-0">
-          
-          {/* Compact Filter Control Button */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticLight();
-              setIsFilterDrawerOpen(true);
-            }}
-            className={`h-10 px-3 bg-[#0e1017]/85 hover:bg-[#151722]/95 backdrop-blur-xl border rounded-full shadow-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 active:scale-98 text-xs font-medium ${
-              activeFilterCount > 0
-                ? 'border-purple-500/60 text-white shadow-[0_0_12px_rgba(111,60,195,0.3)]'
-                : 'border-white/[0.12] text-zinc-300 hover:text-white hover:border-white/25'
-            }`}
-            aria-label="Open Map Filters"
-          >
-            <SlidersHorizontal className={`w-3.5 h-3.5 ${activeFilterCount > 0 ? 'text-[#C9A24D]' : 'text-zinc-400'}`} />
-            <span className="font-semibold">Filters</span>
-            {activeFilterCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-[#6F3CC3] text-white text-[10px] font-bold flex items-center justify-center font-mono">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-
-          {/* Compact Map / Radar View Toggle */}
-          <div className="h-10 p-0.5 bg-[#0e1017]/85 backdrop-blur-xl rounded-full border border-white/[0.12] shadow-lg flex items-center">
-            <button
-              type="button"
-              onClick={() => {
-                hapticLight();
-                setMapDisplayType('map');
-              }}
-              className={`h-8 px-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                mapDisplayType === 'map'
-                  ? 'bg-[#1e2130] text-[#C9A24D] border border-[#C9A24D]/50 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              aria-label="Map View"
-            >
-              <MapIcon className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Map</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                hapticLight();
-                setMapDisplayType('radar');
-              }}
-              className={`h-8 px-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                mapDisplayType === 'radar'
-                  ? 'bg-[#1e2130] text-[#C9A24D] border border-[#C9A24D]/50 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              aria-label="Radar View"
-            >
-              <Radio className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Radar</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* =========================================================================
           4. CLEAN FLOATING VERTICAL MAP CONTROLS
           Independent vertical group on top-right edge:
@@ -556,7 +400,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           - Recenter / Location compass
           - Toggle ±300m privacy circles
          ========================================================================= */}
-      {mapDisplayType === 'map' && (
+      {(
         <div className="absolute top-16 right-2.5 z-20 flex flex-col gap-1.5 pointer-events-auto">
           {/* Zoom In */}
           <button
