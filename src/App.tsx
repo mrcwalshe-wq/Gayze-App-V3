@@ -861,7 +861,9 @@ export default function App() {
     }
 
     return result;
-  };  const handleSubmitGaze = async (pulse: Pulse) => {
+  };
+
+  const handleSubmitGaze = async (pulse: Pulse) => {
     if (!isSupabaseConfigured) return { sent: false };
 
     const isSupabasePulse = pulse.id.startsWith('supabase_');
