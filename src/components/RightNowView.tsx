@@ -58,6 +58,7 @@ interface RightNowViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
+  onSubmitInterest?: (pulse: Pulse) => Promise<{ mutual: boolean; conversation_id: string | null }>;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -76,6 +77,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onOpenScheduleMeeting,
   onOpenSetIntent,
   onUpdateActiveUserIntent,
+  onSubmitInterest,
 }) => {
   // 1. User's Personal Active Right Now Intent State
   const [localActiveUserIntent, setLocalActiveUserIntent] = useState<UserActiveIntent | null>(() => {
@@ -126,6 +128,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
   // 5. "I'm Interested" & Gaze States
   const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
+  const [interestPendingIds, setInterestPendingIds] = useState<Set<string>>(new Set());
   const [gazedPeerNames, setGazedPeerNames] = useState<Set<string>>(new Set());
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
 
@@ -237,23 +240,56 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   };
 
   // Express interest in a pulse / profile
-  const handleTapInterested = (id: string, pulseObj?: Pulse) => {
+  const handleTapInterested = async (id: string, pulseObj?: Pulse) => {
     hapticLight();
-    const nextSet = new Set(interestedIds);
-    const isNew = !nextSet.has(id);
-    if (isNew) {
-      nextSet.add(id);
-    } else {
-      nextSet.delete(id);
-    }
-    setInterestedIds(nextSet);
+    if (!pulseObj) return;
 
-    // Mutual match trigger on active peer
-    if (isNew && pulseObj && (pulseObj.id === 'pulse_1' || pulseObj.id === 'pulse_4' || pulseObj.id === 'pulse_5')) {
-      triggerVibration([40, 60, 100]);
-      setTimeout(() => {
+    if (interestedIds.has(id)) {
+      setInterestedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      return;
+    }
+
+    setInterestPendingIds((prev) => new Set(prev).add(id));
+
+    try {
+      let result: { mutual: boolean; conversation_id: string | null } = { mutual: false, conversation_id: null };
+      const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulseObj.peerId);
+
+      if (looksLikeUuid && onSubmitInterest) {
+        result = await onSubmitInterest(pulseObj);
+      }
+
+      setInterestedIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+
+      if (result.mutual) {
+        triggerVibration([40, 60, 100]);
         setMutualMatchPulse(pulseObj);
-      }, 350);
+        setStatusMessage('⚡ Mutual interest — opening your chat');
+        setTimeout(() => setStatusMessage(null), 2500);
+        setSelectedItem(null);
+        setIsCardExpanded(false);
+      } else {
+        setStatusMessage('✓ Interest sent — they can now respond');
+        setTimeout(() => setStatusMessage(null), 2500);
+      }
+    } catch (error) {
+      console.error('[GAYZE] Interest submission failed', error);
+      setStatusMessage('Interest could not be sent — try again');
+      setTimeout(() => setStatusMessage(null), 3000);
+    } finally {
+      setInterestPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -647,7 +683,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {selectedItem.type === 'pulse' ? (
                       <button
                         type="button"
-                        onClick={() => handleTapInterested(selectedItem.item.id, selectedItem.item)}
+                        onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
+                        disabled={interestPendingIds.has(selectedItem.item.id)}
                         className={`h-10 min-h-[40px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
                           interestedIds.has(selectedItem.item.id)
                             ? 'bg-[#20182c] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
@@ -657,12 +694,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         {interestedIds.has(selectedItem.item.id) ? (
                           <>
                             <Check className="w-3.5 h-3.5 text-[#C9A24D]" />
-                            <span>Interested</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
                           </>
                         ) : (
                           <>
                             <Zap className="w-3.5 h-3.5 text-[#C9A24D]" />
-                            <span>Interested</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
                           </>
                         )}
                       </button>
@@ -938,7 +975,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {selectedItem.type === 'pulse' ? (
                       <button
                         type="button"
-                        onClick={() => handleTapInterested(selectedItem.item.id, selectedItem.item)}
+                        onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
+                        disabled={interestPendingIds.has(selectedItem.item.id)}
                         className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
                           interestedIds.has(selectedItem.item.id)
                             ? 'bg-[#221832] text-[#C9A24D] border-[#C9A24D]/70 shadow-[0_0_12px_rgba(201,162,77,0.35)]'
@@ -948,12 +986,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         {interestedIds.has(selectedItem.item.id) ? (
                           <>
                             <Check className="w-4 h-4 text-[#C9A24D]" />
-                            <span>Interested</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
                           </>
                         ) : (
                           <>
                             <Zap className="w-4 h-4 text-[#C9A24D]" />
-                            <span>Interested</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
                           </>
                         )}
                       </button>
