@@ -33,9 +33,14 @@ import {
   LayoutGrid, 
   ListFilter, 
   Sparkles,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Edit3
 } from 'lucide-react';
 import { hapticLight, triggerVibration } from '../services/hapticService';
+import { CountdownPill } from './CountdownPill';
+import { CompatibilitySnapshot } from './CompatibilitySnapshot';
+import { TrustReputationSnapshot } from './TrustReputationSnapshot';
+import { UserProfile, UserActiveIntent } from '../types';
 
 export type DiscoveryDisplayMode = 'grid' | 'feed';
 export type TimingFilterMode = 'all' | 'right_now' | 'later';
@@ -46,6 +51,8 @@ interface DatingGridViewProps {
   userNeighborhood: string;
   stories?: SocialStory[];
   intentPosts?: IntentActivityPost[];
+  activeUserIntent?: UserActiveIntent | null;
+  currentUser?: UserProfile;
   onOpenDirectChatWithProfile: (profile: DatingProfile) => void;
   onProposeHavenDate: (profile: DatingProfile, havenName?: string) => void;
   onToggleFavorite: (profileId: string) => void;
@@ -61,6 +68,8 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
   userNeighborhood,
   stories = [],
   intentPosts = [],
+  activeUserIntent,
+  currentUser,
   onOpenDirectChatWithProfile,
   onProposeHavenDate,
   onToggleFavorite,
@@ -418,6 +427,62 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* =========================================================================
+          2B. ACTIVE USER INTENT STATUS BANNER (CORE INTENT-FIRST DISCOVERY)
+         ========================================================================= */}
+      {activeUserIntent ? (
+        <div className="p-3 rounded-2xl bg-[#14121f]/90 border border-[#6F3CC3]/40 shadow-[0_0_20px_rgba(111,60,195,0.15)] backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#231738] border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
+              <Sparkles className="w-4 h-4 text-[#C9A24D]" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-mono uppercase font-bold text-zinc-400">YOUR ACTIVE INTENT</span>
+                <span className="text-zinc-500">·</span>
+                <span className="text-xs font-bold text-white uppercase font-mono tracking-wide">
+                  {activeUserIntent.mode} · {activeUserIntent.intent}
+                </span>
+                <CountdownPill expiresAt={activeUserIntent.expiresAt} />
+              </div>
+              <p className="text-[11px] text-zinc-300 truncate mt-0.5">
+                "{activeUserIntent.description || 'Active nearby'}" · {activeUserIntent.when} · {activeUserIntent.travelDistance}
+              </p>
+            </div>
+          </div>
+
+          {onOpenSetIntent && (
+            <button
+              type="button"
+              onClick={onOpenSetIntent}
+              className="h-8 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-xs font-semibold text-zinc-200 hover:text-white transition-colors cursor-pointer self-start sm:self-auto shrink-0 flex items-center gap-1.5 active:scale-95"
+            >
+              <Edit3 className="w-3 h-3 text-[#C9A24D]" />
+              <span>Edit Intent</span>
+            </button>
+          )}
+        </div>
+      ) : onOpenSetIntent ? (
+        <div className="p-3 rounded-2xl bg-[#11131a]/80 border border-white/[0.08] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#1a1726] border border-[#C9A24D]/30 flex items-center justify-center text-[#C9A24D] shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white">Broadcast Your Intention</div>
+              <p className="text-[11px] text-zinc-400">Set what you're looking for to reveal live mutual alignment & badges.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenSetIntent}
+            className="h-8 px-3.5 rounded-xl bg-[#C9A24D] hover:bg-[#b58f3b] text-black text-xs font-bold transition-all cursor-pointer shrink-0 shadow active:scale-95"
+          >
+            Set Intent
+          </button>
+        </div>
+      ) : null}
 
       {/* =========================================================================
           3. SIMPLIFIED DISCOVER CONTROLS ROW:
@@ -947,27 +1012,34 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                   </div>
 
                   {/* Top Corner Overlays: Active Status & Actions (Gaze + Favorite) */}
-                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-black/75 backdrop-blur-md border border-white/10 text-[10px] text-zinc-200 font-medium">
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          profile.hasRightNowIntent
-                            ? 'bg-amber-400 animate-pulse'
+                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between z-10 gap-1">
+                    <div className="flex flex-col gap-1 items-start min-w-0">
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-black/75 backdrop-blur-md border border-white/10 text-[10px] text-zinc-200 font-medium">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            profile.hasRightNowIntent
+                              ? 'bg-amber-400 animate-pulse'
+                              : profile.isOnline
+                              ? 'bg-emerald-400 animate-pulse'
+                              : 'bg-zinc-500'
+                          }`}
+                        />
+                        <span className="font-mono">
+                          {profile.hasRightNowIntent
+                            ? 'Right Now'
                             : profile.isOnline
-                            ? 'bg-emerald-400 animate-pulse'
-                            : 'bg-zinc-500'
-                        }`}
-                      />
-                      <span>
-                        {profile.hasRightNowIntent
-                          ? 'Right Now'
-                          : profile.isOnline
-                          ? 'Active'
-                          : profile.lastActive}
-                      </span>
+                            ? 'Active'
+                            : profile.lastActive}
+                        </span>
+                      </div>
+
+                      {/* Intent Countdown if defined & active */}
+                      {profile.intentExpiresAt && profile.hasRightNowIntent && (
+                        <CountdownPill expiresAt={profile.intentExpiresAt} />
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {/* 1-Tap Gaze (👀) */}
                       <button
                         onClick={(e) => handleGaze(e, profile.name)}
@@ -1000,6 +1072,18 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Mid-Card Mutual Intent Alignment Badge */}
+                  {activeUserIntent && (
+                    <div className="absolute top-12 left-2.5 z-10">
+                      <CompatibilitySnapshot
+                        profile={profile}
+                        userIntent={activeUserIntent}
+                        userNeighborhood={userNeighborhood}
+                        variant="badge"
+                      />
+                    </div>
+                  )}
+
                   {/* Bottom Card Content: Name, Distance, Intent, Headline, Trust */}
                   <div className="relative z-10 p-3 text-left space-y-1">
                     <div className="flex items-baseline justify-between gap-1">
@@ -1027,17 +1111,20 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                       </span>
                     </div>
 
+                    {profile.rightNowDetail && (
+                      <p className="text-[10px] text-amber-300/90 font-mono truncate">
+                        {profile.rightNowDetail}
+                      </p>
+                    )}
+
                     <p className="text-[11px] text-zinc-300 line-clamp-1 leading-snug">
                       "{profile.headline}"
                     </p>
 
-                    {/* Trust indicator */}
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-0.5 border-t border-white/[0.08]">
-                      <span className="text-emerald-400 font-mono flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                        Verified · {reliability}
-                      </span>
-                      <span className="text-zinc-500 truncate max-w-[80px]">{profile.neighborhood}</span>
+                    {/* Trust & Reputation Layer */}
+                    <div className="pt-1 border-t border-white/[0.08] flex items-center justify-between">
+                      <TrustReputationSnapshot profile={profile} variant="compact" />
+                      <span className="text-[10px] text-zinc-500 font-mono truncate max-w-[70px]">{profile.neighborhood}</span>
                     </div>
                   </div>
                 </div>
@@ -1751,6 +1838,9 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                   <span className="text-xs text-zinc-300 font-medium">
                     {getProfileAvailability(selectedProfile)}
                   </span>
+                  {selectedProfile.intentExpiresAt && selectedProfile.hasRightNowIntent && (
+                    <CountdownPill expiresAt={selectedProfile.intentExpiresAt} />
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono shrink-0">
@@ -1800,8 +1890,29 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
               </div>
             </div>
 
-            {/* Scrollable Body: Headline, Bio, Circles, Safe Haven, Peer Key */}
+            {/* Scrollable Body: Compatibility, Trust, Headline, Bio, Circles, Safe Haven */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
+              
+              {/* Compatibility Snapshot (Explainable signals) */}
+              <CompatibilitySnapshot
+                profile={selectedProfile}
+                userIntent={activeUserIntent}
+                userNeighborhood={userNeighborhood}
+                variant="full"
+              />
+
+              {/* Trust & Reputation Layer */}
+              <TrustReputationSnapshot
+                profile={selectedProfile}
+                variant="card"
+                onOpenQR={() => {
+                  if (onOpenQRWithPeer) {
+                    onOpenQRWithPeer(selectedProfile);
+                    setSelectedProfile(null);
+                  }
+                }}
+              />
+
               <div className="space-y-1.5">
                 <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">About</h4>
                 <p className="text-sm font-semibold text-white leading-snug">

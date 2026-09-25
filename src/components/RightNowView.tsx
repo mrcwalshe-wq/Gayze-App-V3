@@ -10,6 +10,8 @@ import {
 import { PrivacyGeographicMap, MapDiscoveryItem } from './PrivacyGeographicMap';
 import { RadarMap } from './RadarMap';
 import { SetIntentSheet } from './SetIntentSheet';
+import { CountdownPill } from './CountdownPill';
+import { CompatibilitySnapshot } from './CompatibilitySnapshot';
 import { 
   Radio, 
   Map as MapIcon, 
@@ -52,12 +54,14 @@ interface RightNowViewProps {
   privacySetting?: LocationPrivacy;
   datingProfiles?: DatingProfile[];
   stories?: SocialStory[];
+  activeUserIntent?: UserActiveIntent | null;
   onOpenDirectChat: (pulse: Pulse) => void;
   onOpenDirectChatWithProfile?: (profile: DatingProfile) => void;
   onSelectHaven: (haven: SafeHaven) => void;
   onCreatePulse: (newPulse: Omit<Pulse, 'id' | 'createdAt' | 'expiresAt'>) => void;
   onGazeAtPeer?: (peerName: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
+  onOpenSetIntent?: () => void;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -67,15 +71,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   privacySetting = 'fuzzy_500m',
   datingProfiles = [],
   stories = [],
+  activeUserIntent: propActiveUserIntent,
   onOpenDirectChat,
   onOpenDirectChatWithProfile,
   onSelectHaven,
   onCreatePulse,
   onGazeAtPeer,
   onOpenScheduleMeeting,
+  onOpenSetIntent,
 }) => {
-  // 1. User's Personal Active Right Now Intent State (persisted locally)
-  const [activeUserIntent, setActiveUserIntent] = useState<UserActiveIntent | null>(() => {
+  // 1. User's Personal Active Right Now Intent State
+  const [localActiveUserIntent, setLocalActiveUserIntent] = useState<UserActiveIntent | null>(() => {
     try {
       const saved = localStorage.getItem('gayze_active_user_intent');
       if (saved) {
@@ -85,6 +91,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     } catch {}
     return null;
   });
+
+  const activeUserIntent = propActiveUserIntent !== undefined ? propActiveUserIntent : localActiveUserIntent;
+  const setActiveUserIntent = (val: UserActiveIntent | null) => {
+    setLocalActiveUserIntent(val);
+    if (val) {
+      localStorage.setItem('gayze_active_user_intent', JSON.stringify(val));
+    } else {
+      localStorage.removeItem('gayze_active_user_intent');
+    }
+  };
 
   const [isSetIntentOpen, setIsSetIntentOpen] = useState<boolean>(false);
   const [isUserIntentDrawerOpen, setIsUserIntentDrawerOpen] = useState<boolean>(false);
@@ -681,6 +697,19 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           ? `${(selectedItem.item.intentMode || 'social').toUpperCase()} · ${selectedItem.item.intent || selectedItem.item.title}`
                           : `${(selectedItem.item.intentMode || 'social').toUpperCase()} · ${selectedItem.item.lookingForLabel || 'Connect'}`}
                       </span>
+
+                      {/* Live Intent Countdown */}
+                      {selectedItem.type === 'pulse' && selectedItem.item.expiresAt && (
+                        <CountdownPill expiresAt={selectedItem.item.expiresAt} />
+                      )}
+                      {selectedItem.type === 'profile' && selectedItem.item.intentExpiresAt && (
+                        <CountdownPill expiresAt={selectedItem.item.intentExpiresAt} />
+                      )}
+
+                      {/* Compatibility Badge if matched */}
+                      {selectedItem.type === 'profile' && activeUserIntent && (
+                        <CompatibilitySnapshot profile={selectedItem.item} userIntent={activeUserIntent} variant="badge" />
+                      )}
                     </div>
 
                     {/* Unboxed Distance & Context */}
@@ -948,7 +977,31 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <p className="text-sm text-zinc-200 leading-relaxed italic">
                   "{getDisplayDescription(selectedItem)}"
                 </p>
+
+                {/* Expiry countdown if defined */}
+                {selectedItem.type === 'pulse' && selectedItem.item.expiresAt && (
+                  <div className="pt-1 flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-zinc-400">Intent Lifetime:</span>
+                    <CountdownPill expiresAt={selectedItem.item.expiresAt} />
+                  </div>
+                )}
+                {selectedItem.type === 'profile' && selectedItem.item.intentExpiresAt && (
+                  <div className="pt-1 flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-zinc-400">Intent Lifetime:</span>
+                    <CountdownPill expiresAt={selectedItem.item.intentExpiresAt} />
+                  </div>
+                )}
               </div>
+
+              {/* Compatibility Snapshot if profile and activeUserIntent */}
+              {selectedItem.type === 'profile' && activeUserIntent && (
+                <CompatibilitySnapshot
+                  profile={selectedItem.item}
+                  userIntent={activeUserIntent}
+                  userNeighborhood={userNeighborhood}
+                  variant="full"
+                />
+              )}
 
               {/* Context Details Grid (Hosting, Window, Neighborhood, Security) */}
               <div className="grid grid-cols-2 gap-2 text-xs font-mono">

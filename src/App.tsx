@@ -923,6 +923,8 @@ export default function App() {
             userNeighborhood={currentUser.neighborhood}
             stories={stories}
             intentPosts={intentPosts}
+            activeUserIntent={activeUserIntent}
+            currentUser={currentUser}
             onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
             onProposeHavenDate={handleProposeHavenDate}
             onToggleFavorite={handleToggleFavoriteProfile}
@@ -941,6 +943,7 @@ export default function App() {
             privacySetting={currentUser.privacySetting}
             datingProfiles={datingProfiles}
             stories={stories}
+            activeUserIntent={activeUserIntent}
             onOpenDirectChat={handleOpenDirectChatFromPulse}
             onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
             onSelectHaven={(h) => {
@@ -949,6 +952,7 @@ export default function App() {
             onCreatePulse={handleCreatePulse}
             onGazeAtPeer={handleGazeAtPeer}
             onOpenScheduleMeeting={handleOpenScheduleMeeting}
+            onOpenSetIntent={() => setIsSetIntentOpen(true)}
           />
         )}
 

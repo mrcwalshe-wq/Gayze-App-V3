@@ -240,6 +240,20 @@ export interface DatingProfile {
   intent?: EncounterIntent;
   hasRightNowIntent?: boolean;
   rightNowDetail?: string;
+  intentExpiresAt?: number;
+  activityCategory?: 'coffee' | 'drinks' | 'walk' | 'active' | 'culture' | 'chill';
+  vouchesCount?: number;
+  metTimesCount?: number;
+  canHost?: 'Can host' | 'Cannot host' | 'Depends';
+  travelWillingness?: 'Yes' | 'Within reason' | 'Car required';
+}
+
+export interface CompatibilitySignal {
+  type: 'intent' | 'timing' | 'location' | 'haven' | 'activity' | 'trust';
+  label: string;
+  matched: boolean;
+  scoreWeight?: number;
+  detail?: string;
 }
 
 export interface SwarmQRPayload {
