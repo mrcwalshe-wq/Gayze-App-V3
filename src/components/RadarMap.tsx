@@ -6,6 +6,7 @@ interface RadarMapProps {
   pulses: Pulse[];
   safeHavens: SafeHaven[];
   userNeighborhood: string;
+  selectedId?: string | null;
   onSelectPulse: (pulse: Pulse) => void;
   onSelectHaven: (haven: SafeHaven) => void;
 }
@@ -14,6 +15,7 @@ export const RadarMap: React.FC<RadarMapProps> = ({
   pulses,
   safeHavens,
   userNeighborhood,
+  selectedId,
   onSelectPulse,
   onSelectHaven,
 }) => {
@@ -36,7 +38,7 @@ export const RadarMap: React.FC<RadarMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[360px] sm:h-[420px] bg-[#0a0b10] rounded-2xl border border-white/[0.08] overflow-hidden select-none shadow-md">
+    <div className="relative w-full h-full bg-[#07080b] overflow-hidden select-none">
       {/* Background Grid & Radar Rings */}
       <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
 
@@ -81,7 +83,7 @@ export const RadarMap: React.FC<RadarMapProps> = ({
       {/* Safe Havens plotted on map */}
       {safeHavens.map((haven) => {
         const coord = havenCoords[haven.id] || { x: 50, y: 50 };
-        const isSelected = activeItem?.type === 'haven' && activeItem.id === haven.id;
+        const isSelected = (selectedId && selectedId === haven.id) || (activeItem?.type === 'haven' && activeItem.id === haven.id);
         return (
           <div
             key={haven.id}
@@ -112,7 +114,7 @@ export const RadarMap: React.FC<RadarMapProps> = ({
       {/* Live Pulses plotted on map */}
       {pulses.map((pulse) => {
         const coord = pulseCoords[pulse.id] || { x: 50 + (Math.random() * 20 - 10), y: 50 + (Math.random() * 20 - 10) };
-        const isSelected = activeItem?.type === 'pulse' && activeItem.id === pulse.id;
+        const isSelected = (selectedId && selectedId === pulse.id) || (activeItem?.type === 'pulse' && activeItem.id === pulse.id);
         return (
           <div
             key={pulse.id}

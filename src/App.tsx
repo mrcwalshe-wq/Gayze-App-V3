@@ -824,7 +824,7 @@ export default function App() {
       description: `Looking to connect around ${intent.area}. Context: ${intent.context || 'Flexible'} · Duration: ${intent.duration}`,
       category: intent.intent.includes('Hookup') ? 'private' : 'social',
       intent: intent.intent,
-      timing: intent.when === 'Now' ? 'Right Now' : intent.when,
+      timing: intent.when === 'Now' ? 'Right Now' : (intent.when as IntentActivityPost['timing']) || 'Right Now',
       venueName: intent.isNearSafeHaven && intent.safeHavenName ? intent.safeHavenName : intent.area,
       neighborhood: intent.area,
       approxDistanceKm: 0.1,
@@ -909,7 +909,13 @@ export default function App() {
       />
 
       {/* Main Content Viewport Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 md:pb-8">
+      <main
+        className={
+          activeTab === 'right_now'
+            ? 'flex-1 w-full h-[calc(100dvh-3.5rem)] relative overflow-hidden p-0'
+            : 'flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 md:pb-8'
+        }
+      >
         {activeTab === 'dating' && (
           <DatingGridView
             profiles={datingProfiles}

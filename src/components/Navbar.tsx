@@ -43,7 +43,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Top App Header */}
-      <header className="sticky top-0 z-40 w-full bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07] transition-colors">
+      <header className={`sticky top-0 z-40 w-full transition-colors ${
+        activeTab === 'right_now'
+          ? 'bg-[#090a0e]/75 backdrop-blur-xl border-b border-white/[0.06]'
+          : 'bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07]'
+      }`}>
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 h-14 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Wordmark & Neighborhood Tag */}
@@ -91,12 +95,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => onTabChange('right_now')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === 'right_now'
-                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                  ? 'text-white bg-[#221634] border border-[#6F3CC3]/60 shadow-[0_0_14px_rgba(111,60,195,0.4)]'
                   : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Radio className={`w-3.5 h-3.5 ${activeTab === 'right_now' ? 'text-emerald-400' : 'text-zinc-400'}`} />
-              <span>Right Now</span>
+              <Radio className={`w-3.5 h-3.5 ${activeTab === 'right_now' ? 'text-[#C9A24D] animate-pulse' : 'text-zinc-400'}`} />
+              <span className={activeTab === 'right_now' ? 'text-white font-bold' : ''}>Right Now</span>
             </button>
 
             <button
@@ -200,7 +204,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Fixed Bottom Tab Bar (Thumb Zone) */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090a0e]/95 backdrop-blur-xl border-t border-white/[0.08] pb-safe shadow-2xl"
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 transition-colors pb-safe shadow-2xl ${
+          activeTab === 'right_now'
+            ? 'bg-[#090a0e]/75 backdrop-blur-xl border-t border-white/[0.07]'
+            : 'bg-[#090a0e]/95 backdrop-blur-xl border-t border-white/[0.08]'
+        }`}
         aria-label="Mobile Navigation"
       >
         <div className="grid grid-cols-5 h-14 items-center px-1">
@@ -218,12 +226,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Tab 2: Right Now */}
           <button
             onClick={() => onTabChange('right_now')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'right_now' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer relative ${
+              activeTab === 'right_now' ? 'text-[#C9A24D] font-bold' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Radio className="w-4 h-4 mb-0.5" />
+            <div className="relative flex items-center justify-center">
+              <Radio className={`w-4 h-4 mb-0.5 ${activeTab === 'right_now' ? 'text-[#C9A24D]' : ''}`} />
+              {activeTab === 'right_now' && (
+                <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-[#6F3CC3] ring-1 ring-[#C9A24D] animate-ping" />
+              )}
+            </div>
             <span className="text-[10px] tracking-tight">Right Now</span>
+            {activeTab === 'right_now' && (
+              <span className="absolute bottom-0.5 w-4 h-0.5 rounded-full bg-[#C9A24D] shadow-[0_0_6px_#C9A24D]" />
+            )}
           </button>
 
           {/* Tab 3: Later */}

@@ -1,9 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Pulse, SafeHaven, LocationPrivacy, DatingProfile, SocialStory } from '../types';
-import { PrivacyGeographicMap } from './PrivacyGeographicMap';
+import { 
+  Pulse, 
+  SafeHaven, 
+  LocationPrivacy, 
+  DatingProfile, 
+  SocialStory,
+  UserActiveIntent,
+} from '../types';
+import { PrivacyGeographicMap, MapDiscoveryItem } from './PrivacyGeographicMap';
 import { RadarMap } from './RadarMap';
-import { IntentMode, IntentTimingMode } from './IntentMode';
-import { SetIntentSheet, UserActiveIntent, EncounterIntentType } from './SetIntentSheet';
+import { SetIntentSheet } from './SetIntentSheet';
 import { 
   Radio, 
   Map as MapIcon, 
@@ -13,12 +19,23 @@ import {
   MapPin, 
   X,
   Zap,
-  Compass,
   CheckCircle2,
-  Sparkles,
   Check,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  SlidersHorizontal,
+  Plus,
+  Minus,
+  Navigation,
+  Eye,
+  ChevronUp,
+  Maximize2,
+  Edit3,
+  Pause,
+  Play,
+  Share2,
+  Compass,
+  Sparkles
 } from 'lucide-react';
 import { 
   hapticLight, 
@@ -26,8 +43,6 @@ import {
   triggerVibration 
 } from '../services/hapticService';
 
-export type AvailabilityWindow = 'now' | '2h' | 'tonight';
-export type LaterTimeframe = 'tonight' | 'tomorrow' | 'weekend' | 'choose';
 export type MapDisplayType = 'map' | 'radar';
 
 interface RightNowViewProps {
@@ -45,52 +60,6 @@ interface RightNowViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
 }
 
-/**
- * Centralized presentation mapping helper:
- * Maps pulses deterministically to the high-intent encounter vocabulary
- * without exposing demo/pseudo-random logic in the UI.
- */
-export const getEncounterIntent = (pulse: Pulse): EncounterIntentType => {
-  // 1. Curated peer mapping for baseline prototype pulses
-  const CURATED_INTENTS: Record<string, EncounterIntentType> = {
-    pulse_1: 'Meet',
-    pulse_2: 'Group',
-    pulse_3: 'Date',
-    pulse_4: 'Drinks',
-    pulse_5: 'Hookup',
-  };
-  if (CURATED_INTENTS[pulse.id]) {
-    return CURATED_INTENTS[pulse.id];
-  }
-
-  // 2. Check tags (e.g. from user-created pulses)
-  if (pulse.tags && pulse.tags.length > 0) {
-    const validIntents: EncounterIntentType[] = ['Meet', 'Hookup', 'Date', 'Drinks', 'Chat', 'Group'];
-    for (const tag of pulse.tags) {
-      const match = validIntents.find((i) => i.toLowerCase() === tag.toLowerCase());
-      if (match) return match;
-    }
-  }
-
-  // 3. Centralized category fallback
-  switch (pulse.activityCategory) {
-    case 'drinks':
-      return 'Drinks';
-    case 'chill':
-      return 'Hookup';
-    case 'coffee':
-      return 'Meet';
-    case 'walk':
-      return 'Date';
-    case 'culture':
-      return 'Chat';
-    case 'active':
-      return 'Group';
-    default:
-      return 'Meet';
-  }
-};
-
 export const RightNowView: React.FC<RightNowViewProps> = ({
   pulses,
   safeHavens,
@@ -105,28 +74,50 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onGazeAtPeer,
   onOpenScheduleMeeting,
 }) => {
-  // 1. Signature IntentMode Timing: 'right_now' vs 'later'
-  const [intentTimingMode, setIntentTimingMode] = useState<IntentTimingMode>('right_now');
+  // 1. User's Personal Active Right Now Intent State (persisted locally)
+  const [activeUserIntent, setActiveUserIntent] = useState<UserActiveIntent | null>(() => {
+    try {
+      const saved = localStorage.getItem('gayze_active_user_intent');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.expiresAt > Date.now()) return parsed;
+      }
+    } catch {}
+    return null;
+  });
 
-  // 2. User's Personal Active Intent State
-  const [activeUserIntent, setActiveUserIntent] = useState<UserActiveIntent | null>(null);
   const [isSetIntentOpen, setIsSetIntentOpen] = useState<boolean>(false);
+  const [isUserIntentDrawerOpen, setIsUserIntentDrawerOpen] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  // 2. Map / Radar Display Toggle
+  const [mapDisplayType, setMapDisplayType] = useState<MapDisplayType>('map');
+
+  // Map Imperative Controls ref
+  const mapControlsRef = useRef<{ zoomIn: () => void; zoomOut: () => void; recenter: () => void } | null>(null);
+
   // 3. Filtering States
-  const [selectedIntentChip, setSelectedIntentChip] = useState<EncounterIntentType | 'All'>('All');
-  const [availabilityWindow, setAvailabilityWindow] = useState<AvailabilityWindow>('now');
-  const [laterTimeframe, setLaterTimeframe] = useState<LaterTimeframe>('tonight');
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
+  const [activeCategory, setActiveCategory] = useState<'all' | 'people' | 'coffee' | 'drinks' | 'active' | 'havens'>('all');
+  const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social' | 'Private'>('All');
+  const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
   const [maxDistanceKm, setMaxDistanceKm] = useState<number>(5);
 
-  // 4. Map / Radar Display Toggle (Both remain embedded in RIGHT NOW)
-  const [mapDisplayType, setMapDisplayType] = useState<MapDisplayType>('map');
-  const mapSectionRef = useRef<HTMLDivElement>(null);
+  // 4. Selected Discovery Item (Docked Compact Bottom Card & Expanded Sheet)
+  const [selectedItem, setSelectedItem] = useState<MapDiscoveryItem | null>(() => {
+    // Default to first active pulse for instant discovery preview if available
+    if (pulses.length > 0) {
+      return { type: 'pulse', item: pulses[0] };
+    }
+    return null;
+  });
 
-  // 5. "I'm Interested" & Mutual Match State
-  const [interestedPulseIds, setInterestedPulseIds] = useState<Set<string>>(new Set());
+  const [isCardExpanded, setIsCardExpanded] = useState<boolean>(false);
+
+  // 5. "I'm Interested" & Gaze States
+  const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
+  const [gazedPeerNames, setGazedPeerNames] = useState<Set<string>>(new Set());
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
-  const [selectedPulseForDetail, setSelectedPulseForDetail] = useState<Pulse | null>(null);
 
   // 6. Countdown timer for active user intent
   const [remainingMinutes, setRemainingMinutes] = useState<number>(0);
@@ -134,12 +125,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   useEffect(() => {
     if (!activeUserIntent) return;
 
+    try {
+      localStorage.setItem('gayze_active_user_intent', JSON.stringify(activeUserIntent));
+    } catch {}
+
     const updateRemaining = () => {
       const diff = Math.max(0, Math.round((activeUserIntent.expiresAt - Date.now()) / (1000 * 60)));
       setRemainingMinutes(diff);
       if (diff <= 0) {
         setActiveUserIntent(null);
-        setStatusMessage('Intent ended');
+        localStorage.removeItem('gayze_active_user_intent');
+        setStatusMessage('Your Right Now intent expired');
         setTimeout(() => setStatusMessage(null), 3000);
       }
     };
@@ -149,102 +145,46 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     return () => clearInterval(interval);
   }, [activeUserIntent]);
 
-  // Compatibility helper: deterministic check without artificial percentage score
-  const getCompatibility = (peerIntent: EncounterIntentType): 'MATCHING' | 'SIMILAR' | null => {
-    const myIntent = activeUserIntent ? activeUserIntent.intent : (selectedIntentChip !== 'All' ? selectedIntentChip : null);
-    if (!myIntent) return null;
-
-    if (myIntent === peerIntent) {
-      return 'MATCHING';
-    }
-
-    const hookupCluster: EncounterIntentType[] = ['Hookup', 'Meet', 'Drinks'];
-    const dateCluster: EncounterIntentType[] = ['Date', 'Drinks', 'Chat', 'Meet'];
-    const groupCluster: EncounterIntentType[] = ['Group', 'Chat', 'Meet'];
-
-    if (hookupCluster.includes(myIntent) && hookupCluster.includes(peerIntent)) return 'SIMILAR';
-    if (dateCluster.includes(myIntent) && dateCluster.includes(peerIntent)) return 'SIMILAR';
-    if (groupCluster.includes(myIntent) && groupCluster.includes(peerIntent)) return 'SIMILAR';
-
-    return null;
-  };
-
-  // Filter and prioritize pulses deterministically
-  const filteredPulses = useMemo(() => {
-    let list = pulses.filter((p) => {
-      const intent = getEncounterIntent(p);
-      if (selectedIntentChip !== 'All' && intent !== selectedIntentChip) {
-        return false;
-      }
-      if (p.approxDistanceKm > maxDistanceKm) {
-        return false;
-      }
-
-      if (intentTimingMode === 'right_now') {
-        if (availabilityWindow === 'now') return p.durationHours <= 2;
-        if (availabilityWindow === '2h') return p.durationHours <= 2.5;
-        return true;
-      } else {
-        // 'later' mode: planned encounters
-        if (laterTimeframe === 'tonight') {
-          return p.durationHours >= 2 || p.title.toLowerCase().includes('tonight') || p.tags.some(t => t.toLowerCase().includes('casual') || t.toLowerCase().includes('quiet'));
-        }
-        if (laterTimeframe === 'tomorrow') {
-          return p.durationHours >= 1.5;
-        }
-        return true;
-      }
-    });
-
-    // When user's intent is active, prioritize compatible intent deterministically
-    if (activeUserIntent) {
-      list.sort((a, b) => {
-        const compA = getCompatibility(getEncounterIntent(a));
-        const compB = getCompatibility(getEncounterIntent(b));
-
-        const scoreA = compA === 'MATCHING' ? 3 : compA === 'SIMILAR' ? 2 : 1;
-        const scoreB = compB === 'MATCHING' ? 3 : compB === 'SIMILAR' ? 2 : 1;
-
-        if (scoreB !== scoreA) return scoreB - scoreA;
-        return a.approxDistanceKm - b.approxDistanceKm;
-      });
-    }
-
-    return list;
-  }, [pulses, selectedIntentChip, maxDistanceKm, availabilityWindow, intentTimingMode, laterTimeframe, activeUserIntent]);
-
-  // Active counts for the header hierarchy
-  const activeNearbyCount = pulses.length || 12;
-  const openToMeetingCount = pulses.filter((p) => {
-    const intent = getEncounterIntent(p);
-    return intent === 'Meet' || intent === 'Hookup' || intent === 'Drinks';
-  }).length || 4;
-
-  // Handle saving intent from bottom sheet
+  // Handle saving newly created or edited Right Now intent
   const handleSaveIntent = (intentData: UserActiveIntent) => {
     setActiveUserIntent(intentData);
+    try {
+      localStorage.setItem('gayze_active_user_intent', JSON.stringify(intentData));
+    } catch {}
 
-    const categoryMap: Record<EncounterIntentType, Pulse['activityCategory']> = {
+    const categoryMap: Record<string, Pulse['activityCategory']> = {
       Meet: 'coffee',
-      Hookup: 'chill',
-      Date: 'walk',
       Drinks: 'drinks',
+      Date: 'walk',
       Chat: 'culture',
       Group: 'active',
+      Hookup: 'chill',
+      'Hookup · Host': 'chill',
+      'Hookup · Travel': 'chill',
+      'Hookup · Outdoor': 'chill',
+      'Hookup · Car': 'chill',
+      Other: 'chill',
     };
 
     const durationNum = intentData.duration === '1 hr' ? 1 : intentData.duration === '2 hrs' ? 2 : 4;
     const latJitter = 51.5132 + (Math.random() - 0.5) * 0.005;
     const lngJitter = -0.1300 + (Math.random() - 0.5) * 0.005;
 
+    // Publish to the map as a live pulse
     onCreatePulse({
       peerId: 'peer_me',
       peerName: 'Julian K.',
       peerShortKey: 'pk_7e3f...6e80',
       peerAvatar: 'julian',
-      title: `${intentData.intent.toUpperCase()} · ${intentData.when === 'Now' ? 'Available now' : intentData.when}`,
-      description: `Available for ${intentData.intent.toLowerCase()} near ${intentData.area}.`,
-      activityCategory: categoryMap[intentData.intent],
+      peerAge: 30,
+      title: `${intentData.mode.toUpperCase()} · ${intentData.intent}`,
+      description: intentData.description || `Available for ${intentData.intent.toLowerCase()} near ${intentData.area}.`,
+      activityCategory: categoryMap[intentData.intent] || 'drinks',
+      intentMode: intentData.mode,
+      intent: intentData.intent,
+      travelDistance: intentData.travelDistance,
+      canHost: intentData.canHost,
+      travelWillingness: intentData.travelWillingness,
       venueName: intentData.area,
       neighborhood: userNeighborhood,
       approxDistanceKm: 0.1,
@@ -252,42 +192,65 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       lat: latJitter,
       lng: lngJitter,
       durationHours: durationNum,
-      tags: [intentData.intent, intentData.when],
+      tags: [intentData.intent, intentData.mode, intentData.when],
       safeHavenVenue: Boolean(intentData.isNearSafeHaven),
     });
 
-    setStatusMessage(`● Intent Live: ${intentData.intent.toUpperCase()}`);
-    setTimeout(() => setStatusMessage(null), 3000);
+    setStatusMessage(`● Intent Broadcasted: ${intentData.mode.toUpperCase()} · ${intentData.intent}`);
+    setTimeout(() => setStatusMessage(null), 3500);
   };
 
-  // End active intent
-  const handleEndIntent = () => {
-    hapticSensitiveAction();
-    setActiveUserIntent(null);
-    setStatusMessage('Intent ended');
+  // Pause / Resume user intent
+  const handleTogglePause = () => {
+    if (!activeUserIntent) return;
+    hapticLight();
+    const nextPaused = !activeUserIntent.isPaused;
+    const updated = { ...activeUserIntent, isPaused: nextPaused };
+    setActiveUserIntent(updated);
+    try {
+      localStorage.setItem('gayze_active_user_intent', JSON.stringify(updated));
+    } catch {}
+    setStatusMessage(nextPaused ? '⏸ Intent paused on map' : '● Intent resumed on map');
     setTimeout(() => setStatusMessage(null), 2500);
   };
 
-  // Tap "Interested"
-  const handleTapInterested = (pulse: Pulse) => {
-    hapticLight();
-    const nextSet = new Set(interestedPulseIds);
-    const isNew = !nextSet.has(pulse.id);
-    nextSet.add(pulse.id);
-    setInterestedPulseIds(nextSet);
+  // End active intent early
+  const handleEndIntent = () => {
+    hapticSensitiveAction();
+    setActiveUserIntent(null);
+    setIsUserIntentDrawerOpen(false);
+    try {
+      localStorage.removeItem('gayze_active_user_intent');
+    } catch {}
+    setStatusMessage('Intent ended and removed from map');
+    setTimeout(() => setStatusMessage(null), 2500);
+  };
 
-    // Mutual match trigger on compatible profile
-    const isCompatible = getCompatibility(getEncounterIntent(pulse)) !== null || pulse.id === 'pulse_1' || pulse.id === 'pulse_5';
-    if (isNew && isCompatible) {
+  // Express interest in a pulse / profile
+  const handleTapInterested = (id: string, pulseObj?: Pulse) => {
+    hapticLight();
+    const nextSet = new Set(interestedIds);
+    const isNew = !nextSet.has(id);
+    if (isNew) {
+      nextSet.add(id);
+    } else {
+      nextSet.delete(id);
+    }
+    setInterestedIds(nextSet);
+
+    // Mutual match trigger on active peer
+    if (isNew && pulseObj && (pulseObj.id === 'pulse_1' || pulseObj.id === 'pulse_4' || pulseObj.id === 'pulse_5')) {
       triggerVibration([40, 60, 100]);
       setTimeout(() => {
-        setMutualMatchPulse(pulse);
-      }, 300);
+        setMutualMatchPulse(pulseObj);
+      }, 350);
     }
   };
 
-  const handleBroadcastHere = (venueName: string) => {
-    setIsSetIntentOpen(true);
+  const handleGazeAtPerson = (name: string) => {
+    triggerVibration([40, 80]);
+    setGazedPeerNames((prev) => new Set(prev).add(name));
+    if (onGazeAtPeer) onGazeAtPeer(name);
   };
 
   const formatRemainingTime = (mins: number) => {
@@ -297,47 +260,85 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     return `${m}m`;
   };
 
-  const scrollToMap = () => {
-    hapticLight();
-    mapSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Filtered active count
+  const filteredActiveCount = useMemo(() => {
+    let count = 0;
+    if (activeCategory === 'all' || activeCategory === 'people') {
+      const matchProfiles = datingProfiles.filter(p => {
+        const isPrivate = p.intentMode === 'private' || p.lookingFor === 'casual';
+        if (activeIntentMode === 'Social' && isPrivate) return false;
+        if (activeIntentMode === 'Private' && !isPrivate) return false;
+        return true;
+      });
+      count += matchProfiles.length;
+    }
+    if (activeCategory !== 'people' && activeCategory !== 'havens') {
+      const matchPulses = pulses.filter(p => {
+        if (activeCategory !== 'all' && p.activityCategory !== activeCategory) return false;
+        const isPrivate = p.intentMode === 'private' || p.intent?.includes('Hookup');
+        if (activeIntentMode === 'Social' && isPrivate) return false;
+        if (activeIntentMode === 'Private' && !isPrivate) return false;
+        return true;
+      });
+      count += matchPulses.length;
+    }
+    if (activeCategory === 'all' || activeCategory === 'havens') {
+      count += safeHavens.length;
+    }
+    return count;
+  }, [pulses, datingProfiles, safeHavens, activeCategory, activeIntentMode]);
+
+  // Active filter count for badge
+  const activeFilterCount = useMemo(() => {
+    let num = 0;
+    if (activeCategory !== 'all') num += 1;
+    if (activeIntentMode !== 'All') num += 1;
+    if (!showJitterCircles) num += 1;
+    if (maxDistanceKm < 5) num += 1;
+    return num;
+  }, [activeCategory, activeIntentMode, showJitterCircles, maxDistanceKm]);
+
+  // Helpers for discovery item rendering
+  const getDisplayName = (item: MapDiscoveryItem) => {
+    if (item.type === 'haven') return item.item.name;
+    if (item.type === 'pulse') return `${item.item.peerName}${item.item.peerAge ? ` · ${item.item.peerAge}` : ''}`;
+    return `${item.item.name}${item.item.age ? ` · ${item.item.age}` : ''}`;
   };
 
-  const isRightNowMode = intentTimingMode === 'right_now';
+  const getDisplayDescription = (item: MapDiscoveryItem) => {
+    if (item.type === 'haven') return item.item.features?.join(' · ') || 'Verified sanctuary with safety check-in beacon and trained staff.';
+    if (item.type === 'pulse') return item.item.description;
+    return item.item.headline;
+  };
+
+  // Reset all filters
+  const handleClearFilters = () => {
+    hapticLight();
+    setActiveCategory('all');
+    setActiveIntentMode('All');
+    setShowJitterCircles(true);
+    setMaxDistanceKm(5);
+  };
 
   return (
-    <div className="relative space-y-4 max-w-xl mx-auto px-1 sm:px-0 pb-12">
+    <div className="relative w-full h-full overflow-hidden select-none bg-[#07080b]">
       {/* =========================================================================
           1. RESTRAINED PURPLE ATMOSPHERE
-          Multi-layer radial purple atmosphere radiating outward from the live
-          discovery area. Edges fade into almost pure deep black (#0B0C10).
-          Subtly subdued when LATER is selected.
+          Deep radial purple atmospheric glow radiating outward over the map canvas.
          ========================================================================= */}
-      {/* Outer ambient glow */}
       <div
-        className={`pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 w-full max-w-2xl h-[540px] rounded-full blur-3xl transition-all duration-700 ease-out z-0 ${
-          isRightNowMode ? 'opacity-40' : 'opacity-15'
-        }`}
+        className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[480px] rounded-full blur-3xl z-10 opacity-30 transition-opacity duration-700 ease-out"
         style={{
-          background: 'radial-gradient(ellipse at 50% 28%, rgba(111, 60, 195, 0.38) 0%, rgba(111, 60, 195, 0.12) 42%, rgba(11, 12, 16, 0) 72%)',
-        }}
-        aria-hidden="true"
-      />
-      {/* Focused live core radiation */}
-      <div
-        className={`pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 w-[340px] sm:w-[460px] h-[340px] rounded-full blur-2xl transition-all duration-700 ease-out z-0 ${
-          isRightNowMode ? 'opacity-30' : 'opacity-10'
-        }`}
-        style={{
-          background: 'radial-gradient(circle at 50% 40%, rgba(111, 60, 195, 0.5) 0%, rgba(201, 162, 77, 0.08) 38%, rgba(11, 12, 16, 0) 65%)',
+          background: 'radial-gradient(ellipse at 50% 20%, rgba(111, 60, 195, 0.45) 0%, rgba(111, 60, 195, 0.12) 44%, rgba(7, 8, 11, 0) 74%)',
         }}
         aria-hidden="true"
       />
 
       {/* Subtle Toast / Status Notification */}
       {statusMessage && (
-        <div className="relative z-20 bg-[#141620] border border-[#C9A24D]/40 text-white text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between shadow-lg animate-in fade-in duration-150">
+        <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-4 z-50 bg-[#12141f]/95 backdrop-blur-md border border-[#C9A24D]/50 text-white text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between shadow-2xl animate-in fade-in duration-200">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#C9A24D] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-[#C9A24D] animate-ping" />
             <span className="font-semibold">{statusMessage}</span>
           </div>
           <button
@@ -352,573 +353,161 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          2. HIERARCHY LEVEL 1:
-          RIGHT NOW
-          IntentMode™
-          [ RIGHT NOW –––– LATER ]
-          12 active nearby · 4 open to meeting
-          AVAILABILITY BUTTON (OFF / ACTIVE with RESPONSIVE MOBILE ACTIONS)
+          2. EDGE-TO-EDGE PRIMARY MAP / RADAR CANVAS
+          The map is the central full-screen experience behind all UI.
          ========================================================================= */}
-      <div className="relative z-10 space-y-3">
-        {/* Header Title & Protection Indicator */}
-        <div className="flex items-center justify-between px-1">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase font-sans">
-                RIGHT NOW
-              </h1>
-              {isRightNowMode && (
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C9A24D] shadow-[0_0_8px_#C9A24D]"></span>
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] sm:text-xs text-zinc-400 font-medium">
-              Real intent. Real time. {userNeighborhood}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={scrollToMap}
-            className="min-h-[44px] flex items-center gap-1.5 text-[11px] font-mono text-[#C9A24D] hover:underline cursor-pointer bg-[#141620] hover:bg-[#1a1d2e] border border-white/10 px-3 py-1.5 rounded-xl transition-colors"
-          >
-            <MapIcon className="w-3.5 h-3.5" />
-            <span>View Map</span>
-          </button>
-        </div>
-
-        {/* IntentMode™ Signature Control */}
-        <IntentMode
-          mode={intentTimingMode}
-          onChangeMode={(newMode) => setIntentTimingMode(newMode)}
-          activeCount={activeNearbyCount}
-          plannedCount={6}
-        />
-
-        {/* Proximity / Intent Summary Stats */}
-        <div className="flex items-center justify-between text-xs text-zinc-400 px-1 font-mono">
-          <span className="font-semibold text-zinc-300">
-            {activeNearbyCount} active nearby
-          </span>
-          <span className="text-zinc-600">·</span>
-          <span className="font-bold text-[#C9A24D]">
-            {openToMeetingCount} open to meeting
-          </span>
-        </div>
-
-        {/* =======================================================================
-            3. AVAILABILITY BUTTON RESPONSIVE MOBILE ACTIONS:
-            OFF STATE: Premium neutral/dark with subtle amber edge
-            ACTIVE STATE:
-            ┌───────────────────────────┐
-            │       ● LIVE NOW          │
-            └───────────────────────────┘
-            ┌──────────────┐ ┌──────────┐
-            │    CHANGE    │ │   END    │
-            └──────────────┘ └──────────┘
-           ======================================================================= */}
-        {activeUserIntent ? (
-          /* ACTIVE STATE: Clean responsive layout with zero button collisions */
-          <div className="space-y-2 animate-in fade-in duration-200">
-            {/* Dominant Amber + Purple Live Banner */}
-            <div className="relative group">
-              <div className="absolute -inset-1 rounded-2xl bg-[#6F3CC3]/30 blur-md pointer-events-none" />
-
-              <div className="relative w-full h-12 min-h-[48px] bg-gradient-to-r from-[#C9A24D] via-[#deb85e] to-[#C9A24D] border border-[#C9A24D] rounded-xl shadow-[0_0_22px_rgba(111,60,195,0.4)] flex items-center justify-between px-4">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="relative flex h-2.5 w-2.5 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-50"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-black"></span>
-                  </span>
-                  <span className="text-xs sm:text-sm font-black tracking-widest text-black uppercase font-sans shrink-0">
-                    ● LIVE NOW
-                  </span>
-                  <span className="text-xs font-black text-black/85 uppercase font-sans truncate">
-                    · {activeUserIntent.intent}
-                  </span>
-                </div>
-
-                <span className="text-xs font-mono font-bold text-black/90 shrink-0 bg-black/10 px-2 py-0.5 rounded">
-                  {formatRemainingTime(remainingMinutes)}
-                </span>
-              </div>
-            </div>
-
-            {/* Responsive Secondary Actions Grid (Minimum 44x44px touch targets) */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  setIsSetIntentOpen(true);
-                }}
-                className="h-11 min-h-[44px] px-3 text-xs font-bold text-zinc-100 hover:text-white bg-[#141622] hover:bg-[#1a1d2e] border border-[#C9A24D]/40 rounded-xl transition-all cursor-pointer flex items-center justify-center uppercase tracking-wider font-mono shadow-sm active:scale-[0.98]"
-              >
-                Change Intent
-              </button>
-
-              <button
-                type="button"
-                onClick={handleEndIntent}
-                className="h-11 min-h-[44px] px-3 text-xs font-bold text-zinc-300 hover:text-white bg-[#1a1424] hover:bg-[#251c36] border border-[#6F3CC3]/50 rounded-xl transition-all cursor-pointer flex items-center justify-center uppercase tracking-wider font-mono shadow-sm active:scale-[0.98]"
-              >
-                End Intent
-              </button>
-            </div>
-
-            {/* Compact Protection & Area Note */}
-            <div className="flex items-center justify-between px-1 text-[11px] font-mono text-zinc-400">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[#C9A24D] font-bold">● Protected</span>
-                <span className="text-zinc-600">·</span>
-                <span className="text-zinc-300 truncate">{activeUserIntent.area}</span>
-              </div>
-              <span className="text-[10px] text-zinc-500 shrink-0">±300m cloaked</span>
-            </div>
-          </div>
+      <div className="w-full h-full absolute inset-0 z-0">
+        {mapDisplayType === 'map' ? (
+          <PrivacyGeographicMap
+            pulses={pulses}
+            safeHavens={safeHavens}
+            profiles={datingProfiles}
+            userNeighborhood={userNeighborhood}
+            privacySetting={privacySetting}
+            filter={activeCategory}
+            intentModeFilter={activeIntentMode}
+            showJitterCircles={showJitterCircles}
+            selectedItem={selectedItem}
+            onSelectItem={(item) => {
+              hapticLight();
+              setSelectedItem(item);
+              setIsCardExpanded(false);
+            }}
+            onOpenDirectChat={onOpenDirectChat}
+            onOpenDirectChatWithProfile={onOpenDirectChatWithProfile}
+            onSelectHaven={onSelectHaven}
+            onGazeAtPeer={onGazeAtPeer}
+            onOpenScheduleMeeting={onOpenScheduleMeeting}
+            onMapReady={(controls) => {
+              mapControlsRef.current = controls;
+            }}
+          />
         ) : (
-          /* OFF STATE: Premium neutral/dark with subtle amber edge */
+          <RadarMap
+            pulses={pulses}
+            safeHavens={safeHavens}
+            userNeighborhood={userNeighborhood}
+            selectedId={selectedItem?.item.id}
+            onSelectPulse={(p) => {
+              hapticLight();
+              setSelectedItem({ type: 'pulse', item: p });
+              setIsCardExpanded(false);
+            }}
+            onSelectHaven={(h) => {
+              hapticLight();
+              setSelectedItem({ type: 'haven', item: h });
+              setIsCardExpanded(false);
+            }}
+          />
+        )}
+      </div>
+
+      {/* =========================================================================
+          3. TOP FLOATING INTENT & STATUS CONTROLS
+          A compact floating bar with:
+          - Floating Intent & Status Pill (e.g. "RIGHT NOW · 6 active nearby")
+          - Compact Filter Control ("Filters · 2")
+          - Compact Map/Radar selector
+         ========================================================================= */}
+      <div className="absolute top-2.5 left-2.5 right-2.5 z-30 flex items-center justify-between gap-1.5 sm:gap-2 pointer-events-none">
+        
+        {/* Left: Compact Floating Intent / Status Pill */}
+        <div className="pointer-events-auto flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => {
               hapticLight();
-              setIsSetIntentOpen(true);
+              if (activeUserIntent) {
+                setIsUserIntentDrawerOpen(true);
+              } else {
+                setIsSetIntentOpen(true);
+              }
             }}
-            className="w-full h-12 min-h-[48px] bg-[#12131a] hover:bg-[#181a24] active:scale-[0.99] border border-[#C9A24D]/35 hover:border-[#C9A24D]/75 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 group shadow-sm"
+            className="h-10 px-3 bg-[#0e1017]/85 hover:bg-[#151722]/95 backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 rounded-full shadow-lg transition-all duration-200 cursor-pointer flex items-center gap-2 group active:scale-98"
+            aria-label="Open Right Now Intent Status"
           >
-            <span className="w-2 h-2 rounded-full bg-[#C9A24D]/60 group-hover:bg-[#C9A24D] transition-colors" />
-            <span className="text-xs sm:text-sm font-black tracking-widest text-zinc-100 group-hover:text-white uppercase font-sans">
-              I’M AVAILABLE
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C9A24D] shadow-[0_0_8px_#C9A24D]"></span>
             </span>
-          </button>
-        )}
-      </div>
 
-      {/* =========================================================================
-          4. SECONDARY CONTROLS & POPPING SELECTED INTENT:
-          Selected intent has strong typography, amber foreground, subtle purple backing,
-          slightly increased scale, restrained glow, and excellent contrast.
-         ========================================================================= */}
-      <div className="relative z-10 bg-[#101118] border border-white/[0.08] rounded-2xl p-3 sm:p-3.5 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          {/* Availability / When Segment */}
-          {isRightNowMode ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1 shrink-0 font-mono">
-                <Clock className="w-3 h-3 text-[#C9A24D]" />
-                <span>When:</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wider text-white font-sans">
+                RIGHT NOW
               </span>
-
-              <div className="flex items-center p-0.5 bg-[#07080b] rounded-xl border border-white/10">
-                {(
-                  [
-                    { id: 'now', label: 'Now' },
-                    { id: '2h', label: '2h' },
-                    { id: 'tonight', label: 'Tonight' },
-                  ] as const
-                ).map((tab) => {
-                  const isActive = availabilityWindow === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => {
-                        hapticLight();
-                        setAvailabilityWindow(tab.id);
-                      }}
-                      className={`h-8 min-h-[34px] px-3 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                        isActive
-                          ? 'bg-[#C9A24D] text-black shadow-sm'
-                          : 'text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1 shrink-0 font-mono">
-                <Calendar className="w-3 h-3 text-[#6F3CC3]" />
-                <span>When?</span>
+              <span className="text-zinc-500 text-xs">·</span>
+              <span className="text-xs font-mono font-semibold text-[#C9A24D]">
+                {filteredActiveCount} nearby
               </span>
-
-              <div className="flex items-center p-0.5 bg-[#07080b] rounded-xl border border-white/10">
-                {(
-                  [
-                    { id: 'tonight', label: 'Tonight' },
-                    { id: 'tomorrow', label: 'Tomorrow' },
-                    { id: 'weekend', label: 'This weekend' },
-                    { id: 'choose', label: 'Choose time' },
-                  ] as const
-                ).map((tab) => {
-                  const isActive = laterTimeframe === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => {
-                        hapticLight();
-                        setLaterTimeframe(tab.id);
-                      }}
-                      className={`h-8 min-h-[34px] px-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                        isActive
-                          ? 'bg-[#6F3CC3] text-white shadow-sm'
-                          : 'text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <span className="hidden sm:inline text-zinc-500 text-xs">·</span>
+              <span className="hidden sm:inline text-[11px] text-zinc-400 font-mono">
+                {userNeighborhood}
+              </span>
             </div>
-          )}
 
-          {/* Distance Dropdown */}
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-[10px] text-zinc-400 font-mono uppercase">Radius:</span>
-            <select
-              value={maxDistanceKm}
-              onChange={(e) => setMaxDistanceKm(Number(e.target.value))}
-              aria-label="Filter distance"
-              className="h-8 min-h-[34px] bg-[#07080b] border border-white/10 rounded-lg px-2 text-xs text-zinc-300 focus:outline-none focus:border-[#C9A24D] cursor-pointer"
-            >
-              <option value={1}>&lt; 1 km</option>
-              <option value={2}>&lt; 2 km</option>
-              <option value={5}>&lt; 5 km</option>
-              <option value={20}>Any distance</option>
-            </select>
-          </div>
-        </div>
-
-        {/* SIGNATURE INTENT SELECTOR (Selected intent pops with purple backing & amber foreground) */}
-        <div className="pt-2.5 border-t border-white/[0.06] space-y-2">
-          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 uppercase tracking-wider px-0.5">
-            <span>Intent Selection</span>
-            {selectedIntentChip !== 'All' ? (
-              <span className="text-[#C9A24D] font-bold">
-                Filtered: {selectedIntentChip.toUpperCase()}
+            {/* If user has an active intent live on map */}
+            {activeUserIntent ? (
+              <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${
+                activeUserIntent.isPaused
+                  ? 'bg-zinc-800 text-zinc-300 border-zinc-600'
+                  : activeUserIntent.mode === 'private'
+                  ? 'bg-[#6F3CC3]/40 text-purple-200 border-purple-400/50 shadow-[0_0_8px_rgba(111,60,195,0.4)]'
+                  : 'bg-[#C9A24D]/25 text-[#C9A24D] border-[#C9A24D]/50 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
+              }`}>
+                {activeUserIntent.isPaused ? 'Paused' : `Live · ${formatRemainingTime(remainingMinutes)}`}
               </span>
             ) : (
-              <span className="text-zinc-500">All connection types</span>
+              <span className="text-[10px] text-zinc-400 group-hover:text-white flex items-center gap-0.5 font-medium ml-0.5">
+                <Sparkles className="w-3 h-3 text-[#C9A24D]" />
+                <span className="hidden xs:inline">Broadcast</span>
+              </span>
             )}
-          </div>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 -mx-1 px-1">
-            {(['All', 'Meet', 'Hookup', 'Date', 'Drinks', 'Chat', 'Group'] as (EncounterIntentType | 'All')[]).map((intent) => {
-              const isSelected = selectedIntentChip === intent;
-              return (
-                <button
-                  key={intent}
-                  type="button"
-                  onClick={() => {
-                    hapticLight();
-                    setSelectedIntentChip(intent);
-                  }}
-                  className={`h-11 min-h-[44px] px-4 rounded-xl text-xs whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 border relative shrink-0 ${
-                    isSelected
-                      ? 'scale-[1.05] bg-gradient-to-b from-[#6F3CC3]/35 via-[#231735] to-[#12111c] text-[#C9A24D] border-[#C9A24D] shadow-[0_0_20px_rgba(111,60,195,0.45),0_0_8px_rgba(201,162,77,0.35)] font-black uppercase tracking-wider z-10 ring-1 ring-[#C9A24D]/40'
-                      : 'bg-[#08090e] text-zinc-400 border-white/[0.07] hover:text-zinc-200 hover:border-white/20 font-semibold'
-                  }`}
-                >
-                  {/* Active glowing indicator on selected intent */}
-                  {isSelected && (
-                    <span className="w-2 h-2 rounded-full bg-[#C9A24D] shadow-[0_0_8px_#C9A24D] animate-pulse" />
-                  )}
-                  {intent === 'Hookup' && !isSelected && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-                  )}
-                  <span>{intent}</span>
-                </button>
-              );
-            })}
-          </div>
+          </button>
         </div>
-      </div>
 
-      {/* =========================================================================
-          5. MUTUAL INTEREST / MATCH CARD (PURE GAYZE PALETTE, NO GREEN)
-         ========================================================================= */}
-      {mutualMatchPulse && (
-        <div className="relative z-10 p-4 bg-[#141620] border border-[#C9A24D] rounded-2xl shadow-[0_0_30px_rgba(111,60,195,0.4)] animate-in fade-in zoom-in-95 duration-200 space-y-3">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black tracking-widest text-[#C9A24D] uppercase font-mono">
-                  IT’S A MATCH
-                </span>
-                <span className="text-zinc-500">·</span>
-                <span className="text-xs text-zinc-300 font-medium">Both interested</span>
-              </div>
-              <h3 className="text-base font-black text-white tracking-wide uppercase mt-0.5 font-sans">
-                {getEncounterIntent(mutualMatchPulse)} · NOW
-              </h3>
-              <p className="text-xs text-zinc-300 mt-1">
-                You and {mutualMatchPulse.peerName} expressed mutual interest.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setMutualMatchPulse(null)}
-              className="w-8 h-8 rounded-lg text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer"
-              aria-label="Dismiss match banner"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="p-2.5 bg-[#0a0b10] rounded-xl border border-white/[0.06] text-[11px] text-zinc-400 space-y-1.5">
-            <div className="flex items-center gap-2 text-[#C9A24D] font-medium font-mono">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Identity verified · Approximate location protected (±300m)</span>
-            </div>
-            {safeHavens.length > 0 && (
-              <div className="flex items-center justify-between text-zinc-300 pt-1">
-                <span className="truncate">Safe Haven nearby: {safeHavens[0].name}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectHaven(safeHavens[0]);
-                    setMutualMatchPulse(null);
-                  }}
-                  className="text-xs font-semibold text-[#C9A24D] hover:underline shrink-0 ml-2"
-                >
-                  Share Safe Haven
-                </button>
-              </div>
+        {/* Right: Compact Filter Button & Map/Radar View Switcher */}
+        <div className="pointer-events-auto flex items-center gap-1.5 shrink-0">
+          
+          {/* Compact Filter Control Button */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticLight();
+              setIsFilterDrawerOpen(true);
+            }}
+            className={`h-10 px-3 bg-[#0e1017]/85 hover:bg-[#151722]/95 backdrop-blur-xl border rounded-full shadow-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 active:scale-98 text-xs font-medium ${
+              activeFilterCount > 0
+                ? 'border-purple-500/60 text-white shadow-[0_0_12px_rgba(111,60,195,0.3)]'
+                : 'border-white/[0.12] text-zinc-300 hover:text-white hover:border-white/25'
+            }`}
+            aria-label="Open Map Filters"
+          >
+            <SlidersHorizontal className={`w-3.5 h-3.5 ${activeFilterCount > 0 ? 'text-[#C9A24D]' : 'text-zinc-400'}`} />
+            <span className="font-semibold">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-[#6F3CC3] text-white text-[10px] font-bold flex items-center justify-center font-mono">
+                {activeFilterCount}
+              </span>
             )}
-          </div>
+          </button>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setMutualMatchPulse(null)}
-              className="h-11 min-h-[44px] px-3 text-xs font-semibold text-zinc-400 hover:text-white bg-[#101118] border border-white/10 rounded-xl cursor-pointer flex items-center justify-center"
-            >
-              Keep Browsing
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onOpenDirectChat(mutualMatchPulse);
-                setMutualMatchPulse(null);
-              }}
-              className="h-11 min-h-[44px] px-3 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 uppercase tracking-wider font-sans"
-            >
-              <MessageSquare className="w-3.5 h-3.5 fill-black" />
-              <span>Message</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          6. LIVE DISCOVERY CARDS:
-          WHO → INTENT → WHEN → DISTANCE → TRUST → ACTION
-          Buttons never overlap, thumb-friendly 44px+ touch targets
-         ========================================================================= */}
-      <div className="relative z-10 space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xs sm:text-sm font-black tracking-wider uppercase font-sans text-white">
-              LIVE DISCOVERY
-            </h2>
-            <span className="text-[10px] text-zinc-400 font-mono">
-              ({filteredPulses.length} available)
-            </span>
-          </div>
-          <span className="text-[10px] text-zinc-400 font-mono">
-            {isRightNowMode ? 'Spontaneous encounters' : 'Upcoming plans'}
-          </span>
-        </div>
-
-        {filteredPulses.length === 0 ? (
-          <div className="p-8 text-center rounded-2xl bg-[#101118] border border-white/[0.08] space-y-3">
-            <Compass className="w-8 h-8 text-zinc-500 mx-auto" />
-            <h3 className="text-sm font-semibold text-white">
-              {isRightNowMode
-                ? 'No active encounters matching this window'
-                : 'No planned connections posted yet'}
-            </h3>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-              Communicate what you're open to in {userNeighborhood}.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                hapticLight();
-                setIsSetIntentOpen(true);
-              }}
-              className="h-11 min-h-[44px] px-5 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer inline-flex items-center justify-center"
-            >
-              I’M AVAILABLE
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-            {filteredPulses.map((pulse) => {
-              const intent = getEncounterIntent(pulse);
-              const compatibility = getCompatibility(intent);
-              const isInterested = interestedPulseIds.has(pulse.id);
-
-              return (
-                <div
-                  key={pulse.id}
-                  className="group bg-[#101118] hover:bg-[#141620] border border-white/[0.08] hover:border-[#C9A24D]/40 rounded-2xl p-3.5 sm:p-4 transition-all duration-200 flex flex-col justify-between shadow-sm relative overflow-hidden"
-                >
-                  <div>
-                    {/* Compatibility Indicator (deterministic, human) */}
-                    {compatibility && (
-                      <div className="flex items-center gap-1.5 mb-2 text-[10px] font-mono font-bold text-[#C9A24D]">
-                        <Sparkles className="w-3 h-3" />
-                        <span>
-                          {compatibility === 'MATCHING' ? 'MATCHING INTENT' : 'OPEN TO SIMILAR'}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* 1. WHO: Avatar & Name + Age */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-11 h-11 rounded-xl bg-[#181a24] border border-white/10 flex items-center justify-center text-sm font-black text-[#C9A24D] shrink-0 font-sans shadow-inner">
-                          {pulse.peerName.charAt(0)}
-                        </div>
-
-                        <div>
-                          <span className="text-sm sm:text-base font-bold text-white tracking-tight">
-                            {pulse.peerName} · 34
-                          </span>
-                          {/* Proximity & Live dot */}
-                          <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5 font-mono">
-                            <span className="flex items-center gap-1 text-[#C9A24D] font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] animate-pulse" />
-                              {isRightNowMode ? 'Active now' : 'Upcoming'}
-                            </span>
-                            <span>·</span>
-                            <span>{pulse.approxDistanceKm} km</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 2. INTENT: Prominently displayed */}
-                      <div className="text-right shrink-0">
-                        <span className="inline-block px-2.5 py-1 rounded-lg bg-[#181424] border border-[#6F3CC3]/40 text-[#C9A24D] text-xs font-black tracking-wider uppercase font-sans shadow-[0_0_10px_rgba(111,60,195,0.25)]">
-                          {intent}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 3. WHEN: Availability window */}
-                    <div className="mt-3">
-                      <p className="text-xs font-medium text-zinc-200">
-                        {isRightNowMode ? 'Available now · ~2 hrs' : 'Available for tonight'}
-                      </p>
-                    </div>
-
-                    {/* 4. TRUST: Protected Area & Verified */}
-                    <div className="mt-2.5 pt-2 border-t border-white/[0.05] flex items-center justify-between text-[11px] text-zinc-400">
-                      <div className="flex items-center gap-1 truncate max-w-[200px]">
-                        <MapPin className="w-3 h-3 text-[#C9A24D] shrink-0" />
-                        <span className="truncate">{pulse.venueName}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-[#C9A24D] font-mono shrink-0">
-                        <CheckCircle2 className="w-3 h-3 text-[#C9A24D]" />
-                        <span>Verified · 94</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 5. ACTION: [ Interested ] [ Message ]
-                      Responsive 2-column grid with min-h-[44px], ZERO overlap
-                  */}
-                  <div className="mt-3.5 pt-2.5 border-t border-white/[0.06] space-y-2">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-                      <div className="flex items-center gap-1">
-                        <Lock className="w-3 h-3 text-[#C9A24D]" />
-                        <span>E2EE Group</span>
-                      </div>
-                      <span>Cloaked ±300m</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* Primary Action: Interested */}
-                      <button
-                        type="button"
-                        onClick={() => handleTapInterested(pulse)}
-                        className={`h-11 min-h-[44px] px-3 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-                          isInterested
-                            ? 'bg-[#181a24] text-[#C9A24D] border border-[#C9A24D]/40'
-                            : 'bg-[#C9A24D] hover:bg-[#b58f3b] text-black shadow-sm'
-                        }`}
-                      >
-                        {isInterested ? (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Interest sent</span>
-                          </>
-                        ) : (
-                          <>
-                            <Zap className="w-3.5 h-3.5 fill-black" />
-                            <span>Interested</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* Secondary Action: Message */}
-                      <button
-                        type="button"
-                        onClick={() => onOpenDirectChat(pulse)}
-                        className="h-11 min-h-[44px] px-3 text-xs font-medium text-zinc-300 hover:text-white bg-[#181a24] hover:bg-[#202330] border border-white/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
-                      >
-                        Message
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* =========================================================================
-          7. HIERARCHY LEVEL 3: MAP / RADAR (RESTORED & PROMINENTLY EMBEDDED)
-          The map is a core part of GAYZE and is visible within RIGHT NOW.
-          Includes Map & Radar switcher with min-h-[44px] touch targets.
-          Subtle purple atmospheric glow on container border, map remains 100% readable.
-         ========================================================================= */}
-      <div ref={mapSectionRef} className="relative z-10 pt-3 space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xs sm:text-sm font-black tracking-wider uppercase font-sans text-white">
-              LIVE MAP & RADAR
-            </h2>
-            <span className="text-[10px] text-[#C9A24D] font-mono">
-              · {filteredPulses.length} active
-            </span>
-          </div>
-
-          {/* Toggle between Map and Radar */}
-          <div className="flex items-center p-0.5 bg-[#08090e] rounded-xl border border-white/10">
+          {/* Compact Map / Radar View Toggle */}
+          <div className="h-10 p-0.5 bg-[#0e1017]/85 backdrop-blur-xl rounded-full border border-white/[0.12] shadow-lg flex items-center">
             <button
               type="button"
               onClick={() => {
                 hapticLight();
                 setMapDisplayType('map');
               }}
-              className={`h-10 min-h-[44px] px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`h-8 px-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                 mapDisplayType === 'map'
-                  ? 'bg-[#181a24] text-[#C9A24D] border border-[#C9A24D]/50 shadow-sm'
+                  ? 'bg-[#1e2130] text-[#C9A24D] border border-[#C9A24D]/50 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
+              aria-label="Map View"
             >
               <MapIcon className="w-3.5 h-3.5" />
-              <span>Map</span>
+              <span className="hidden xs:inline">Map</span>
             </button>
 
             <button
@@ -927,103 +516,973 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 setMapDisplayType('radar');
               }}
-              className={`h-10 min-h-[44px] px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`h-8 px-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                 mapDisplayType === 'radar'
-                  ? 'bg-[#181a24] text-[#C9A24D] border border-[#C9A24D]/50 shadow-sm'
+                  ? 'bg-[#1e2130] text-[#C9A24D] border border-[#C9A24D]/50 shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
+              aria-label="Radar View"
             >
               <Radio className="w-3.5 h-3.5" />
-              <span>Radar</span>
+              <span className="hidden xs:inline">Radar</span>
             </button>
           </div>
-        </div>
-
-        {/* Embedded Map Container */}
-        <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_24px_rgba(111,60,195,0.22)] bg-[#07080b]">
-          {mapDisplayType === 'map' ? (
-            <PrivacyGeographicMap
-              pulses={filteredPulses}
-              safeHavens={safeHavens}
-              profiles={datingProfiles}
-              userNeighborhood={userNeighborhood}
-              privacySetting={privacySetting}
-              onOpenDirectChat={onOpenDirectChat}
-              onOpenDirectChatWithProfile={onOpenDirectChatWithProfile}
-              onSelectHaven={onSelectHaven}
-              onBroadcastHere={handleBroadcastHere}
-              onGazeAtPeer={onGazeAtPeer}
-              onOpenScheduleMeeting={onOpenScheduleMeeting}
-            />
-          ) : (
-            <div className="space-y-3 p-3">
-              <RadarMap
-                pulses={filteredPulses}
-                safeHavens={safeHavens}
-                userNeighborhood={userNeighborhood}
-                onSelectPulse={(p) => setSelectedPulseForDetail(p)}
-                onSelectHaven={(h) => onSelectHaven(h)}
-              />
-
-              {selectedPulseForDetail && (
-                <div className="p-3 bg-[#101118] border border-white/10 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-[#181a24] border border-white/10 flex items-center justify-center font-bold text-[#C9A24D] shrink-0">
-                      {selectedPulseForDetail.peerName.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-white">
-                          {selectedPulseForDetail.peerName}
-                        </span>
-                        <span className="text-[10px] font-bold text-[#C9A24D] uppercase font-mono">
-                          {getEncounterIntent(selectedPulseForDetail)}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-zinc-400 flex items-center gap-1 font-mono">
-                        <MapPin className="w-3 h-3 text-[#C9A24D]" />
-                        <span>{selectedPulseForDetail.venueName}</span>
-                        <span>·</span>
-                        <span>~{selectedPulseForDetail.approxDistanceKm} km</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPulseForDetail(null)}
-                      className="h-10 min-h-[40px] px-3 text-xs text-zinc-400 hover:text-white bg-[#141620] border border-white/10 rounded-xl cursor-pointer"
-                    >
-                      Dismiss
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenDirectChat(selectedPulseForDetail)}
-                      className="h-10 min-h-[40px] flex items-center justify-center gap-1.5 px-3.5 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Message</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Supporting Privacy & Safety Metadata */}
-        <div className="flex items-center justify-between px-2 text-[11px] text-zinc-400 font-mono">
-          <span>{filteredPulses.length} live encounters · {safeHavens.length} safe havens</span>
-          <span className="flex items-center gap-1 text-[#C9A24D]">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Cloaked ±300m</span>
-          </span>
         </div>
       </div>
 
       {/* =========================================================================
-          8. REFINED "SET YOUR INTENT" BOTTOM SHEET / MODAL
+          4. CLEAN FLOATING VERTICAL MAP CONTROLS
+          Independent vertical group on top-right edge:
+          - Zoom In (+)
+          - Zoom Out (-)
+          - Recenter / Location compass
+          - Toggle ±300m privacy circles
+         ========================================================================= */}
+      {mapDisplayType === 'map' && (
+        <div className="absolute top-16 right-2.5 z-20 flex flex-col gap-1.5 pointer-events-auto">
+          {/* Zoom In */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticLight();
+              mapControlsRef.current?.zoomIn();
+            }}
+            title="Zoom In"
+            aria-label="Zoom In"
+            className="w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+
+          {/* Zoom Out */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticLight();
+              mapControlsRef.current?.zoomOut();
+            }}
+            title="Zoom Out"
+            aria-label="Zoom Out"
+            className="w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+
+          {/* Recenter / Compass */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticLight();
+              mapControlsRef.current?.recenter();
+            }}
+            title="Recenter to Soho"
+            aria-label="Recenter to Soho"
+            className="w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 text-zinc-300 hover:text-[#C9A24D] shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+          >
+            <Compass className="w-4 h-4 text-[#C9A24D]" />
+          </button>
+
+          {/* Toggle Privacy Area Circles */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticLight();
+              setShowJitterCircles(!showJitterCircles);
+            }}
+            title="Toggle Privacy Area Cloaking (~300m)"
+            aria-label="Toggle Privacy Area"
+            className={`w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl backdrop-blur-xl border shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+              showJitterCircles
+                ? 'bg-[#1c152a]/90 text-[#C9A24D] border-[#6F3CC3]/60 shadow-[0_0_10px_rgba(111,60,195,0.3)]'
+                : 'bg-[#0e1017]/85 hover:bg-[#181a26] text-zinc-400 border-white/[0.12]'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* =========================================================================
+          5. COMPACT FLOATING BOTTOM DISCOVERY CARD (PREVIEW)
+          Sits comfortably above the mobile bottom navigation bar without overlapping.
+          Has clear visual hierarchy:
+          - avatar/name
+          - distance + availability
+          - short intent description
+          - location/time
+          - actions (Interested, Safe Meet, Message)
+         ========================================================================= */}
+      {selectedItem && !isCardExpanded && (
+        <div className="absolute bottom-[4.25rem] md:bottom-5 left-2.5 right-2.5 max-w-lg mx-auto z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="relative group bg-[#0e1017]/92 backdrop-blur-xl border border-white/[0.14] hover:border-white/25 rounded-2xl p-3 sm:p-3.5 shadow-2xl transition-all">
+            
+            {/* Ambient subtle glow based on intent type */}
+            <div className={`absolute -inset-0.5 rounded-2xl blur-md pointer-events-none opacity-40 transition-opacity ${
+              selectedItem.type === 'haven'
+                ? 'bg-emerald-500/25'
+                : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
+                ? 'bg-[#6F3CC3]/35'
+                : 'bg-[#C9A24D]/25'
+            }`} />
+
+            <div className="relative space-y-2">
+              {/* Row 1: Header (Avatar, Name, Age, Intent Badge, Expand & Close triggers) */}
+              <div className="flex items-start justify-between gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsCardExpanded(true)}
+                  className="flex items-center gap-2.5 text-left cursor-pointer group/card flex-1 min-w-0"
+                >
+                  {/* Avatar / Icon */}
+                  {selectedItem.type === 'profile' ? (
+                    <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-white/20 bg-[#161822] shrink-0 shadow-inner">
+                      <img
+                        src={selectedItem.item.photoUrl}
+                        alt={selectedItem.item.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/src/assets/images/dating_profile_marcus_1790154961749.jpg';
+                        }}
+                      />
+                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border border-black shadow" />
+                    </div>
+                  ) : selectedItem.type === 'haven' ? (
+                    <div className="w-11 h-11 rounded-xl bg-[#101e1a] border border-emerald-500/60 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                  ) : (
+                    <div className={`w-11 h-11 rounded-xl border flex items-center justify-center font-bold text-sm shrink-0 shadow-inner ${
+                      selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
+                        ? 'bg-[#221634] border-purple-500/50 text-purple-300'
+                        : 'bg-[#221c12] border-[#C9A24D]/50 text-[#C9A24D]'
+                    }`}>
+                      {selectedItem.item.peerName.charAt(0)}
+                    </div>
+                  )}
+
+                  {/* Name + Title + Intent Badge */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                        {getDisplayName(selectedItem)}
+                      </h3>
+
+                      {/* Intent Pill / Badge */}
+                      <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-md border shrink-0 ${
+                        selectedItem.type === 'haven'
+                          ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40'
+                          : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
+                          ? 'bg-[#271438] text-purple-300 border-purple-500/50 shadow-[0_0_8px_rgba(111,60,195,0.3)]'
+                          : 'bg-[#261f12] text-[#C9A24D] border-[#C9A24D]/50'
+                      }`}>
+                        {selectedItem.type === 'haven'
+                          ? `HAVEN ★ ${selectedItem.item.safetyScore}`
+                          : selectedItem.type === 'pulse'
+                          ? `${(selectedItem.item.intentMode || 'social').toUpperCase()} · ${selectedItem.item.intent || selectedItem.item.title}`
+                          : `${(selectedItem.item.intentMode || 'social').toUpperCase()} · ${selectedItem.item.lookingForLabel || 'Connect'}`}
+                      </span>
+                    </div>
+
+                    {/* Unboxed Distance & Context */}
+                    <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-mono mt-0.5">
+                      <span className="flex items-center gap-1 text-[#C9A24D]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] animate-pulse" />
+                        Available now
+                      </span>
+                      <span>·</span>
+                      <span>
+                        ~{selectedItem.type === 'haven' ? '0.2' : (selectedItem.item as any).approxDistanceKm || '0.3'} km
+                      </span>
+                      <span>·</span>
+                      <span className="text-zinc-400 truncate">
+                        {selectedItem.type === 'haven' ? selectedItem.item.neighborhood : (selectedItem.item as any).venueName || userNeighborhood}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Top Right Controls (Expand & Dismiss) */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      setIsCardExpanded(true);
+                    }}
+                    className="w-8 h-8 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center justify-center cursor-pointer"
+                    title="Expand details"
+                    aria-label="Expand details"
+                  >
+                    <ChevronUp className="w-4 h-4 text-[#C9A24D]" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      setSelectedItem(null);
+                    }}
+                    className="w-8 h-8 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center justify-center cursor-pointer"
+                    title="Close preview"
+                    aria-label="Close preview"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Short Intent Description (Intelligently truncated) */}
+              <p
+                onClick={() => setIsCardExpanded(true)}
+                className="text-xs text-zinc-300 italic line-clamp-1 cursor-pointer hover:text-white transition-colors"
+              >
+                "{getDisplayDescription(selectedItem)}"
+              </p>
+
+              {/* Actions Row */}
+              <div className="grid grid-cols-3 gap-2 pt-0.5">
+                {selectedItem.type === 'haven' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onSelectHaven(selectedItem.item)}
+                      className="col-span-2 h-10 min-h-[40px] px-2 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow active:scale-98 font-sans uppercase tracking-wide"
+                    >
+                      <MapPin className="w-3.5 h-3.5 fill-black" />
+                      <span>Explore Safe Haven</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        if (onOpenScheduleMeeting) {
+                          onOpenScheduleMeeting(selectedItem.item.name);
+                        }
+                      }}
+                      className="h-10 min-h-[40px] px-2 text-xs font-bold text-[#C9A24D] bg-[#1a1c27] hover:bg-[#222534] border border-[#C9A24D]/40 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98 font-mono"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Meet Here</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* Action 1: Interested / Gaze */}
+                    {selectedItem.type === 'pulse' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleTapInterested(selectedItem.item.id, selectedItem.item)}
+                        className={`h-10 min-h-[40px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
+                          interestedIds.has(selectedItem.item.id)
+                            ? 'bg-[#20182c] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
+                            : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
+                        }`}
+                      >
+                        {interestedIds.has(selectedItem.item.id) ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-[#C9A24D]" />
+                            <span>Interested</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-3.5 h-3.5 text-[#C9A24D]" />
+                            <span>Interested</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleGazeAtPerson(selectedItem.item.name)}
+                        className={`h-10 min-h-[40px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
+                          gazedPeerNames.has(selectedItem.item.name)
+                            ? 'bg-[#231535] text-purple-300 border-purple-500/60'
+                            : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
+                        }`}
+                      >
+                        <Eye className="w-3.5 h-3.5 text-[#C9A24D]" />
+                        <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze 👀'}</span>
+                      </button>
+                    )}
+
+                    {/* Action 2: Safe Meet */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        const peerName = selectedItem.type === 'pulse' ? selectedItem.item.peerName : selectedItem.item.name;
+                        if (onOpenScheduleMeeting) {
+                          onOpenScheduleMeeting(peerName);
+                        }
+                      }}
+                      className="h-10 min-h-[40px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#181a24] hover:bg-[#202332] border border-[#C9A24D]/35 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1 active:scale-98 font-mono"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Safe Meet</span>
+                    </button>
+
+                    {/* Action 3: Message (Direct Encrypted Chat) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        if (selectedItem.type === 'pulse') {
+                          onOpenDirectChat(selectedItem.item);
+                        } else if (onOpenDirectChatWithProfile) {
+                          onOpenDirectChatWithProfile(selectedItem.item);
+                        }
+                      }}
+                      className="h-10 min-h-[40px] px-2 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow active:scale-98 uppercase tracking-wide font-sans"
+                    >
+                      <Lock className="w-3.5 h-3.5 fill-black" />
+                      <span>Message</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          6. EXPANDED DISCOVERY DETAIL BOTTOM SHEET
+          Slides up smoothly when the user taps expand or the preview card.
+          Preserves the map visible behind the sheet with backdrop blur.
+         ========================================================================= */}
+      {selectedItem && isCardExpanded && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className="w-full max-w-lg mx-auto bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag Handle */}
+            <div
+              onClick={() => setIsCardExpanded(false)}
+              className="py-3 flex flex-col items-center justify-center cursor-pointer group"
+            >
+              <div className="w-12 h-1.5 bg-zinc-600 group-hover:bg-zinc-400 rounded-full transition-colors" />
+            </div>
+
+            {/* Scrollable Sheet Content */}
+            <div className="px-5 pb-6 overflow-y-auto space-y-4">
+              
+              {/* Header Profile / Haven Presentation */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {selectedItem.type === 'profile' ? (
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-lg">
+                      <img
+                        src={selectedItem.item.photoUrl}
+                        alt={selectedItem.item.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/src/assets/images/dating_profile_marcus_1790154961749.jpg';
+                        }}
+                      />
+                    </div>
+                  ) : selectedItem.type === 'haven' ? (
+                    <div className="w-14 h-14 rounded-2xl bg-[#10221c] border-2 border-emerald-500/70 text-emerald-400 flex items-center justify-center shrink-0 shadow-lg">
+                      <ShieldCheck className="w-7 h-7" />
+                    </div>
+                  ) : (
+                    <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center font-black text-xl shrink-0 shadow-lg ${
+                      selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
+                        ? 'bg-[#251538] border-purple-500 text-purple-200'
+                        : 'bg-[#251e12] border-[#C9A24D] text-[#C9A24D]'
+                    }`}>
+                      {selectedItem.item.peerName.charAt(0)}
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-black text-white tracking-tight">
+                        {getDisplayName(selectedItem)}
+                      </h2>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 mt-0.5">
+                      <span className="text-[#C9A24D] font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] animate-pulse" />
+                        Active Right Now
+                      </span>
+                      <span>·</span>
+                      <span>
+                        ~{selectedItem.type === 'haven' ? '0.2' : (selectedItem.item as any).approxDistanceKm || '0.3'} km away
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCardExpanded(false)}
+                  className="w-9 h-9 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+                  aria-label="Close sheet"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Intent Mode & Category Highlight Box */}
+              <div className="p-3.5 bg-[#12141e] border border-white/[0.08] rounded-2xl space-y-2">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-zinc-400 uppercase font-semibold">Broadcast Intent</span>
+                  <span className={`px-2 py-0.5 rounded-md font-bold uppercase ${
+                    selectedItem.type === 'haven'
+                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                      : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
+                      ? 'bg-purple-950 text-purple-300 border border-purple-500/40'
+                      : 'bg-[#C9A24D]/20 text-[#C9A24D] border border-[#C9A24D]/40'
+                  }`}>
+                    {selectedItem.type === 'haven'
+                      ? `SAFE HAVEN · ★ ${selectedItem.item.safetyScore}`
+                      : selectedItem.type === 'pulse'
+                      ? `${selectedItem.item.intentMode?.toUpperCase() || 'SOCIAL'} · ${selectedItem.item.intent || selectedItem.item.title}`
+                      : `${selectedItem.item.intentMode?.toUpperCase() || 'SOCIAL'} · ${selectedItem.item.lookingForLabel || 'Connect'}`}
+                  </span>
+                </div>
+
+                <p className="text-sm text-zinc-200 leading-relaxed italic">
+                  "{getDisplayDescription(selectedItem)}"
+                </p>
+              </div>
+
+              {/* Context Details Grid (Hosting, Window, Neighborhood, Security) */}
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
+                  <span className="text-zinc-500 text-[10px] uppercase font-bold block">Availability Window</span>
+                  <div className="flex items-center gap-1.5 text-zinc-200 font-semibold">
+                    <Clock className="w-3.5 h-3.5 text-[#C9A24D]" />
+                    <span>Available now</span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 block">
+                    {selectedItem.type === 'pulse' ? `~${selectedItem.item.durationHours} hrs window` : 'Immediate meet'}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
+                  <span className="text-zinc-500 text-[10px] uppercase font-bold block">Neighborhood</span>
+                  <div className="flex items-center gap-1.5 text-zinc-200 font-semibold truncate">
+                    <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
+                    <span className="truncate">
+                      {selectedItem.type === 'haven' ? selectedItem.item.neighborhood : (selectedItem.item as any).venueName || userNeighborhood}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 block">±300m privacy cloaked</span>
+                </div>
+
+                {selectedItem.type === 'pulse' && selectedItem.item.canHost && (
+                  <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
+                    <span className="text-zinc-500 text-[10px] uppercase font-bold block">Host Status</span>
+                    <span className="text-purple-300 font-bold block">{selectedItem.item.canHost}</span>
+                    <span className="text-[10px] text-zinc-400 block">Soho area verified</span>
+                  </div>
+                )}
+
+                {selectedItem.type === 'pulse' && selectedItem.item.travelWillingness && !selectedItem.item.canHost && (
+                  <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
+                    <span className="text-zinc-500 text-[10px] uppercase font-bold block">Travel Range</span>
+                    <span className="text-purple-300 font-bold block">{selectedItem.item.travelWillingness}</span>
+                    <span className="text-[10px] text-zinc-400 block">Walking distance</span>
+                  </div>
+                )}
+
+                <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1 col-span-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500 text-[10px] uppercase font-bold">Safety & Cryptographic Trust</span>
+                    <span className="text-emerald-400 font-bold">P2P Verified</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-300 flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Approximate location only · No GPS breadcrumbs stored</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons in Expanded Sheet */}
+              <div className="pt-2 space-y-2">
+                {selectedItem.type === 'haven' ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectHaven(selectedItem.item);
+                        setIsCardExpanded(false);
+                      }}
+                      className="h-12 min-h-[44px] px-3 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wide font-sans shadow-lg"
+                    >
+                      <MapPin className="w-4 h-4 fill-black" />
+                      <span>View Safe Haven</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        setIsCardExpanded(false);
+                        if (onOpenScheduleMeeting) {
+                          onOpenScheduleMeeting(selectedItem.item.name);
+                        }
+                      }}
+                      className="h-12 min-h-[44px] px-3 text-xs font-bold text-[#C9A24D] bg-[#1a1c27] hover:bg-[#222534] border border-[#C9A24D]/40 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 font-mono"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span>Schedule Meetup</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* Interested */}
+                    {selectedItem.type === 'pulse' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleTapInterested(selectedItem.item.id, selectedItem.item)}
+                        className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
+                          interestedIds.has(selectedItem.item.id)
+                            ? 'bg-[#221832] text-[#C9A24D] border-[#C9A24D]/70 shadow-[0_0_12px_rgba(201,162,77,0.35)]'
+                            : 'bg-[#181a24] text-zinc-200 border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        {interestedIds.has(selectedItem.item.id) ? (
+                          <>
+                            <Check className="w-4 h-4 text-[#C9A24D]" />
+                            <span>Interested</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-4 h-4 text-[#C9A24D]" />
+                            <span>Interested</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleGazeAtPerson(selectedItem.item.name)}
+                        className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
+                          gazedPeerNames.has(selectedItem.item.name)
+                            ? 'bg-[#241538] text-purple-300 border-purple-500/60'
+                            : 'bg-[#181a24] text-zinc-200 border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <Eye className="w-4 h-4 text-[#C9A24D]" />
+                        <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze 👀'}</span>
+                      </button>
+                    )}
+
+                    {/* Safe Meet */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        setIsCardExpanded(false);
+                        const peerName = selectedItem.type === 'pulse' ? selectedItem.item.peerName : selectedItem.item.name;
+                        if (onOpenScheduleMeeting) {
+                          onOpenScheduleMeeting(peerName);
+                        }
+                      }}
+                      className="h-12 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#181a24] hover:bg-[#202332] border border-[#C9A24D]/40 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 font-mono"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span>Safe Meet</span>
+                    </button>
+
+                    {/* Message */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        setIsCardExpanded(false);
+                        if (selectedItem.type === 'pulse') {
+                          onOpenDirectChat(selectedItem.item);
+                        } else if (onOpenDirectChatWithProfile) {
+                          onOpenDirectChatWithProfile(selectedItem.item);
+                        }
+                      }}
+                      className="h-12 min-h-[44px] px-2 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg active:scale-98 uppercase tracking-wider font-sans"
+                    >
+                      <Lock className="w-4 h-4 fill-black" />
+                      <span>Message</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          7. ANIMATED FILTER DRAWER (BOTTOM SHEET)
+          Triggered from "Filters · X".
+          Replaces the heavy static "All / People / Coffee / Drinks / Havens" bar.
+          Organised into clean progressive disclosure sections:
+          - Discovery Target (All / People / Coffee / Drinks / Safe Havens)
+          - Intent Mode (All / Social / Private)
+          - Distance / Cloaking options
+          - Dynamic contextual CTA ("Show 6 active nearby")
+         ========================================================================= */}
+      {isFilterDrawerOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsFilterDrawerOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg mx-auto bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Drag Handle */}
+            <div className="py-3 flex flex-col items-center justify-center">
+              <div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
+            </div>
+
+            {/* Header: Title + Clear all */}
+            <div className="px-5 pb-3 flex items-center justify-between border-b border-white/[0.08]">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-[#C9A24D]" />
+                <h2 className="text-sm font-black uppercase tracking-wider text-white font-sans">
+                  FILTER RIGHT NOW
+                </h2>
+              </div>
+
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="text-xs font-mono text-[#C9A24D] hover:underline cursor-pointer"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {/* Scrollable Filters Body */}
+            <div className="px-5 py-4 overflow-y-auto space-y-5">
+              
+              {/* SECTION 1: WHAT ARE YOU LOOKING FOR? */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
+                  CATEGORY & SPOT TYPE
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'all', label: 'All Nearby' },
+                    { id: 'people', label: 'People' },
+                    { id: 'coffee', label: 'Coffee / Meet' },
+                    { id: 'drinks', label: 'Drinks / Bars' },
+                    { id: 'havens', label: 'Safe Havens' },
+                    { id: 'active', label: 'Active / Walks' },
+                  ].map((cat) => {
+                    const isSelected = activeCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => {
+                          hapticLight();
+                          setActiveCategory(cat.id as any);
+                        }}
+                        className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center text-center active:scale-98 ${
+                          isSelected
+                            ? 'bg-[#221634] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_10px_rgba(201,162,77,0.3)]'
+                            : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SECTION 2: INTENT MODE */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
+                  INTENT MODE
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['All', 'Social', 'Private'] as const).map((mode) => {
+                    const isSelected = activeIntentMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          hapticLight();
+                          setActiveIntentMode(mode);
+                        }}
+                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center active:scale-98 uppercase font-mono ${
+                          isSelected
+                            ? mode === 'Private'
+                              ? 'bg-purple-950/80 text-purple-200 border-purple-500 shadow-[0_0_12px_rgba(111,60,195,0.4)]'
+                              : 'bg-[#C9A24D] text-black border-[#C9A24D] shadow-md'
+                            : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SECTION 3: PRIVACY & DISTANCE */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
+                  PRIVACY & DISTANCE
+                </span>
+
+                <div className="p-3 bg-[#12141e] border border-white/[0.08] rounded-xl flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-white block">±300m Location Cloaking Circles</span>
+                    <span className="text-[11px] text-zinc-400 block">Render fuzzy safety zones over exact coordinates</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      setShowJitterCircles(!showJitterCircles);
+                    }}
+                    className={`w-12 h-6 rounded-full transition-colors p-0.5 cursor-pointer shrink-0 ${
+                      showJitterCircles ? 'bg-[#6F3CC3]' : 'bg-zinc-700'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      showJitterCircles ? 'translate-x-6' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {[
+                    { km: 1, label: '< 1 km' },
+                    { km: 3, label: '< 3 km' },
+                    { km: 5, label: 'All Soho' },
+                  ].map((dist) => {
+                    const isSelected = maxDistanceKm === dist.km;
+                    return (
+                      <button
+                        key={dist.km}
+                        type="button"
+                        onClick={() => {
+                          hapticLight();
+                          setMaxDistanceKm(dist.km);
+                        }}
+                        className={`h-10 min-h-[40px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center font-mono ${
+                          isSelected
+                            ? 'bg-[#1e2230] text-[#C9A24D] border-[#C9A24D]/60'
+                            : 'bg-[#12141e] text-zinc-400 border-white/[0.08]'
+                        }`}
+                      >
+                        {dist.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Sticky Dynamic Apply CTA */}
+            <div className="p-4 border-t border-white/[0.08] bg-[#0c0e15] flex items-center gap-2 pb-safe">
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="h-12 min-h-[44px] px-4 text-xs font-bold text-zinc-400 hover:text-white bg-[#141620] border border-white/10 rounded-xl cursor-pointer"
+              >
+                Reset
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setIsFilterDrawerOpen(false);
+                }}
+                className="flex-1 h-12 min-h-[44px] px-4 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg uppercase tracking-wide font-sans active:scale-98"
+              >
+                <span>Show {filteredActiveCount} Active Nearby</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          8. USER'S ACTIVE INTENT BOTTOM SHEET / DRAWER
+          Triggered from the top status pill when user has a broadcast live.
+         ========================================================================= */}
+      {isUserIntentDrawerOpen && activeUserIntent && (
+        <div 
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsUserIntentDrawerOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg mx-auto bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col p-5 space-y-4 animate-in slide-in-from-bottom duration-300 pb-safe"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag Handle */}
+            <div className="py-1 flex flex-col items-center justify-center">
+              <div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  {!activeUserIntent.isPaused && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-75" />
+                  )}
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                    activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#C9A24D]'
+                  }`} />
+                </span>
+                <h3 className="text-sm font-black uppercase tracking-wider text-white font-sans">
+                  {activeUserIntent.isPaused ? 'INTENT PAUSED ON MAP' : 'YOUR LIVE BROADCAST'}
+                </h3>
+              </div>
+
+              <span className="text-xs font-mono font-bold text-zinc-300 bg-white/[0.06] px-2.5 py-0.5 rounded-md border border-white/10">
+                {formatRemainingTime(remainingMinutes)} left
+              </span>
+            </div>
+
+            <div className="p-3.5 bg-[#12141e] border border-white/[0.08] rounded-2xl space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className={`text-xs font-black font-mono uppercase px-2 py-0.5 rounded border ${
+                  activeUserIntent.mode === 'private'
+                    ? 'bg-purple-950/80 text-purple-300 border-purple-500/40'
+                    : 'bg-[#C9A24D]/20 text-[#C9A24D] border-[#C9A24D]/40'
+                }`}>
+                  {activeUserIntent.mode}
+                </span>
+                <h4 className="text-base font-black text-white uppercase tracking-wide truncate">
+                  {activeUserIntent.intent}
+                </h4>
+              </div>
+
+              <p className="text-xs text-zinc-300 italic leading-relaxed">
+                "{activeUserIntent.description}"
+              </p>
+
+              <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-zinc-400">
+                <span>{activeUserIntent.when} · {activeUserIntent.travelDistance}</span>
+                <span className="text-[#C9A24D]">±300m cloaked in {activeUserIntent.area}</span>
+              </div>
+            </div>
+
+            {/* Actions: Edit, Pause/Resume, End */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setIsUserIntentDrawerOpen(false);
+                  setIsSetIntentOpen(true);
+                }}
+                className="h-11 min-h-[44px] px-2 text-xs font-bold text-zinc-200 hover:text-white bg-[#151722] hover:bg-[#1c1f2e] border border-white/10 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase font-mono active:scale-98 shadow-sm"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-[#C9A24D]" />
+                <span>Edit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTogglePause}
+                className="h-11 min-h-[44px] px-2 text-xs font-bold text-zinc-200 hover:text-white bg-[#151722] hover:bg-[#1c1f2e] border border-white/10 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase font-mono active:scale-98 shadow-sm"
+              >
+                {activeUserIntent.isPaused ? (
+                  <>
+                    <Play className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Resume</span>
+                  </>
+                ) : (
+                  <>
+                    <Pause className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Pause</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleEndIntent}
+                className="h-11 min-h-[44px] px-2 text-xs font-bold text-purple-300 hover:text-white bg-[#221528] hover:bg-[#2c1836] border border-purple-500/40 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase font-mono active:scale-98 shadow-sm"
+              >
+                <X className="w-3.5 h-3.5 text-purple-400" />
+                <span>End</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          9. MUTUAL MATCH / INTEREST NOTIFICATION BANNER
+         ========================================================================= */}
+      {mutualMatchPulse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm p-4 bg-[#141620] border border-[#C9A24D] rounded-2xl shadow-[0_0_36px_rgba(111,60,195,0.45)] space-y-3 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black tracking-widest text-[#C9A24D] uppercase font-mono">
+                    MUTUAL INTEREST
+                  </span>
+                  <span className="text-zinc-500">·</span>
+                  <span className="text-xs text-zinc-300 font-medium">Both active now</span>
+                </div>
+                <h3 className="text-base font-black text-white tracking-wide uppercase mt-0.5 font-sans">
+                  {mutualMatchPulse.intent || mutualMatchPulse.title} · NOW
+                </h3>
+                <p className="text-xs text-zinc-300 mt-1">
+                  You and {mutualMatchPulse.peerName} both expressed mutual availability.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMutualMatchPulse(null)}
+                className="w-8 h-8 rounded-lg text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer"
+                aria-label="Dismiss banner"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-2.5 bg-[#0a0b10] rounded-xl border border-white/[0.06] text-[11px] text-zinc-400 space-y-1.5 font-mono">
+              <div className="flex items-center gap-2 text-[#C9A24D]">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Identity verified · Approximate location protected (±300m)</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setMutualMatchPulse(null)}
+                className="h-11 min-h-[44px] px-3 text-xs font-semibold text-zinc-400 hover:text-white bg-[#101118] border border-white/10 rounded-xl cursor-pointer flex items-center justify-center"
+              >
+                Keep Browsing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenDirectChat(mutualMatchPulse);
+                  setMutualMatchPulse(null);
+                }}
+                className="h-11 min-h-[44px] px-3 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 uppercase tracking-wider font-sans"
+              >
+                <MessageSquare className="w-3.5 h-3.5 fill-black" />
+                <span>Message</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          10. SET INTENT BOTTOM SHEET / MODAL
          ========================================================================= */}
       <SetIntentSheet
         isOpen={isSetIntentOpen}
@@ -1032,7 +1491,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
         userNeighborhood={userNeighborhood}
-        defaultWhen={isRightNowMode ? 'Now' : 'Tonight'}
+        defaultWhen="Now"
       />
     </div>
   );

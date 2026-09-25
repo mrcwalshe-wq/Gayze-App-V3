@@ -22,9 +22,15 @@ export interface Pulse {
   peerName: string;
   peerShortKey: string;
   peerAvatar: string;
+  peerAge?: number;
   title: string;
   description: string;
   activityCategory: 'coffee' | 'drinks' | 'walk' | 'active' | 'culture' | 'chill';
+  intentMode?: TopLevelIntentMode;
+  intent?: EncounterIntent;
+  travelDistance?: string;
+  canHost?: string;
+  travelWillingness?: string;
   venueName: string;
   neighborhood: string;
   approxDistanceKm: number;
@@ -36,6 +42,7 @@ export interface Pulse {
   expiresAt: number;
   tags: string[];
   safeHavenVenue?: boolean;
+  isPaused?: boolean;
 }
 
 export interface Gathering {
@@ -136,6 +143,24 @@ export type SocialIntent = typeof SOCIAL_INTENTS[number];
 export type PrivateIntent = typeof PRIVATE_INTENTS[number];
 export type EncounterIntent = SocialIntent | PrivateIntent;
 
+export interface UserActiveIntent {
+  mode: TopLevelIntentMode;
+  intent: EncounterIntent;
+  description: string;
+  when: string;
+  duration: string;
+  travelDistance: string;
+  canHost?: 'Can host' | 'Cannot host' | 'Depends';
+  travelWillingness?: 'Yes' | 'Within reason' | 'Car required';
+  context?: 'Private' | 'Public' | 'Either';
+  area: string;
+  isNearSafeHaven?: boolean;
+  safeHavenName?: string;
+  activatedAt: number;
+  expiresAt: number;
+  isPaused?: boolean;
+}
+
 export interface SocialStory {
   id: string;
   peerId: string;
@@ -159,7 +184,7 @@ export interface IntentActivityPost {
   description: string;
   category: 'social' | 'private' | 'spicy';
   intent: EncounterIntent;
-  timing: 'Right Now' | 'Next 2 hours' | 'Tonight' | 'Tomorrow';
+  timing: 'Right Now' | 'Next 1 hour' | 'Next 2 hours' | 'Tonight' | 'Tomorrow';
   venueName: string;
   neighborhood: string;
   approxDistanceKm: number;
