@@ -253,7 +253,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
                     ? 'border-[#6F3CC3] shadow-[0_0_12px_rgba(111,60,195,0.45)]' 
                     : 'border-[#C9A24D] shadow-[0_0_12px_rgba(201,162,77,0.35)]'
               } overflow-hidden bg-[#141620]">
-                <img src="${profile.photoUrl}" alt="${profile.name}" class="w-full h-full object-cover" onerror="this.src='/src/assets/images/dating_profile_marcus_1790154961749.jpg'" />
+                <img src="${profile.photoUrl}" alt="${profile.name}" class="w-full h-full object-cover" onerror="this.src='https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg'" />
               </div>
               <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ${
                 isPrivate ? 'bg-[#6F3CC3]' : 'bg-[#C9A24D]'
