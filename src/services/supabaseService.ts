@@ -254,6 +254,7 @@ export async function registerIdentityDevice(
   publicKey: string,
   deviceLabel?: string,
   signingPublicKey?: string,
+  deviceId?: string,
 ): Promise<IdentityDevice | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc('register_identity_device', {
@@ -261,6 +262,7 @@ export async function registerIdentityDevice(
     p_public_key: publicKey,
     p_device_label: deviceLabel ?? null,
     p_signing_public_key: signingPublicKey ?? null,
+    p_device_id: deviceId ?? null,
   });
   if (error) throw error;
   return data as IdentityDevice;
