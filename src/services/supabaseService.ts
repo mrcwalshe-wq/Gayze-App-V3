@@ -235,3 +235,50 @@ export async function loadConversationPeerKey(conversationId: string): Promise<C
   const row = Array.isArray(data) ? data[0] : data;
   return (row ?? null) as ConversationPeerKey | null;
 }
+
+
+export interface IdentityDevice {
+  id: string;
+  user_id: string;
+  device_fingerprint: string;
+  device_label: string | null;
+  public_key: string;
+  status: 'active' | 'revoked';
+  created_at: string;
+  last_seen_at: string;
+  revoked_at: string | null;
+}
+
+export async function registerIdentityDevice(
+  fingerprint: string,
+  publicKey: string,
+  deviceLabel?: string,
+): Promise<IdentityDevice | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('register_identity_device', {
+    p_fingerprint: fingerprint,
+    p_public_key: publicKey,
+    p_device_label: deviceLabel ?? null,
+  });
+  if (error) throw error;
+  return data as IdentityDevice;
+}
+
+export async function listIdentityDevices(): Promise<IdentityDevice[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('identity_devices')
+    .select('id,user_id,device_fingerprint,device_label,public_key,status,created_at,last_seen_at,revoked_at')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as IdentityDevice[];
+}
+
+export async function revokeIdentityDevice(deviceId: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('revoke_identity_device', {
+    p_device_id: deviceId,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
