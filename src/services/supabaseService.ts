@@ -42,6 +42,77 @@ export async function submitInterest(toUserId: string, intentId?: string) {
   return data as { mutual: boolean; conversation_id: string | null };
 }
 
+export interface SupabaseMessageRow {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  ciphertext: string;
+  nonce: string | null;
+  created_at: string;
+  expires_at: string | null;
+  burned_at: string | null;
+}
+
+export async function loadConversationMessages(conversationId: string): Promise<SupabaseMessageRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('messages')
+    .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SupabaseMessageRow[];
+}
+
+export async function persistConversationMessage(
+  conversationId: string,
+  ciphertext: string,
+  nonce: string,
+  expiresAt?: string | null,
+) {
+  if (!supabase) throw new Error('Supabase is not configured');
+  const user = await ensureSupabaseSession();
+  if (!user) throw new Error('Authentication required');
+
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_id: user.id,
+      ciphertext,
+      nonce,
+      expires_at: expiresAt ?? null,
+    })
+    .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
+    .single();
+
+  if (error) throw error;
+  return data as SupabaseMessageRow;
+}
+
+export function subscribeToConversationMessages(
+  conversationId: string,
+  onMessage: (row: SupabaseMessageRow) => void,
+) {
+  if (!supabase) return () => undefined;
+
+  const channel = supabase
+    .channel(`gayze-conversation-${conversationId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      (payload) => onMessage(payload.new as SupabaseMessageRow),
+    )
+    .subscribe();
+
+  return () => { void supabase.removeChannel(channel); };
+}
+
 export async function submitGaze(toUserId: string, intentId?: string) {
   if (!supabase) throw new Error('Supabase is not configured');
   const { data: userData, error: userError } = await supabase.auth.getUser();
