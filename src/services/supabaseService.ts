@@ -237,6 +237,62 @@ export async function loadConversationPeerKey(conversationId: string): Promise<C
 }
 
 
+
+export interface ConversationKeyEnvelope {
+  conversation_id: string;
+  user_id: string;
+  device_id: string;
+  wrapped_key: string;
+  nonce: string;
+  created_by_device_id: string | null;
+  created_at: string;
+}
+
+export async function listConversationKeyEnvelopes(conversationId: string): Promise<ConversationKeyEnvelope[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('conversation_key_envelopes')
+    .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
+    .eq('conversation_id', conversationId);
+  if (error) throw error;
+  return (data ?? []) as ConversationKeyEnvelope[];
+}
+
+export async function saveConversationKeyEnvelope(
+  envelope: Omit<ConversationKeyEnvelope, 'created_at'>,
+): Promise<ConversationKeyEnvelope | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('conversation_key_envelopes')
+    .upsert({
+      conversation_id: envelope.conversation_id,
+      user_id: envelope.user_id,
+      device_id: envelope.device_id,
+      wrapped_key: envelope.wrapped_key,
+      nonce: envelope.nonce,
+      created_by_device_id: envelope.created_by_device_id,
+    }, { onConflict: 'conversation_id,device_id' })
+    .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
+    .single();
+  if (error) throw error;
+  return data as ConversationKeyEnvelope;
+}
+
+export async function loadConversationPeerDevices(conversationId: string) {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('get_conversation_peer_devices', {
+    p_conversation_id: conversationId,
+  });
+  if (error) throw error;
+  return (data ?? []) as Array<{
+    user_id: string;
+    device_id: string;
+    public_key: string;
+    device_label: string | null;
+    last_seen_at: string;
+  }>;
+}
+
 export interface IdentityDevice {
   id: string;
   user_id: string;
