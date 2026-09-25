@@ -691,6 +691,7 @@ export default function App() {
 
         const peerPublicKey = JSON.parse(peer.peer_public_key) as JsonWebKey;
         conversationKey = await deriveConversationKey(activeRoomId, peerPublicKey);
+        const safetyNumber = await generateSafetyFingerprint(currentUser.publicKey, peer.peer_public_key);
 
         setRooms((prev) => prev.map((room) => room.id === activeRoomId
           ? {
@@ -698,7 +699,7 @@ export default function App() {
               peerKey: peer.peer_public_key || room.peerKey,
               peerName: peer.peer_display_name || room.peerName,
               name: peer.peer_display_name || room.name,
-              safetyNumber: room.peerKey === peer.peer_public_key ? room.safetyNumber : room.safetyNumber,
+              safetyNumber,
             }
           : room
         ));
@@ -730,7 +731,14 @@ export default function App() {
 
     if (isSupabaseRoom) {
       try {
-        let peerPublicKeyJwk = room.peerKey ? JSON.parse(room.peerKey) as JsonWebKey : null;
+        let peerPublicKeyJwk: JsonWebKey | null = null;
+        if (room.peerKey) {
+          try {
+            peerPublicKeyJwk = JSON.parse(room.peerKey) as JsonWebKey;
+          } catch {
+            peerPublicKeyJwk = null;
+          }
+        }
         if (!peerPublicKeyJwk) {
           const peer = await loadConversationPeerKey(roomId);
           if (!peer?.peer_public_key) throw new Error('Peer identity key is unavailable');
