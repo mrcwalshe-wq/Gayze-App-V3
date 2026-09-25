@@ -174,7 +174,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           </div>
           {devices.length === 0 ? <div className="text-[11px] text-zinc-500 bg-[#0f1118] rounded-lg px-3 py-2">Device registry will appear here once this account is connected.</div> :
             <div className="space-y-1.5">{devices.map((device) => {
-              const isCurrent = device.device_fingerprint === currentDeviceFingerprint;
+              const isCurrent = device.device_id === currentDeviceFingerprint;
               return <div key={device.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#0f1118] border border-white/[0.06]">
                 <div className="min-w-0"><div className="flex items-center gap-1.5"><span className="text-xs font-medium text-white truncate">{device.device_label || 'GAYZE device'}</span>{isCurrent && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">CURRENT</span>}</div><div className="text-[10px] text-zinc-500 mt-0.5">{device.status === 'revoked' ? 'Revoked' : 'Last seen ' + new Date(device.last_seen_at).toLocaleString()}</div></div>
                 {device.status === 'active' && !isCurrent && onRevokeDevice && <button type="button" onClick={() => { if (confirm('Revoke this device? It will no longer be authorised for this identity.')) void onRevokeDevice(device.id); }} className="shrink-0 text-[10px] font-semibold text-rose-400 hover:text-rose-300 px-2 py-1.5 rounded-lg border border-rose-500/20 hover:bg-rose-500/10">Revoke</button>}
