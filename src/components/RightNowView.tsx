@@ -659,7 +659,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         alt={selectedItem.item.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/src/assets/images/dating_profile_marcus_1790154961749.jpg';
+                          (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg';
                         }}
                       />
                       <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border border-black shadow" />
@@ -909,7 +909,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         alt={selectedItem.item.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/src/assets/images/dating_profile_marcus_1790154961749.jpg';
+                          (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg';
                         }}
                       />
                     </div>
