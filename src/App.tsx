@@ -913,7 +913,7 @@ export default function App() {
         className={
           activeTab === 'right_now'
             ? 'flex-1 min-h-0 w-full h-[calc(100dvh-3.5rem)] relative overflow-hidden p-0'
-            : 'flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 md:pb-8'
+            : 'flex-1 min-h-0 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 md:pb-8 overflow-y-auto'
         }
       >
         {activeTab === 'dating' && (
