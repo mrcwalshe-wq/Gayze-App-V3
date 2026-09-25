@@ -135,6 +135,8 @@ export interface DeviceIdentity {
   publicKeyJwk: JsonWebKey;
   publicKeyJwkString: string;
   fingerprint: string;
+  signingPublicKeyJwk: JsonWebKey;
+  signingPublicKeyJwkString: string;
 }
 
 const IDENTITY_DB_NAME = 'gayze-crypto';
@@ -183,11 +185,15 @@ export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
   let identity = await readStoredIdentity();
   if (!identity) {
     identity = await window.crypto.subtle.generateKey(
-      { name: 'ECDH', namedCurve: 'P-256' },
-      true,
-      ['deriveBits'],
+      { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'],
     ) as CryptoKeyPair;
-    await writeStoredIdentity(identity);
+  }
+  const stored = identity as CryptoKeyPair & { signing?: CryptoKeyPair };
+  if (!stored.signing) {
+    stored.signing = await window.crypto.subtle.generateKey(
+      { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'],
+    ) as CryptoKeyPair;
+    await writeStoredIdentity(stored as CryptoKeyPair);
   }
 
   const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', identity.publicKey);
@@ -196,9 +202,11 @@ export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
     'SHA-256',
     new TextEncoder().encode(publicKeyJwkString),
   );
+  const signingPublicKeyJwk = await window.crypto.subtle.exportKey('jwk', stored.signing!.publicKey);
+  const signingPublicKeyJwkString = JSON.stringify(signingPublicKeyJwk);
   const fingerprint = 'pk_' + bufToHex(digest).slice(0, 64);
 
-  return { publicKeyJwk, publicKeyJwkString, fingerprint };
+  return { publicKeyJwk, publicKeyJwkString, fingerprint, signingPublicKeyJwk, signingPublicKeyJwkString };
 }
 
 export async function deriveConversationKey(
@@ -396,4 +404,16 @@ export function recoveryBundleToText(bundle: RecoveryBundle): string {
 
 export function parseRecoveryBundle(text: string): RecoveryBundle {
   return JSON.parse(text) as RecoveryBundle;
+}
+
+
+export async function signDeviceChallenge(challenge: string): Promise<string> {
+  const identity = (await readStoredIdentity()) as (CryptoKeyPair & { signing?: CryptoKeyPair }) | null;
+  if (!identity?.signing) throw new Error('Device signing identity is not initialized');
+  const signature = await window.crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    identity.signing.privateKey,
+    new TextEncoder().encode(challenge),
+  );
+  return bufToHex(signature);
 }
