@@ -1029,7 +1029,7 @@ export default function App() {
               );
             });
           }
-          await saveActiveIntentWithSession(intent, location, currentUser);
+          await saveActiveIntentWithSession(intent, location, currentUser, currentUser.publicKey);
           const rows = await discoverRightNow({ radiusMeters: 5000 });
           setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
           showToast('✓ Right Now intent is live on Supabase');
