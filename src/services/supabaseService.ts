@@ -289,15 +289,15 @@ export async function revokeIdentityDevice(deviceId: string): Promise<boolean> {
 }
 
 
-export async function verifyCurrentDevice(fingerprint: string, signChallenge: (challenge: string) => Promise<string>): Promise<boolean> {
+export async function verifyCurrentDevice(deviceId: string, signChallenge: (challenge: string) => Promise<string>): Promise<boolean> {
   if (!supabase) return false;
   const { data: issued, error: issueError } = await supabase.functions.invoke('verify-device-signature', {
-    body: { action: 'issue', fingerprint },
+    body: { action: 'issue', device_id: deviceId },
   });
   if (issueError || !issued?.challenge_id || !issued?.challenge) throw issueError ?? new Error('Unable to issue device challenge');
   const signature = await signChallenge(issued.challenge);
   const { data: verified, error: verifyError } = await supabase.functions.invoke('verify-device-signature', {
-    body: { action: 'verify', fingerprint, challenge_id: issued.challenge_id, signature },
+    body: { action: 'verify', device_id: deviceId, challenge_id: issued.challenge_id, signature },
   });
   if (verifyError || !verified?.verified) throw verifyError ?? new Error('Device signature rejected');
   return true;
