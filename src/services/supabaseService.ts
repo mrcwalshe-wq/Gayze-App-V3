@@ -42,6 +42,22 @@ export async function submitInterest(toUserId: string, intentId?: string) {
   return data as { mutual: boolean; conversation_id: string | null };
 }
 
+export async function submitGaze(toUserId: string, intentId?: string) {
+  if (!supabase) throw new Error('Supabase is not configured');
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw userError ?? new Error('Authentication required');
+
+  const { error } = await supabase.from('gazes').insert({
+    from_user: userData.user.id,
+    to_user: toUserId,
+    intent_id: intentId ?? null,
+  });
+
+  // A repeated Gaze is intentionally idempotent at the UX layer.
+  if (error && error.code !== '23505') throw error;
+  return { sent: true };
+}
+
 export function subscribeToRightNow(onChange: () => void) {
   if (!supabase) return () => undefined;
   const channel = supabase.channel('gayze-right-now')
