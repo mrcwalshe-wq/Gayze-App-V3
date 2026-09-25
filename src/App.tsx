@@ -43,7 +43,7 @@ import {
   INITIAL_STORIES,
   INITIAL_INTENT_POSTS
 } from './services/storageService';
-import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity } from './services/cryptoService';
+import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
 import { isSupabaseConfigured } from './services/supabaseClient';
 import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey } from './services/supabaseService';
 import { 
@@ -1116,6 +1116,68 @@ export default function App() {
     showToast('🚨 Encrypted distress alert broadcasted with location to emergency contacts!');
   };
 
+  const handleCreateRecovery = async () => {
+    const password = window.prompt('Create a recovery passphrase (12+ characters). You will need this on the new device.');
+    if (!password) return;
+    const confirmation = window.prompt('Confirm your recovery passphrase.');
+    if (password !== confirmation) {
+      showToast('Recovery passphrases did not match');
+      return;
+    }
+
+    try {
+      const bundle = await createRecoveryBundle(password);
+      const textBundle = recoveryBundleToText(bundle);
+      const blob = new Blob([textBundle], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'gayze-identity-recovery.json';
+      anchor.click();
+      URL.revokeObjectURL(url);
+      showToast('✓ Encrypted identity backup created — keep it somewhere safe');
+    } catch (error) {
+      console.error('[GAYZE] Recovery backup failed', error);
+      showToast('This device identity cannot be exported. A new recovery-ready identity is required.');
+    }
+  };
+
+  const handleRestoreRecovery = async () => {
+    const password = window.prompt('Enter your GAYZE recovery passphrase.');
+    if (!password) return;
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const bundle = parseRecoveryBundle(await file.text());
+        await restoreRecoveryBundle(bundle, password);
+        const identity = await getOrCreateDeviceIdentity();
+        setCurrentUser((prev) => ({
+          ...prev,
+          publicKey: identity.fingerprint,
+          shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+        }));
+        if (isSupabaseConfigured && supabaseUserId) {
+          await ensureSupabaseProfile(supabaseUserId, {
+            ...currentUser,
+            publicKey: identity.fingerprint,
+            shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+          }, identity.publicKeyJwkString);
+        }
+        showToast('✓ Identity restored on this device');
+      } catch (error) {
+        console.error('[GAYZE] Identity restore failed', error);
+        showToast('Recovery failed — check the backup and passphrase');
+      }
+    };
+  };
+
   const handlePurgeLocalCache = () => {
     hapticSensitiveAction();
     localStorage.clear();
@@ -1293,6 +1355,8 @@ export default function App() {
         onUpdateUser={(updated) => setCurrentUser((prev) => ({ ...prev, ...updated }))}
         onPurgeLocalCache={handlePurgeLocalCache}
         onOpenQR={() => handleOpenQRModal()}
+        onCreateRecovery={handleCreateRecovery}
+        onRestoreRecovery={handleRestoreRecovery}
       />
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
