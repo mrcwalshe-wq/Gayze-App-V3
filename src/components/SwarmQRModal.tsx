@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { UserProfile, DatingProfile, SwarmQRPayload, SwarmRoom } from '../types';
 import { hapticQRHandshake, hapticLight, isVibrationSupported } from '../services/hapticService';
+import { getOrCreateDeviceIdentity } from '../services/cryptoService';
 import { 
   X, 
   QrCode, 
@@ -66,22 +67,28 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
 
   // Generate QR code data URL whenever currentUser or ephemeralNonce changes
   useEffect(() => {
-    const payload: SwarmQRPayload = {
-      v: 1,
-      type: 'gayze_swarm_identity',
-      publicKey: currentUser.publicKey,
-      shortKey: currentUser.shortKey,
-      displayName: currentUser.displayName,
-      neighborhood: currentUser.neighborhood,
-      reliabilityScore: currentUser.reliabilityScore,
-      verifiedPeersCount: currentUser.verifiedPeersCount,
-      timestamp: Date.now(),
-      fingerprint: ephemeralNonce,
-    };
+    let cancelled = false;
+    const generateIdentityQr = async () => {
+      try {
+        const identity = await getOrCreateDeviceIdentity();
+        if (cancelled) return;
 
-    const payloadString = JSON.stringify(payload);
+        const payload: SwarmQRPayload = {
+          v: 2,
+          type: 'gayze_swarm_identity',
+          publicKey: identity.publicKeyJwkString,
+          shortKey: currentUser.shortKey,
+          displayName: currentUser.displayName,
+          neighborhood: currentUser.neighborhood,
+          reliabilityScore: currentUser.reliabilityScore,
+          verifiedPeersCount: currentUser.verifiedPeersCount,
+          timestamp: Date.now(),
+          fingerprint: identity.fingerprint,
+        };
 
-    QRCode.toDataURL(payloadString, {
+        const payloadString = JSON.stringify(payload);
+
+        QRCode.toDataURL(payloadString, {
       width: 320,
       margin: 1.5,
       color: {
@@ -90,8 +97,18 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
       },
       errorCorrectionLevel: 'M',
     })
-      .then((url) => setQrDataUrl(url))
-      .catch((err) => console.error('Error generating QR code:', err));
+        })
+          .then((url) => {
+            if (!cancelled) setQrDataUrl(url);
+          })
+          .catch((err) => console.error('Error generating QR code:', err));
+      } catch (err) {
+        console.error('Error preparing identity QR:', err);
+      }
+    };
+
+    void generateIdentityQr();
+    return () => { cancelled = true; };
   }, [currentUser, ephemeralNonce]);
 
   // Clean up camera stream when modal closes or tab changes
@@ -133,23 +150,28 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
     setCameraActive(false);
   };
 
-  const handleCopyPayload = () => {
-    const payload: SwarmQRPayload = {
-      v: 1,
-      type: 'gayze_swarm_identity',
-      publicKey: currentUser.publicKey,
-      shortKey: currentUser.shortKey,
-      displayName: currentUser.displayName,
-      neighborhood: currentUser.neighborhood,
-      reliabilityScore: currentUser.reliabilityScore,
-      verifiedPeersCount: currentUser.verifiedPeersCount,
-      timestamp: Date.now(),
-      fingerprint: ephemeralNonce,
-    };
-    navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-    setIsCopied(true);
-    hapticLight();
-    setTimeout(() => setIsCopied(false), 2000);
+  const handleCopyPayload = async () => {
+    try {
+      const identity = await getOrCreateDeviceIdentity();
+      const payload: SwarmQRPayload = {
+        v: 2,
+        type: 'gayze_swarm_identity',
+        publicKey: identity.publicKeyJwkString,
+        shortKey: currentUser.shortKey,
+        displayName: currentUser.displayName,
+        neighborhood: currentUser.neighborhood,
+        reliabilityScore: currentUser.reliabilityScore,
+        verifiedPeersCount: currentUser.verifiedPeersCount,
+        timestamp: Date.now(),
+        fingerprint: identity.fingerprint,
+      };
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      setIsCopied(true);
+      hapticLight();
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Unable to copy identity payload', err);
+    }
   };
 
   const handleSimulatePeerScan = (peer: DatingProfile) => {
