@@ -240,6 +240,7 @@ export async function loadConversationPeerKey(conversationId: string): Promise<C
 export interface IdentityDevice {
   id: string;
   user_id: string;
+  device_id: string;
   device_fingerprint: string;
   device_label: string | null;
   public_key: string;
@@ -272,7 +273,7 @@ export async function listIdentityDevices(): Promise<IdentityDevice[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('identity_devices')
-    .select('id,user_id,device_fingerprint,device_label,public_key,status,created_at,last_seen_at,revoked_at')
+    .select('id,user_id,device_id,device_fingerprint,identity_fingerprint,device_label,public_key,signing_public_key,status,created_at,last_seen_at,revoked_at')
     .order('created_at', { ascending: true });
   if (error) throw error;
   return (data ?? []) as IdentityDevice[];
