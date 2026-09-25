@@ -1217,7 +1217,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#090a0f] text-[#f1f3f7] flex flex-col font-sans selection:bg-[#C9A24D]/25 selection:text-[#C9A24D]">
+    <div className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#090a0f] text-[#f1f3f7] flex flex-col font-sans selection:bg-[#C9A24D]/25 selection:text-[#C9A24D]">
       {/* Toast Notification */}
       {notificationToast && (
         <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-4 z-50 bg-[#11131a]/95 backdrop-blur-md border border-white/10 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2">
@@ -1243,7 +1243,7 @@ export default function App() {
       <main
         className={
           activeTab === 'right_now'
-            ? 'flex-1 min-h-0 w-full h-[calc(100dvh-3.5rem)] relative overflow-hidden p-0'
+            ? 'flex-1 min-h-0 w-full h-auto relative overflow-hidden p-0'
             : 'flex-1 min-h-0 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 md:pb-8 overflow-y-auto'
         }
       >
