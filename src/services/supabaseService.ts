@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
-import type { UserActiveIntent } from '../types';
+import type { UserActiveIntent, Pulse } from '../types';
+import { INITIAL_USER } from './storageService';
 
 export interface RightNowDiscoveryRow {
   intent_id: string; user_id: string; display_name: string; age: number | null; bio: string | null;
@@ -48,4 +49,77 @@ export function subscribeToRightNow(onChange: () => void) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'interests' }, onChange)
     .subscribe();
   return () => { void supabase.removeChannel(channel); };
+}
+
+
+export async function ensureSupabaseSession() {
+  if (!supabase) return null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData.session?.user) return sessionData.session.user;
+
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error) throw error;
+  return data.user;
+}
+
+export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL_USER) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('profiles').upsert({
+    id: userId,
+    handle: sourceUser.handle || 'gayze-user',
+    display_name: sourceUser.displayName || 'Gayze User',
+    bio: sourceUser.bio || null,
+    age: null,
+    privacy_setting: sourceUser.privacySetting || 'fuzzy_500m',
+    reliability_score: sourceUser.reliabilityScore || 94,
+    verified_peers_count: sourceUser.verifiedPeersCount || 0,
+    safety_verified: Boolean(sourceUser.safetyVerified),
+    neighborhood: sourceUser.neighborhood || null,
+  }, { onConflict: 'id' }).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[]): Pulse[] {
+  return rows.map((row) => ({
+    id: `supabase_${row.intent_id}`,
+    peerId: row.user_id,
+    peerName: row.display_name || 'Gayze member',
+    peerShortKey: row.user_id.slice(0, 8) + '...',
+    peerAvatar: row.avatar_path || 'user',
+    peerAge: row.age ?? undefined,
+    title: `${row.mode.toUpperCase()} · ${row.intent}`,
+    description: row.description || `Available for ${row.intent.toLowerCase()} nearby.`,
+    activityCategory: row.intent.toLowerCase().includes('drink') ? 'drinks'
+      : row.intent.toLowerCase().includes('meet') ? 'coffee'
+      : row.intent.toLowerCase().includes('walk') ? 'walk'
+      : row.mode === 'private' ? 'chill' : 'active',
+    intentMode: row.mode,
+    intent: row.intent as Pulse['intent'],
+    travelDistance: row.travel_distance_label || undefined,
+    canHost: row.can_host || undefined,
+    travelWillingness: row.travel_willingness || undefined,
+    venueName: row.neighborhood || 'Nearby',
+    neighborhood: row.neighborhood || 'Nearby',
+    approxDistanceKm: row.distance_m / 1000,
+    jitterMeters: 300,
+    lat: row.map_lat,
+    lng: row.map_lng,
+    durationHours: Math.max(1, Math.ceil((new Date(row.expires_at).getTime() - Date.now()) / 3600000)),
+    createdAt: Date.now(),
+    expiresAt: new Date(row.expires_at).getTime(),
+    tags: [row.intent, row.mode],
+    isPaused: false,
+  }));
+}
+
+export async function saveActiveIntentWithSession(
+  intent: UserActiveIntent,
+  location?: { lat: number; lng: number },
+  sourceUser = INITIAL_USER,
+) {
+  const user = await ensureSupabaseSession();
+  if (!user) throw new Error('Unable to create a Supabase session');
+  await ensureSupabaseProfile(user.id, sourceUser);
+  return saveActiveIntent(intent, location);
 }
