@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Pulse, SafeHaven, LocationPrivacy } from '../types';
+import { Pulse, SafeHaven, LocationPrivacy, DatingProfile, SocialStory } from '../types';
 import { PrivacyGeographicMap } from './PrivacyGeographicMap';
 import { RadarMap } from './RadarMap';
 import { IntentMode, IntentTimingMode } from './IntentMode';
@@ -35,9 +35,14 @@ interface RightNowViewProps {
   safeHavens: SafeHaven[];
   userNeighborhood: string;
   privacySetting?: LocationPrivacy;
+  datingProfiles?: DatingProfile[];
+  stories?: SocialStory[];
   onOpenDirectChat: (pulse: Pulse) => void;
+  onOpenDirectChatWithProfile?: (profile: DatingProfile) => void;
   onSelectHaven: (haven: SafeHaven) => void;
   onCreatePulse: (newPulse: Omit<Pulse, 'id' | 'createdAt' | 'expiresAt'>) => void;
+  onGazeAtPeer?: (peerName: string) => void;
+  onOpenScheduleMeeting?: (peerName: string) => void;
 }
 
 /**
@@ -91,9 +96,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   safeHavens,
   userNeighborhood,
   privacySetting = 'fuzzy_500m',
+  datingProfiles = [],
+  stories = [],
   onOpenDirectChat,
+  onOpenDirectChatWithProfile,
   onSelectHaven,
   onCreatePulse,
+  onGazeAtPeer,
+  onOpenScheduleMeeting,
 }) => {
   // 1. Signature IntentMode Timing: 'right_now' vs 'later'
   const [intentTimingMode, setIntentTimingMode] = useState<IntentTimingMode>('right_now');
@@ -935,11 +945,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <PrivacyGeographicMap
               pulses={filteredPulses}
               safeHavens={safeHavens}
+              profiles={datingProfiles}
               userNeighborhood={userNeighborhood}
               privacySetting={privacySetting}
               onOpenDirectChat={onOpenDirectChat}
+              onOpenDirectChatWithProfile={onOpenDirectChatWithProfile}
               onSelectHaven={onSelectHaven}
               onBroadcastHere={handleBroadcastHere}
+              onGazeAtPeer={onGazeAtPeer}
+              onOpenScheduleMeeting={onOpenScheduleMeeting}
             />
           ) : (
             <div className="space-y-3 p-3">

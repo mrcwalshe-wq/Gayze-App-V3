@@ -14,6 +14,9 @@ import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { SwarmQRModal } from './components/SwarmQRModal';
+import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
+import { EncryptedCallModal } from './components/EncryptedCallModal';
+import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { 
   Pulse, 
   Gathering, 
@@ -23,7 +26,10 @@ import {
   UserProfile, 
   SafetyCheckin,
   DatingProfile,
-  SwarmQRPayload
+  SwarmQRPayload,
+  SocialStory,
+  IntentActivityPost,
+  MeetingProposal
 } from './types';
 import { 
   INITIAL_USER, 
@@ -33,7 +39,9 @@ import {
   INITIAL_ROOMS, 
   INITIAL_MESSAGES, 
   INITIAL_SAFETY_CHECKIN,
-  INITIAL_DATING_PROFILES
+  INITIAL_DATING_PROFILES,
+  INITIAL_STORIES,
+  INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, generateSafetyFingerprint, generateRandomKey } from './services/cryptoService';
 import { 
@@ -41,7 +49,9 @@ import {
   hapticTimerWarning, 
   hapticTimerExpired, 
   hapticMessageDecrypted, 
-  hapticSensitiveAction 
+  hapticSensitiveAction,
+  hapticLight,
+  triggerVibration
 } from './services/hapticService';
 import { Shield, Lock, Radio, Calendar, HeartHandshake, Eye, AlertCircle } from 'lucide-react';
 
@@ -150,6 +160,16 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_MESSAGES;
   });
 
+  const [stories, setStories] = useState<SocialStory[]>(() => {
+    const saved = localStorage.getItem('gayze_stories');
+    return saved ? JSON.parse(saved) : INITIAL_STORIES;
+  });
+
+  const [intentPosts, setIntentPosts] = useState<IntentActivityPost[]>(() => {
+    const saved = localStorage.getItem('gayze_intent_posts');
+    return saved ? JSON.parse(saved) : INITIAL_INTENT_POSTS;
+  });
+
   const [activeRoomId, setActiveRoomId] = useState<string>('room_marcus');
 
   // Safety Beacon State
@@ -166,6 +186,19 @@ export default function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
+
+  // Schedule Meeting Modal state
+  const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
+  const [scheduleMeetingPeerName, setScheduleMeetingPeerName] = useState<string>('Marcus');
+
+  // Encrypted Calling state
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [callPeerName, setCallPeerName] = useState<string>('Marcus');
+  const [callType, setCallType] = useState<'audio' | 'video'>('audio');
+
+  // Set Intent Sheet state
+  const [isSetIntentOpen, setIsSetIntentOpen] = useState(false);
+  const [activeUserIntent, setActiveUserIntent] = useState<UserActiveIntent | null>(null);
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -191,6 +224,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('gayze_messages', JSON.stringify(messages));
   }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem('gayze_stories', JSON.stringify(stories));
+  }, [stories]);
+
+  useEffect(() => {
+    localStorage.setItem('gayze_intent_posts', JSON.stringify(intentPosts));
+  }, [intentPosts]);
 
   useEffect(() => {
     localStorage.setItem('gayze_checkin', JSON.stringify(checkinState));
@@ -532,7 +573,7 @@ export default function App() {
   };
 
   // Chat message sending with real WebCrypto AES-GCM
-  const handleSendMessage = async (roomId: string, plainText: string, ephemeralTtlSeconds?: number) => {
+  const handleSendMessage = async (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal) => {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
 
@@ -549,6 +590,7 @@ export default function App() {
       nonceHex,
       plainText,
       ephemeralTtlSeconds: ephemeralTtlSeconds || room.ephemeralTtlSeconds,
+      meetingData,
     };
 
     setMessages((prev) => ({
@@ -567,13 +609,18 @@ export default function App() {
     // If direct chat, simulate an authentic, friendly peer reply after 1.5s
     if (room.type === 'direct') {
       setTimeout(async () => {
-        const peerReplies = [
-          "Hey! Sounds great. I'm right nearby in the courtyard area.",
-          "Awesome. Let me know when you get here, I'll keep an eye out.",
-          "Perfect! I appreciate you verifying the safety number too.",
-          "Looking forward to it! See you shortly in the public lounge."
-        ];
-        const randomReply = peerReplies[Math.floor(Math.random() * peerReplies.length)];
+        let randomReply: string;
+        if (meetingData) {
+          randomReply = `Sounds fantastic! I'd love to meet at ${meetingData.venueName} (${meetingData.timeStr}). Looking forward to it!`;
+        } else {
+          const peerReplies = [
+            "Hey! Sounds great. I'm right nearby in the courtyard area.",
+            "Awesome. Let me know when you get here, I'll keep an eye out.",
+            "Perfect! I appreciate you verifying the safety number too.",
+            "Looking forward to it! See you shortly in the public lounge."
+          ];
+          randomReply = peerReplies[Math.floor(Math.random() * peerReplies.length)];
+        }
         const encPeer = await encryptPayload(randomReply, room.swarmSecretKeyHex);
 
         const peerMsg: EncryptedMessage = {
@@ -612,6 +659,183 @@ export default function App() {
       prev.map((r) => (r.id === roomId ? { ...r, ephemeralTtlSeconds: ttl } : r))
     );
     showToast(ttl === 0 ? 'Auto-delete turned off (messages will be kept)' : `Messages will auto-delete after ${ttl >= 3600 ? ttl / 3600 + 'h' : ttl / 60 + 'm'}`);
+  };
+
+  // Meeting Scheduling & Acceptance Handlers
+  const handleOpenScheduleMeeting = (peerName: string) => {
+    setScheduleMeetingPeerName(peerName);
+    setIsScheduleMeetingOpen(true);
+  };
+
+  const handleConfirmMeeting = async (proposal: {
+    venueName: string;
+    address: string;
+    timeStr: string;
+    isSafeHaven: boolean;
+    durationMinutes: number;
+    armSafetyBeacon: boolean;
+  }) => {
+    setIsScheduleMeetingOpen(false);
+
+    // If arming safety beacon immediately
+    if (proposal.armSafetyBeacon) {
+      handleStartSafetyTimer({
+        partnerName: scheduleMeetingPeerName,
+        venueName: proposal.venueName,
+        durationMinutes: proposal.durationMinutes || 60,
+        notes: `Meeting with ${scheduleMeetingPeerName} at ${proposal.venueName} (${proposal.timeStr})`,
+      });
+    }
+
+    // Find or create direct room with this peer
+    let targetRoom = rooms.find(
+      (r) =>
+        r.peerName?.toLowerCase() === scheduleMeetingPeerName.toLowerCase() ||
+        r.name.toLowerCase().startsWith(scheduleMeetingPeerName.toLowerCase())
+    );
+
+    let roomId = targetRoom?.id;
+    if (!targetRoom) {
+      roomId = `room_${Date.now()}`;
+      const safetyNumber = await generateSafetyFingerprint(currentUser.publicKey, scheduleMeetingPeerName);
+      targetRoom = {
+        id: roomId,
+        name: scheduleMeetingPeerName,
+        type: 'direct',
+        peerKey: 'pk_' + scheduleMeetingPeerName.toLowerCase(),
+        peerName: scheduleMeetingPeerName,
+        peerNeighborhood: currentUser.neighborhood,
+        peerAvatar: scheduleMeetingPeerName.toLowerCase(),
+        safetyNumber,
+        swarmSecretKeyHex: 'seed_room_' + Math.random().toString(36).substring(2),
+        lastMessage: `Meeting proposed at ${proposal.venueName}`,
+        lastTimestamp: Date.now(),
+        ephemeralTtlSeconds: 86400,
+      };
+      setRooms((prev) => [targetRoom!, ...prev]);
+    }
+
+    const meetingData: MeetingProposal = {
+      id: 'meet_' + Date.now(),
+      venueName: proposal.venueName,
+      address: proposal.address,
+      timeStr: proposal.timeStr,
+      timestamp: Date.now(),
+      status: 'proposed',
+      isSafeHaven: proposal.isSafeHaven,
+      safetyTimerDurationMinutes: proposal.durationMinutes || 60,
+    };
+
+    await handleSendMessage(
+      targetRoom.id,
+      `📅 Safe Meetup Invitation: Let's meet at ${proposal.venueName} (${proposal.timeStr}).`,
+      targetRoom.ephemeralTtlSeconds,
+      meetingData
+    );
+
+    setActiveRoomId(targetRoom.id);
+    setActiveTab('swarms');
+    showToast(`✓ Meetup proposal sent to ${scheduleMeetingPeerName} at ${proposal.venueName}`);
+  };
+
+  const handleAcceptMeeting = async (meeting: MeetingProposal) => {
+    // Arm safety timer for user
+    handleStartSafetyTimer({
+      partnerName: 'Peer',
+      venueName: meeting.venueName,
+      durationMinutes: meeting.safetyTimerDurationMinutes || 60,
+      notes: `Accepted meetup at ${meeting.venueName} (${meeting.timeStr})`,
+    });
+
+    // Update message state in current active room
+    setMessages((prev) => {
+      const roomMsgs = prev[activeRoomId] || [];
+      const updated = roomMsgs.map((m) => {
+        if (m.meetingData && m.meetingData.id === meeting.id) {
+          return {
+            ...m,
+            meetingData: {
+              ...m.meetingData,
+              status: 'accepted' as const,
+            },
+          };
+        }
+        return m;
+      });
+      return { ...prev, [activeRoomId]: updated };
+    });
+
+    // Send confirmation in room
+    await handleSendMessage(
+      activeRoomId,
+      `✓ Accepted! I'll see you at ${meeting.venueName} (${meeting.timeStr}). Safety Beacon armed.`
+    );
+    showToast(`🛡️ Meeting accepted! Safety beacon armed for ${meeting.venueName}.`);
+  };
+
+  // Calling & Gaze Handlers
+  const handleStartCall = (peerName: string, type: 'audio' | 'video') => {
+    setCallPeerName(peerName);
+    setCallType(type);
+    setIsCallModalOpen(true);
+  };
+
+  const handleGazeAtPeer = (peerName: string) => {
+    triggerVibration([40, 70]);
+    showToast(`👁️ You gave a Gaze to ${peerName}! Mutual gazes alert immediately.`);
+
+    // If gazing at an active peer, simulate mutual gaze response
+    if (peerName === 'Marcus' || peerName === 'Soren' || peerName === 'Liam') {
+      setTimeout(() => {
+        triggerVibration([50, 40, 90]);
+        showToast(`⚡ Mutual Gaze! ${peerName} noticed you too.`);
+      }, 1600);
+    }
+  };
+
+  const handleSaveUserIntent = (intent: UserActiveIntent) => {
+    hapticSensitiveAction();
+    setActiveUserIntent(intent);
+    setIsSetIntentOpen(false);
+
+    // Add as a live story
+    const newStory: SocialStory = {
+      id: 'story_user_' + Date.now(),
+      peerId: currentUser.publicKey,
+      peerName: currentUser.displayName,
+      avatarUrl: '/src/assets/images/dating_profile_marcus_1790154961749.jpg',
+      photoUrl: '/src/assets/images/dating_profile_marcus_1790154961749.jpg',
+      caption: `Status: ${intent.intent} · ${intent.when} around ${intent.area}`,
+      locationName: intent.isNearSafeHaven && intent.safeHavenName ? intent.safeHavenName : intent.area,
+      timestamp: Date.now(),
+      intent: intent.intent,
+      category: intent.intent.includes('Hookup') ? 'private' : 'social',
+    };
+    setStories((prev) => [newStory, ...prev]);
+
+    // Add as an intent activity post
+    const newPost: IntentActivityPost = {
+      id: 'post_user_' + Date.now(),
+      peerId: currentUser.publicKey,
+      peerName: currentUser.displayName,
+      peerAvatar: 'user',
+      photoUrl: '/src/assets/images/dating_profile_marcus_1790154961749.jpg',
+      activityTitle: `${intent.intent} · ${intent.when}`,
+      description: `Looking to connect around ${intent.area}. Context: ${intent.context || 'Flexible'} · Duration: ${intent.duration}`,
+      category: intent.intent.includes('Hookup') ? 'private' : 'social',
+      intent: intent.intent,
+      timing: intent.when === 'Now' ? 'Right Now' : intent.when,
+      venueName: intent.isNearSafeHaven && intent.safeHavenName ? intent.safeHavenName : intent.area,
+      neighborhood: intent.area,
+      approxDistanceKm: 0.1,
+      timestamp: Date.now(),
+      isSafeHaven: Boolean(intent.isNearSafeHaven),
+      reliabilityScore: currentUser.reliabilityScore || 95,
+      gazesCount: 0,
+    };
+    setIntentPosts((prev) => [newPost, ...prev]);
+
+    showToast(`✓ Status updated: ${intent.intent} (${intent.when})`);
   };
 
   // Safety Timer Handlers
@@ -691,10 +915,15 @@ export default function App() {
             profiles={datingProfiles}
             safeHavens={safeHavens}
             userNeighborhood={currentUser.neighborhood}
+            stories={stories}
+            intentPosts={intentPosts}
             onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
             onProposeHavenDate={handleProposeHavenDate}
             onToggleFavorite={handleToggleFavoriteProfile}
             onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
+            onGazeAtPeer={handleGazeAtPeer}
+            onOpenScheduleMeeting={handleOpenScheduleMeeting}
+            onOpenSetIntent={() => setIsSetIntentOpen(true)}
           />
         )}
 
@@ -704,11 +933,16 @@ export default function App() {
             safeHavens={safeHavens}
             userNeighborhood={currentUser.neighborhood}
             privacySetting={currentUser.privacySetting}
+            datingProfiles={datingProfiles}
+            stories={stories}
             onOpenDirectChat={handleOpenDirectChatFromPulse}
+            onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
             onSelectHaven={(h) => {
               setActiveTab('safe_havens');
             }}
             onCreatePulse={handleCreatePulse}
+            onGazeAtPeer={handleGazeAtPeer}
+            onOpenScheduleMeeting={handleOpenScheduleMeeting}
           />
         )}
 
@@ -736,6 +970,9 @@ export default function App() {
               );
               handleOpenQRModal(matchedPeer || null);
             }}
+            onStartCall={handleStartCall}
+            onOpenScheduleMeeting={handleOpenScheduleMeeting}
+            onAcceptMeeting={handleAcceptMeeting}
           />
         )}
 
@@ -752,6 +989,33 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Schedule Meeting & Safe Haven Date Modal */}
+      <ScheduleMeetingModal
+        isOpen={isScheduleMeetingOpen}
+        onClose={() => setIsScheduleMeetingOpen(false)}
+        peerName={scheduleMeetingPeerName}
+        safeHavens={safeHavens}
+        onConfirmMeeting={handleConfirmMeeting}
+      />
+
+      {/* Encrypted Audio & Video Call Modal */}
+      <EncryptedCallModal
+        isOpen={isCallModalOpen}
+        onClose={() => setIsCallModalOpen(false)}
+        peerName={callPeerName}
+        callType={callType}
+      />
+
+      {/* Universal Set Intent Sheet */}
+      <SetIntentSheet
+        isOpen={isSetIntentOpen}
+        onClose={() => setIsSetIntentOpen(false)}
+        onSaveIntent={handleSaveUserIntent}
+        existingIntent={activeUserIntent}
+        safeHavens={safeHavens}
+        userNeighborhood={currentUser.neighborhood}
+      />
 
       {/* Safety Beacon Timer Modal */}
       <SafetyTimerModal

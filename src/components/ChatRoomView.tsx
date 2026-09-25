@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SwarmRoom, EncryptedMessage, UserProfile } from '../types';
-import { hapticMessageDecrypted } from '../services/hapticService';
+import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal } from '../types';
+import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import { 
   Lock, 
   ShieldCheck, 
@@ -13,13 +13,18 @@ import {
   ChevronLeft, 
   Users, 
   User, 
-  Sparkles,
-  CheckCheck,
-  Eye,
-  X,
-  Shield,
-  QrCode,
-  Award
+  Sparkles, 
+  CheckCheck, 
+  Eye, 
+  X, 
+  Shield, 
+  QrCode, 
+  Award,
+  Phone,
+  Video,
+  Calendar,
+  MapPin,
+  Coffee
 } from 'lucide-react';
 
 interface ChatRoomViewProps {
@@ -28,9 +33,12 @@ interface ChatRoomViewProps {
   activeRoomId: string;
   onSelectRoom: (roomId: string) => void;
   currentUser: UserProfile;
-  onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number) => Promise<void>;
+  onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal) => Promise<void>;
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
   onOpenQR?: (peerName?: string) => void;
+  onStartCall?: (peerName: string, callType: 'audio' | 'video') => void;
+  onOpenScheduleMeeting?: (peerName: string) => void;
+  onAcceptMeeting?: (meeting: MeetingProposal) => void;
 }
 
 export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
@@ -42,6 +50,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onSendMessage,
   onUpdateRoomTtl,
   onOpenQR,
+  onStartCall,
+  onOpenScheduleMeeting,
+  onAcceptMeeting,
 }) => {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -231,33 +242,48 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             </div>
 
             {/* Header Actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {/* QR Verification Status / Action */}
-              {currentRoom.type === 'direct' && (
-                currentRoom.verifiedViaQR ? (
-                  <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-[11px] text-emerald-300 font-medium">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>QR Verified ({currentRoom.peerReliabilityScore || 98})</span>
-                  </div>
-                ) : (
-                  onOpenQR && (
-                    <button
-                      onClick={() => onOpenQR(currentRoom.peerName || currentRoom.name)}
-                      className="min-h-[36px] flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#C9A24D] bg-[#C9A24D]/10 hover:bg-[#C9A24D]/20 border border-[#C9A24D]/30 rounded-xl transition-colors cursor-pointer"
-                      title="Verify public keys in person via QR code"
-                    >
-                      <QrCode className="w-3.5 h-3.5 text-[#C9A24D]" />
-                      <span className="hidden sm:inline">Verify QR</span>
-                    </button>
-                  )
-                )
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {/* Audio Call */}
+              {currentRoom.type === 'direct' && onStartCall && (
+                <button
+                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'audio')}
+                  className="w-9 h-9 min-h-[36px] min-w-[36px] rounded-xl bg-[#171922] hover:bg-[#202330] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Encrypted Audio Call (P2P)"
+                  aria-label="Start audio call"
+                >
+                  <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                </button>
+              )}
+
+              {/* Video Call */}
+              {currentRoom.type === 'direct' && onStartCall && (
+                <button
+                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video')}
+                  className="w-9 h-9 min-h-[36px] min-w-[36px] rounded-xl bg-[#171922] hover:bg-[#202330] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Encrypted Video Call (P2P)"
+                  aria-label="Start video call"
+                >
+                  <Video className="w-3.5 h-3.5 text-[#C9A24D]" />
+                </button>
+              )}
+
+              {/* Plan Meeting Button */}
+              {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
+                <button
+                  onClick={() => onOpenScheduleMeeting(currentRoom.peerName || currentRoom.name)}
+                  className="h-9 px-2 sm:px-2.5 rounded-xl bg-[#C9A24D]/10 hover:bg-[#C9A24D]/20 border border-[#C9A24D]/30 text-[#C9A24D] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Plan safe meetup at verified Safe Haven"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-[#C9A24D]" />
+                  <span className="hidden md:inline">Meet</span>
+                </button>
               )}
 
               {/* Ephemeral Auto-Delete Timer Toggle */}
               <button
                 onClick={cycleTtl}
                 title="Disappearing messages timer (auto-deletes messages after set time)"
-                className={`min-h-[36px] flex items-center gap-1.5 px-2 sm:px-2.5 py-1 text-[11px] rounded-xl border transition-colors cursor-pointer ${
+                className={`h-9 px-2 sm:px-2.5 text-[11px] rounded-xl border transition-colors cursor-pointer flex items-center gap-1.5 ${
                   currentRoom.ephemeralTtlSeconds > 0
                     ? 'bg-[#C9A24D]/15 text-[#C9A24D] border-[#C9A24D]/30'
                     : 'bg-[#171922] text-zinc-400 border-white/10 hover:text-white'
@@ -271,10 +297,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <button
                 onClick={() => setIsSafetyModalOpen(true)}
                 title="Verify Safety Code"
-                className="min-h-[36px] min-w-[36px] flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-zinc-300 bg-[#171922] hover:bg-[#202330] border border-white/10 rounded-xl transition-colors cursor-pointer"
+                className="w-9 h-9 min-h-[36px] min-w-[36px] flex items-center justify-center text-zinc-300 bg-[#171922] hover:bg-[#202330] border border-white/10 rounded-xl transition-colors cursor-pointer"
+                aria-label="Safety code"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden md:inline">Safety Code</span>
               </button>
             </div>
           </div>
@@ -315,6 +341,51 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{msg.plainText}</p>
+
+                    {/* Rich Meeting Proposal Card if present */}
+                    {msg.meetingData && (
+                      <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/15 text-left text-xs space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 font-bold text-white uppercase text-[10px] tracking-wider">
+                            <Calendar className="w-3.5 h-3.5 text-[#C9A24D]" />
+                            <span>Safe Meetup Invitation</span>
+                          </div>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                            msg.meetingData.status === 'accepted'
+                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                              : 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                          }`}>
+                            {msg.meetingData.status.toUpperCase()}
+                          </span>
+                        </div>
+
+                        <div className="space-y-0.5 text-zinc-200">
+                          <div className="font-bold flex items-center gap-1">
+                            <Coffee className="w-3.5 h-3.5 text-[#C9A24D]" />
+                            <span>{msg.meetingData.venueName}</span>
+                          </div>
+                          <div className="text-[11px] text-zinc-300 flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-zinc-400" />
+                            <span>{msg.meetingData.address}</span>
+                          </div>
+                          <div className="text-[11px] text-[#C9A24D] font-mono flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{msg.meetingData.timeStr}</span>
+                          </div>
+                        </div>
+
+                        {!isMe && msg.meetingData.status === 'proposed' && onAcceptMeeting && (
+                          <button
+                            type="button"
+                            onClick={() => onAcceptMeeting(msg.meetingData!)}
+                            className="w-full mt-1.5 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Accept & Arm Safety Beacon</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     <div className="mt-1 flex items-center justify-end gap-1.5 pt-0.5 text-[10px] opacity-75">
                       <Lock className="w-2.5 h-2.5" />
@@ -366,6 +437,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 }
                 className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none py-1"
               />
+
+              {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
+                <button
+                  type="button"
+                  onClick={() => onOpenScheduleMeeting(currentRoom.peerName || currentRoom.name)}
+                  className="w-8 h-8 rounded-lg bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 text-[#C9A24D] flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                  title="Plan safe meetup at verified Safe Haven"
+                  aria-label="Plan meetup"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                </button>
+              )}
 
               <button
                 type="submit"

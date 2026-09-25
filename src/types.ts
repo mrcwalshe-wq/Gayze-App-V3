@@ -78,6 +78,17 @@ export interface SafeHaven {
   staffTrained: boolean;
 }
 
+export interface MeetingProposal {
+  id: string;
+  venueName: string;
+  address: string;
+  timeStr: string;
+  timestamp: number;
+  status: 'proposed' | 'accepted' | 'declined';
+  isSafeHaven: boolean;
+  safetyTimerDurationMinutes: number;
+}
+
 export interface EncryptedMessage {
   id: string;
   roomId: string;
@@ -90,6 +101,72 @@ export interface EncryptedMessage {
   ephemeralTtlSeconds?: number;
   isBurned?: boolean;
   isSystem?: boolean;
+  meetingData?: MeetingProposal;
+}
+
+export interface GazeInteraction {
+  peerId: string;
+  peerName: string;
+  timestamp: number;
+  isMutual?: boolean;
+}
+
+export type TopLevelIntentMode = 'social' | 'private';
+
+export const SOCIAL_INTENTS = [
+  'All',
+  'Meet',
+  'Drinks',
+  'Date',
+  'Chat',
+  'Group',
+] as const;
+
+export const PRIVATE_INTENTS = [
+  'All',
+  'Hookup',
+  'Hookup · Host',
+  'Hookup · Travel',
+  'Hookup · Outdoor',
+  'Hookup · Car',
+  'Other',
+] as const;
+
+export type SocialIntent = typeof SOCIAL_INTENTS[number];
+export type PrivateIntent = typeof PRIVATE_INTENTS[number];
+export type EncounterIntent = SocialIntent | PrivateIntent;
+
+export interface SocialStory {
+  id: string;
+  peerId: string;
+  peerName: string;
+  avatarUrl: string;
+  photoUrl: string;
+  caption: string;
+  locationName: string;
+  timestamp: number;
+  intent: EncounterIntent;
+  category: 'social' | 'private' | 'spicy';
+}
+
+export interface IntentActivityPost {
+  id: string;
+  peerId: string;
+  peerName: string;
+  peerAvatar: string;
+  photoUrl?: string;
+  activityTitle: string;
+  description: string;
+  category: 'social' | 'private' | 'spicy';
+  intent: EncounterIntent;
+  timing: 'Right Now' | 'Next 2 hours' | 'Tonight' | 'Tomorrow';
+  venueName: string;
+  neighborhood: string;
+  approxDistanceKm: number;
+  timestamp: number;
+  isSafeHaven: boolean;
+  reliabilityScore: number;
+  gazesCount: number;
 }
 
 export interface SwarmRoom {
@@ -134,6 +211,10 @@ export interface DatingProfile {
   reliabilityScore: number;
   verifiedPeersCount: number;
   verifiedViaQR?: boolean;
+  intentMode?: TopLevelIntentMode;
+  intent?: EncounterIntent;
+  hasRightNowIntent?: boolean;
+  rightNowDetail?: string;
 }
 
 export interface SwarmQRPayload {
