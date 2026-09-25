@@ -184,7 +184,7 @@ export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
   if (!identity) {
     identity = await window.crypto.subtle.generateKey(
       { name: 'ECDH', namedCurve: 'P-256' },
-      false,
+      true,
       ['deriveBits'],
     ) as CryptoKeyPair;
     await writeStoredIdentity(identity);
@@ -261,4 +261,116 @@ export async function decryptWithConversationKey(
     hexToBuf(cipherHex),
   );
   return new TextDecoder().decode(plaintext);
+}
+
+
+export interface RecoveryBundle {
+  v: 1;
+  type: 'gayze_identity_recovery';
+  publicKeyJwk: JsonWebKey;
+  saltHex: string;
+  ivHex: string;
+  wrappedPrivateKeyHex: string;
+  iterations: number;
+}
+
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  const length = parts.reduce((total, part) => total + part.byteLength, 0);
+  const output = new Uint8Array(length);
+  let offset = 0;
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.byteLength;
+  }
+  return output;
+}
+
+async function passwordWrappingKey(password: string, salt: Uint8Array, iterations: number) {
+  const material = await window.crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
+  );
+  return window.crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    material,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+export async function createRecoveryBundle(password: string): Promise<RecoveryBundle> {
+  if (password.length < 12) throw new Error('Recovery password must be at least 12 characters');
+
+  const identity = await readStoredIdentity();
+  if (!identity) throw new Error('Device identity is not initialized');
+
+  const privateJwk = await window.crypto.subtle.exportKey('jwk', identity.privateKey);
+  const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', identity.publicKey);
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const iterations = 310000;
+  const wrappingKey = await passwordWrappingKey(password, salt, iterations);
+  const plaintext = new TextEncoder().encode(JSON.stringify(privateJwk));
+  const ciphertext = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, tagLength: 128 },
+    wrappingKey,
+    plaintext,
+  );
+
+  return {
+    v: 1,
+    type: 'gayze_identity_recovery',
+    publicKeyJwk,
+    saltHex: bufToHex(salt.buffer),
+    ivHex: bufToHex(iv.buffer),
+    wrappedPrivateKeyHex: bufToHex(ciphertext),
+    iterations,
+  };
+}
+
+export async function restoreRecoveryBundle(bundle: RecoveryBundle, password: string): Promise<DeviceIdentity> {
+  if (bundle?.v !== 1 || bundle.type !== 'gayze_identity_recovery') throw new Error('Invalid GAYZE recovery bundle');
+  const salt = hexToBuf(bundle.saltHex);
+  const iv = hexToBuf(bundle.ivHex);
+  const wrappingKey = await passwordWrappingKey(password, salt, bundle.iterations);
+  const plaintext = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv, tagLength: 128 },
+    wrappingKey,
+    hexToBuf(bundle.wrappedPrivateKeyHex),
+  );
+  const privateJwk = JSON.parse(new TextDecoder().decode(plaintext)) as JsonWebKey;
+  const privateKey = await window.crypto.subtle.importKey(
+    'jwk',
+    privateJwk,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveBits'],
+  );
+  const publicKey = await window.crypto.subtle.importKey(
+    'jwk',
+    bundle.publicKeyJwk,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    [],
+  );
+  await writeStoredIdentity({ privateKey, publicKey });
+  const publicKeyJwkString = JSON.stringify(bundle.publicKeyJwk);
+  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(publicKeyJwkString));
+  return {
+    publicKeyJwk: bundle.publicKeyJwk,
+    publicKeyJwkString,
+    fingerprint: 'pk_' + bufToHex(digest).slice(0, 64),
+  };
+}
+
+export function recoveryBundleToText(bundle: RecoveryBundle): string {
+  return JSON.stringify(bundle);
+}
+
+export function parseRecoveryBundle(text: string): RecoveryBundle {
+  return JSON.parse(text) as RecoveryBundle;
 }
