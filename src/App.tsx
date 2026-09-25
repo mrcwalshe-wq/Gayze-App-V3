@@ -43,9 +43,9 @@ import {
   INITIAL_STORIES,
   INITIAL_INTENT_POSTS
 } from './services/storageService';
-import { encryptPayload, generateSafetyFingerprint, generateRandomKey } from './services/cryptoService';
+import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity } from './services/cryptoService';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey } from './services/supabaseService';
 import { 
   hapticQRHandshake, 
   hapticTimerWarning, 
@@ -227,7 +227,16 @@ export default function App() {
         const user = await ensureSupabaseSession();
         if (!user) return;
         setSupabaseUserId(user.id);
-        await ensureSupabaseProfile(user.id, currentUser);
+        const identity = await getOrCreateDeviceIdentity();
+        const identityUser = {
+          ...currentUser,
+          publicKey: identity.fingerprint,
+          shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+        };
+        if (currentUser.publicKey !== identityUser.publicKey || currentUser.shortKey !== identityUser.shortKey) {
+          setCurrentUser((prev) => ({ ...prev, publicKey: identityUser.publicKey, shortKey: identityUser.shortKey }));
+        }
+        await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
         const rows = await discoverRightNow({ radiusMeters: 5000 });
         if (!disposed) {
           setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
@@ -625,6 +634,8 @@ export default function App() {
     if (!isSupabaseConfigured || !activeRoomId || !/^[0-9a-f-]{36}$/i.test(activeRoomId)) return;
     let disposed = false;
 
+    let conversationKey: CryptoKey | null = null;
+
     const applyRow = async (row: {
       id: string;
       conversation_id: string;
@@ -640,8 +651,12 @@ export default function App() {
       if (!room) return;
 
       let plainText = '[Encrypted message]';
-      if (row.sender_id === supabaseUserId) {
-        plainText = '[Encrypted message]';
+      if (conversationKey && row.nonce) {
+        try {
+          plainText = await decryptWithConversationKey(row.ciphertext, row.nonce, conversationKey);
+        } catch (error) {
+          console.warn('[GAYZE] Unable to decrypt conversation message', error);
+        }
       }
 
       const message: EncryptedMessage = {
@@ -666,10 +681,32 @@ export default function App() {
 
     const hydrate = async () => {
       try {
+        const peer = await loadConversationPeerKey(activeRoomId);
+        if (!peer?.peer_public_key) {
+          console.warn('[GAYZE] Conversation has no peer identity key yet');
+          const rows = await loadConversationMessages(activeRoomId);
+          for (const row of rows) await applyRow(row);
+          return;
+        }
+
+        const peerPublicKey = JSON.parse(peer.peer_public_key) as JsonWebKey;
+        conversationKey = await deriveConversationKey(activeRoomId, peerPublicKey);
+
+        setRooms((prev) => prev.map((room) => room.id === activeRoomId
+          ? {
+              ...room,
+              peerKey: peer.peer_public_key || room.peerKey,
+              peerName: peer.peer_display_name || room.peerName,
+              name: peer.peer_display_name || room.name,
+              safetyNumber: room.peerKey === peer.peer_public_key ? room.safetyNumber : room.safetyNumber,
+            }
+          : room
+        ));
+
         const rows = await loadConversationMessages(activeRoomId);
         for (const row of rows) await applyRow(row);
       } catch (error) {
-        console.error('[GAYZE] Failed to load conversation messages', error);
+        console.error('[GAYZE] Failed to initialize secure conversation', error);
       }
     };
 
@@ -687,8 +724,31 @@ export default function App() {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
 
-    // Encrypt payload with WebCrypto AES-GCM
-    const { cipherHex, nonceHex } = await encryptPayload(plainText, room.swarmSecretKeyHex);
+    const isSupabaseRoom = isSupabaseConfigured && /^[0-9a-f-]{36}$/i.test(roomId);
+    let cipherHex: string;
+    let nonceHex: string;
+
+    if (isSupabaseRoom) {
+      try {
+        let peerPublicKeyJwk = room.peerKey ? JSON.parse(room.peerKey) as JsonWebKey : null;
+        if (!peerPublicKeyJwk) {
+          const peer = await loadConversationPeerKey(roomId);
+          if (!peer?.peer_public_key) throw new Error('Peer identity key is unavailable');
+          peerPublicKeyJwk = JSON.parse(peer.peer_public_key) as JsonWebKey;
+          setRooms((prev) => prev.map((candidate) =>
+            candidate.id === roomId ? { ...candidate, peerKey: peer.peer_public_key || candidate.peerKey } : candidate
+          ));
+        }
+        const conversationKey = await deriveConversationKey(roomId, peerPublicKeyJwk);
+        ({ cipherHex, nonceHex } = await encryptWithConversationKey(plainText, conversationKey));
+      } catch (error) {
+        console.error('[GAYZE] Secure conversation encryption failed', error);
+        showToast('Secure key exchange is not ready for this conversation');
+        return;
+      }
+    } else {
+      ({ cipherHex, nonceHex } = await encryptPayload(plainText, room.swarmSecretKeyHex));
+    }
 
     const newMsg: EncryptedMessage = {
       id: 'msg_' + Date.now(),
@@ -720,7 +780,7 @@ export default function App() {
 
     // Real Supabase conversation: persist the encrypted envelope and let Realtime
     // deliver it to every member. Local/demo rooms retain the prototype reply.
-    if (isSupabaseConfigured && /^[0-9a-f-]{36}$/i.test(roomId)) {
+    if (isSupabaseRoom) {
       try {
         const expiresAt = ephemeralTtlSeconds && ephemeralTtlSeconds > 0
           ? new Date(Date.now() + ephemeralTtlSeconds * 1000).toISOString()
