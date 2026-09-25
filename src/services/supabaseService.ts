@@ -149,7 +149,7 @@ export async function ensureSupabaseSession() {
   return data.user;
 }
 
-export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL_USER) {
+export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL_USER, identityPublicKey?: string) {
   if (!supabase) return null;
   const { data, error } = await supabase.from('profiles').upsert({
     id: userId,
@@ -162,6 +162,7 @@ export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL
     verified_peers_count: sourceUser.verifiedPeersCount || 0,
     safety_verified: Boolean(sourceUser.safetyVerified),
     neighborhood: sourceUser.neighborhood || null,
+    identity_public_key: identityPublicKey ?? null,
   }, { onConflict: 'id' }).select('*').single();
   if (error) throw error;
   return data;
@@ -209,4 +210,21 @@ export async function saveActiveIntentWithSession(
   if (!user) throw new Error('Unable to create a Supabase session');
   await ensureSupabaseProfile(user.id, sourceUser);
   return saveActiveIntent(intent, location);
+}
+
+
+export interface ConversationPeerKey {
+  peer_user_id: string;
+  peer_public_key: string | null;
+  peer_display_name: string | null;
+}
+
+export async function loadConversationPeerKey(conversationId: string): Promise<ConversationPeerKey | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('get_conversation_peer_key', {
+    p_conversation_id: conversationId,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row ?? null) as ConversationPeerKey | null;
 }
