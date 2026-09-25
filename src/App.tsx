@@ -45,7 +45,7 @@ import {
 } from './services/storageService';
 import { encryptPayload, generateSafetyFingerprint, generateRandomKey } from './services/cryptoService';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze } from './services/supabaseService';
 import { 
   hapticQRHandshake, 
   hapticTimerWarning, 
@@ -861,7 +861,18 @@ export default function App() {
     }
 
     return result;
+  };  const handleSubmitGaze = async (pulse: Pulse) => {
+    if (!isSupabaseConfigured) return { sent: false };
+
+    const isSupabasePulse = pulse.id.startsWith('supabase_');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulse.peerId);
+    if (!isSupabasePulse || !isUuid) return { sent: false };
+
+    const intentId = pulse.id.slice('supabase_'.length);
+    return submitGaze(pulse.peerId, intentId);
   };
+
+
 
   const handleSaveUserIntent = (intent: UserActiveIntent) => {
     hapticSensitiveAction();
@@ -1049,6 +1060,7 @@ export default function App() {
             onOpenScheduleMeeting={handleOpenScheduleMeeting}
             onOpenSetIntent={() => setIsSetIntentOpen(true)}
             onSubmitInterest={handleSubmitInterest}
+            onSubmitGaze={handleSubmitGaze}
           />
         )}
 
