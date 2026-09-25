@@ -45,7 +45,7 @@ import {
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice } from './services/supabaseService';
 import { 
   hapticQRHandshake, 
   hapticTimerWarning, 
@@ -237,6 +237,15 @@ export default function App() {
           setCurrentUser((prev) => ({ ...prev, publicKey: identityUser.publicKey, shortKey: identityUser.shortKey }));
         }
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
+        try {
+          await registerIdentityDevice(
+            identity.fingerprint,
+            identity.publicKeyJwkString,
+            navigator.userAgent.slice(0, 48),
+          );
+        } catch (deviceError) {
+          console.warn('[GAYZE] Device registry unavailable', deviceError);
+        }
         const rows = await discoverRightNow({ radiusMeters: 5000 });
         if (!disposed) {
           setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
