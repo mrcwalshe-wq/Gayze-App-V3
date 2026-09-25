@@ -215,6 +215,7 @@ export default function App() {
 
   const [supabaseRightNowPulses, setSupabaseRightNowPulses] = useState<Pulse[]>([]);
   const [supabaseReady, setSupabaseReady] = useState(false);
+  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
 
   // Bootstrap a real Supabase session/profile and keep Right Now discovery live.
   useEffect(() => {
@@ -225,6 +226,7 @@ export default function App() {
       try {
         const user = await ensureSupabaseSession();
         if (!user) return;
+        setSupabaseUserId(user.id);
         await ensureSupabaseProfile(user.id, currentUser);
         const rows = await discoverRightNow({ radiusMeters: 5000 });
         if (!disposed) {
@@ -326,7 +328,7 @@ export default function App() {
   // Handlers for "Right Now"
   const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {
     // Check if room already exists
-    const existingRoom = rooms.find((r) => r.peerKey?.includes(pulse.peerShortKey) || r.name === pulse.peerName);
+    const existingRoom = rooms.find((r) => r.id === conversationId || (!conversationId && (r.peerKey?.includes(pulse.peerShortKey) || r.name === pulse.peerName)));
 
     if (existingRoom) {
       setActiveRoomId(existingRoom.id);
@@ -638,7 +640,7 @@ export default function App() {
       if (!room) return;
 
       let plainText = '[Encrypted message]';
-      if (row.sender_id === currentUser.publicKey) {
+      if (row.sender_id === supabaseUserId) {
         plainText = '[Encrypted message]';
       }
 
@@ -646,7 +648,7 @@ export default function App() {
         id: row.id,
         roomId: row.conversation_id,
         senderKey: row.sender_id,
-        senderName: row.sender_id === currentUser.publicKey ? currentUser.displayName : room.peerName || room.name,
+        senderName: row.sender_id === supabaseUserId ? currentUser.displayName : room.peerName || room.name,
         timestamp: new Date(row.created_at).getTime(),
         cipherText: row.ciphertext,
         nonceHex: row.nonce || '',
@@ -678,7 +680,7 @@ export default function App() {
       disposed = true;
       unsubscribe();
     };
-  }, [activeRoomId, isSupabaseConfigured, currentUser.displayName, rooms]);
+  }, [activeRoomId, isSupabaseConfigured, currentUser.displayName, rooms, supabaseUserId]);
 
   // Chat message sending with real WebCrypto AES-GCM
   const handleSendMessage = async (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal) => {
@@ -701,10 +703,12 @@ export default function App() {
       meetingData,
     };
 
-    setMessages((prev) => ({
-      ...prev,
-      [roomId]: [...(prev[roomId] || []), newMsg],
-    }));
+    if (!(isSupabaseConfigured && /^[0-9a-f-]{36}$/i.test(roomId))) {
+      setMessages((prev) => ({
+        ...prev,
+        [roomId]: [...(prev[roomId] || []), newMsg],
+      }));
+    }
 
     setRooms((prev) =>
       prev.map((r) =>
