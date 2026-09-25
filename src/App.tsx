@@ -43,9 +43,9 @@ import {
   INITIAL_STORIES,
   INITIAL_INTENT_POSTS
 } from './services/storageService';
-import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
+import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice } from './services/supabaseService';
 import { 
   hapticQRHandshake, 
   hapticTimerWarning, 
@@ -240,7 +240,8 @@ export default function App() {
         }
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
         try {
-          await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48));
+          await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48), identity.signingPublicKeyJwkString);
+          await verifyCurrentDevice(identity.fingerprint, signDeviceChallenge);
           setCurrentDeviceFingerprint(identity.fingerprint);
           const registeredDevices = await listIdentityDevices();
           setIdentityDevices(registeredDevices);
