@@ -115,7 +115,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   };
 
   return (
-    <div className="flex h-[calc(100dvh-175px)] sm:h-[calc(100vh-140px)] min-h-[460px] bg-[#090a0e] rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl">
+    <div className="flex h-[calc(100dvh-8.5rem)] sm:h-[calc(100vh-9rem)] min-h-[460px] bg-[#090a0e] rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl">
       {/* Sidebar: Chats & Conversations */}
       <div 
         className={`w-full sm:w-72 md:w-80 bg-[#0d0e14] border-r border-white/[0.08] flex flex-col shrink-0 ${
