@@ -137,11 +137,21 @@ export interface DeviceIdentity {
   fingerprint: string;
   signingPublicKeyJwk: JsonWebKey;
   signingPublicKeyJwkString: string;
+  deviceId: string;
 }
 
 const IDENTITY_DB_NAME = 'gayze-crypto';
 const IDENTITY_STORE_NAME = 'identity';
 const IDENTITY_KEY = 'device';
+const DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
+
+function getOrCreateLocalDeviceId(): string {
+  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+  if (existing) return existing;
+  const created = crypto.randomUUID();
+  localStorage.setItem(DEVICE_ID_STORAGE_KEY, created);
+  return created;
+}
 
 function openIdentityDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -206,7 +216,7 @@ export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
   const signingPublicKeyJwkString = JSON.stringify(signingPublicKeyJwk);
   const fingerprint = 'pk_' + bufToHex(digest).slice(0, 64);
 
-  return { publicKeyJwk, publicKeyJwkString, fingerprint, signingPublicKeyJwk, signingPublicKeyJwkString };
+  return { publicKeyJwk, publicKeyJwkString, fingerprint, signingPublicKeyJwk, signingPublicKeyJwkString, deviceId: getOrCreateLocalDeviceId() };
 }
 
 export async function deriveConversationKey(
