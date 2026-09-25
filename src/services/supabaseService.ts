@@ -205,10 +205,17 @@ export async function saveActiveIntentWithSession(
   intent: UserActiveIntent,
   location?: { lat: number; lng: number },
   sourceUser = INITIAL_USER,
+  identityPublicKey?: string,
 ) {
   const user = await ensureSupabaseSession();
   if (!user) throw new Error('Unable to create a Supabase session');
-  await ensureSupabaseProfile(user.id, sourceUser);
+  // Preserve the existing device identity when this helper is used after bootstrap.
+  // Passing undefined keeps the existing identity_public_key untouched via a direct
+  // update of only the intent; profile synchronisation is only needed when explicitly
+  // supplied by the caller.
+  if (identityPublicKey) {
+    await ensureSupabaseProfile(user.id, sourceUser, identityPublicKey);
+  }
   return saveActiveIntent(intent, location);
 }
 
