@@ -241,7 +241,7 @@ export default function App() {
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
         try {
           await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48), identity.signingPublicKeyJwkString, identity.deviceId);
-          await verifyCurrentDevice(identity.fingerprint, signDeviceChallenge);
+          await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
           setCurrentDeviceFingerprint(identity.deviceId);
           const registeredDevices = await listIdentityDevices();
           setIdentityDevices(registeredDevices);
