@@ -322,7 +322,27 @@ export async function createRecoveryBundle(password: string): Promise<RecoveryBu
 }
 
 export async function restoreRecoveryBundle(bundle: RecoveryBundle, password: string): Promise<DeviceIdentity> {
-  if (bundle?.v !== 1 || bundle.type !== 'gayze_identity_recovery') throw new Error('Invalid GAYZE recovery bundle');
+  if (
+    !bundle ||
+    bundle.v !== 1 ||
+    bundle.type !== 'gayze_identity_recovery' ||
+    !bundle.publicKeyJwk ||
+    bundle.publicKeyJwk.kty !== 'EC' ||
+    bundle.publicKeyJwk.crv !== 'P-256' ||
+    typeof bundle.saltHex !== 'string' ||
+    bundle.saltHex.length !== 32 ||
+    typeof bundle.ivHex !== 'string' ||
+    bundle.ivHex.length !== 24 ||
+    typeof bundle.wrappedPrivateKeyHex !== 'string' ||
+    bundle.wrappedPrivateKeyHex.length < 32 ||
+    bundle.wrappedPrivateKeyHex.length > 10000 ||
+    !Number.isInteger(bundle.iterations) ||
+    bundle.iterations < 600000 ||
+    bundle.iterations > 2000000
+  ) {
+    throw new Error('Invalid GAYZE recovery bundle');
+  }
+
   const salt = hexToBuf(bundle.saltHex);
   const iv = hexToBuf(bundle.ivHex);
   const wrappingKey = await passwordWrappingKey(password, salt, bundle.iterations);
@@ -331,7 +351,20 @@ export async function restoreRecoveryBundle(bundle: RecoveryBundle, password: st
     wrappingKey,
     hexToBuf(bundle.wrappedPrivateKeyHex),
   );
+
   const privateJwk = JSON.parse(new TextDecoder().decode(plaintext)) as JsonWebKey;
+  if (
+    privateJwk.kty !== 'EC' ||
+    privateJwk.crv !== 'P-256' ||
+    typeof privateJwk.d !== 'string' ||
+    typeof privateJwk.x !== 'string' ||
+    typeof privateJwk.y !== 'string' ||
+    privateJwk.x !== bundle.publicKeyJwk.x ||
+    privateJwk.y !== bundle.publicKeyJwk.y
+  ) {
+    throw new Error('Recovery identity key mismatch');
+  }
+
   const privateKey = await window.crypto.subtle.importKey(
     'jwk',
     privateJwk,
@@ -346,6 +379,7 @@ export async function restoreRecoveryBundle(bundle: RecoveryBundle, password: st
     true,
     [],
   );
+
   await writeStoredIdentity({ privateKey, publicKey });
   const publicKeyJwkString = JSON.stringify(bundle.publicKeyJwk);
   const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(publicKeyJwkString));
