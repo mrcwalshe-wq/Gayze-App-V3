@@ -312,7 +312,7 @@ export async function createRecoveryBundle(password: string): Promise<RecoveryBu
   const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', identity.publicKey);
   const salt = window.crypto.getRandomValues(new Uint8Array(16));
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const iterations = 310000;
+  const iterations = 600000;
   const wrappingKey = await passwordWrappingKey(password, salt, iterations);
   const plaintext = new TextEncoder().encode(JSON.stringify(privateJwk));
   const ciphertext = await window.crypto.subtle.encrypt(
