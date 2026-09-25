@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           ? 'bg-[#090a0e]/75 backdrop-blur-xl border-b border-white/[0.06]'
           : 'bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07]'
       }`}>
-        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 h-14 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 flex items-center justify-between gap-1.5 sm:gap-4 min-w-0">
           
           {/* Brand Wordmark & Neighborhood Tag */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -150,14 +150,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenSafetyTimer}
               title="Safety Timer Beacon"
               aria-label="Safety Check-in Timer"
-              className={`h-9 px-2.5 sm:px-3 flex items-center gap-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${
+              className={`h-9 w-9 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${
                 isSafetyTimerActive
                   ? 'bg-rose-950/50 text-rose-300 border-rose-500/60 shadow-sm shadow-rose-950 animate-pulse'
                   : 'bg-[#11131a] text-zinc-300 border-white/[0.08] hover:border-white/20 hover:text-white'
               }`}
             >
               <Shield className={`w-3.5 h-3.5 ${isSafetyTimerActive ? 'text-rose-400' : 'text-emerald-400'}`} />
-              <span className="text-[11px] sm:text-xs font-medium">
+              <span className="hidden sm:inline text-[11px] sm:text-xs font-medium">
                 {isSafetyTimerActive ? 'Beacon Active' : 'Safety'}
               </span>
             </button>
@@ -167,12 +167,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenQR}
               title="Group QR Code & Key Exchange"
               aria-label="QR Code Key Exchange"
-              className="h-9 px-2.5 sm:px-3 flex items-center gap-1.5 text-xs font-medium bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] hover:border-[#C9A24D]/40 text-zinc-300 hover:text-white rounded-xl transition-all cursor-pointer"
+              className="h-9 w-9 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] hover:border-[#C9A24D]/40 text-zinc-300 hover:text-white rounded-xl transition-all cursor-pointer"
             >
               <QrCode className="w-3.5 h-3.5 text-[#C9A24D]" />
               <span className="hidden sm:inline text-xs">Verify</span>
               {reliabilityScore && (
-                <span className="text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-700/40">
+                <span className="hidden sm:inline text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-700/40">
                   {reliabilityScore}
                 </span>
               )}
@@ -183,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenMask}
               title="Discreet Disguise (Esc)"
               aria-label="Toggle Discreet Mask"
-              className="h-9 px-2.5 flex items-center gap-1.5 text-xs font-medium text-zinc-400 bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] rounded-xl hover:text-white transition-all cursor-pointer"
+              className="h-9 w-9 sm:w-auto sm:px-2.5 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium text-zinc-400 bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] rounded-xl hover:text-white transition-all cursor-pointer"
             >
               <EyeOff className="w-3.5 h-3.5" />
               <span className="hidden sm:inline text-xs">Mask</span>
