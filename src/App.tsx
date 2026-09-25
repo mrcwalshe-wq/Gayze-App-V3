@@ -943,6 +943,7 @@ export default function App() {
             onGazeAtPeer={handleGazeAtPeer}
             onOpenScheduleMeeting={handleOpenScheduleMeeting}
             onOpenSetIntent={() => setIsSetIntentOpen(true)}
+            onUpdateActiveUserIntent={setActiveUserIntent}
           />
         )}
 
