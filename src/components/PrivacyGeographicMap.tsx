@@ -101,12 +101,20 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
       });
     }
 
-    // Invalidate size to ensure full rendering
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 150);
+    // Invalidate after the browser has committed the layout. This is important
+    // because Right Now is mounted inside a tabbed viewport and Leaflet can
+    // initialise before its container has its final dimensions.
+    const invalidate = () => {
+      requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false });
+      });
+    };
 
-    // Resize observer
+    invalidate();
+    const timer = window.setTimeout(invalidate, 100);
+    const timer2 = window.setTimeout(invalidate, 350);
+
+    // Resize observer keeps Leaflet in sync with mobile viewport / tab changes.
     let ro: ResizeObserver | null = null;
     if (window.ResizeObserver && mapContainerRef.current) {
       ro = new ResizeObserver(() => {
@@ -117,6 +125,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
 
     return () => {
       clearTimeout(timer);
+      clearTimeout(timer2);
       if (ro) ro.disconnect();
       map.remove();
       mapInstanceRef.current = null;
