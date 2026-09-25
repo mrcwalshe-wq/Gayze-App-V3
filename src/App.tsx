@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Navbar } from './components/Navbar';
+import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
 import { RightNowView } from './components/RightNowView';
 import { LaterView } from './components/LaterView';
 import { SafeHavenView } from './components/SafeHavenView';
@@ -59,6 +60,22 @@ import { Shield, Lock, Radio, Calendar, HeartHandshake, Eye, AlertCircle } from 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens'>('dating');
+  const [showStartup, setShowStartup] = useState(true);
+  const [showGazing, setShowGazing] = useState(false);
+  const [hasGazedThisSession, setHasGazedThisSession] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowStartup(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'right_now' || hasGazedThisSession || showStartup) return;
+    setHasGazedThisSession(true);
+    setShowGazing(true);
+    const timer = window.setTimeout(() => setShowGazing(false), 1050);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, hasGazedThisSession, showStartup]);
   
   // Core datasets with local state
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
@@ -1210,6 +1227,9 @@ export default function App() {
     setMessages({});
     showToast('Decrypted local storage securely wiped.');
   };
+
+  if (showStartup) return <GayzeLoadingScreen mode="startup" />;
+  if (showGazing) return <GayzeLoadingScreen mode="gazing" />;
 
   // If Discreet Mask is triggered, render pure camouflage
   if (isMaskActive) {
