@@ -45,7 +45,7 @@ import {
 } from './services/storageService';
 import { encryptPayload, generateSafetyFingerprint, generateRandomKey } from './services/cryptoService';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages } from './services/supabaseService';
 import { 
   hapticQRHandshake, 
   hapticTimerWarning, 
@@ -324,7 +324,7 @@ export default function App() {
   };
 
   // Handlers for "Right Now"
-  const handleOpenDirectChatFromPulse = async (pulse: Pulse) => {
+  const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {
     // Check if room already exists
     const existingRoom = rooms.find((r) => r.peerKey?.includes(pulse.peerShortKey) || r.name === pulse.peerName);
 
@@ -335,7 +335,7 @@ export default function App() {
     }
 
     // Create new direct encrypted room with peer
-    const roomId = `room_${pulse.peerId}_${Date.now()}`;
+    const roomId = conversationId || `room_${pulse.peerId}_${Date.now()}`;
     const safetyNumber = await generateSafetyFingerprint(currentUser.publicKey, pulse.peerShortKey);
     const newRoom: SwarmRoom = {
       id: roomId,
@@ -618,6 +618,68 @@ export default function App() {
     showToast('✓ Gathering created! Group chat room is ready.');
   };
 
+  // Hydrate and subscribe to real Supabase conversation messages.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !activeRoomId || !/^[0-9a-f-]{36}$/i.test(activeRoomId)) return;
+    let disposed = false;
+
+    const applyRow = async (row: {
+      id: string;
+      conversation_id: string;
+      sender_id: string;
+      ciphertext: string;
+      nonce: string | null;
+      created_at: string;
+      expires_at: string | null;
+      burned_at: string | null;
+    }) => {
+      if (disposed) return;
+      const room = rooms.find((candidate) => candidate.id === activeRoomId);
+      if (!room) return;
+
+      let plainText = '[Encrypted message]';
+      if (row.sender_id === currentUser.publicKey) {
+        plainText = '[Encrypted message]';
+      }
+
+      const message: EncryptedMessage = {
+        id: row.id,
+        roomId: row.conversation_id,
+        senderKey: row.sender_id,
+        senderName: row.sender_id === currentUser.publicKey ? currentUser.displayName : room.peerName || room.name,
+        timestamp: new Date(row.created_at).getTime(),
+        cipherText: row.ciphertext,
+        nonceHex: row.nonce || '',
+        plainText,
+        ephemeralTtlSeconds: room.ephemeralTtlSeconds,
+        isBurned: Boolean(row.burned_at),
+      };
+
+      setMessages((prev) => {
+        const existing = prev[activeRoomId] || [];
+        if (existing.some((item) => item.id === message.id)) return prev;
+        return { ...prev, [activeRoomId]: [...existing, message] };
+      });
+    };
+
+    const hydrate = async () => {
+      try {
+        const rows = await loadConversationMessages(activeRoomId);
+        for (const row of rows) await applyRow(row);
+      } catch (error) {
+        console.error('[GAYZE] Failed to load conversation messages', error);
+      }
+    };
+
+    void hydrate();
+    const unsubscribe = subscribeToConversationMessages(activeRoomId, (row) => { void applyRow(row); });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [activeRoomId, isSupabaseConfigured, currentUser.displayName, rooms]);
+
   // Chat message sending with real WebCrypto AES-GCM
   const handleSendMessage = async (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal) => {
     const room = rooms.find((r) => r.id === roomId);
@@ -651,6 +713,21 @@ export default function App() {
           : r
       )
     );
+
+    // Real Supabase conversation: persist the encrypted envelope and let Realtime
+    // deliver it to every member. Local/demo rooms retain the prototype reply.
+    if (isSupabaseConfigured && /^[0-9a-f-]{36}$/i.test(roomId)) {
+      try {
+        const expiresAt = ephemeralTtlSeconds && ephemeralTtlSeconds > 0
+          ? new Date(Date.now() + ephemeralTtlSeconds * 1000).toISOString()
+          : null;
+        await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt);
+      } catch (error) {
+        console.error('[GAYZE] Failed to persist encrypted message', error);
+        showToast('Message saved on this device; secure sync failed');
+      }
+      return;
+    }
 
     // If direct chat, simulate an authentic, friendly peer reply after 1.5s
     if (room.type === 'direct') {
@@ -854,7 +931,7 @@ export default function App() {
     const result = await submitInterest(pulse.peerId, intentId);
 
     if (result.mutual) {
-      await handleOpenDirectChatFromPulse(pulse);
+      await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
       showToast(`⚡ Mutual interest with ${pulse.peerName} — chat opened`);
     } else {
       showToast(`✓ Interest sent to ${pulse.peerName}`);
