@@ -33,6 +33,8 @@ interface IdentityModalProps {
   onUpdateUser: (updated: Partial<UserProfile>) => void;
   onPurgeLocalCache: () => void;
   onOpenQR?: () => void;
+  onCreateRecovery?: () => Promise<void>;
+  onRestoreRecovery?: () => Promise<void>;
 }
 
 export const IdentityModal: React.FC<IdentityModalProps> = ({
@@ -42,6 +44,8 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   onUpdateUser,
   onPurgeLocalCache,
   onOpenQR,
+  onCreateRecovery,
+  onRestoreRecovery,
 }) => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [handle, setHandle] = useState(user.handle);
@@ -125,6 +129,32 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           <div className="font-mono text-xs text-zinc-300 break-all bg-[#090a0e] p-2.5 rounded-lg border border-white/10 selection:bg-[#C9A24D]/30">
             {user.publicKey}
           </div>
+        </div>
+
+        {/* Multi-device encrypted identity recovery */}
+        <div className="p-3 bg-[#141620] border border-white/[0.07] rounded-xl space-y-2.5">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <div>
+              <div className="text-xs font-semibold text-white">Multi-device recovery</div>
+              <div className="text-[11px] text-zinc-400">Create an encrypted identity backup for a new device.</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {onCreateRecovery && (
+              <button type="button" onClick={onCreateRecovery} className="min-h-[38px] rounded-xl bg-[#C9A24D] text-black text-xs font-semibold hover:bg-[#b58f3b] transition-colors">
+                Create Backup
+              </button>
+            )}
+            {onRestoreRecovery && (
+              <button type="button" onClick={onRestoreRecovery} className="min-h-[38px] rounded-xl bg-[#1c1f2b] border border-white/10 text-zinc-200 text-xs font-semibold hover:bg-[#252838] transition-colors">
+                Restore Backup
+              </button>
+            )}
+          </div>
+          <p className="text-[10px] text-zinc-500 leading-relaxed">
+            Your private identity key is encrypted locally with your recovery passphrase. GAYZE does not receive the passphrase or plaintext private key.
+          </p>
         </div>
 
         {/* Reliability Score & In-Person QR Verification Action */}
