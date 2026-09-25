@@ -45,7 +45,7 @@ import {
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice } from './services/supabaseService';
 import { 
   hapticQRHandshake, 
   hapticTimerWarning, 
@@ -216,6 +216,8 @@ export default function App() {
   const [supabaseRightNowPulses, setSupabaseRightNowPulses] = useState<Pulse[]>([]);
   const [supabaseReady, setSupabaseReady] = useState(false);
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
+  const [identityDevices, setIdentityDevices] = useState<import('./services/supabaseService').IdentityDevice[]>([]);
+  const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState<string | null>(null);
 
   // Bootstrap a real Supabase session/profile and keep Right Now discovery live.
   useEffect(() => {
@@ -238,11 +240,10 @@ export default function App() {
         }
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
         try {
-          await registerIdentityDevice(
-            identity.fingerprint,
-            identity.publicKeyJwkString,
-            navigator.userAgent.slice(0, 48),
-          );
+          await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48));
+          setCurrentDeviceFingerprint(identity.fingerprint);
+          const registeredDevices = await listIdentityDevices();
+          setIdentityDevices(registeredDevices);
         } catch (deviceError) {
           console.warn('[GAYZE] Device registry unavailable', deviceError);
         }
@@ -1125,6 +1126,21 @@ export default function App() {
     showToast('🚨 Encrypted distress alert broadcasted with location to emergency contacts!');
   };
 
+  const handleRevokeDevice = async (deviceId: string) => {
+    try {
+      const revoked = await revokeIdentityDevice(deviceId);
+      if (!revoked) throw new Error('Device could not be revoked');
+      setIdentityDevices((prev) => prev.map((device) => device.id === deviceId
+        ? { ...device, status: 'revoked', revoked_at: new Date().toISOString() }
+        : device
+      ));
+      showToast('✓ Device revoked');
+    } catch (error) {
+      console.error('[GAYZE] Device revocation failed', error);
+      showToast('Unable to revoke device');
+    }
+  };
+
   const handleCreateRecovery = async () => {
     const password = window.prompt('Create a recovery passphrase (12+ characters). You will need this on the new device.');
     if (!password) return;
@@ -1366,6 +1382,9 @@ export default function App() {
         onOpenQR={() => handleOpenQRModal()}
         onCreateRecovery={handleCreateRecovery}
         onRestoreRecovery={handleRestoreRecovery}
+        devices={identityDevices}
+        currentDeviceFingerprint={currentDeviceFingerprint}
+        onRevokeDevice={handleRevokeDevice}
       />
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
