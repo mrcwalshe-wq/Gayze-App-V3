@@ -196,9 +196,20 @@ export default function App() {
   const [callPeerName, setCallPeerName] = useState<string>('Marcus');
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
 
-  // Set Intent Sheet state
+  // Set Intent Sheet state — canonical Right Now intent state.
+  // Hydrate once from local storage so Discover / Right Now stay consistent
+  // across tab changes and reloads.
   const [isSetIntentOpen, setIsSetIntentOpen] = useState(false);
-  const [activeUserIntent, setActiveUserIntent] = useState<UserActiveIntent | null>(null);
+  const [activeUserIntent, setActiveUserIntent] = useState<UserActiveIntent | null>(() => {
+    try {
+      const saved = localStorage.getItem('gayze_active_user_intent');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved) as UserActiveIntent;
+      return parsed.expiresAt > Date.now() ? parsed : null;
+    } catch {
+      return null;
+    }
+  });
 
   // Sync to LocalStorage
   useEffect(() => {
