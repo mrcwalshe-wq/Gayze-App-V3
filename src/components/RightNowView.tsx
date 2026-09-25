@@ -59,6 +59,7 @@ interface RightNowViewProps {
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
   onSubmitInterest?: (pulse: Pulse) => Promise<{ mutual: boolean; conversation_id: string | null }>;
+  onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -78,6 +79,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onOpenSetIntent,
   onUpdateActiveUserIntent,
   onSubmitInterest,
+  onSubmitGaze,
 }) => {
   // 1. User's Personal Active Right Now Intent State
   const [localActiveUserIntent, setLocalActiveUserIntent] = useState<UserActiveIntent | null>(() => {
@@ -293,9 +295,22 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
   };
 
-  const handleGazeAtPerson = (name: string) => {
+  const handleGazeAtPerson = async (name: string, pulseObj?: Pulse) => {
     triggerVibration([40, 80]);
     setGazedPeerNames((prev) => new Set(prev).add(name));
+
+    if (pulseObj && onSubmitGaze) {
+      try {
+        await onSubmitGaze(pulseObj);
+        setStatusMessage(`👁️ Gaze sent to ${name}`);
+        setTimeout(() => setStatusMessage(null), 2200);
+      } catch (error) {
+        console.error('[GAYZE] Gaze submission failed', error);
+        setStatusMessage('Gaze could not be sent — try again');
+        setTimeout(() => setStatusMessage(null), 3000);
+      }
+    }
+
     if (onGazeAtPeer) onGazeAtPeer(name);
   };
 
@@ -706,7 +721,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => handleGazeAtPerson(selectedItem.item.name)}
+                        onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item)}
                         className={`h-10 min-h-[40px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
                           gazedPeerNames.has(selectedItem.item.name)
                             ? 'bg-[#231535] text-purple-300 border-purple-500/60'
@@ -998,7 +1013,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => handleGazeAtPerson(selectedItem.item.name)}
+                        onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item)}
                         className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
                           gazedPeerNames.has(selectedItem.item.name)
                             ? 'bg-[#241538] text-purple-300 border-purple-500/60'
