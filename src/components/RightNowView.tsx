@@ -120,13 +120,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [maxDistanceKm, setMaxDistanceKm] = useState<number>(5);
 
   // 4. Selected Discovery Item (Docked Compact Bottom Card & Expanded Sheet)
-  const [selectedItem, setSelectedItem] = useState<MapDiscoveryItem | null>(() => {
-    // Default to first active pulse for instant discovery preview if available
-    if (pulses.length > 0) {
-      return { type: 'pulse', item: pulses[0] };
-    }
-    return null;
-  });
+  // Start with a clean map. Discovery details appear only after the user
+  // explicitly selects a person, pulse, or Safe Haven.
+  const [selectedItem, setSelectedItem] = useState<MapDiscoveryItem | null>(null);
 
   const [isCardExpanded, setIsCardExpanded] = useState<boolean>(false);
 
