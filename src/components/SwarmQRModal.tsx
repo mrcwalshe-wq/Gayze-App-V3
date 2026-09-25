@@ -89,14 +89,13 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
         const payloadString = JSON.stringify(payload);
 
         QRCode.toDataURL(payloadString, {
-      width: 320,
-      margin: 1.5,
-      color: {
-        dark: '#ffffff',
-        light: '#111219',
-      },
-      errorCorrectionLevel: 'M',
-    })
+          width: 320,
+          margin: 1.5,
+          color: {
+            dark: '#ffffff',
+            light: '#111219',
+          },
+          errorCorrectionLevel: 'M',
         })
           .then((url) => {
             if (!cancelled) setQrDataUrl(url);
