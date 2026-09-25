@@ -399,13 +399,10 @@ export async function restoreRecoveryBundle(bundle: RecoveryBundle, password: st
   );
 
   await writeStoredIdentity({ privateKey, publicKey });
-  const publicKeyJwkString = JSON.stringify(bundle.publicKeyJwk);
-  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(publicKeyJwkString));
-  return {
-    publicKeyJwk: bundle.publicKeyJwk,
-    publicKeyJwkString,
-    fingerprint: 'pk_' + bufToHex(digest).slice(0, 64),
-  };
+  // Recovery restores the stable GAYZE identity, but deliberately creates a new
+  // physical-device credential on this browser.
+  localStorage.removeItem(DEVICE_ID_STORAGE_KEY);
+  return getOrCreateDeviceIdentity();
 }
 
 export function recoveryBundleToText(bundle: RecoveryBundle): string {
