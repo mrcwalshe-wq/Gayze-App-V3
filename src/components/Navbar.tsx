@@ -1,4 +1,5 @@
 import React from 'react';
+import { GayzeLogo } from './GayzeLogo';
 import { 
   Shield, 
   Eye, 
@@ -57,8 +58,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-2.5 group text-left cursor-pointer focus:outline-none"
               aria-label="GAYZE Home"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#141620] border border-white/10 flex items-center justify-center text-white group-hover:border-[#C9A24D]/50 transition-colors">
-                <span className="font-bold text-sm tracking-tight text-[#C9A24D]">G</span>
+              <div className="w-9 h-9 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <GayzeLogo size={42} showWordmark={false} />
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-base sm:text-lg font-bold tracking-wider text-white uppercase font-sans">
