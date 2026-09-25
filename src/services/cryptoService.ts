@@ -255,6 +255,96 @@ export async function deriveConversationKey(
   );
 }
 
+
+/**
+ * Device-aware conversation key primitives.
+ * The current message path remains backward compatible; these helpers provide
+ * the envelope layer needed to provision the same conversation key to multiple
+ * authorised devices without exposing the key to Supabase.
+ */
+export async function createConversationKey(): Promise<CryptoKey> {
+  return window.crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt'],
+  ) as Promise<CryptoKey>;
+}
+
+async function deriveDeviceWrappingKey(
+  conversationId: string,
+  peerPublicKeyJwk: JsonWebKey,
+): Promise<CryptoKey> {
+  const identity = await readStoredIdentity();
+  if (!identity) throw new Error('Device cryptographic identity is not initialized');
+
+  const peerPublicKey = await window.crypto.subtle.importKey(
+    'jwk',
+    peerPublicKeyJwk,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    [],
+  );
+
+  const sharedSecret = await window.crypto.subtle.deriveBits(
+    { name: 'ECDH', public: peerPublicKey },
+    identity.privateKey,
+    256,
+  );
+
+  const context = new TextEncoder().encode(
+    `GAYZE-CONVERSATION-ENVELOPE-v1:${conversationId}`,
+  );
+  const material = new Uint8Array(sharedSecret.byteLength + context.byteLength);
+  material.set(new Uint8Array(sharedSecret), 0);
+  material.set(context, sharedSecret.byteLength);
+
+  const digest = await window.crypto.subtle.digest('SHA-256', material);
+  return window.crypto.subtle.importKey(
+    'raw',
+    digest,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+export async function wrapConversationKey(
+  conversationId: string,
+  conversationKey: CryptoKey,
+  peerPublicKeyJwk: JsonWebKey,
+): Promise<{ wrappedKeyHex: string; nonceHex: string }> {
+  const wrappingKey = await deriveDeviceWrappingKey(conversationId, peerPublicKeyJwk);
+  const rawConversationKey = await window.crypto.subtle.exportKey('raw', conversationKey);
+  const nonce = window.crypto.getRandomValues(new Uint8Array(12));
+  const wrapped = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce, tagLength: 128 },
+    wrappingKey,
+    rawConversationKey,
+  );
+  return { wrappedKeyHex: bufToHex(wrapped), nonceHex: bufToHex(nonce.buffer) };
+}
+
+export async function unwrapConversationKey(
+  conversationId: string,
+  wrappedKeyHex: string,
+  nonceHex: string,
+  peerPublicKeyJwk: JsonWebKey,
+): Promise<CryptoKey> {
+  const wrappingKey = await deriveDeviceWrappingKey(conversationId, peerPublicKeyJwk);
+  const rawConversationKey = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: hexToBuf(nonceHex), tagLength: 128 },
+    wrappingKey,
+    hexToBuf(wrappedKeyHex),
+  );
+  return window.crypto.subtle.importKey(
+    'raw',
+    rawConversationKey,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
 export async function encryptWithConversationKey(
   text: string,
   key: CryptoKey,
