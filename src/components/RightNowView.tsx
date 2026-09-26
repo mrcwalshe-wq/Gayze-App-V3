@@ -397,6 +397,30 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         aria-hidden="true"
       />
 
+      {/* Right Now command bar: keep the map dominant while exposing the two primary actions. */}
+      <div className="absolute top-3 left-3 right-3 z-20 pointer-events-none">
+        <div className="max-w-2xl mx-auto flex items-center gap-2">
+          <div className="pointer-events-auto flex items-center gap-2 min-w-0 rounded-2xl bg-[#0b0d13]/82 backdrop-blur-xl border border-white/[0.12] shadow-xl px-3 py-2">
+            <span className="relative flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-60 animate-ping" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[#C9A24D]" /></span>
+            <div className="min-w-0">
+              <span className="block text-[10px] font-mono font-black tracking-[0.18em] text-[#C9A24D] uppercase leading-none">RIGHT NOW</span>
+              <span className="block text-[10px] text-zinc-400 truncate mt-1">{filteredActiveCount} nearby · live</span>
+            </div>
+          </div>
+          <div className="ml-auto pointer-events-auto flex items-center gap-2">
+            <button type="button" onClick={() => { hapticLight(); setIsFilterDrawerOpen(true); }} className="h-11 min-h-[44px] px-3 rounded-2xl bg-[#0b0d13]/82 backdrop-blur-xl border border-white/[0.12] text-zinc-200 shadow-xl flex items-center gap-2 text-xs font-bold active:scale-95 transition-transform" aria-label="Open Right Now filters">
+              <SlidersHorizontal className="w-4 h-4 text-[#C9A24D]" /><span className="hidden sm:inline">Filters</span>
+              {activeFilterCount > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-black flex items-center justify-center">{activeFilterCount}</span>}
+            </button>
+            <button type="button" onClick={() => { hapticLight(); if (activeUserIntent) { setIsUserIntentDrawerOpen(true); } else { setIsSetIntentOpen(true); onOpenSetIntent?.(); } }} className={`h-11 min-h-[44px] px-3.5 rounded-2xl backdrop-blur-xl border shadow-xl flex items-center gap-2 text-xs font-black uppercase tracking-wide active:scale-95 transition-all ${
+              activeUserIntent ? 'bg-[#6F3CC3]/90 text-white border-[#8d63dc] shadow-[0_0_18px_rgba(111,60,195,0.35)]' : 'bg-[#C9A24D] text-black border-[#C9A24D]'
+            }`} aria-label={activeUserIntent ? "Manage your live intent" : "Set your Right Now intent"}>
+              {activeUserIntent ? <Zap className="w-4 h-4 fill-current" /> : <Plus className="w-4 h-4" />}<span>{activeUserIntent ? 'Live' : 'Set Intent'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Subtle Toast / Status Notification */}
       {statusMessage && (
         <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-4 z-50 bg-[#12141f]/95 backdrop-blur-md border border-[#C9A24D]/50 text-white text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between shadow-2xl animate-in fade-in duration-200">
