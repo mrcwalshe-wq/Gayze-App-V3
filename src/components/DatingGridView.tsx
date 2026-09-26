@@ -397,28 +397,31 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
       {/* =========================================================================
           2. HEADER & SEARCH
          ========================================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/[0.08]">
+      <div className="gayze-page-intro flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#C9A24D]" />
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans uppercase">
+          <div className="flex items-center gap-3">
+            <span className="h-7 w-[2px] bg-gradient-to-b from-[#C9A24D] to-[#6F3CC3]" />
+            <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#C9A24D] mb-1">LIVE DISCOVERY</div>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white font-sans">
               Discover & Intent
             </h1>
+            </div>
           </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-[11px] sm:text-xs text-zinc-400 sm:max-w-md leading-relaxed">
             Nearby peers and active intentions · Encrypted & cloaked by ~300m
           </p>
         </div>
 
         {/* Quick Search bar */}
-        <div className="relative w-full sm:w-64">
+        <div className="relative w-full sm:w-72 shrink-0">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search name, intent, vibe…"
-            className="w-full bg-[#11131a] border border-white/10 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
+            className="gayze-premium-control w-full border rounded-xl pl-10 pr-9 py-2.5 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D]/70 focus:outline-none"
           />
           {searchQuery && (
             <button
@@ -436,7 +439,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
           2B. ACTIVE USER INTENT STATUS BANNER (CORE INTENT-FIRST DISCOVERY)
          ========================================================================= */}
       {activeUserIntent ? (
-        <div className="p-3 rounded-2xl bg-[#14121f]/90 border border-[#6F3CC3]/40 shadow-[0_0_20px_rgba(111,60,195,0.15)] backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="gayze-intent-panel p-4 sm:p-4.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-[#231738] border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
               <Sparkles className="w-4 h-4 text-[#C9A24D]" />
@@ -468,7 +471,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
           )}
         </div>
       ) : onOpenSetIntent ? (
-        <div className="p-3 rounded-2xl bg-[#11131a]/80 border border-white/[0.08] flex items-center justify-between gap-3">
+        <div className="gayze-premium-panel p-4 rounded-2xl flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[#1a1726] border border-[#C9A24D]/30 flex items-center justify-center text-[#C9A24D] shrink-0">
               <Sparkles className="w-4 h-4" />
@@ -501,7 +504,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
               hapticLight();
               setIsIntentSelectorOpen(true);
             }}
-            className={`h-11 min-h-[44px] flex-1 px-3.5 rounded-xl border flex items-center justify-between gap-2 transition-all cursor-pointer select-none active:scale-[0.98] ${
+            className={`gayze-premium-control h-11 min-h-[44px] flex-1 px-3.5 rounded-xl border flex items-center justify-between gap-2 transition-all cursor-pointer select-none active:scale-[0.98] ${
               mode === 'private'
                 ? 'bg-[#181324] hover:bg-[#201832] border-[#6F3CC3]/60 text-purple-200 shadow-[0_0_16px_rgba(111,60,195,0.2)]'
                 : 'bg-[#191610] hover:bg-[#221e14] border-[#C9A24D]/50 text-amber-200 shadow-[0_0_16px_rgba(201,162,77,0.18)]'
@@ -530,7 +533,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
               hapticLight();
               setIsFilterDrawerOpen(true);
             }}
-            className={`h-11 min-h-[44px] px-3.5 rounded-xl border flex items-center gap-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none active:scale-[0.98] shrink-0 ${
+            className={`gayze-premium-control h-11 min-h-[44px] px-3.5 rounded-xl border flex items-center gap-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none active:scale-[0.98] shrink-0 ${
               activeFilterCount > 0
                 ? 'bg-[#1a1726] border-[#C9A24D]/60 text-white shadow-sm'
                 : 'bg-[#11131a] hover:bg-[#161824] border-white/10 text-zinc-300 hover:text-white'
@@ -551,7 +554,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
             <button
               type="button"
               onClick={() => setIsViewMenuOpen(!isViewMenuOpen)}
-              className="h-11 min-h-[44px] px-3 rounded-xl bg-[#11131a] hover:bg-[#161824] border border-white/10 flex items-center gap-1.5 text-xs font-semibold text-zinc-200 transition-colors cursor-pointer select-none active:scale-[0.98]"
+              className="gayze-premium-control h-11 min-h-[44px] px-3 rounded-xl border flex items-center gap-1.5 text-xs font-semibold text-zinc-200 transition-colors cursor-pointer select-none active:scale-[0.98]"
               aria-label="Toggle view mode"
             >
               {displayMode === 'grid' ? (
@@ -842,7 +845,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
       {displayMode === 'feed' ? (
         <div className="space-y-3">
           {filteredIntentPosts.length === 0 ? (
-            <div className="p-10 text-center rounded-2xl bg-[#11131a] border border-white/10 space-y-2">
+            <div className="gayze-premium-panel p-10 text-center rounded-2xl border border-white/10 space-y-2">
               <Compass className="w-8 h-8 text-zinc-500 mx-auto" />
               <h3 className="text-sm font-semibold text-white">No activity posts match your filter</h3>
               <p className="text-xs text-zinc-400">
@@ -865,7 +868,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
               return (
                 <div
                   key={post.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-[#11131a] border border-white/[0.08] hover:border-white/20 transition-all space-y-3 shadow-sm"
+                  className="gayze-premium-panel p-4 sm:p-5 rounded-2xl border border-white/[0.08] hover:border-white/20 transition-all space-y-3"
                 >
                   {/* Post Top: Peer Info, Timing & Realm */}
                   <div className="flex items-start justify-between gap-3">
@@ -1000,7 +1003,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
             5. PROFILE GRID: CLEAN, HIGH-INTENT DISCOVERY CARDS
            ========================================================================= */
         filteredProfiles.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-[#11131a] border border-white/10 space-y-3">
+          <div className="gayze-premium-panel p-12 text-center rounded-2xl border border-white/10 space-y-3">
             <Compass className="w-8 h-8 text-zinc-500 mx-auto" />
             <h3 className="text-sm font-semibold text-white">No members match this intent</h3>
             <p className="text-xs text-zinc-400 max-w-sm mx-auto">
@@ -1014,7 +1017,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
             {filteredProfiles.map((profile) => {
               const hasError = imageErrors[profile.id];
               const intent = getProfileIntent(profile);
@@ -1025,7 +1028,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                 <div
                   key={profile.id}
                   onClick={() => setSelectedProfile(profile)}
-                  className="group relative bg-[#11131a] rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#C9A24D]/50 transition-all cursor-pointer flex flex-col justify-end aspect-[3/4] select-none shadow-md"
+                  className="gayze-profile-card group relative bg-[#11131a] rounded-[18px] overflow-hidden border border-white/[0.08] hover:border-[#C9A24D]/50 transition-all cursor-pointer flex flex-col justify-end aspect-[3/4] select-none"
                 >
                   {/* Photo Container */}
                   <div className="absolute inset-0 bg-[#090a0e]">
