@@ -20,11 +20,11 @@ export const GayzeLoadingScreen: React.FC<GayzeLoadingScreenProps> = ({ mode = '
             <div className="absolute inset-4 rounded-full border border-[#6F3CC3]/30 animate-[spin_7s_linear_infinite]" />
             <div className="absolute inset-8 rounded-full border border-[#C9A24D]/35 border-dashed animate-[spin_4s_linear_infinite_reverse]" />
             <div className="absolute w-36 h-36 rounded-full bg-[#6F3CC3]/15 blur-2xl animate-pulse" />
-            <div className="relative w-36 h-24 rounded-2xl border border-[#6F3CC3]/60 bg-[#0d0b15]/95 shadow-[0_0_45px_rgba(111,60,195,0.35)] flex items-center justify-center p-3">
+            <div className="relative w-40 h-28 flex items-center justify-center">
               <img
                 src={GAYZE_OFFICIAL_ROUNDEL_DATA_URI}
                 alt="GAYZE"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain drop-shadow-[0_0_28px_rgba(111,60,195,0.28)]"
                 draggable={false}
               />
             </div>
