@@ -16,6 +16,7 @@ interface PrivacyGeographicMapProps {
   filter?: 'all' | 'people' | 'coffee' | 'drinks' | 'active' | 'havens';
   intentModeFilter?: 'All' | 'Social' | 'Private';
   showJitterCircles?: boolean;
+  maxDistanceKm?: number;
   selectedItem?: MapDiscoveryItem | null;
   onSelectItem: (item: MapDiscoveryItem | null) => void;
   onOpenDirectChat?: (pulse: Pulse) => void;
@@ -29,7 +30,7 @@ interface PrivacyGeographicMapProps {
 }
 
 export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props) => {
-  const { pulses, safeHavens, profiles = [], userNeighborhood, privacySetting, filter = 'all', intentModeFilter = 'All', showJitterCircles = true, selectedItem, onSelectItem, onMapReady } = props;
+  const { pulses, safeHavens, profiles = [], userNeighborhood, privacySetting, filter = 'all', intentModeFilter = 'All', showJitterCircles = true, maxDistanceKm = 5, selectedItem, onSelectItem, onMapReady } = props;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
@@ -103,6 +104,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       L.marker([userCenterLat, userCenterLng], { icon: userIcon }).addTo(layerGroup).bindTooltip('You (' + userNeighborhood + ') · ~300m cloaked', { direction: 'top', offset: [0, -6] });
     }
     if (filter === 'all' || filter === 'havens') safeHavens.forEach((haven, idx) => {
+      if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > maxDistanceKm) return;
       const lat = typeof haven.lat === 'number' && !isNaN(haven.lat) ? haven.lat : 51.5126 + idx * 0.004;
       const lng = typeof haven.lng === 'number' && !isNaN(haven.lng) ? haven.lng : -0.1268 + ((idx % 2 === 0 ? 1 : -1) * 0.003);
       const selected = selectedItem?.type === 'haven' && selectedItem.item.id === haven.id;
@@ -110,6 +112,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       const marker = L.marker([lat, lng], { icon }).addTo(layerGroup); marker.on('click', () => onSelectItem({ type: 'haven', item: haven }));
     });
     if (filter === 'all' || filter === 'people') profiles.forEach((profile, idx) => {
+      if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
       const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
       if (intentModeFilter === 'Social' && isPrivate) return; if (intentModeFilter === 'Private' && !isPrivate) return;
       const coords = profileCoords[profile.id] || [51.5132 + ((idx % 3 - 1) * 0.0035), -0.1300 + (((idx + 1) % 3 - 1) * 0.004)];
@@ -118,6 +121,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       const marker = L.marker(coords, { icon }).addTo(layerGroup); marker.on('click', () => onSelectItem({ type: 'profile', item: profile }));
     });
     if (filter !== 'havens' && filter !== 'people') pulses.forEach((pulse, idx) => {
+      if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
       if (filter !== 'all' && pulse.activityCategory !== filter) return;
       const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
       if (intentModeFilter === 'Social' && isPrivate) return; if (intentModeFilter === 'Private' && !isPrivate) return;
@@ -129,7 +133,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       const icon = L.divIcon({ className: 'custom-pulse-marker', html: '<div class="w-8 h-8 rounded-full bg-[#11131a] border-2 ' + (selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-purple-400' : 'border-[#C9A24D]') + ' flex items-center justify-center text-xs text-white font-bold">' + (pulse.peerName ? pulse.peerName.charAt(0) : 'P') + '</div>', iconSize: [32, 32], iconAnchor: [16, 16] });
       const marker = L.marker([lat, lng], { icon }).addTo(layerGroup); marker.on('click', () => onSelectItem({ type: 'pulse', item: pulse }));
     });
-  }, [pulses, safeHavens, profiles, filter, intentModeFilter, showJitterCircles, privacySetting, userNeighborhood, selectedItem]);
+  }, [pulses, safeHavens, profiles, filter, intentModeFilter, showJitterCircles, maxDistanceKm, privacySetting, userNeighborhood, selectedItem]);
 
   return (
     <>
