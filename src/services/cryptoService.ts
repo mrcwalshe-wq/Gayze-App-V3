@@ -332,9 +332,9 @@ export async function unwrapConversationKey(
 ): Promise<CryptoKey> {
   const wrappingKey = await deriveDeviceWrappingKey(conversationId, peerPublicKeyJwk);
   const rawConversationKey = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: hexToBuf(nonceHex), tagLength: 128 },
+    { name: 'AES-GCM', iv: hexToBuf(nonceHex) as unknown as Uint8Array<ArrayBuffer>, tagLength: 128 },
     wrappingKey,
-    hexToBuf(wrappedKeyHex),
+    hexToBuf(wrappedKeyHex) as unknown as BufferSource,
   );
   return window.crypto.subtle.importKey(
     'raw',
@@ -364,9 +364,9 @@ export async function decryptWithConversationKey(
   key: CryptoKey,
 ): Promise<string> {
   const plaintext = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: hexToBuf(nonceHex), tagLength: 128 },
+    { name: 'AES-GCM', iv: hexToBuf(nonceHex) as unknown as Uint8Array<ArrayBuffer>, tagLength: 128 },
     key,
-    hexToBuf(cipherHex),
+    hexToBuf(cipherHex) as unknown as BufferSource,
   );
   return new TextDecoder().decode(plaintext);
 }
@@ -391,7 +391,7 @@ async function passwordWrappingKey(password: string, salt: Uint8Array, iteration
     ['deriveKey'],
   );
   return window.crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: salt as unknown as BufferSource, iterations, hash: 'SHA-256' },
     material,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -455,9 +455,9 @@ export async function restoreRecoveryBundle(bundle: RecoveryBundle, password: st
   const iv = hexToBuf(bundle.ivHex);
   const wrappingKey = await passwordWrappingKey(password, salt, bundle.iterations);
   const plaintext = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv, tagLength: 128 },
+    { name: 'AES-GCM', iv: iv as unknown as Uint8Array<ArrayBuffer>, tagLength: 128 },
     wrappingKey,
-    hexToBuf(bundle.wrappedPrivateKeyHex),
+    hexToBuf(bundle.wrappedPrivateKeyHex) as unknown as BufferSource,
   );
 
   const privateJwk = JSON.parse(new TextDecoder().decode(plaintext)) as JsonWebKey;

@@ -15,7 +15,8 @@ import {
   Heart,
   Users,
   QrCode,
-  Flame
+  Flame,
+  Map as MapIcon
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -99,9 +100,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'text-white bg-[#221634] border border-[#6F3CC3]/60 shadow-[0_0_14px_rgba(111,60,195,0.4)]'
                   : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
+              title="Live Proximity Map"
+              aria-label="Map"
             >
-              <Radio className={`w-3.5 h-3.5 ${activeTab === 'right_now' ? 'text-[#C9A24D] animate-pulse' : 'text-zinc-400'}`} />
-              <span className={activeTab === 'right_now' ? 'text-white font-bold' : ''}>Right Now</span>
+              <MapIcon className={`w-3.5 h-3.5 ${activeTab === 'right_now' ? 'text-[#C9A24D]' : 'text-zinc-400'}`} />
+              <span className={activeTab === 'right_now' ? 'text-white font-bold' : ''}>Map</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
             </button>
 
             <button
@@ -224,20 +228,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-[10px] tracking-tight">Discover</span>
           </button>
 
-          {/* Tab 2: Right Now */}
+          {/* Tab 2: Map */}
           <button
             onClick={() => onTabChange('right_now')}
             className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer relative ${
               activeTab === 'right_now' ? 'text-[#C9A24D] font-bold' : 'text-zinc-400 hover:text-zinc-200'
             }`}
+            title="Live Map"
+            aria-label="Map"
           >
             <div className="relative flex items-center justify-center">
-              <Radio className={`w-4 h-4 mb-0.5 ${activeTab === 'right_now' ? 'text-[#C9A24D]' : ''}`} />
-              {activeTab === 'right_now' && (
-                <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-[#6F3CC3] ring-1 ring-[#C9A24D] animate-ping" />
-              )}
+              <MapIcon className={`w-4 h-4 mb-0.5 ${activeTab === 'right_now' ? 'text-[#C9A24D]' : ''}`} />
+              <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
             </div>
-            <span className="text-[10px] tracking-tight">Right Now</span>
+            <span className="text-[10px] tracking-tight font-medium">Map</span>
             {activeTab === 'right_now' && (
               <span className="absolute bottom-0.5 w-4 h-0.5 rounded-full bg-[#C9A24D] shadow-[0_0_6px_#C9A24D]" />
             )}

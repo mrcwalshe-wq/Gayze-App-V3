@@ -60,8 +60,19 @@ button, input, select, textarea, [role="button"] {
 
 /* Leaflet Map Dark Aesthetic Overrides */
 .leaflet-container {
-  background-color: #090a0e !important;
+  background-color: #07080b !important;
   font-family: inherit !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+}
+
+.gayze-leaflet-map {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  position: absolute !important;
+  inset: 0 !important;
 }
 
 .leaflet-popup-content-wrapper {

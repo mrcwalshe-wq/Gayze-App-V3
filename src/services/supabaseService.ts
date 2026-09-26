@@ -12,34 +12,58 @@ export interface RightNowDiscoveryRow {
 
 export async function discoverRightNow(options?: { radiusMeters?: number; mode?: 'social' | 'private'; intent?: string }): Promise<RightNowDiscoveryRow[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc('discover_right_now', {
-    p_radius_m: options?.radiusMeters ?? 5000, p_mode: options?.mode ?? null, p_intent: options?.intent ?? null,
-  });
-  if (error) throw error;
-  return (data ?? []) as RightNowDiscoveryRow[];
+  try {
+    const { data, error } = await supabase.rpc('discover_right_now', {
+      p_radius_m: options?.radiusMeters ?? 5000, p_mode: options?.mode ?? null, p_intent: options?.intent ?? null,
+    });
+    if (error) {
+      console.warn('[GAYZE] Supabase discover_right_now unavailable:', error.message);
+      return [];
+    }
+    return (data ?? []) as RightNowDiscoveryRow[];
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase discover_right_now exception:', err?.message || err);
+    return [];
+  }
 }
 
 export async function saveActiveIntent(intent: UserActiveIntent, location?: { lat: number; lng: number }) {
   if (!supabase) return null;
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw userError ?? new Error('Authentication required');
-  const point = location ? 'SRID=4326;POINT(' + location.lng + ' ' + location.lat + ')' : null;
-  const { data, error } = await supabase.from('intents').insert({
-    user_id: userData.user.id, mode: intent.mode, intent: intent.intent, description: intent.description,
-    starts_at: new Date(intent.activatedAt).toISOString(), expires_at: new Date(intent.expiresAt).toISOString(),
-    duration_label: intent.duration, travel_distance_label: intent.travelDistance, travel_willingness: intent.travelWillingness,
-    can_host: intent.canHost, context: intent.context, area: intent.area, is_near_safe_haven: Boolean(intent.isNearSafeHaven),
-    safe_haven_id: null, location: point, is_paused: Boolean(intent.isPaused),
-  }).select('id,expires_at').single();
-  if (error) throw error;
-  return data;
+  try {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) return null;
+    const point = location ? 'SRID=4326;POINT(' + location.lng + ' ' + location.lat + ')' : null;
+    const { data, error } = await supabase.from('intents').insert({
+      user_id: userData.user.id, mode: intent.mode, intent: intent.intent, description: intent.description,
+      starts_at: new Date(intent.activatedAt).toISOString(), expires_at: new Date(intent.expiresAt).toISOString(),
+      duration_label: intent.duration, travel_distance_label: intent.travelDistance, travel_willingness: intent.travelWillingness,
+      can_host: intent.canHost, context: intent.context, area: intent.area, is_near_safe_haven: Boolean(intent.isNearSafeHaven),
+      safe_haven_id: null, location: point, is_paused: Boolean(intent.isPaused),
+    }).select('id,expires_at').single();
+    if (error) {
+      console.warn('[GAYZE] Supabase saveActiveIntent error:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase saveActiveIntent exception:', err?.message || err);
+    return null;
+  }
 }
 
 export async function submitInterest(toUserId: string, intentId?: string) {
-  if (!supabase) throw new Error('Supabase is not configured');
-  const { data, error } = await supabase.rpc('submit_interest', { p_to_user: toUserId, p_intent_id: intentId ?? null });
-  if (error) throw error;
-  return data as { mutual: boolean; conversation_id: string | null };
+  if (!supabase) return { mutual: false, conversation_id: null };
+  try {
+    const { data, error } = await supabase.rpc('submit_interest', { p_to_user: toUserId, p_intent_id: intentId ?? null });
+    if (error) {
+      console.warn('[GAYZE] Supabase submit_interest unavailable:', error.message);
+      return { mutual: false, conversation_id: null };
+    }
+    return data as { mutual: boolean; conversation_id: string | null };
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase submit_interest exception:', err?.message || err);
+    return { mutual: false, conversation_id: null };
+  }
 }
 
 export interface SupabaseMessageRow {
@@ -110,62 +134,97 @@ export function subscribeToConversationMessages(
     )
     .subscribe();
 
-  return () => { void supabase.removeChannel(channel); };
+  const client = supabase;
+  return () => { void client.removeChannel(channel); };
 }
 
 export async function submitGaze(toUserId: string, intentId?: string) {
-  if (!supabase) throw new Error('Supabase is not configured');
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw userError ?? new Error('Authentication required');
+  if (!supabase) return { sent: false };
+  try {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) return { sent: false };
 
-  const { error } = await supabase.from('gazes').insert({
-    from_user: userData.user.id,
-    to_user: toUserId,
-    intent_id: intentId ?? null,
-  });
+    const { error } = await supabase.from('gazes').insert({
+      from_user: userData.user.id,
+      to_user: toUserId,
+      intent_id: intentId ?? null,
+    });
 
-  // A repeated Gaze is intentionally idempotent at the UX layer.
-  if (error && error.code !== '23505') throw error;
-  return { sent: true };
+    // A repeated Gaze is intentionally idempotent at the UX layer.
+    if (error && error.code !== '23505') {
+      console.warn('[GAYZE] Supabase submitGaze unavailable:', error.message);
+      return { sent: false };
+    }
+    return { sent: true };
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase submitGaze exception:', err?.message || err);
+    return { sent: false };
+  }
 }
 
 export function subscribeToRightNow(onChange: () => void) {
   if (!supabase) return () => undefined;
-  const channel = supabase.channel('gayze-right-now')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'intents' }, onChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'interests' }, onChange)
-    .subscribe();
-  return () => { void supabase.removeChannel(channel); };
+  try {
+    const channel = supabase.channel('gayze-right-now')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intents' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'interests' }, onChange)
+      .subscribe();
+    const client = supabase;
+    return () => { void client.removeChannel(channel); };
+  } catch {
+    return () => undefined;
+  }
 }
 
 
 export async function ensureSupabaseSession() {
   if (!supabase) return null;
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (sessionData.session?.user) return sessionData.session.user;
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.warn('[GAYZE] Supabase getSession info:', sessionError.message);
+    }
+    if (sessionData?.session?.user) return sessionData.session.user;
 
-  const { data, error } = await supabase.auth.signInAnonymously();
-  if (error) throw error;
-  return data.user;
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) {
+      // Anonymous sign-ins are disabled on this Supabase project or provider is turned off.
+      // Gracefully return null so the app continues seamlessly with peer-to-peer / local mode.
+      console.warn('[GAYZE] Supabase anonymous sign-in unavailable (disabled on project):', error.message);
+      return null;
+    }
+    return data.user;
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase session check error:', err?.message || err);
+    return null;
+  }
 }
 
 export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL_USER, identityPublicKey?: string) {
   if (!supabase) return null;
-  const { data, error } = await supabase.from('profiles').upsert({
-    id: userId,
-    handle: sourceUser.handle || 'gayze-user',
-    display_name: sourceUser.displayName || 'Gayze User',
-    bio: sourceUser.bio || null,
-    age: null,
-    privacy_setting: sourceUser.privacySetting || 'fuzzy_500m',
-    reliability_score: sourceUser.reliabilityScore || 94,
-    verified_peers_count: sourceUser.verifiedPeersCount || 0,
-    safety_verified: Boolean(sourceUser.safetyVerified),
-    neighborhood: sourceUser.neighborhood || null,
-    identity_public_key: identityPublicKey ?? null,
-  }, { onConflict: 'id' }).select('*').single();
-  if (error) throw error;
-  return data;
+  try {
+    const { data, error } = await supabase.from('profiles').upsert({
+      id: userId,
+      handle: sourceUser.handle || 'gayze-user',
+      display_name: sourceUser.displayName || 'Gayze User',
+      bio: sourceUser.bio || null,
+      age: null,
+      privacy_setting: sourceUser.privacySetting || 'fuzzy_500m',
+      reliability_score: sourceUser.reliabilityScore || 94,
+      verified_peers_count: sourceUser.verifiedPeersCount || 0,
+      safety_verified: Boolean(sourceUser.safetyVerified),
+      neighborhood: sourceUser.neighborhood || null,
+      identity_public_key: identityPublicKey ?? null,
+    }, { onConflict: 'id' }).select('*').single();
+    if (error) {
+      console.warn('[GAYZE] Supabase profile upsert unavailable:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase profile upsert exception:', err?.message || err);
+    return null;
+  }
 }
 
 export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[]): Pulse[] {
@@ -208,7 +267,9 @@ export async function saveActiveIntentWithSession(
   identityPublicKey?: string,
 ) {
   const user = await ensureSupabaseSession();
-  if (!user) throw new Error('Unable to create a Supabase session');
+  if (!user) {
+    return null;
+  }
   // Preserve the existing device identity when this helper is used after bootstrap.
   // Passing undefined keeps the existing identity_public_key untouched via a direct
   // update of only the intent; profile synchronisation is only needed when explicitly
@@ -228,12 +289,20 @@ export interface ConversationPeerKey {
 
 export async function loadConversationPeerKey(conversationId: string): Promise<ConversationPeerKey | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc('get_conversation_peer_key', {
-    p_conversation_id: conversationId,
-  });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
-  return (row ?? null) as ConversationPeerKey | null;
+  try {
+    const { data, error } = await supabase.rpc('get_conversation_peer_key', {
+      p_conversation_id: conversationId,
+    });
+    if (error) {
+      console.warn('[GAYZE] Supabase get_conversation_peer_key unavailable:', error.message);
+      return null;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    return (row ?? null) as ConversationPeerKey | null;
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase get_conversation_peer_key exception:', err?.message || err);
+    return null;
+  }
 }
 
 
@@ -250,47 +319,71 @@ export interface ConversationKeyEnvelope {
 
 export async function listConversationKeyEnvelopes(conversationId: string): Promise<ConversationKeyEnvelope[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('conversation_key_envelopes')
-    .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
-    .eq('conversation_id', conversationId);
-  if (error) throw error;
-  return (data ?? []) as ConversationKeyEnvelope[];
+  try {
+    const { data, error } = await supabase
+      .from('conversation_key_envelopes')
+      .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
+      .eq('conversation_id', conversationId);
+    if (error) {
+      console.warn('[GAYZE] Supabase listConversationKeyEnvelopes unavailable:', error.message);
+      return [];
+    }
+    return (data ?? []) as ConversationKeyEnvelope[];
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase listConversationKeyEnvelopes exception:', err?.message || err);
+    return [];
+  }
 }
 
 export async function saveConversationKeyEnvelope(
   envelope: Omit<ConversationKeyEnvelope, 'created_at'>,
 ): Promise<ConversationKeyEnvelope | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('conversation_key_envelopes')
-    .upsert({
-      conversation_id: envelope.conversation_id,
-      user_id: envelope.user_id,
-      device_id: envelope.device_id,
-      wrapped_key: envelope.wrapped_key,
-      nonce: envelope.nonce,
-      created_by_device_id: envelope.created_by_device_id,
-    }, { onConflict: 'conversation_id,device_id' })
-    .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
-    .single();
-  if (error) throw error;
-  return data as ConversationKeyEnvelope;
+  try {
+    const { data, error } = await supabase
+      .from('conversation_key_envelopes')
+      .upsert({
+        conversation_id: envelope.conversation_id,
+        user_id: envelope.user_id,
+        device_id: envelope.device_id,
+        wrapped_key: envelope.wrapped_key,
+        nonce: envelope.nonce,
+        created_by_device_id: envelope.created_by_device_id,
+      }, { onConflict: 'conversation_id,device_id' })
+      .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
+      .single();
+    if (error) {
+      console.warn('[GAYZE] Supabase saveConversationKeyEnvelope unavailable:', error.message);
+      return null;
+    }
+    return data as ConversationKeyEnvelope;
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase saveConversationKeyEnvelope exception:', err?.message || err);
+    return null;
+  }
 }
 
 export async function loadConversationPeerDevices(conversationId: string) {
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc('get_conversation_peer_devices', {
-    p_conversation_id: conversationId,
-  });
-  if (error) throw error;
-  return (data ?? []) as Array<{
-    user_id: string;
-    device_id: string;
-    public_key: string;
-    device_label: string | null;
-    last_seen_at: string;
-  }>;
+  try {
+    const { data, error } = await supabase.rpc('get_conversation_peer_devices', {
+      p_conversation_id: conversationId,
+    });
+    if (error) {
+      console.warn('[GAYZE] Supabase get_conversation_peer_devices unavailable:', error.message);
+      return [];
+    }
+    return (data ?? []) as Array<{
+      user_id: string;
+      device_id: string;
+      public_key: string;
+      device_label: string | null;
+      last_seen_at: string;
+    }>;
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase get_conversation_peer_devices exception:', err?.message || err);
+    return [];
+  }
 }
 
 export interface IdentityDevice {
@@ -314,34 +407,58 @@ export async function registerIdentityDevice(
   deviceId?: string,
 ): Promise<IdentityDevice | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc('register_identity_device', {
-    p_fingerprint: fingerprint,
-    p_public_key: publicKey,
-    p_device_label: deviceLabel ?? null,
-    p_signing_public_key: signingPublicKey ?? null,
-    p_device_id: deviceId ?? null,
-  });
-  if (error) throw error;
-  return data as IdentityDevice;
+  try {
+    const { data, error } = await supabase.rpc('register_identity_device', {
+      p_fingerprint: fingerprint,
+      p_public_key: publicKey,
+      p_device_label: deviceLabel ?? null,
+      p_signing_public_key: signingPublicKey ?? null,
+      p_device_id: deviceId ?? null,
+    });
+    if (error) {
+      console.warn('[GAYZE] Supabase register_identity_device unavailable:', error.message);
+      return null;
+    }
+    return data as IdentityDevice;
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase register_identity_device exception:', err?.message || err);
+    return null;
+  }
 }
 
 export async function listIdentityDevices(): Promise<IdentityDevice[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('identity_devices')
-    .select('id,user_id,device_id,device_fingerprint,identity_fingerprint,device_label,public_key,signing_public_key,status,created_at,last_seen_at,revoked_at')
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as IdentityDevice[];
+  try {
+    const { data, error } = await supabase
+      .from('identity_devices')
+      .select('id,user_id,device_id,device_fingerprint,identity_fingerprint,device_label,public_key,signing_public_key,status,created_at,last_seen_at,revoked_at')
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.warn('[GAYZE] Supabase listIdentityDevices unavailable:', error.message);
+      return [];
+    }
+    return (data ?? []) as IdentityDevice[];
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase listIdentityDevices exception:', err?.message || err);
+    return [];
+  }
 }
 
 export async function revokeIdentityDevice(deviceId: string): Promise<boolean> {
   if (!supabase) return false;
-  const { data, error } = await supabase.rpc('revoke_identity_device', {
-    p_device_id: deviceId,
-  });
-  if (error) throw error;
-  return Boolean(data);
+  try {
+    const { data, error } = await supabase.rpc('revoke_identity_device', {
+      p_device_id: deviceId,
+    });
+    if (error) {
+      console.warn('[GAYZE] Supabase revoke_identity_device unavailable:', error.message);
+      return false;
+    }
+    return Boolean(data);
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase revoke_identity_device exception:', err?.message || err);
+    return false;
+  }
 }
 
 

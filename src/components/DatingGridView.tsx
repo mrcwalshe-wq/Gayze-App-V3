@@ -60,6 +60,8 @@ interface DatingGridViewProps {
   onGazeAtPeer?: (peerName: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
+  onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
+  onOpenMap?: () => void;
 }
 
 export const DatingGridView: React.FC<DatingGridViewProps> = ({
@@ -77,6 +79,8 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
   onGazeAtPeer,
   onOpenScheduleMeeting,
   onOpenSetIntent,
+  onUpdateActiveUserIntent,
+  onOpenMap,
 }) => {
   const [selectedProfile, setSelectedProfile] = useState<DatingProfile | null>(null);
   
@@ -607,10 +611,45 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                     </div>
                     {displayMode === 'feed' && <Check className="w-3.5 h-3.5 text-[#6F3CC3]" />}
                   </button>
+                  {onOpenMap && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsViewMenuOpen(false);
+                        hapticLight();
+                        onOpenMap();
+                      }}
+                      className="w-full px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer text-zinc-400 hover:text-white hover:bg-[#6F3CC3]/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Compass className="w-3.5 h-3.5 text-[#C9A24D]" />
+                        <span>Interactive Map</span>
+                      </div>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    </button>
+                  )}
                 </div>
               </>
             )}
           </div>
+
+          {/* Quick Map Jump Button */}
+          {onOpenMap && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                onOpenMap();
+              }}
+              className="h-11 min-h-[44px] px-3 rounded-xl bg-[#1b1626] hover:bg-[#251e36] border border-[#6F3CC3]/50 text-white flex items-center gap-1.5 text-xs font-semibold shadow-sm transition-all cursor-pointer select-none active:scale-[0.98] shrink-0"
+              title="Switch to Live Map"
+              aria-label="Open Map Tab"
+            >
+              <Compass className="w-3.5 h-3.5 text-[#C9A24D]" />
+              <span className="hidden sm:inline font-mono uppercase tracking-wider text-[11px]">Map</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </button>
+          )}
         </div>
 
         {/* =========================================================================

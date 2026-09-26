@@ -57,16 +57,38 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       attributionControl: true,
     });
 
-    // Keyless OpenStreetMap tiles; the map remains independent from surrounding rounded UI.
-    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
+    // CARTO Dark Matter — high-performance, dark-themed, CORS-friendly tiles
+    const primaryTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    const fallbackTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+
+    let activeTiles: L.TileLayer = L.tileLayer(primaryTileUrl, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
       maxZoom: 19,
-      maxNativeZoom: 19,
+      minZoom: 10,
       crossOrigin: true,
       updateWhenIdle: false,
-      keepBuffer: 3,
+      keepBuffer: 6,
     }).addTo(map);
-    tiles.on('tileerror', (event) => console.warn('[GAYZE] Map tile failed to load', event));
+
+    let switchedToFallback = false;
+    activeTiles.on('tileerror', () => {
+      if (!switchedToFallback && mapInstanceRef.current) {
+        switchedToFallback = true;
+        console.warn('[GAYZE] Switching PrivacyGeographicMap to secondary dark canvas tile layer');
+        try {
+          map.removeLayer(activeTiles);
+          activeTiles = L.tileLayer(fallbackTileUrl, {
+            attribution: 'Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+            maxZoom: 19,
+            minZoom: 10,
+            crossOrigin: true,
+          }).addTo(map);
+        } catch (e) {
+          console.error('[GAYZE] Secondary tile layer error', e);
+        }
+      }
+    });
 
     const layerGroup = L.layerGroup().addTo(map);
     layerGroupRef.current = layerGroup;
@@ -76,13 +98,23 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       if (mapInstanceRef.current) map.invalidateSize({ pan: false, debounceMoveend: true });
     });
     invalidate();
-    const timer = window.setTimeout(invalidate, 100);
-    const timer2 = window.setTimeout(invalidate, 350);
-    const timer3 = window.setTimeout(invalidate, 900);
+    const timer = window.setTimeout(invalidate, 80);
+    const timer2 = window.setTimeout(invalidate, 250);
+    const timer3 = window.setTimeout(invalidate, 600);
+    const timer4 = window.setTimeout(invalidate, 1200);
+    window.addEventListener('resize', invalidate);
     let ro: ResizeObserver | null = null;
-    if (window.ResizeObserver && mapContainerRef.current) { ro = new ResizeObserver(() => map.invalidateSize()); ro.observe(mapContainerRef.current); }
+    if (typeof window !== 'undefined' && 'ResizeObserver' in window && container) {
+      ro = new ResizeObserver(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: true });
+        }
+      });
+      ro.observe(container);
+    }
     return () => {
-      clearTimeout(timer); clearTimeout(timer2); clearTimeout(timer3);
+      clearTimeout(timer); clearTimeout(timer2); clearTimeout(timer3); clearTimeout(timer4);
+      window.removeEventListener('resize', invalidate);
       if (ro) ro.disconnect();
       map.remove();
       mapInstanceRef.current = null;
@@ -137,8 +169,12 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
 
   return (
     <>
-      <style>{'.leaflet-tile-pane{filter:invert(0.92) hue-rotate(180deg) brightness(0.72) saturate(0.7)}.leaflet-control-attribution{margin-bottom:4.5rem!important;margin-right:.5rem!important;padding:2px 6px!important;border-radius:6px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}'}</style>
-      <div ref={mapContainerRef} className="relative w-full h-full min-h-0 overflow-hidden z-0 bg-[#07080b] rounded-none" />
+      <style>{'.leaflet-control-attribution{margin-bottom:4.5rem!important;margin-right:.5rem!important;padding:2px 6px!important;border-radius:6px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}'}</style>
+      <div
+        ref={mapContainerRef}
+        className="relative w-full h-full min-h-0 overflow-hidden z-0 bg-[#07080b] rounded-none"
+        style={{ height: '100%', minHeight: '100%', width: '100%' }}
+      />
     </>
   );
 };

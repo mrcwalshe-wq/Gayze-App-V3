@@ -61,21 +61,11 @@ import { Shield, Lock, Radio, Calendar, HeartHandshake, Eye, AlertCircle } from 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens'>('dating');
   const [showStartup, setShowStartup] = useState(true);
-  const [showGazing, setShowGazing] = useState(false);
-  const [hasGazedThisSession, setHasGazedThisSession] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setShowStartup(false), 1500);
+    const timer = window.setTimeout(() => setShowStartup(false), 300);
     return () => window.clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (activeTab !== 'right_now' || hasGazedThisSession || showStartup) return;
-    setHasGazedThisSession(true);
-    setShowGazing(true);
-    const timer = window.setTimeout(() => setShowGazing(false), 1050);
-    return () => window.clearTimeout(timer);
-  }, [activeTab, hasGazedThisSession, showStartup]);
   
   // Core datasets with local state
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
@@ -244,7 +234,10 @@ export default function App() {
     const refreshDiscovery = async () => {
       try {
         const user = await ensureSupabaseSession();
-        if (!user) return;
+        if (!user) {
+          if (!disposed) setSupabaseReady(false);
+          return;
+        }
         setSupabaseUserId(user.id);
         const identity = await getOrCreateDeviceIdentity();
         const identityUser = {
@@ -267,11 +260,15 @@ export default function App() {
         }
         const rows = await discoverRightNow({ radiusMeters: 5000 });
         if (!disposed) {
-          setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
-          setSupabaseReady(true);
+          if (rows && rows.length > 0) {
+            setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
+            setSupabaseReady(true);
+          } else {
+            setSupabaseReady(false);
+          }
         }
       } catch (error) {
-        console.error('[GAYZE] Supabase Right Now bootstrap failed', error);
+        console.warn('[GAYZE] Supabase Right Now sync fallback to local pulses:', error);
         if (!disposed) setSupabaseReady(false);
       }
     };
@@ -1229,7 +1226,6 @@ export default function App() {
   };
 
   if (showStartup) return <GayzeLoadingScreen mode="startup" />;
-  if (showGazing) return <GayzeLoadingScreen mode="gazing" />;
 
   // If Discreet Mask is triggered, render pure camouflage
   if (isMaskActive) {
@@ -1284,6 +1280,7 @@ export default function App() {
             onOpenScheduleMeeting={handleOpenScheduleMeeting}
             onOpenSetIntent={() => setIsSetIntentOpen(true)}
             onUpdateActiveUserIntent={setActiveUserIntent}
+            onOpenMap={() => setActiveTab('right_now')}
           />
         )}
 
