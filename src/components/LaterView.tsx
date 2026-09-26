@@ -80,17 +80,20 @@ export const LaterView: React.FC<LaterViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="gayze-premium-page space-y-5">
       {/* Header section with host button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/[0.08]">
+      <div className="gayze-page-intro flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#C9A24D]" />
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white font-sans">
+          <div className="flex items-center gap-3">
+            <span className="h-7 w-[2px] bg-gradient-to-b from-[#C9A24D] to-[#6F3CC3]" />
+            <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#C9A24D] mb-1">PLANNED CONNECTIONS</div>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
               Planned Circles & Meetups
             </h1>
+            </div>
           </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-[11px] sm:text-xs text-zinc-400 sm:max-w-md leading-relaxed">
             Curated group sessions and social circles with encrypted attendee groups
           </p>
         </div>
@@ -107,7 +110,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
       {/* Filter bars */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         {/* Time filters */}
-        <div className="flex items-center gap-1 p-1 bg-[#11131a] rounded-xl border border-white/[0.07] overflow-x-auto no-scrollbar">
+        <div className="gayze-premium-control flex items-center gap-1 p-1 rounded-xl border overflow-x-auto no-scrollbar">
           {[
             { id: 'all', label: 'All Dates' },
             { id: 'tonight', label: 'Tonight' },
@@ -162,7 +165,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
           return (
             <div
               key={gathering.id}
-              className="bg-[#11131a] hover:bg-[#141620] border border-white/[0.08] hover:border-[#C9A24D]/40 rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between shadow-sm"
+              className="gayze-premium-panel hover:border-[#C9A24D]/35 rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between"
             >
               <div>
                 {/* Header: Date badge + Attendance count */}
@@ -276,7 +279,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
       {/* Host Gathering Modal */}
       {isHostModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg bg-[#11131a] border border-white/10 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-lg gayze-premium-panel rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[#C9A24D]/15 border border-[#C9A24D]/30 flex items-center justify-center text-[#C9A24D]">
