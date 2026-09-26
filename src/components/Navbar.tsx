@@ -44,12 +44,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   return (
     <>
-      {/* Top App Header */}
-      <header className={`sticky top-0 z-40 w-full transition-colors ${
-        activeTab === 'right_now'
-          ? 'bg-[#090a0e]/75 backdrop-blur-xl border-b border-white/[0.06]'
-          : 'bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07]'
-      }`}>
+      {/* Top App Header — Fixed / Stationary Viewport Layer */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 w-full transition-colors pt-[env(safe-area-inset-top,0px)] ${
+          activeTab === 'right_now'
+            ? 'bg-[#090a0e]/85 backdrop-blur-xl border-b border-white/[0.06]'
+            : 'bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07]'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 flex items-center justify-between gap-1.5 sm:gap-4 min-w-0">
           
           {/* Brand Wordmark & Neighborhood Tag */}
@@ -59,8 +61,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-2.5 group text-left cursor-pointer focus:outline-none"
               aria-label="GAYZE Home"
             >
-              <div className="w-9 h-9 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <GayzeLogo size={42} showWordmark={false} />
+              <div className="w-10 h-7 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <GayzeLogo size={36} showWordmark={false} />
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-base sm:text-lg font-bold tracking-wider text-white uppercase font-sans">
@@ -209,9 +211,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Fixed Bottom Tab Bar (Thumb Zone) */}
       <nav 
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 transition-colors pb-safe shadow-2xl ${
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-50 transition-colors pb-[env(safe-area-inset-bottom,0px)] shadow-2xl ${
           activeTab === 'right_now'
-            ? 'bg-[#090a0e]/75 backdrop-blur-xl border-t border-white/[0.07]'
+            ? 'bg-[#090a0e]/90 backdrop-blur-xl border-t border-white/[0.07]'
             : 'bg-[#090a0e]/95 backdrop-blur-xl border-t border-white/[0.08]'
         }`}
         aria-label="Mobile Navigation"

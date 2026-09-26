@@ -50,8 +50,10 @@ import {
   Play,
   Share2,
   Compass,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
+import { MAP_PROVIDERS } from '../config/mapProviders';
 import { 
   hapticLight, 
   hapticSensitiveAction, 
@@ -131,8 +133,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
+  const activeTileLayerRef = useRef<L.TileLayer | null>(null);
   const mapControlsRef = useRef<{ zoomIn: () => void; zoomOut: () => void; recenter: () => void } | null>(null);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
+  const [mapTilesUnavailable, setMapTilesUnavailable] = useState<boolean>(false);
+  const [currentProviderIndex, setCurrentProviderIndex] = useState<number>(0);
 
   // 3. Filtering States
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
@@ -403,6 +408,34 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setMaxDistanceKm(5);
   };
 
+  // Retry tile providers from primary if all failed or connection drops
+  const handleRetryMapTiles = () => {
+    hapticLight();
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    setMapTilesUnavailable(false);
+    if (activeTileLayerRef.current) {
+      try {
+        map.removeLayer(activeTileLayerRef.current);
+      } catch {}
+      activeTileLayerRef.current = null;
+    }
+    const provider = MAP_PROVIDERS[0];
+    const layer = L.tileLayer(provider.url, {
+      attribution: provider.attribution,
+      subdomains: provider.subdomains || 'abcd',
+      maxZoom: provider.maxZoom,
+      minZoom: provider.minZoom,
+      className: provider.className,
+      crossOrigin: provider.crossOrigin,
+      updateWhenIdle: false,
+      keepBuffer: 6,
+    });
+    layer.addTo(map);
+    activeTileLayerRef.current = layer;
+    setCurrentProviderIndex(0);
+  };
+
   // 7. Initialize Leaflet Map with ResizeObserver, explicit height, and invalidateSize
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -457,38 +490,59 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       }
     }
 
-    // CARTO Dark Matter — high-performance, dark-themed, CORS-friendly tiles
-    const primaryTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    const fallbackTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+    // Unified Map Provider abstraction with graceful auto-fallback
+    let providerIdx = 0;
+    let activeTileLayer: L.TileLayer | null = null;
 
-    let activeTiles: L.TileLayer = L.tileLayer(primaryTileUrl, {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 19,
-      minZoom: 10,
-      crossOrigin: true,
-      updateWhenIdle: false,
-      keepBuffer: 6,
-    }).addTo(map);
+    const attachProviderLayer = (index: number) => {
+      const targetMap = mapInstanceRef.current || map;
+      if (!targetMap) return;
 
-    let switchedToFallback = false;
-    activeTiles.on('tileerror', () => {
-      if (!switchedToFallback && mapInstanceRef.current) {
-        switchedToFallback = true;
-        console.warn('[GAYZE] Switching to secondary dark canvas tile layer');
+      if (activeTileLayer) {
         try {
-          map.removeLayer(activeTiles);
-          activeTiles = L.tileLayer(fallbackTileUrl, {
-            attribution: 'Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
-            maxZoom: 19,
-            minZoom: 10,
-            crossOrigin: true,
-          }).addTo(map);
-        } catch (e) {
-          console.error('[GAYZE] Secondary tile layer error', e);
-        }
+          targetMap.removeLayer(activeTileLayer);
+        } catch {}
+        activeTileLayer = null;
       }
-    });
+
+      if (index >= MAP_PROVIDERS.length) {
+        console.warn('[GAYZE] All map tile providers exhausted. Preserving radar backdrop.');
+        setMapTilesUnavailable(true);
+        return;
+      }
+
+      const provider = MAP_PROVIDERS[index];
+      setMapTilesUnavailable(false);
+      setCurrentProviderIndex(index);
+
+      const layer = L.tileLayer(provider.url, {
+        attribution: provider.attribution,
+        subdomains: provider.subdomains || 'abcd',
+        maxZoom: provider.maxZoom,
+        minZoom: provider.minZoom,
+        className: provider.className,
+        crossOrigin: provider.crossOrigin,
+        updateWhenIdle: false,
+        keepBuffer: 6,
+      });
+
+      let errorCount = 0;
+      layer.on('tileerror', () => {
+        errorCount++;
+        // If 4 tiles fail on current provider, fall back to next provider
+        if (errorCount === 4 && (mapInstanceRef.current || map)) {
+          console.warn(`[GAYZE] Tile failures on ${provider.name}. Falling back to next provider.`);
+          providerIdx++;
+          attachProviderLayer(providerIdx);
+        }
+      });
+
+      layer.addTo(targetMap);
+      activeTileLayer = layer;
+      activeTileLayerRef.current = layer;
+    };
+
+    attachProviderLayer(0);
 
     const layerGroup = L.layerGroup().addTo(map);
     layerGroupRef.current = layerGroup;
@@ -694,37 +748,124 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
   return (
     <div className="absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none bg-[#07080b]">
-      {/* =========================================================================
-          1. RESTRAINED PURPLE ATMOSPHERE
-          Deep radial purple atmospheric glow radiating outward over the map canvas.
-         ========================================================================= */}
-      <div
-        className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[480px] rounded-full blur-3xl z-10 opacity-30 transition-opacity duration-700 ease-out"
-        style={{
-          background: 'radial-gradient(ellipse at 50% 20%, rgba(111, 60, 195, 0.45) 0%, rgba(111, 60, 195, 0.12) 44%, rgba(7, 8, 11, 0) 74%)',
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Right Now command bar: keep the map dominant while exposing the two primary actions. */}
-      <div className="absolute top-3 left-3 right-3 z-20 pointer-events-none">
-        <div className="max-w-2xl mx-auto flex items-center gap-2">
-          <div className="pointer-events-auto flex items-center gap-2 min-w-0 rounded-2xl bg-[#0b0d13]/82 backdrop-blur-xl border border-white/[0.12] shadow-xl px-3 py-2">
-            <span className="relative flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-60 animate-ping" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[#C9A24D]" /></span>
-            <div className="min-w-0">
-              <span className="block text-[10px] font-mono font-black tracking-[0.18em] text-[#C9A24D] uppercase leading-none">LIVE MAP</span>
-              <span className="block text-[10px] text-zinc-400 truncate mt-1">{filteredActiveCount} nearby · live</span>
+      {/* Subtle Map Tile Failure Fallback State */}
+      {mapTilesUnavailable && (
+        <div className="absolute top-16 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm mx-auto bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 shadow-2xl animate-in fade-in duration-200 pointer-events-auto">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-zinc-200 text-xs font-semibold">
+              <Compass className="w-4 h-4 text-[#C9A24D] shrink-0" />
+              <span>Map tiles temporarily unavailable</span>
             </div>
-          </div>
-          <div className="ml-auto pointer-events-auto flex items-center gap-2">
-            <button type="button" onClick={() => { hapticLight(); setIsFilterDrawerOpen(true); }} className="h-11 min-h-[44px] px-3 rounded-2xl bg-[#0b0d13]/82 backdrop-blur-xl border border-white/[0.12] text-zinc-200 shadow-xl flex items-center gap-2 text-xs font-bold active:scale-95 transition-transform" aria-label="Open Right Now filters">
-              <SlidersHorizontal className="w-4 h-4 text-[#C9A24D]" /><span className="hidden sm:inline">Filters</span>
-              {activeFilterCount > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-black flex items-center justify-center">{activeFilterCount}</span>}
+            <button
+              type="button"
+              onClick={handleRetryMapTiles}
+              className="px-2.5 py-1 bg-[#6F3CC3] hover:bg-[#5e32a6] text-white text-[11px] font-semibold rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1 active:scale-95"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Retry</span>
             </button>
-            <button type="button" onClick={() => { hapticLight(); if (activeUserIntent) { setIsUserIntentDrawerOpen(true); } else { setIsSetIntentOpen(true); onOpenSetIntent?.(); } }} className={`h-11 min-h-[44px] px-3.5 rounded-2xl backdrop-blur-xl border shadow-xl flex items-center gap-2 text-xs font-black uppercase tracking-wide active:scale-95 transition-all ${
-              activeUserIntent ? 'bg-[#6F3CC3]/90 text-white border-[#8d63dc] shadow-[0_0_18px_rgba(111,60,195,0.35)]' : 'bg-[#C9A24D] text-black border-[#C9A24D]'
-            }`} aria-label={activeUserIntent ? "Manage your live intent" : "Set your Right Now intent"}>
-              {activeUserIntent ? <Zap className="w-4 h-4 fill-current" /> : <Plus className="w-4 h-4" />}<span>{activeUserIntent ? 'Live' : 'Set Intent'}</span>
+          </div>
+          <p className="text-[11px] text-zinc-400 mt-1 pl-6">
+            Proximity radar and live discovery remain fully active.
+          </p>
+        </div>
+      )}
+
+      {/* =========================================================================
+          1. RESTRAINED RIGHT NOW INTENT & DISCOVERY BAR
+          Dominant element after the map is the user's current intent.
+          Subtle purple atmospheric aura (#6F3CC3) when active.
+         ========================================================================= */}
+      <div className="absolute top-3 left-3 right-3 z-20 pointer-events-none">
+        <div className="max-w-xl mx-auto flex items-center justify-between gap-2.5">
+          
+          {/* User's Right Now Intent (Secondary visual element after map) */}
+          <div className="pointer-events-auto min-w-0 flex-1">
+            {activeUserIntent ? (
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setIsUserIntentDrawerOpen(true);
+                }}
+                className="w-full text-left bg-[#120e20]/90 hover:bg-[#18122a]/95 backdrop-blur-xl border border-[#6F3CC3]/50 rounded-2xl px-3.5 py-2 transition-all shadow-[0_4px_20px_rgba(111,60,195,0.22)] flex items-center justify-between gap-2.5 cursor-pointer group"
+                aria-label="Manage your Right Now intent"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    {!activeUserIntent.isPaused && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6F3CC3] opacity-75" />
+                    )}
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                      activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3]'
+                    }`} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-white tracking-tight truncate">
+                        {activeUserIntent.intent}
+                      </span>
+                      <span className="text-[10px] font-mono text-purple-300/80 shrink-0">
+                        · {formatRemainingTime(remainingMinutes)}
+                      </span>
+                    </div>
+                    <span className="block text-[10px] text-zinc-400 font-mono truncate">
+                      {activeUserIntent.isPaused ? 'Broadcast paused' : `Broadcasting in ${activeUserIntent.area || userNeighborhood}`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-purple-300 group-hover:text-white transition-colors">
+                  <span>Manage</span>
+                </div>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setIsSetIntentOpen(true);
+                  onOpenSetIntent?.();
+                }}
+                className="bg-[#0e1017]/90 hover:bg-[#161822]/95 backdrop-blur-xl border border-white/[0.12] hover:border-white/25 rounded-2xl px-3.5 py-2 transition-all shadow-lg flex items-center gap-2.5 cursor-pointer"
+                aria-label="Set your Right Now intent"
+              >
+                <span className="w-2 h-2 rounded-full bg-zinc-500 shrink-0" />
+                <div className="text-left min-w-0 flex-1">
+                  <span className="block text-xs font-semibold text-zinc-200">
+                    Set Right Now Intent
+                  </span>
+                  <span className="block text-[10px] text-zinc-400 font-mono">
+                    {filteredActiveCount} nearby in Soho
+                  </span>
+                </div>
+                <Plus className="w-4 h-4 text-[#6F3CC3] ml-auto shrink-0" />
+              </button>
+            )}
+          </div>
+
+          {/* Refine Discovery (Unified Filter Button) */}
+          <div className="pointer-events-auto shrink-0 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setIsFilterDrawerOpen(true);
+              }}
+              className={`h-11 min-h-[44px] px-3.5 rounded-2xl backdrop-blur-xl border shadow-lg flex items-center gap-2 text-xs font-medium transition-all cursor-pointer ${
+                activeFilterCount > 0
+                  ? 'bg-[#181424]/92 text-white border-[#6F3CC3]/60 shadow-[0_0_12px_rgba(111,60,195,0.25)]'
+                  : 'bg-[#0e1017]/90 hover:bg-[#161822] text-zinc-300 border-white/[0.12] hover:border-white/25'
+              }`}
+              aria-label="Open discovery filters"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
+              <span className="hidden sm:inline">Filter</span>
+              {activeFilterCount > 0 && (
+                <span className="min-w-4 h-4 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-mono font-bold flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -850,29 +991,19 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           - actions (Interested, Safe Meet, Message)
          ========================================================================= */}
       {selectedItem && !isCardExpanded && (
-        <div className="absolute bottom-[7.5rem] md:bottom-5 left-2.5 right-2.5 max-w-lg mx-auto z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <div className="relative group bg-[#0e1017]/92 backdrop-blur-xl border border-white/[0.14] hover:border-white/25 rounded-2xl p-3 sm:p-3.5 shadow-2xl transition-all">
-            
-            {/* Ambient subtle glow based on intent type */}
-            <div className={`absolute -inset-0.5 rounded-2xl blur-md pointer-events-none opacity-40 transition-opacity ${
-              selectedItem.type === 'haven'
-                ? 'bg-emerald-500/25'
-                : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
-                ? 'bg-[#6F3CC3]/35'
-                : 'bg-[#C9A24D]/25'
-            }`} />
-
-            <div className="relative space-y-2">
+        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:bottom-6 left-3 right-3 max-w-lg mx-auto z-40 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-auto">
+          <div className="relative bg-[#0e1017]/96 backdrop-blur-xl border border-white/[0.12] hover:border-white/20 rounded-2xl p-3.5 shadow-2xl transition-all">
+            <div className="relative space-y-2.5">
               {/* Row 1: Header (Avatar, Name, Age, Intent Badge, Expand & Close triggers) */}
               <div className="flex items-start justify-between gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsCardExpanded(true)}
-                  className="flex items-center gap-2.5 text-left cursor-pointer group/card flex-1 min-w-0"
+                  className="flex items-center gap-3 text-left cursor-pointer group/card flex-1 min-w-0"
                 >
                   {/* Avatar / Icon */}
                   {selectedItem.type === 'profile' ? (
-                    <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-white/20 bg-[#161822] shrink-0 shadow-inner">
+                    <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-white/15 bg-[#161822] shrink-0">
                       <img
                         src={selectedItem.item.photoUrl}
                         alt={selectedItem.item.name}
@@ -881,42 +1012,32 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg';
                         }}
                       />
-                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border border-black shadow" />
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0e1017]" />
                     </div>
                   ) : selectedItem.type === 'haven' ? (
-                    <div className="w-11 h-11 rounded-xl bg-[#101e1a] border border-emerald-500/60 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+                    <div className="w-11 h-11 rounded-xl bg-[#0f1f1a] border border-emerald-500/50 text-emerald-400 flex items-center justify-center shrink-0">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                   ) : (
-                    <div className={`w-11 h-11 rounded-xl border flex items-center justify-center font-bold text-sm shrink-0 shadow-inner ${
-                      selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
-                        ? 'bg-[#221634] border-purple-500/50 text-purple-300'
-                        : 'bg-[#221c12] border-[#C9A24D]/50 text-[#C9A24D]'
-                    }`}>
+                    <div className="w-11 h-11 rounded-xl border border-white/15 bg-[#161822] text-zinc-200 flex items-center justify-center font-bold text-sm shrink-0">
                       {selectedItem.item.peerName.charAt(0)}
                     </div>
                   )}
 
-                  {/* Name + Title + Intent Badge */}
+                  {/* Name + Title + Intent Mode */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h3 className="text-sm font-bold text-white tracking-tight truncate">
                         {getDisplayName(selectedItem)}
                       </h3>
 
-                      {/* Intent Pill / Badge */}
-                      <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-md border shrink-0 ${
-                        selectedItem.type === 'haven'
-                          ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40'
-                          : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
-                          ? 'bg-[#271438] text-purple-300 border-purple-500/50 shadow-[0_0_8px_rgba(111,60,195,0.3)]'
-                          : 'bg-[#261f12] text-[#C9A24D] border-[#C9A24D]/50'
-                      }`}>
+                      {/* Clean Unboxed Mode Tag */}
+                      <span className="text-[11px] font-mono text-zinc-400">
                         {selectedItem.type === 'haven'
-                          ? `HAVEN ★ ${selectedItem.item.safetyScore}`
+                          ? `★ ${selectedItem.item.safetyScore}`
                           : selectedItem.type === 'pulse'
-                          ? `${(selectedItem.item.intentMode || 'social').toUpperCase()} · ${selectedItem.item.intent || selectedItem.item.title}`
-                          : `${(selectedItem.item.intentMode || 'social').toUpperCase()} · ${selectedItem.item.lookingForLabel || 'Connect'}`}
+                          ? `· ${(selectedItem.item.intentMode || 'social').toUpperCase()}`
+                          : `· ${(selectedItem.item.intentMode || 'social').toUpperCase()}`}
                       </span>
 
                       {/* Live Intent Countdown */}
@@ -936,7 +1057,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {/* Unboxed Distance & Context */}
                     <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-mono mt-0.5">
                       <span className="flex items-center gap-1 text-[#C9A24D]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" />
                         Available now
                       </span>
                       <span>·</span>
@@ -1101,11 +1222,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           6. EXPANDED DISCOVERY DETAIL BOTTOM SHEET
           Slides up smoothly when the user taps expand or the preview card.
           Preserves the map visible behind the sheet with backdrop blur.
+          Bottom edge safely floats above the fixed bottom navigation bar.
          ========================================================================= */}
       {selectedItem && isCardExpanded && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 px-3"
+          onClick={() => setIsCardExpanded(false)}
+        >
           <div
-            className="w-full max-w-lg mx-auto bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300"
+            className="w-full max-w-lg mx-auto bg-[#0d0f16] border border-white/[0.18] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300 pointer-events-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:mb-6 max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-3.5rem-env(safe-area-inset-bottom,0px)-32px)] md:max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-48px)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag Handle */}
@@ -1318,8 +1443,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         disabled={interestPendingIds.has(selectedItem.item.id)}
                         className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
                           interestedIds.has(selectedItem.item.id)
-                            ? 'bg-[#221832] text-[#C9A24D] border-[#C9A24D]/70 shadow-[0_0_12px_rgba(201,162,77,0.35)]'
-                            : 'bg-[#181a24] text-zinc-200 border-white/10 hover:border-white/20'
+                            ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
+                            : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
                         }`}
                       >
                         {interestedIds.has(selectedItem.item.id) ? (
@@ -1340,8 +1465,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
                         className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
                           gazedPeerNames.has(selectedItem.item.name)
-                            ? 'bg-[#241538] text-purple-300 border-purple-500/60'
-                            : 'bg-[#181a24] text-zinc-200 border-white/10 hover:border-white/20'
+                            ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
+                            : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
                         }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
@@ -1360,7 +1485,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenScheduleMeeting(peerName);
                         }
                       }}
-                      className="h-12 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#181a24] hover:bg-[#202332] border border-[#C9A24D]/40 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 font-mono"
+                      className="h-12 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#141620] hover:bg-[#1c1f2e] border border-white/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 font-mono"
                     >
                       <Calendar className="w-4 h-4" />
                       <span>Safe Meet</span>
@@ -1463,7 +1588,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         }}
                         className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center text-center active:scale-98 ${
                           isSelected
-                            ? 'bg-[#221634] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_10px_rgba(201,162,77,0.3)]'
+                            ? 'bg-[#1c182c] text-white border-[#6F3CC3]'
                             : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
                         }`}
                       >
@@ -1493,8 +1618,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center active:scale-98 uppercase font-mono ${
                           isSelected
                             ? mode === 'Private'
-                              ? 'bg-purple-950/80 text-purple-200 border-purple-500 shadow-[0_0_12px_rgba(111,60,195,0.4)]'
-                              : 'bg-[#C9A24D] text-black border-[#C9A24D] shadow-md'
+                              ? 'bg-purple-950/80 text-purple-200 border-purple-500'
+                              : 'bg-[#1c182c] text-white border-[#6F3CC3]'
                             : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
                         }`}
                       >
@@ -1608,10 +1733,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2.5 w-2.5">
                   {!activeUserIntent.isPaused && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A24D] opacity-75" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6F3CC3] opacity-75" />
                   )}
                   <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                    activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#C9A24D]'
+                    activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3]'
                   }`} />
                 </span>
                 <h3 className="text-sm font-black uppercase tracking-wider text-white font-sans">

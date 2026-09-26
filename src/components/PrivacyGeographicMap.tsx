@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Pulse, SafeHaven, LocationPrivacy, DatingProfile } from '../types';
+import { MAP_PROVIDERS } from '../config/mapProviders';
 
 export type MapDiscoveryItem =
   | { type: 'pulse'; item: Pulse }
@@ -57,35 +58,33 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       attributionControl: true,
     });
 
-    // CARTO Dark Matter — high-performance, dark-themed, CORS-friendly tiles
-    const primaryTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    const fallbackTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+    // Unified Map Provider abstraction with graceful fallback
+    let currentProviderIndex = 0;
+    const createTileLayer = (index: number) => {
+      const provider = MAP_PROVIDERS[index] || MAP_PROVIDERS[0];
+      return L.tileLayer(provider.url, {
+        attribution: provider.attribution,
+        subdomains: provider.subdomains || 'abcd',
+        maxZoom: provider.maxZoom,
+        minZoom: provider.minZoom,
+        className: provider.className,
+        crossOrigin: provider.crossOrigin,
+        updateWhenIdle: false,
+        keepBuffer: 6,
+      });
+    };
 
-    let activeTiles: L.TileLayer = L.tileLayer(primaryTileUrl, {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 19,
-      minZoom: 10,
-      crossOrigin: true,
-      updateWhenIdle: false,
-      keepBuffer: 6,
-    }).addTo(map);
+    let activeTiles: L.TileLayer = createTileLayer(0).addTo(map);
 
-    let switchedToFallback = false;
     activeTiles.on('tileerror', () => {
-      if (!switchedToFallback && mapInstanceRef.current) {
-        switchedToFallback = true;
-        console.warn('[GAYZE] Switching PrivacyGeographicMap to secondary dark canvas tile layer');
+      if (currentProviderIndex + 1 < MAP_PROVIDERS.length && mapInstanceRef.current) {
+        currentProviderIndex += 1;
+        console.warn(`[GAYZE] Switching to map provider: ${MAP_PROVIDERS[currentProviderIndex].name}`);
         try {
           map.removeLayer(activeTiles);
-          activeTiles = L.tileLayer(fallbackTileUrl, {
-            attribution: 'Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
-            maxZoom: 19,
-            minZoom: 10,
-            crossOrigin: true,
-          }).addTo(map);
+          activeTiles = createTileLayer(currentProviderIndex).addTo(map);
         } catch (e) {
-          console.error('[GAYZE] Secondary tile layer error', e);
+          console.error('[GAYZE] Map provider fallback error', e);
         }
       }
     });

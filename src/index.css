@@ -75,6 +75,18 @@ button, input, select, textarea, [role="button"] {
   inset: 0 !important;
 }
 
+/* GAYZE Obsidian Dark filter for standard OpenStreetMap tiles */
+.gayze-osm-dark-tiles .leaflet-tile,
+.leaflet-tile-pane.gayze-osm-dark-tiles .leaflet-tile {
+  filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(92%) saturate(30%) !important;
+}
+
+/* CARTO Dark Matter raster layer styling */
+.gayze-carto-dark-tiles .leaflet-tile,
+.leaflet-tile-pane.gayze-carto-dark-tiles .leaflet-tile {
+  filter: brightness(0.96) contrast(1.05) !important;
+}
+
 .leaflet-popup-content-wrapper {
   background: #11131a !important;
   color: #f4f5f8 !important;
