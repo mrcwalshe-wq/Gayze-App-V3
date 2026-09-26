@@ -158,3 +158,133 @@ button, input, select, textarea, [role="button"] {
   padding-top: max(0.75rem, env(safe-area-inset-top));
 }
 
+
+/* ==========================================================================
+   Premium GAYZE surfaces
+   Use restraint: depth, typography and spacing carry the visual hierarchy.
+   ========================================================================== */
+
+:root {
+  --gayze-panel: rgba(15, 16, 23, 0.92);
+  --gayze-panel-strong: rgba(17, 18, 26, 0.97);
+  --gayze-line: rgba(255, 255, 255, 0.09);
+  --gayze-line-strong: rgba(255, 255, 255, 0.15);
+  --gayze-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.gayze-premium-page {
+  position: relative;
+}
+
+.gayze-premium-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(111, 60, 195, 0.075), transparent 34%),
+    radial-gradient(circle at 82% 12%, rgba(201, 162, 77, 0.045), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,0.015), transparent 24%);
+}
+
+.gayze-page-intro {
+  position: relative;
+  padding: 0.35rem 0 0.9rem;
+}
+
+.gayze-page-intro::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(201,162,77,0.55), rgba(255,255,255,0.08) 32%, transparent 78%);
+}
+
+.gayze-premium-panel {
+  background: linear-gradient(180deg, rgba(20, 21, 29, 0.94), rgba(13, 14, 20, 0.96));
+  border: 1px solid var(--gayze-line);
+  box-shadow: var(--gayze-shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.gayze-intent-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(120deg, rgba(111,60,195,0.12), rgba(15,16,23,0.96) 38%, rgba(201,162,77,0.05));
+  border: 1px solid rgba(111,60,195,0.32);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.24);
+}
+
+.gayze-intent-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--brand-purple), var(--brand-amber));
+}
+
+.gayze-profile-card {
+  isolation: isolate;
+  border-color: rgba(255,255,255,0.1) !important;
+  box-shadow: 0 14px 36px rgba(0,0,0,0.22) !important;
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease !important;
+}
+
+.gayze-profile-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(201,162,77,0.48) !important;
+  box-shadow: 0 22px 52px rgba(0,0,0,0.34), 0 0 0 1px rgba(201,162,77,0.06) !important;
+}
+
+.gayze-profile-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.025);
+}
+
+.gayze-premium-control {
+  background: linear-gradient(180deg, rgba(24,25,34,0.96), rgba(14,15,21,0.96)) !important;
+  border-color: rgba(255,255,255,0.11) !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.14);
+}
+
+.gayze-premium-control:hover {
+  border-color: rgba(255,255,255,0.2) !important;
+  background: linear-gradient(180deg, rgba(29,30,40,0.98), rgba(17,18,25,0.98)) !important;
+}
+
+.gayze-luxury-scroll::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.gayze-luxury-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.13);
+  border-radius: 999px;
+}
+
+.gayze-luxury-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (max-width: 640px) {
+  .gayze-premium-page::before {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(111,60,195,0.07), transparent 32%),
+      linear-gradient(180deg, rgba(255,255,255,0.012), transparent 22%);
+  }
+
+  .gayze-profile-card:hover {
+    transform: none;
+  }
+}
