@@ -329,6 +329,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const isPrivate = p.intentMode === 'private' || p.lookingFor === 'casual';
         if (activeIntentMode === 'Social' && isPrivate) return false;
         if (activeIntentMode === 'Private' && !isPrivate) return false;
+        if (typeof p.approxDistanceKm === 'number' && p.approxDistanceKm > maxDistanceKm) return false;
         return true;
       });
       count += matchProfiles.length;
@@ -339,15 +340,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const isPrivate = p.intentMode === 'private' || p.intent?.includes('Hookup');
         if (activeIntentMode === 'Social' && isPrivate) return false;
         if (activeIntentMode === 'Private' && !isPrivate) return false;
+        if (typeof p.approxDistanceKm === 'number' && p.approxDistanceKm > maxDistanceKm) return false;
         return true;
       });
       count += matchPulses.length;
     }
     if (activeCategory === 'all' || activeCategory === 'havens') {
-      count += safeHavens.length;
+      count += safeHavens.filter((h) => typeof h.approxDistanceKm !== 'number' || h.approxDistanceKm <= maxDistanceKm).length;
     }
     return count;
-  }, [pulses, datingProfiles, safeHavens, activeCategory, activeIntentMode]);
+  }, [pulses, datingProfiles, safeHavens, activeCategory, activeIntentMode, maxDistanceKm]);
 
   // Active filter count for badge
   const activeFilterCount = useMemo(() => {
@@ -427,6 +429,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           filter={activeCategory}
           intentModeFilter={activeIntentMode}
           showJitterCircles={showJitterCircles}
+          maxDistanceKm={maxDistanceKm}
           selectedItem={selectedItem}
           onSelectItem={(item) => {
             hapticLight();
