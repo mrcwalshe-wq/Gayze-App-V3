@@ -776,7 +776,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           Dominant element after the map is the user's current intent.
           Subtle purple atmospheric aura (#6F3CC3) when active.
          ========================================================================= */}
-      <div className="absolute top-3 left-3 right-3 z-20 pointer-events-none">
+      <div className="absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-20 pointer-events-none">
         <div className="max-w-xl mx-auto flex items-center justify-between gap-2.5">
           
           {/* User's Right Now Intent (Secondary visual element after map) */}
@@ -788,7 +788,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   hapticLight();
                   setIsUserIntentDrawerOpen(true);
                 }}
-                className="w-full text-left bg-[#120e20]/90 hover:bg-[#18122a]/95 backdrop-blur-xl border border-[#6F3CC3]/50 rounded-2xl px-3.5 py-2 transition-all shadow-[0_4px_20px_rgba(111,60,195,0.22)] flex items-center justify-between gap-2.5 cursor-pointer group"
+                className="w-full text-left bg-[#101019]/92 hover:bg-[#141420]/96 backdrop-blur-xl border border-white/[0.14] hover:border-[#6F3CC3]/55 rounded-xl px-3.5 py-2.5 transition-colors shadow-lg flex items-center justify-between gap-2.5 cursor-pointer group"
                 aria-label="Manage your Right Now intent"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -827,7 +827,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   setIsSetIntentOpen(true);
                   onOpenSetIntent?.();
                 }}
-                className="bg-[#0e1017]/90 hover:bg-[#161822]/95 backdrop-blur-xl border border-white/[0.12] hover:border-white/25 rounded-2xl px-3.5 py-2 transition-all shadow-lg flex items-center gap-2.5 cursor-pointer"
+                className="bg-[#0e1017]/90 hover:bg-[#161822]/95 backdrop-blur-xl border border-white/[0.12] hover:border-white/25 rounded-xl px-3.5 py-2.5 transition-colors shadow-lg flex items-center gap-2.5 cursor-pointer"
                 aria-label="Set your Right Now intent"
               >
                 <span className="w-2 h-2 rounded-full bg-zinc-500 shrink-0" />
@@ -852,7 +852,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 setIsFilterDrawerOpen(true);
               }}
-              className={`h-11 min-h-[44px] px-3.5 rounded-2xl backdrop-blur-xl border shadow-lg flex items-center gap-2 text-xs font-medium transition-all cursor-pointer ${
+              className={`h-11 min-h-[44px] px-3 rounded-xl backdrop-blur-xl border shadow-lg flex items-center gap-2 text-xs font-medium transition-colors cursor-pointer ${
                 activeFilterCount > 0
                   ? 'bg-[#181424]/92 text-white border-[#6F3CC3]/60 shadow-[0_0_12px_rgba(111,60,195,0.25)]'
                   : 'bg-[#0e1017]/90 hover:bg-[#161822] text-zinc-300 border-white/[0.12] hover:border-white/25'
@@ -895,7 +895,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           Maintains an explicit height and handles ResizeObserver container layout changes.
          ========================================================================= */}
       <div className="w-full h-full absolute inset-0 z-0" style={{ height: '100%', minHeight: '100%', width: '100%' }}>
-        <style>{'.leaflet-control-attribution{margin-bottom:4.5rem!important;margin-right:.5rem!important;padding:2px 6px!important;border-radius:6px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}'}</style>
+        <style>{'.leaflet-control-attribution{margin-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px) + 6px)!important;margin-right:.5rem!important;padding:2px 5px!important;border-radius:5px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}'}</style>
         <div
           ref={mapContainerRef}
           className="w-full h-full min-h-full overflow-hidden z-0 bg-[#07080b] rounded-none"
@@ -903,8 +903,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             height: '100%',
             minHeight: '100%',
             width: '100%',
-            backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(111, 60, 195, 0.08) 0%, rgba(7, 8, 11, 1) 75%), linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)',
-            backgroundSize: '100% 100%, 36px 36px, 36px 36px'
+            backgroundImage: 'radial-gradient(circle at 50% 42%, rgba(111, 60, 195, 0.045), transparent 58%)'
           }}
         />
       </div>
@@ -917,7 +916,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           - Toggle ±300m privacy circles
          ========================================================================= */}
       {(
-        <div className="absolute top-16 right-2.5 z-20 flex flex-col gap-1.5 pointer-events-auto">
+        <div className="absolute top-[calc(env(safe-area-inset-top,0px)+88px)] right-3 z-20 flex flex-col gap-1.5 pointer-events-auto">
           {/* Zoom In */}
           <button
             type="button"
@@ -927,7 +926,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Zoom In"
             aria-label="Zoom In"
-            className="w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -941,7 +940,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Zoom Out"
             aria-label="Zoom Out"
-            className="w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
           >
             <Minus className="w-4 h-4" />
           </button>
@@ -955,7 +954,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Recenter to Soho"
             aria-label="Recenter to Soho"
-            className="w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 text-zinc-300 hover:text-[#C9A24D] shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 text-zinc-300 hover:text-[#C9A24D] shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
           >
             <Compass className="w-4 h-4 text-[#C9A24D]" />
           </button>
@@ -969,7 +968,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Toggle Privacy Area Cloaking (~300m)"
             aria-label="Toggle Privacy Area"
-            className={`w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl backdrop-blur-xl border shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+            className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl backdrop-blur-xl border shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
               showJitterCircles
                 ? 'bg-[#1c152a]/90 text-[#C9A24D] border-[#6F3CC3]/60 shadow-[0_0_10px_rgba(111,60,195,0.3)]'
                 : 'bg-[#0e1017]/85 hover:bg-[#181a26] text-zinc-400 border-white/[0.12]'
@@ -992,7 +991,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {selectedItem && !isCardExpanded && (
         <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:bottom-6 left-3 right-3 max-w-lg mx-auto z-40 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-auto">
-          <div className="relative bg-[#0e1017]/96 backdrop-blur-xl border border-white/[0.12] hover:border-white/20 rounded-2xl p-3.5 shadow-2xl transition-all">
+          <div className="relative bg-[#0d0f16]/97 backdrop-blur-xl border border-white/[0.14] rounded-2xl p-3.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)]">
             <div className="relative space-y-2.5">
               {/* Row 1: Header (Avatar, Name, Age, Intent Badge, Expand & Close triggers) */}
               <div className="flex items-start justify-between gap-2.5">
@@ -1117,7 +1116,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectHaven(selectedItem.item)}
-                      className="col-span-2 h-10 min-h-[40px] px-2 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow active:scale-98 font-sans uppercase tracking-wide"
+                      className="col-span-2 h-11 min-h-[44px] px-2 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow active:scale-98 font-sans uppercase tracking-wide"
                     >
                       <MapPin className="w-3.5 h-3.5 fill-black" />
                       <span>Explore Safe Haven</span>
@@ -1131,7 +1130,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenScheduleMeeting(selectedItem.item.name);
                         }
                       }}
-                      className="h-10 min-h-[40px] px-2 text-xs font-bold text-[#C9A24D] bg-[#1a1c27] hover:bg-[#222534] border border-[#C9A24D]/40 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98 font-mono"
+                      className="h-11 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] bg-[#1a1c27] hover:bg-[#222534] border border-[#C9A24D]/40 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98 font-mono"
                     >
                       <Calendar className="w-3.5 h-3.5" />
                       <span>Meet Here</span>
@@ -1145,7 +1144,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         type="button"
                         onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                         disabled={interestPendingIds.has(selectedItem.item.id)}
-                        className={`h-10 min-h-[40px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
+                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
                           interestedIds.has(selectedItem.item.id)
                             ? 'bg-[#20182c] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
                             : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
@@ -1167,7 +1166,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       <button
                         type="button"
                         onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
-                        className={`h-10 min-h-[40px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
+                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
                           gazedPeerNames.has(selectedItem.item.name)
                             ? 'bg-[#231535] text-purple-300 border-purple-500/60'
                             : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
@@ -1188,7 +1187,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenScheduleMeeting(peerName);
                         }
                       }}
-                      className="h-10 min-h-[40px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#181a24] hover:bg-[#202332] border border-[#C9A24D]/35 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1 active:scale-98 font-mono"
+                      className="h-11 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#181a24] hover:bg-[#202332] border border-[#C9A24D]/35 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1 active:scale-98 font-mono"
                     >
                       <Calendar className="w-3.5 h-3.5" />
                       <span>Safe Meet</span>
@@ -1205,7 +1204,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenDirectChatWithProfile(selectedItem.item);
                         }
                       }}
-                      className="h-10 min-h-[40px] px-2 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow active:scale-98 uppercase tracking-wide font-sans"
+                      className="h-11 min-h-[44px] px-2 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow active:scale-98 uppercase tracking-wide font-sans"
                     >
                       <Lock className="w-3.5 h-3.5 fill-black" />
                       <span>Message</span>
@@ -1226,11 +1225,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {selectedItem && isCardExpanded && (
         <div
-          className="fixed inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 px-3"
+          className="fixed inset-0 z-40 flex flex-col justify-end bg-black/48 backdrop-blur-[2px] animate-in fade-in duration-200 px-3"
           onClick={() => setIsCardExpanded(false)}
         >
           <div
-            className="w-full max-w-lg mx-auto bg-[#0d0f16] border border-white/[0.18] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300 pointer-events-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:mb-6 max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-3.5rem-env(safe-area-inset-bottom,0px)-32px)] md:max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-48px)]"
+            className="w-full max-w-lg mx-auto bg-[#0d0f16] border border-white/[0.18] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300 pointer-events-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:mb-6 max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-3.5rem-env(safe-area-inset-bottom,0px)-32px)] md:max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-48px)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag Handle */}
@@ -1672,7 +1671,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           hapticLight();
                           setMaxDistanceKm(dist.km);
                         }}
-                        className={`h-10 min-h-[40px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center font-mono ${
+                        className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center font-mono ${
                           isSelected
                             ? 'bg-[#1e2230] text-[#C9A24D] border-[#C9A24D]/60'
                             : 'bg-[#12141e] text-zinc-400 border-white/[0.08]'
