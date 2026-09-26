@@ -745,7 +745,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   ]);
 
   return (
-    <div className="absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none bg-[#07080b]">
+    <div className="gayze-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none bg-[#07080b]">
       {/* Subtle Map Tile Failure Fallback State */}
       {mapTilesUnavailable && (
         <div className="absolute top-16 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm mx-auto bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 shadow-2xl animate-in fade-in duration-200 pointer-events-auto">
@@ -774,7 +774,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           Dominant element after the map is the user's current intent.
           Subtle purple atmospheric aura (#6F3CC3) when active.
          ========================================================================= */}
-      <div className="absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-20 pointer-events-none">
+      <div className="gayze-right-now-topbar absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-20 pointer-events-none">
         <div className="max-w-xl mx-auto flex items-center justify-between gap-2.5">
           
           {/* User's Right Now Intent (Secondary visual element after map) */}
@@ -988,7 +988,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           - actions (Interested, Safe Meet, Message)
          ========================================================================= */}
       {selectedItem && !isCardExpanded && (
-        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:bottom-6 left-3 right-3 max-w-lg mx-auto z-40 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-auto">
+        <div className="gayze-discovery-card fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:bottom-6 left-3 right-3 max-w-lg mx-auto z-40 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-auto">
           <div className="relative bg-[#0d0f16]/97 backdrop-blur-xl border border-white/[0.14] rounded-2xl p-3.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)]">
             <div className="relative space-y-2.5">
               {/* Row 1: Header (Avatar, Name, Age, Intent Badge, Expand & Close triggers) */}
@@ -1223,11 +1223,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {selectedItem && isCardExpanded && (
         <div
-          className="fixed inset-0 z-40 flex flex-col justify-end bg-black/48 backdrop-blur-[2px] animate-in fade-in duration-200 px-3"
+          className="gayze-discovery-overlay fixed inset-0 z-40 flex flex-col justify-end bg-black/48 backdrop-blur-[2px] animate-in fade-in duration-200 px-3"
           onClick={() => setIsCardExpanded(false)}
         >
           <div
-            className="w-full max-w-lg mx-auto bg-[#0d0f16] border border-white/[0.18] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300 pointer-events-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:mb-6 max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-3.5rem-env(safe-area-inset-bottom,0px)-32px)] md:max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-48px)]"
+            className="gayze-discovery-sheet w-full max-w-lg mx-auto bg-[#0d0f16] border border-white/[0.18] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300 pointer-events-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:mb-6 max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-3.5rem-env(safe-area-inset-bottom,0px)-32px)] md:max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-48px)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag Handle */}
