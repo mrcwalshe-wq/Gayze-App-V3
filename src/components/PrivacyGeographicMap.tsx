@@ -58,8 +58,12 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       attributionControl: true,
     });
 
-    // Unified Map Provider abstraction with graceful fallback
+    // Open/free provider chain with guarded fallback.
+    // A single transient tile error must not switch the whole map provider.
     let currentProviderIndex = 0;
+    let tileErrors = 0;
+    let fallbackTimer: number | null = null;
+
     const createTileLayer = (index: number) => {
       const provider = MAP_PROVIDERS[index] || MAP_PROVIDERS[0];
       return L.tileLayer(provider.url, {
@@ -76,18 +80,40 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
 
     let activeTiles: L.TileLayer = createTileLayer(0).addTo(map);
 
-    activeTiles.on('tileerror', () => {
-      if (currentProviderIndex + 1 < MAP_PROVIDERS.length && mapInstanceRef.current) {
-        currentProviderIndex += 1;
-        console.warn(`[GAYZE] Switching to map provider: ${MAP_PROVIDERS[currentProviderIndex].name}`);
-        try {
-          map.removeLayer(activeTiles);
-          activeTiles = createTileLayer(currentProviderIndex).addTo(map);
-        } catch (e) {
-          console.error('[GAYZE] Map provider fallback error', e);
-        }
+    const switchProvider = () => {
+      if (currentProviderIndex + 1 >= MAP_PROVIDERS.length || !mapInstanceRef.current) return;
+
+      currentProviderIndex += 1;
+      tileErrors = 0;
+      if (fallbackTimer !== null) {
+        window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
       }
-    });
+
+      console.warn(`[GAYZE] Switching to map provider: ${MAP_PROVIDERS[currentProviderIndex].name}`);
+
+      try {
+        map.removeLayer(activeTiles);
+        activeTiles = createTileLayer(currentProviderIndex).addTo(map);
+      } catch (e) {
+        console.error('[GAYZE] Map provider fallback error', e);
+      }
+    };
+
+    const handleTileError = () => {
+      tileErrors += 1;
+      if (tileErrors < 3 || currentProviderIndex + 1 >= MAP_PROVIDERS.length) return;
+
+      // Give the provider a short window to recover before falling back.
+      if (fallbackTimer === null) {
+        fallbackTimer = window.setTimeout(() => {
+          fallbackTimer = null;
+          if (tileErrors >= 3) switchProvider();
+        }, 1200);
+      }
+    };
+
+    activeTiles.on('tileerror', handleTileError);
 
     const layerGroup = L.layerGroup().addTo(map);
     layerGroupRef.current = layerGroup;
