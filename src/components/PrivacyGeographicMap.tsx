@@ -43,22 +43,50 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
 
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
-    const map = L.map(mapContainerRef.current, { center: [userCenterLat, userCenterLng], zoom: 14, minZoom: 11, maxZoom: 18, zoomControl: false });
+    const container = mapContainerRef.current;
+    container.classList.add('gayze-leaflet-map');
 
-    // Free OpenStreetMap tiles. No API key or paid map SDK is required.
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors', maxZoom: 19, maxNativeZoom: 19,
+    const map = L.map(container, {
+      center: [userCenterLat, userCenterLng],
+      zoom: 14,
+      minZoom: 11,
+      maxZoom: 18,
+      zoomControl: false,
+      preferCanvas: true,
+      attributionControl: true,
+    });
+
+    // Keyless OpenStreetMap tiles; the map remains independent from surrounding rounded UI.
+    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+      maxNativeZoom: 19,
+      crossOrigin: true,
+      updateWhenIdle: false,
+      keepBuffer: 3,
     }).addTo(map);
+    tiles.on('tileerror', (event) => console.warn('[GAYZE] Map tile failed to load', event));
 
     const layerGroup = L.layerGroup().addTo(map);
     layerGroupRef.current = layerGroup;
     mapInstanceRef.current = map;
     if (onMapReady) onMapReady({ zoomIn: () => map.zoomIn(), zoomOut: () => map.zoomOut(), recenter: () => map.flyTo([userCenterLat, userCenterLng], 14, { duration: 0.8 }) });
-    const invalidate = () => requestAnimationFrame(() => map.invalidateSize({ pan: false }));
-    invalidate(); const timer = window.setTimeout(invalidate, 100); const timer2 = window.setTimeout(invalidate, 350);
+    const invalidate = () => requestAnimationFrame(() => {
+      if (mapInstanceRef.current) map.invalidateSize({ pan: false, debounceMoveend: true });
+    });
+    invalidate();
+    const timer = window.setTimeout(invalidate, 100);
+    const timer2 = window.setTimeout(invalidate, 350);
+    const timer3 = window.setTimeout(invalidate, 900);
     let ro: ResizeObserver | null = null;
     if (window.ResizeObserver && mapContainerRef.current) { ro = new ResizeObserver(() => map.invalidateSize()); ro.observe(mapContainerRef.current); }
-    return () => { clearTimeout(timer); clearTimeout(timer2); if (ro) ro.disconnect(); map.remove(); mapInstanceRef.current = null; };
+    return () => {
+      clearTimeout(timer); clearTimeout(timer2); clearTimeout(timer3);
+      if (ro) ro.disconnect();
+      map.remove();
+      mapInstanceRef.current = null;
+      layerGroupRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -106,7 +134,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
   return (
     <>
       <style>{'.leaflet-tile-pane{filter:invert(0.92) hue-rotate(180deg) brightness(0.72) saturate(0.7)}.leaflet-control-attribution{margin-bottom:4.5rem!important;margin-right:.5rem!important;padding:2px 6px!important;border-radius:6px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}'}</style>
-      <div ref={mapContainerRef} className="w-full h-full z-0 bg-[#07080b]" />
+      <div ref={mapContainerRef} className="relative w-full h-full min-h-0 overflow-hidden z-0 bg-[#07080b] rounded-none" />
     </>
   );
 };
