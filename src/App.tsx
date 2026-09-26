@@ -1259,8 +1259,8 @@ export default function App() {
       <main
         className={
           activeTab === 'right_now'
-            ? 'fixed top-[calc(3.5rem+env(safe-area-inset-top,0px))] bottom-0 left-0 right-0 overflow-hidden p-0'
-            : 'flex-1 min-h-0 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 overflow-y-auto'
+            ? 'fixed top-[calc(3.5rem+env(safe-area-inset-top,0px))] bottom-0 left-0 right-0 overflow-hidden overscroll-none p-0'
+            : 'flex-1 min-h-0 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 overflow-y-auto overscroll-contain scroll-pt-[calc(3.5rem+env(safe-area-inset-top,0px))]'
         }
       >
         {activeTab === 'dating' && (
