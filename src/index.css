@@ -322,3 +322,96 @@ button, input, select, textarea, [role="button"] {
     border-radius: 0.875rem !important;
   }
 }
+
+
+/* ==========================================================================
+   Right Now interaction surfaces
+   Keep the map dominant; overlays should read as controls, not panels.
+   ========================================================================== */
+.gayze-right-now-shell {
+  isolation: isolate;
+  contain: layout paint;
+}
+
+.gayze-right-now-topbar {
+  padding-top: 1px;
+}
+
+.gayze-right-now-topbar > div {
+  align-items: flex-start;
+}
+
+.gayze-right-now-topbar button {
+  min-height: 44px;
+}
+
+.gayze-discovery-card {
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+}
+
+.gayze-discovery-card > div {
+  background: rgba(13, 15, 22, 0.94) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  box-shadow: 0 20px 55px rgba(0,0,0,0.48) !important;
+}
+
+.gayze-discovery-card .grid > button {
+  min-width: 0;
+}
+
+.gayze-discovery-overlay {
+  background: rgba(3,4,7,0.56) !important;
+}
+
+.gayze-discovery-sheet {
+  border-color: rgba(255,255,255,0.13) !important;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.56) !important;
+}
+
+@media (max-width: 640px) {
+  .gayze-right-now-topbar {
+    left: 10px;
+    right: 10px;
+  }
+
+  .gayze-right-now-topbar > div {
+    gap: 8px;
+  }
+
+  .gayze-right-now-topbar > div > div:first-child {
+    min-width: 0;
+  }
+
+  .gayze-right-now-topbar > div > div:first-child button {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .gayze-discovery-card {
+    left: 10px;
+    right: 10px;
+    bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+
+  .gayze-discovery-card > div {
+    border-radius: 18px !important;
+    padding: 12px !important;
+  }
+
+  .gayze-discovery-sheet {
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 20px 20px 0 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gayze-right-now-shell *,
+  .gayze-right-now-shell *::before,
+  .gayze-right-now-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
