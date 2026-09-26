@@ -8,7 +8,7 @@ import {
   SocialStory,
   UserActiveIntent,
 } from '../types';
-import { PrivacyGeographicMap, MapDiscoveryItem } from './PrivacyGeographicMap';
+import { MapDiscoveryItem } from './PrivacyGeographicMap';
 
 export type { MapDiscoveryItem };
 
@@ -134,6 +134,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
   const activeTileLayerRef = useRef<L.TileLayer | null>(null);
+  const mapTileRetryRef = useRef<(() => void) | null>(null);
   const mapControlsRef = useRef<{ zoomIn: () => void; zoomOut: () => void; recenter: () => void } | null>(null);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [mapTilesUnavailable, setMapTilesUnavailable] = useState<boolean>(false);
@@ -408,32 +409,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setMaxDistanceKm(5);
   };
 
-  // Retry tile providers from primary if all failed or connection drops
+  // Retry the same provider/fallback pipeline used by the live map.
   const handleRetryMapTiles = () => {
     hapticLight();
-    const map = mapInstanceRef.current;
-    if (!map) return;
-    setMapTilesUnavailable(false);
-    if (activeTileLayerRef.current) {
-      try {
-        map.removeLayer(activeTileLayerRef.current);
-      } catch {}
-      activeTileLayerRef.current = null;
-    }
-    const provider = MAP_PROVIDERS[0];
-    const layer = L.tileLayer(provider.url, {
-      attribution: provider.attribution,
-      subdomains: provider.subdomains || 'abcd',
-      maxZoom: provider.maxZoom,
-      minZoom: provider.minZoom,
-      className: provider.className,
-      crossOrigin: provider.crossOrigin,
-      updateWhenIdle: false,
-      keepBuffer: 6,
-    });
-    layer.addTo(map);
-    activeTileLayerRef.current = layer;
-    setCurrentProviderIndex(0);
+    mapTileRetryRef.current?.();
   };
 
   // 7. Initialize Leaflet Map with ResizeObserver, explicit height, and invalidateSize
@@ -493,10 +472,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     // Unified Map Provider abstraction with graceful auto-fallback
     let providerIdx = 0;
     let activeTileLayer: L.TileLayer | null = null;
+    let fallbackTimer: number | null = null;
 
     const attachProviderLayer = (index: number) => {
       const targetMap = mapInstanceRef.current || map;
       if (!targetMap) return;
+
+      if (fallbackTimer !== null) {
+        window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
 
       if (activeTileLayer) {
         try {
@@ -508,10 +493,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       if (index >= MAP_PROVIDERS.length) {
         console.warn('[GAYZE] All map tile providers exhausted. Preserving radar backdrop.');
         setMapTilesUnavailable(true);
+        activeTileLayerRef.current = null;
         return;
       }
 
       const provider = MAP_PROVIDERS[index];
+      providerIdx = index;
       setMapTilesUnavailable(false);
       setCurrentProviderIndex(index);
 
@@ -528,18 +515,27 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
       let errorCount = 0;
       layer.on('tileerror', () => {
-        errorCount++;
-        // If 4 tiles fail on current provider, fall back to next provider
-        if (errorCount === 4 && (mapInstanceRef.current || map)) {
-          console.warn(`[GAYZE] Tile failures on ${provider.name}. Falling back to next provider.`);
-          providerIdx++;
-          attachProviderLayer(providerIdx);
-        }
+        errorCount += 1;
+        if (errorCount < 3 || index + 1 >= MAP_PROVIDERS.length || fallbackTimer !== null) return;
+
+        fallbackTimer = window.setTimeout(() => {
+          fallbackTimer = null;
+          if (errorCount >= 3 && mapInstanceRef.current) {
+            console.warn(`[GAYZE] Tile failures on ${provider.name}. Falling back to next provider.`);
+            attachProviderLayer(index + 1);
+          }
+        }, 1200);
       });
 
       layer.addTo(targetMap);
       activeTileLayer = layer;
       activeTileLayerRef.current = layer;
+    };
+
+    mapTileRetryRef.current = () => {
+      providerIdx = 0;
+      setMapTilesUnavailable(false);
+      attachProviderLayer(0);
     };
 
     attachProviderLayer(0);
@@ -594,6 +590,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         resizeObserver.disconnect();
       }
       setIsMapReady(false);
+      mapTileRetryRef.current = null;
+      if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
       try {
         map.remove();
       } catch (err) {
