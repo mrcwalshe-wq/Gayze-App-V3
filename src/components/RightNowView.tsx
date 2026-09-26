@@ -8,7 +8,7 @@ import {
   SocialStory,
   UserActiveIntent,
 } from '../types';
-import { MapDiscoveryItem } from './PrivacyGeographicMap';
+import type { MapDiscoveryItem } from './PrivacyGeographicMap';
 
 export type { MapDiscoveryItem };
 
