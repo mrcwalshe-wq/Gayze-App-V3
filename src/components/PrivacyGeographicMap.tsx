@@ -139,6 +139,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
     }
     return () => {
       clearTimeout(timer); clearTimeout(timer2); clearTimeout(timer3); clearTimeout(timer4);
+      if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
       window.removeEventListener('resize', invalidate);
       if (ro) ro.disconnect();
       map.remove();
