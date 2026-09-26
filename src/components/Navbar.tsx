@@ -46,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <>
       {/* Top App Header — Fixed / Stationary Viewport Layer */}
       <header
-        className={`fixed top-0 left-0 right-0 z-50 w-full transition-colors pt-[env(safe-area-inset-top,0px)] ${
+        className={`gayze-top-header fixed top-0 left-0 right-0 z-50 w-full transition-colors pt-[env(safe-area-inset-top,0px)] ${
           activeTab === 'right_now'
             ? 'bg-[#090a0e]/85 backdrop-blur-xl border-b border-white/[0.06]'
             : 'bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07]'
@@ -82,7 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Desktop Navigation Tabs (Hidden on Mobile) */}
-          <nav className="hidden md:flex items-center gap-1 bg-[#11131a] p-1 rounded-xl border border-white/[0.07]">
+          <nav className="gayze-top-nav hidden md:flex items-center gap-0.5 p-0.5 rounded-xl border border-white/[0.07]">
             <button
               onClick={() => onTabChange('dating')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
