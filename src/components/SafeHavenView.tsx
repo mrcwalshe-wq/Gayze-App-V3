@@ -21,23 +21,26 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="gayze-premium-page space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/[0.08]">
+      <div className="gayze-page-intro flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white font-sans">
+          <div className="flex items-center gap-3">
+            <span className="h-7 w-[2px] bg-gradient-to-b from-emerald-400 to-[#C9A24D]" />
+            <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-emerald-400 mb-1">TRUSTED PLACES</div>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
               Verified Queer Safe Havens
             </h1>
+            </div>
           </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-[11px] sm:text-xs text-zinc-400 sm:max-w-md leading-relaxed">
             Community-vetted venues with trained staff, emergency support, and safe meetup spaces
           </p>
         </div>
 
         {/* Filter Pills with horizontal scroll on mobile */}
-        <div className="flex items-center gap-1 p-1 bg-[#11131a] rounded-xl border border-white/[0.07] overflow-x-auto no-scrollbar self-start sm:self-auto max-w-full">
+        <div className="gayze-premium-control flex items-center gap-1 p-1 rounded-xl border overflow-x-auto no-scrollbar self-start sm:self-auto max-w-full">
           {[
             { id: 'all', label: 'All Havens' },
             { id: 'cafe', label: 'Cafes' },
@@ -61,7 +64,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
       </div>
 
       {/* Safety Protocol Banner */}
-      <div className="p-3.5 sm:p-4 rounded-2xl bg-[#11131a] border border-white/[0.08] flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+      <div className="gayze-premium-panel p-4 sm:p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
             <ShieldCheck className="w-4 h-4" />
@@ -86,7 +89,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
         {filteredHavens.map((haven) => (
           <div
             key={haven.id}
-            className="bg-[#11131a] hover:bg-[#141620] border border-white/[0.08] hover:border-[#C9A24D]/40 rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between shadow-sm"
+            className="gayze-premium-panel hover:border-[#C9A24D]/35 rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between"
           >
             <div>
               {/* Header */}
