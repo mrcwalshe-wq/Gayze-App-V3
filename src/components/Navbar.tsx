@@ -157,7 +157,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenSafetyTimer}
               title="Safety Timer Beacon"
               aria-label="Safety Check-in Timer"
-              className={`h-9 w-9 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${
+              className={`h-11 w-11 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${
                 isSafetyTimerActive
                   ? 'bg-rose-950/50 text-rose-300 border-rose-500/60 shadow-sm shadow-rose-950 animate-pulse'
                   : 'bg-[#11131a] text-zinc-300 border-white/[0.08] hover:border-white/20 hover:text-white'
@@ -174,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenQR}
               title="Group QR Code & Key Exchange"
               aria-label="QR Code Key Exchange"
-              className="h-9 w-9 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] hover:border-[#C9A24D]/40 text-zinc-300 hover:text-white rounded-xl transition-all cursor-pointer"
+              className="h-11 w-11 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] hover:border-[#C9A24D]/40 text-zinc-300 hover:text-white rounded-xl transition-all cursor-pointer"
             >
               <QrCode className="w-3.5 h-3.5 text-[#C9A24D]" />
               <span className="hidden sm:inline text-xs">Verify</span>
@@ -190,7 +190,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenMask}
               title="Discreet Disguise (Esc)"
               aria-label="Toggle Discreet Mask"
-              className="h-9 w-9 sm:w-auto sm:px-2.5 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium text-zinc-400 bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] rounded-xl hover:text-white transition-all cursor-pointer"
+              className="h-11 w-11 sm:w-auto sm:px-2.5 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium text-zinc-400 bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] rounded-xl hover:text-white transition-all cursor-pointer"
             >
               <EyeOff className="w-3.5 h-3.5" />
               <span className="hidden sm:inline text-xs">Mask</span>
@@ -201,7 +201,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenIdentity}
               title="Your Identity Key"
               aria-label="Open Identity Settings"
-              className="h-9 w-9 rounded-xl bg-[#141620] border border-white/[0.10] hover:border-white/25 flex items-center justify-center text-zinc-200 transition-all cursor-pointer font-mono text-xs font-semibold"
+              className="h-11 w-11 rounded-xl bg-[#141620] border border-white/[0.10] hover:border-white/25 flex items-center justify-center text-zinc-200 transition-all cursor-pointer font-mono text-xs font-semibold"
             >
               JK
             </button>
