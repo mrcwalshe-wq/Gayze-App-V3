@@ -115,10 +115,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   };
 
   return (
-    <div className="flex h-[calc(100dvh-8.5rem)] sm:h-[calc(100vh-9rem)] min-h-[460px] bg-[#090a0e] rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl">
+    <div className="gayze-chat-shell flex h-[calc(100dvh-8.5rem)] sm:h-[calc(100vh-9rem)] min-h-[460px] bg-[#090a0e] rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl">
       {/* Sidebar: Chats & Conversations */}
       <div 
-        className={`w-full sm:w-72 md:w-80 bg-[#0d0e14] border-r border-white/[0.08] flex flex-col shrink-0 ${
+        className={`gayze-chat-sidebar w-full sm:w-72 md:w-80 bg-[#0d0e14] border-r border-white/[0.08] flex flex-col shrink-0 ${
           mobileView === 'chat' ? 'hidden sm:flex' : 'flex'
         }`}
       >
@@ -208,7 +208,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           }`}
         >
           {/* Header */}
-          <div className="h-14 px-3 sm:px-4 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
+          <div className="gayze-chat-header h-14 px-3 sm:px-4 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {/* Mobile Back Button */}
               <button
