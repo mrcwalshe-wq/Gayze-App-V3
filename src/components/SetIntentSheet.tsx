@@ -90,12 +90,12 @@ const QUICK_SUGGESTIONS: Record<string, string[]> = {
   ],
   'Hookup · Host': [
     'Clean private flat setup, drinks chilled',
-    'Hosting nearby, clean & discreet',
+    'Hosting in Seven Dials / Soho, discreet',
     'Low-key hosting available right now',
   ],
   'Hookup · Travel': [
     'Mobile and happy to travel to your place',
-    'Can come to you within reasonable radius',
+    'Can come to you within Central London',
     'Discreet travel nearby',
   ],
   'Hookup · Outdoor': [
@@ -105,7 +105,7 @@ const QUICK_SUGGESTIONS: Record<string, string[]> = {
   ],
   'Hookup · Car': [
     'Discreet car meetup in comfortable vehicle',
-    'Spontaneous car meetup nearby tonight',
+    'Cruising around Central London tonight',
     'Private car encounter, respectful & safe',
   ],
   Other: [

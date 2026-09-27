@@ -39,7 +39,7 @@ export const getProfileIntent = (profile: DatingProfile): string => {
 export function computeCompatibilitySignals(
   profile: DatingProfile,
   userIntent?: UserActiveIntent | null,
-  userNeighborhood: string = 'Near you'
+  userNeighborhood: string = 'Soho'
 ): {
   signals: CompatibilitySignal[];
   hasIntentMatch: boolean;

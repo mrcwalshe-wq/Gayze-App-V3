@@ -29,7 +29,6 @@ interface NavbarProps {
   isSafetyTimerActive: boolean;
   onOpenQR: () => void;
   reliabilityScore?: number;
-  userNeighborhood?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -42,7 +41,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSafetyTimerActive,
   onOpenQR,
   reliabilityScore,
-  userNeighborhood,
 }) => {
   return (
     <>
@@ -70,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   GAYZE
                 </span>
                 <span className="hidden xs:inline text-[11px] font-medium text-zinc-400">
-                  · {userNeighborhood && userNeighborhood !== 'Soho' && userNeighborhood !== 'Soho / Covent Garden' ? userNeighborhood : 'Near you'}
+                  · Soho
                 </span>
               </div>
             </button>
