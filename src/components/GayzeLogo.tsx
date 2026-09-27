@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const GAYZE_LOGO_PATH = '/ChatGPT Image Sep 27, 2026, 02_03_58 PM.jpg';
+export const GAYZE_LOGO_PATH = '/gayze-logo.jpg';
 
 interface GayzeLogoProps {
   size?: number;
