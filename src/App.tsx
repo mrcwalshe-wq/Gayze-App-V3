@@ -3,21 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
 import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
-import { RightNowView } from './components/RightNowView';
-import { LaterView } from './components/LaterView';
-import { SafeHavenView } from './components/SafeHavenView';
-import { ChatRoomView } from './components/ChatRoomView';
-import { DatingGridView } from './components/DatingGridView';
 import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
-import { SwarmQRModal } from './components/SwarmQRModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
+
+const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
+const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
+const SafeHavenView = lazy(() => import('./components/SafeHavenView').then((module) => ({ default: module.SafeHavenView })));
+const ChatRoomView = lazy(() => import('./components/ChatRoomView').then((module) => ({ default: module.ChatRoomView })));
+const DatingGridView = lazy(() => import('./components/DatingGridView').then((module) => ({ default: module.DatingGridView })));
+const SwarmQRModal = lazy(() => import('./components/SwarmQRModal').then((module) => ({ default: module.SwarmQRModal })));
 import {
   Pulse,
   Gathering,
@@ -1247,92 +1248,94 @@ export default function App() {
             : 'flex-1 min-h-0 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 overflow-y-auto overscroll-contain scroll-pt-[calc(3.5rem+env(safe-area-inset-top,0px))]'
         }
       >
-        {activeTab === 'dating' && (
-          <DatingGridView
-            profiles={datingProfiles}
-            safeHavens={safeHavens}
-            userNeighborhood={currentUser.neighborhood}
-            stories={stories}
-            intentPosts={intentPosts}
-            activeUserIntent={activeUserIntent}
-            currentUser={currentUser}
-            onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
-            onProposeHavenDate={handleProposeHavenDate}
-            onToggleFavorite={handleToggleFavoriteProfile}
-            onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
-            onGazeAtPeer={handleGazeAtPeer}
-            onOpenScheduleMeeting={handleOpenScheduleMeeting}
-            onOpenSetIntent={() => setIsSetIntentOpen(true)}
-            onUpdateActiveUserIntent={setActiveUserIntent}
-            onOpenMap={() => setActiveTab('right_now')}
-          />
-        )}
+        <Suspense fallback={<div className="flex h-full min-h-[40vh] items-center justify-center text-xs text-zinc-400">Loading view…</div>}>
+          {activeTab === 'dating' && (
+            <DatingGridView
+              profiles={datingProfiles}
+              safeHavens={safeHavens}
+              userNeighborhood={currentUser.neighborhood}
+              stories={stories}
+              intentPosts={intentPosts}
+              activeUserIntent={activeUserIntent}
+              currentUser={currentUser}
+              onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
+              onProposeHavenDate={handleProposeHavenDate}
+              onToggleFavorite={handleToggleFavoriteProfile}
+              onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
+              onGazeAtPeer={handleGazeAtPeer}
+              onOpenScheduleMeeting={handleOpenScheduleMeeting}
+              onOpenSetIntent={() => setIsSetIntentOpen(true)}
+              onUpdateActiveUserIntent={setActiveUserIntent}
+              onOpenMap={() => setActiveTab('right_now')}
+            />
+          )}
 
-        {activeTab === 'right_now' && (
-          <RightNowView
-            pulses={supabaseReady ? [...supabaseRightNowPulses, ...pulses] : pulses}
-            safeHavens={safeHavens}
-            userNeighborhood={currentUser.neighborhood}
-            privacySetting={currentUser.privacySetting}
-            datingProfiles={datingProfiles}
-            stories={stories}
-            activeUserIntent={activeUserIntent}
-            onOpenDirectChat={handleOpenDirectChatFromPulse}
-            onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
-            onSelectHaven={(h) => {
-              setActiveTab('safe_havens');
-            }}
-            onCreatePulse={handleCreatePulse}
-            onGazeAtPeer={handleGazeAtPeer}
-            onOpenScheduleMeeting={handleOpenScheduleMeeting}
-            onOpenSetIntent={() => setIsSetIntentOpen(true)}
-            onSubmitInterest={handleSubmitInterest}
-            onSubmitGaze={handleSubmitGaze}
-          />
-        )}
+          {activeTab === 'right_now' && (
+            <RightNowView
+              pulses={supabaseReady ? [...supabaseRightNowPulses, ...pulses] : pulses}
+              safeHavens={safeHavens}
+              userNeighborhood={currentUser.neighborhood}
+              privacySetting={currentUser.privacySetting}
+              datingProfiles={datingProfiles}
+              stories={stories}
+              activeUserIntent={activeUserIntent}
+              onOpenDirectChat={handleOpenDirectChatFromPulse}
+              onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
+              onSelectHaven={(h) => {
+                setActiveTab('safe_havens');
+              }}
+              onCreatePulse={handleCreatePulse}
+              onGazeAtPeer={handleGazeAtPeer}
+              onOpenScheduleMeeting={handleOpenScheduleMeeting}
+              onOpenSetIntent={() => setIsSetIntentOpen(true)}
+              onSubmitInterest={handleSubmitInterest}
+              onSubmitGaze={handleSubmitGaze}
+            />
+          )}
 
-        {activeTab === 'later' && (
-          <LaterView
-            gatherings={gatherings}
-            onToggleRsvp={handleToggleRsvp}
-            onOpenGatheringChat={handleOpenGatheringChat}
-            onCreateGathering={handleCreateGathering}
-          />
-        )}
+          {activeTab === 'later' && (
+            <LaterView
+              gatherings={gatherings}
+              onToggleRsvp={handleToggleRsvp}
+              onOpenGatheringChat={handleOpenGatheringChat}
+              onCreateGathering={handleCreateGathering}
+            />
+          )}
 
-        {activeTab === 'swarms' && (
-          <ChatRoomView
-            rooms={rooms}
-            messages={messages}
-            activeRoomId={activeRoomId}
-            onSelectRoom={(id) => setActiveRoomId(id)}
-            currentUser={currentUser}
-            onSendMessage={handleSendMessage}
-            onUpdateRoomTtl={handleUpdateRoomTtl}
-            onOpenQR={(peerName) => {
-              const matchedPeer = datingProfiles.find(
-                (p) => p.name.toLowerCase() === peerName?.toLowerCase()
-              );
-              handleOpenQRModal(matchedPeer || null);
-            }}
-            onStartCall={handleStartCall}
-            onOpenScheduleMeeting={handleOpenScheduleMeeting}
-            onAcceptMeeting={handleAcceptMeeting}
-          />
-        )}
+          {activeTab === 'swarms' && (
+            <ChatRoomView
+              rooms={rooms}
+              messages={messages}
+              activeRoomId={activeRoomId}
+              onSelectRoom={(id) => setActiveRoomId(id)}
+              currentUser={currentUser}
+              onSendMessage={handleSendMessage}
+              onUpdateRoomTtl={handleUpdateRoomTtl}
+              onOpenQR={(peerName) => {
+                const matchedPeer = datingProfiles.find(
+                  (p) => p.name.toLowerCase() === peerName?.toLowerCase()
+                );
+                handleOpenQRModal(matchedPeer || null);
+              }}
+              onStartCall={handleStartCall}
+              onOpenScheduleMeeting={handleOpenScheduleMeeting}
+              onAcceptMeeting={handleAcceptMeeting}
+            />
+          )}
 
-        {activeTab === 'safe_havens' && (
-          <SafeHavenView
-            safeHavens={safeHavens}
-            onSelectVenueForPulse={(haven) => {
-              setActiveTab('right_now');
-              showToast(`Broadcasting pulse at ${haven.name}`);
-            }}
-            onStartSafeCheckinWithVenue={(haven) => {
-              setIsSafetyTimerOpen(true);
-            }}
-          />
-        )}
+          {activeTab === 'safe_havens' && (
+            <SafeHavenView
+              safeHavens={safeHavens}
+              onSelectVenueForPulse={(haven) => {
+                setActiveTab('right_now');
+                showToast(`Broadcasting pulse at ${haven.name}`);
+              }}
+              onStartSafeCheckinWithVenue={(haven) => {
+                setIsSafetyTimerOpen(true);
+              }}
+            />
+          )}
+        </Suspense>
       </main>
 
       {/* Schedule Meeting & Safe Haven Date Modal */}
@@ -1389,16 +1392,18 @@ export default function App() {
       />
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
-      <SwarmQRModal
-        isOpen={isQRModalOpen}
-        onClose={() => {
-          setIsQRModalOpen(false);
-          setQrTargetPeer(null);
-        }}
-        currentUser={currentUser}
-        targetPeer={qrTargetPeer}
-        onVerifyPeer={handleVerifyPeer}
-      />
+      <Suspense fallback={null}>
+        <SwarmQRModal
+          isOpen={isQRModalOpen}
+          onClose={() => {
+            setIsQRModalOpen(false);
+            setQrTargetPeer(null);
+          }}
+          currentUser={currentUser}
+          targetPeer={qrTargetPeer}
+          onVerifyPeer={handleVerifyPeer}
+        />
+      </Suspense>
     </div>
   );
 }
