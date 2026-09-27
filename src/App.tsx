@@ -1726,21 +1726,36 @@ export default function App() {
         onRevokeDevice={handleRevokeDevice}
         onSignOut={async () => {
           try {
+            // Tell Supabase to invalidate the local session first.
             if (supabase) {
               const { error } = await supabase.auth.signOut({ scope: 'local' });
               if (error) {
-                console.error('[GAYZE] Sign-out failed:', error);
-                return;
+                console.warn('[GAYZE] Supabase local sign-out returned an error:', error.message);
+              }
+            }
+          } catch (error) {
+            console.warn('[GAYZE] Supabase sign-out exception:', error);
+          } finally {
+            // Defensive cleanup: remove any persisted Supabase auth token so a
+            // failed network call cannot silently restore the previous session.
+            for (const storage of [window.localStorage, window.sessionStorage]) {
+              for (let i = storage.length - 1; i >= 0; i -= 1) {
+                const key = storage.key(i);
+                if (key && (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
+                  storage.removeItem(key);
+                }
               }
             }
 
-            // Immediately clear the app's authenticated state. The Supabase
-            // auth listener will also confirm the signed-out session.
+            localStorage.removeItem('gayze_messages');
             setIsAuthenticated(false);
             setSupabaseUserId(null);
             setIsIdentityOpen(false);
-          } catch (error) {
-            console.error('[GAYZE] Sign-out exception:', error);
+
+            // Restart auth bootstrap from a clean browser session.
+            window.setTimeout(() => {
+              window.location.replace(window.location.origin);
+            }, 50);
           }
         }}
       />
