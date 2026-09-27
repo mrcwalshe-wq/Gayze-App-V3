@@ -1003,18 +1003,39 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
             5. PROFILE GRID: CLEAN, HIGH-INTENT DISCOVERY CARDS
            ========================================================================= */
         filteredProfiles.length === 0 ? (
-          <div className="gayze-premium-panel p-12 text-center rounded-2xl border border-white/10 space-y-3">
-            <Compass className="w-8 h-8 text-zinc-500 mx-auto" />
-            <h3 className="text-sm font-semibold text-white">No members match this intent</h3>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-              Try resetting the intent selector to All or adjusting the distance radius to see more members nearby.
+          <div className="gayze-premium-panel p-10 sm:p-12 text-center rounded-3xl border border-white/10 space-y-4 max-w-lg mx-auto my-6 animate-in fade-in">
+            <div className="w-12 h-12 rounded-2xl bg-[#6F3CC3]/20 border border-[#6F3CC3]/40 flex items-center justify-center text-[#6F3CC3] mx-auto">
+              <Compass className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white tracking-wide">Nothing live nearby right now</h3>
+              <p className="text-xs text-zinc-400 font-mono">Radius: {maxDistanceKm}km</p>
+            </div>
+            <p className="text-xs text-zinc-300 max-w-sm mx-auto leading-relaxed">
+              No members currently have an active intent within your selected distance. Expand your radius or broadcast your own live intent.
             </p>
-            <button
-              onClick={handleClearAllFilters}
-              className="h-9 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer"
-            >
-              Show All {mode === 'social' ? 'Social' : 'Private'}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setMaxDistanceKm((prev) => (prev <= 5 ? 10 : prev <= 10 ? 25 : 5));
+                }}
+                className="h-10 px-4 text-xs font-semibold text-zinc-200 bg-white/[0.06] hover:bg-white/10 border border-white/10 rounded-xl transition-colors cursor-pointer"
+              >
+                Expand Radius to {maxDistanceKm <= 5 ? '10km' : maxDistanceKm <= 10 ? '25km' : '5km'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  onOpenSetIntent();
+                }}
+                className="h-10 px-4 text-xs font-bold text-white bg-[#6F3CC3] hover:bg-[#5e32a6] rounded-xl transition-colors cursor-pointer shadow"
+              >
+                Broadcast Your Live Intent
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
@@ -1728,7 +1749,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
 
                     <div className="p-3 rounded-xl bg-[#181a24] border border-white/5 flex items-center justify-between text-xs text-zinc-400">
                       <span>Current Area:</span>
-                      <span className="text-white font-mono font-semibold">{userNeighborhood} · London</span>
+                      <span className="text-white font-mono font-semibold">{userNeighborhood && userNeighborhood !== 'Soho' && userNeighborhood !== 'Soho / Covent Garden' ? userNeighborhood : 'Near you'}</span>
                     </div>
                   </div>
                 )}
