@@ -28,10 +28,10 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
           <div className="flex items-center gap-3">
             <span className="h-7 w-[2px] bg-gradient-to-b from-emerald-400 to-[#C9A24D]" />
             <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-emerald-400 mb-1">TRUSTED PLACES</div>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
-              Verified Queer Safe Havens
-            </h1>
+              <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-emerald-400 mb-1">TRUSTED PLACES</div>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
+                Verified Queer Safe Havens
+              </h1>
             </div>
           </div>
           <p className="text-[11px] sm:text-xs text-zinc-400 sm:max-w-md leading-relaxed">
@@ -51,11 +51,10 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
             <button
               key={item.id}
               onClick={() => setFilterType(item.id)}
-              className={`h-8 px-3 text-xs font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
-                filterType === item.id
-                  ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
+              className={`h-8 px-3 text-xs font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer ${filterType === item.id
+                ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
+                : 'text-zinc-400 hover:text-white'
+                }`}
             >
               {item.label}
             </button>
@@ -150,7 +149,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                 onClick={() => onStartSafeCheckinWithVenue(haven)}
                 className="h-11 min-h-[44px] px-4 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl border border-white/10 transition-colors cursor-pointer flex items-center justify-center"
               >
-                Set Safety Beacon Here
+                Start Local Check-in Here
               </button>
 
               <button

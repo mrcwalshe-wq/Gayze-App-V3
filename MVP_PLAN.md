@@ -17,8 +17,8 @@
 - **Persistence:** Much of the profile, discovery, chat, event, story, and safety state is seeded and stored in `localStorage` via state initialization and effects in `src/App.tsx`; starter datasets live in `src/services/storageService.ts`.
 - **Backend:** Supabase is optional (`src/services/supabaseClient.ts`). `src/services/supabaseService.ts` has real calls for Right Now discovery/intents, interest and gaze, profiles/devices, and encrypted conversation messages. The UI falls back to local/demo behavior when the configured path is unavailable.
 - **Security:** Web Crypto and device identity/recovery logic live in `src/services/cryptoService.ts`. Local AES-GCM encryption now fails closed when Web Crypto fails, and the send handler reports that the message was not sent. Some flows still create local demo rooms or simulated peers, so this does not make those rooms production end-to-end encrypted.
-- **Feature surfaces:** Dating/profile browsing, live Right Now map, planned gatherings, chat, safe havens, identity/device management, QR verification, safety timer, stories, and call UI. Several are richer than their backing behavior: for example, calls progress through simulated states, and the distress action currently reports success through UI without a delivery integration.
-- **Project readiness:** No README, SQL migrations, automated test files, or visible CI workflow were found. Dependencies are installed from `bun.lock`; the lockfile was refreshed because `@supabase/supabase-js` was declared in `package.json` but missing from the lockfile. `npm run lint` passes and `npm run build` succeeds. The build still warns about `__dirname` in `vite.config.ts` and a 715 KB JavaScript chunk.
+- **Feature surfaces:** Dating/profile browsing, live Right Now map, planned gatherings, chat, safe havens, identity/device management, QR verification, safety timer, stories, and call UI. Several are richer than their backing behavior: calls progress through simulated states, and the distress action reports success without a delivery integration. QR verification now has a real camera decoder and client-side fingerprint comparison flow, but its verified state is still local-only.
+- **Project readiness:** No README, SQL migrations, automated test files, or visible CI workflow were found. Dependencies are installed from `bun.lock`; the lockfile was refreshed because `@supabase/supabase-js` was declared in `package.json` but missing from the lockfile. `npm run lint` passes and `npm run build` succeeds. The build still warns about `__dirname` in `vite.config.ts` and a 716 KB initial JavaScript chunk; the 478 KB QR decoder is lazy-loaded.
 
 ## Recommended MVP Boundary
 
@@ -47,8 +47,8 @@ Start with one honest end-to-end connection journey:
 
 - Answer the product and launch questions below; document explicit in-scope and deferred features.
 - Mark seeded/demo records as demo-only and keep them out of production discovery. Do not silently combine synthetic and real people in a live feed.
-- Implement QR identity verification as a real scanned, cryptographically checked exchange; remove the simulated scan shortcut from beta builds.
-- Make safety check-in status and delivery claims truthful. Keep calls, Stories, and Later gatherings out of the beta unless separately approved; remove simulated call connection states.
+- **Implemented client-side foundation:** Decode real camera QR codes, validate supported payload version, key type, fingerprint and two-minute freshness, and require users to compare fingerprints in person. Removed the profile simulator and fake local trust-score bonus. Persisted verification, formal replay/key-change handling, and two-device tests remain.
+- **Implemented local-only foundation:** The timer, extensions, safe confirmation, and haptics remain; UI now explicitly states that no contacts are notified and removes the fake buddy count and alert-success action. Delivery integration and final beta safety policy remain undecided. Keep calls, Stories, and Later gatherings out of the beta unless separately approved; remove simulated call connection states.
 - Define what “encrypted,” “verified,” “anonymous,” “private location,” and “safety alert” mean in product copy and threat model.
 
 **Exit:** Every visible MVP action has a defined real outcome, a failure state, and no false security or safety claim.
@@ -58,7 +58,7 @@ Start with one honest end-to-end connection journey:
 - Implement account/session and profile lifecycle, including age/eligibility policy, profile edits, account deletion, and recovery expectations.
 - Validate intent lifecycle on the server: one active intent policy, expiry, pause/unpublish, location consent, privacy radius, and server-side filtering/authorization.
 - Verify interest idempotency and mutual-match creation; ensure only eligible participants can read/write their conversation.
-- Implement QR verification with a real camera/manual payload flow, signature or key-fingerprint validation, replay protection, and clear failure states; never award verification from a demo payload.
+- **Partial:** QR camera/manual payload flow validates the ECDH key fingerprint and code freshness; malformed or expired payloads fail, and a local confirmation requires an in-person comparison. Still needed: a reviewed authenticity/replay protocol, persisted verification state, key-change handling, and tests across two real devices.
 - Finish the two-device encrypted chat path: authenticated key agreement, identity-key changes, safety-number verification, replay/duplicate handling, reconnect state, and explicit behavior when a peer key is missing or changed.
 - Ensure ephemeral-message expiry is enforced server-side and clients do not claim deletion until it is actually enforced. Define attachment support as out of scope unless needed.
 
@@ -68,7 +68,7 @@ Start with one honest end-to-end connection journey:
 
 - **Done:** Removed the Base64 encryption/decryption fallbacks; local sends now fail with a clear error if AES-GCM is unavailable. `npm run lint` and `npm run build` pass after the change.
 - Review location collection, fuzzy-coordinate generation, permission denial, retention, and whether raw coordinates are stored. Verify RLS/RPC behavior against unauthorized users.
-- Ship the required check-in with a documented, tested timer and expiry behavior. Confirm whether alerts go only to the user, to trusted contacts, or to an emergency service; do not show “sent” until a configured delivery provider confirms it. If external delivery is not available for beta, explicitly label the feature as a local check-in and offer a user-controlled fallback.
+- **Partial:** Local timer behavior is labeled accurately and expiry no longer implies that an alert was sent. Before beta, decide whether to keep this local-only or integrate and test a trusted-contact delivery channel; never show “sent” until delivery is confirmed.
 - Test identity backup/restore, device registration/revocation, data clearing, and account deletion. Avoid clearing unrelated origin-wide storage without explicit scope and confirmation.
 
 **Exit:** Security/privacy tests and a documented threat/privacy review cover the shipped flows; unsupported safety promises are absent. The check-in's actual delivery scope is reflected in UI and onboarding.
@@ -101,7 +101,7 @@ The major scope choices above are confirmed. These questions still affect implem
 - A user can publish, pause, resume, expire, and delete an intent; no expired or blocked user's intent appears in discovery.
 - Location is not requested until needed, denied permission remains usable, and displayed coordinates satisfy the documented privacy bound.
 - A unilateral interest does not reveal a conversation; mutual interest creates exactly one authorized conversation.
-- QR verification succeeds only after a real peer payload is checked; invalid, replayed, or changed keys fail clearly and never alter trust scores.
+- QR verification succeeds only after a real peer payload is checked and the user confirms an in-person fingerprint comparison; invalid, expired, or fingerprint-mismatched payloads fail clearly and never alter trust scores.
 - Messages are ciphertext at rest in the backend, decrypt only for conversation participants with valid keys, and fail closed on invalid/missing keys.
 - Safety check-in behavior matches the confirmed delivery scope; expiry and any alert failure are visible, and no unconfirmed alert is described as delivered.
 - A key change is visible and requires verification; the interface does not mark a peer verified from a simulated scan.

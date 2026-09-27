@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { SafeHaven } from '../types';
-import { 
-  Calendar, 
-  MapPin, 
-  Clock, 
-  ShieldCheck, 
-  X, 
-  Check, 
-  Coffee, 
-  Wine, 
-  Shield, 
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  ShieldCheck,
+  X,
+  Check,
+  Coffee,
+  Wine,
+  Shield,
   Sparkles,
   ArrowRight
 } from 'lucide-react';
@@ -26,7 +26,7 @@ interface ScheduleMeetingModalProps {
     timeStr: string;
     isSafeHaven: boolean;
     durationMinutes: number;
-    armSafetyBeacon: boolean;
+    startLocalCheckin: boolean;
   }) => void;
 }
 
@@ -53,7 +53,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
   });
 
   const [timeOption, setTimeOption] = useState<string>('Now (~15 mins)');
-  const [armSafetyBeacon, setArmSafetyBeacon] = useState<boolean>(true);
+  const [startLocalCheckin, setStartLocalCheckin] = useState<boolean>(true);
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
 
   if (!isOpen) return null;
@@ -68,7 +68,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
       timeStr: timeOption,
       isSafeHaven: true,
       durationMinutes,
-      armSafetyBeacon,
+      startLocalCheckin,
     });
 
     onClose();
@@ -95,7 +95,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
                 Plan Meetup with {peerName}
               </h3>
               <p className="text-xs text-zinc-400">
-                Safe, verified venue with optional safety beacon
+                Choose a venue and optionally start a local check-in timer
               </p>
             </div>
           </div>
@@ -125,11 +125,10 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
                     key={haven.id}
                     type="button"
                     onClick={() => setSelectedHaven(haven)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                      isSelected
-                        ? 'bg-[#1c1f2b] border-[#C9A24D] text-white shadow-sm'
-                        : 'bg-[#141620] border-white/[0.06] text-zinc-300 hover:border-white/20'
-                    }`}
+                    className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isSelected
+                      ? 'bg-[#1c1f2b] border-[#C9A24D] text-white shadow-sm'
+                      : 'bg-[#141620] border-white/[0.06] text-zinc-300 hover:border-white/20'
+                      }`}
                   >
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
@@ -170,11 +169,10 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
                   key={t}
                   type="button"
                   onClick={() => setTimeOption(t)}
-                  className={`h-11 min-h-[44px] px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-left truncate ${
-                    timeOption === t
-                      ? 'bg-[#C9A24D]/15 text-[#C9A24D] border-[#C9A24D]/40 font-bold'
-                      : 'bg-[#141620] text-zinc-300 border-white/[0.06] hover:border-white/20'
-                  }`}
+                  className={`h-11 min-h-[44px] px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-left truncate ${timeOption === t
+                    ? 'bg-[#C9A24D]/15 text-[#C9A24D] border-[#C9A24D]/40 font-bold'
+                    : 'bg-[#141620] text-zinc-300 border-white/[0.06] hover:border-white/20'
+                    }`}
                 >
                   {t}
                 </button>
@@ -182,26 +180,26 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
             </div>
           </div>
 
-          {/* Step 3: Guardian Safety Beacon Integration */}
+          {/* Optional local check-in timer */}
           <div className="p-3.5 rounded-xl bg-[#141620] border border-white/[0.08] space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-bold text-white">Guardian Safety Beacon</span>
+                <span className="text-xs font-bold text-white">Start local check-in timer</span>
               </div>
               <input
                 type="checkbox"
-                checked={armSafetyBeacon}
-                onChange={(e) => setArmSafetyBeacon(e.target.checked)}
+                checked={startLocalCheckin}
+                onChange={(e) => setStartLocalCheckin(e.target.checked)}
                 className="w-4 h-4 accent-[#C9A24D] rounded cursor-pointer"
-                id="arm_beacon"
+                id="start_local_checkin"
               />
             </div>
             <p className="text-[11px] text-zinc-400 leading-snug">
-              Automatically arms an emergency safety timer for this meetup. If you do not check in, an automated encrypted alert pings your safety contacts.
+              Starts a timer on this device after the proposal is sent. It does not notify contacts if you do not check in.
             </p>
 
-            {armSafetyBeacon && (
+            {startLocalCheckin && (
               <div className="flex items-center gap-2 pt-1">
                 <span className="text-[11px] text-zinc-400">Duration:</span>
                 {[45, 60, 90, 120].map((m) => (
@@ -209,11 +207,10 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
                     key={m}
                     type="button"
                     onClick={() => setDurationMinutes(m)}
-                    className={`px-2.5 py-1 text-xs rounded-lg border font-mono transition-colors ${
-                      durationMinutes === m
-                        ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50 font-bold'
-                        : 'bg-[#1a1c27] text-zinc-400 border-white/5'
-                    }`}
+                    className={`px-2.5 py-1 text-xs rounded-lg border font-mono transition-colors ${durationMinutes === m
+                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50 font-bold'
+                      : 'bg-[#1a1c27] text-zinc-400 border-white/5'
+                      }`}
                   >
                     {m}m
                   </button>

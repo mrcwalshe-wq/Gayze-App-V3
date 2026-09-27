@@ -276,5 +276,4 @@ export interface SafetyCheckin {
   startedAt: number;
   durationMinutes: number;
   notes: string;
-  emergencyBuddyPings: number;
 }

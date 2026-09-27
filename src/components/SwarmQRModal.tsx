@@ -190,10 +190,10 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
         (result, _error, controls) => {
           if (!result || payloadProcessingRef.current) return;
           payloadProcessingRef.current = true;
+          scannerControlsRef.current = controls;
           void handlePayloadText(result.getText()).finally(() => {
             payloadProcessingRef.current = false;
           });
-          controls.stop();
         },
       );
       setCameraActive(true);
@@ -391,12 +391,12 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                   {isCopied ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-400 font-semibold">Code Copied!</span>
+                      <span className="text-emerald-400 font-semibold">Payload Copied!</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>Copy Safety Code</span>
+                      <span>Copy Identity Payload</span>
                     </>
                   )}
                 </button>
@@ -412,7 +412,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
               </div>
 
               <div className="text-[11px] text-zinc-400 leading-normal text-center max-w-xs">
-                Have your meetup partner scan this code with Gayze to immediately authenticate your public key and build mutual trust scores.
+                Exchange current identity codes and compare fingerprints in person. Verification is recorded separately on each device.
               </div>
             </div>
           ) : (

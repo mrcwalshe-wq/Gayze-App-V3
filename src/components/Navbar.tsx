@@ -1,14 +1,14 @@
 import React from 'react';
 import { GayzeLogo } from './GayzeLogo';
-import { 
-  Shield, 
-  Eye, 
-  EyeOff, 
-  Radio, 
-  Calendar, 
-  Lock, 
-  MessageSquare, 
-  MapPin, 
+import {
+  Shield,
+  Eye,
+  EyeOff,
+  Radio,
+  Calendar,
+  Lock,
+  MessageSquare,
+  MapPin,
   Compass,
   CheckCircle2,
   AlertTriangle,
@@ -46,14 +46,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     <>
       {/* Top App Header — Fixed / Stationary Viewport Layer */}
       <header
-        className={`gayze-top-header fixed top-0 left-0 right-0 z-50 w-full transition-colors pt-[env(safe-area-inset-top,0px)] ${
-          activeTab === 'right_now'
-            ? 'bg-[#090a0e]/85 backdrop-blur-xl border-b border-white/[0.06]'
-            : 'bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07]'
-        }`}
+        className={`gayze-top-header fixed top-0 left-0 right-0 z-50 w-full transition-colors pt-[env(safe-area-inset-top,0px)] ${activeTab === 'right_now'
+          ? 'bg-[#090a0e]/85 backdrop-blur-xl border-b border-white/[0.06]'
+          : 'bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07]'
+          }`}
       >
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 flex items-center justify-between gap-1.5 sm:gap-4 min-w-0">
-          
+
           {/* Brand Wordmark & Neighborhood Tag */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
@@ -85,11 +84,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <nav className="gayze-top-nav hidden md:flex items-center gap-0.5 p-0.5 rounded-xl border border-white/[0.07]">
             <button
               onClick={() => onTabChange('dating')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-                activeTab === 'dating'
-                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'dating'
+                ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
             >
               <Heart className={`w-3.5 h-3.5 ${activeTab === 'dating' ? 'text-[#C9A24D] fill-[#C9A24D]' : 'text-zinc-400'}`} />
               <span>Discover</span>
@@ -97,11 +95,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onTabChange('right_now')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-                activeTab === 'right_now'
-                  ? 'text-white bg-[#221634] border border-[#6F3CC3]/60 shadow-[0_0_14px_rgba(111,60,195,0.4)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'right_now'
+                ? 'text-white bg-[#221634] border border-[#6F3CC3]/60 shadow-[0_0_14px_rgba(111,60,195,0.4)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
               title="Live Proximity Map"
               aria-label="Map"
             >
@@ -112,11 +109,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onTabChange('later')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-                activeTab === 'later'
-                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'later'
+                ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
             >
               <Calendar className={`w-3.5 h-3.5 ${activeTab === 'later' ? 'text-[#C9A24D]' : 'text-zinc-400'}`} />
               <span>Later</span>
@@ -124,11 +120,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onTabChange('swarms')}
-              className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-                activeTab === 'swarms'
-                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'swarms'
+                ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
             >
               <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
               <span>Groups</span>
@@ -139,11 +134,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onTabChange('safe_havens')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-                activeTab === 'safe_havens'
-                  ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'safe_havens'
+                ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
             >
               <Shield className={`w-3.5 h-3.5 ${activeTab === 'safe_havens' ? 'text-emerald-400' : 'text-zinc-400'}`} />
               <span>Safe Havens</span>
@@ -152,20 +146,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action Utilities (Both Mobile & Desktop) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Safety Check-in Timer Beacon */}
+            {/* Local Safety Check-in Timer */}
             <button
               onClick={onOpenSafetyTimer}
-              title="Safety Timer Beacon"
+              title="Local Safety Check-in Timer"
               aria-label="Safety Check-in Timer"
-              className={`h-11 w-11 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${
-                isSafetyTimerActive
-                  ? 'bg-rose-950/50 text-rose-300 border-rose-500/60 shadow-sm shadow-rose-950 animate-pulse'
-                  : 'bg-[#11131a] text-zinc-300 border-white/[0.08] hover:border-white/20 hover:text-white'
-              }`}
+              className={`h-11 w-11 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${isSafetyTimerActive
+                ? 'bg-rose-950/50 text-rose-300 border-rose-500/60 shadow-sm shadow-rose-950 animate-pulse'
+                : 'bg-[#11131a] text-zinc-300 border-white/[0.08] hover:border-white/20 hover:text-white'
+                }`}
             >
               <Shield className={`w-3.5 h-3.5 ${isSafetyTimerActive ? 'text-rose-400' : 'text-emerald-400'}`} />
               <span className="hidden sm:inline text-[11px] sm:text-xs font-medium">
-                {isSafetyTimerActive ? 'Beacon Active' : 'Safety'}
+                {isSafetyTimerActive ? 'Timer Active' : 'Safety'}
               </span>
             </button>
 
@@ -210,21 +203,19 @@ export const Navbar: React.FC<NavbarProps> = ({
       </header>
 
       {/* Mobile Fixed Bottom Tab Bar (Thumb Zone) */}
-      <nav 
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-50 transition-colors pb-[env(safe-area-inset-bottom,0px)] shadow-2xl ${
-          activeTab === 'right_now'
-            ? 'bg-[#090a0e]/90 backdrop-blur-xl border-t border-white/[0.07]'
-            : 'bg-[#090a0e]/95 backdrop-blur-xl border-t border-white/[0.08]'
-        }`}
+      <nav
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-50 transition-colors pb-[env(safe-area-inset-bottom,0px)] shadow-2xl ${activeTab === 'right_now'
+          ? 'bg-[#090a0e]/90 backdrop-blur-xl border-t border-white/[0.07]'
+          : 'bg-[#090a0e]/95 backdrop-blur-xl border-t border-white/[0.08]'
+          }`}
         aria-label="Mobile Navigation"
       >
         <div className="grid grid-cols-5 h-14 items-center px-1">
           {/* Tab 1: Discover / Dating */}
           <button
             onClick={() => onTabChange('dating')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'dating' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${activeTab === 'dating' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
           >
             <Heart className={`w-4 h-4 mb-0.5 ${activeTab === 'dating' ? 'fill-[#C9A24D] text-[#C9A24D]' : ''}`} />
             <span className="text-[10px] tracking-tight">Discover</span>
@@ -233,9 +224,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Tab 2: Map */}
           <button
             onClick={() => onTabChange('right_now')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer relative ${
-              activeTab === 'right_now' ? 'text-[#C9A24D] font-bold' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer relative ${activeTab === 'right_now' ? 'text-[#C9A24D] font-bold' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
             title="Live Map"
             aria-label="Map"
           >
@@ -252,9 +242,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Tab 3: Later */}
           <button
             onClick={() => onTabChange('later')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'later' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${activeTab === 'later' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
           >
             <Calendar className="w-4 h-4 mb-0.5" />
             <span className="text-[10px] tracking-tight">Later</span>
@@ -263,9 +252,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Tab 4: Groups */}
           <button
             onClick={() => onTabChange('swarms')}
-            className={`relative min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'swarms' ? 'text-white font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+            className={`relative min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${activeTab === 'swarms' ? 'text-white font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
           >
             <div className="relative">
               <MessageSquare className="w-4 h-4 mb-0.5" />
@@ -279,9 +267,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Tab 5: Safe Havens */}
           <button
             onClick={() => onTabChange('safe_havens')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${
-              activeTab === 'safe_havens' ? 'text-emerald-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${activeTab === 'safe_havens' ? 'text-emerald-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
           >
             <Shield className="w-4 h-4 mb-0.5" />
             <span className="text-[10px] tracking-tight">Havens</span>

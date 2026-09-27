@@ -1,24 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal } from '../types';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction } from '../services/hapticService';
-import { 
-  Lock, 
-  ShieldCheck, 
-  Send, 
-  Clock, 
-  Flame, 
-  Key, 
-  Check, 
-  Info, 
-  ChevronLeft, 
-  Users, 
-  User, 
-  Sparkles, 
-  CheckCheck, 
-  Eye, 
-  X, 
-  Shield, 
-  QrCode, 
+import {
+  Lock,
+  ShieldCheck,
+  Send,
+  Clock,
+  Flame,
+  Key,
+  Check,
+  Info,
+  ChevronLeft,
+  Users,
+  User,
+  Sparkles,
+  CheckCheck,
+  Eye,
+  X,
+  Shield,
+  QrCode,
   Award,
   Phone,
   Video,
@@ -117,10 +117,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   return (
     <div className="gayze-chat-shell flex h-[calc(100dvh-8.5rem)] sm:h-[calc(100vh-9rem)] min-h-[460px] bg-[#090a0e] rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl">
       {/* Sidebar: Chats & Conversations */}
-      <div 
-        className={`gayze-chat-sidebar w-full sm:w-72 md:w-80 bg-[#0d0e14] border-r border-white/[0.08] flex flex-col shrink-0 ${
-          mobileView === 'chat' ? 'hidden sm:flex' : 'flex'
-        }`}
+      <div
+        className={`gayze-chat-sidebar w-full sm:w-72 md:w-80 bg-[#0d0e14] border-r border-white/[0.08] flex flex-col shrink-0 ${mobileView === 'chat' ? 'hidden sm:flex' : 'flex'
+          }`}
       >
         {/* Chats header */}
         <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between">
@@ -145,18 +144,16 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <button
                 key={room.id}
                 onClick={() => handleSelectRoom(room.id)}
-                className={`w-full text-left p-3.5 transition-colors flex items-start gap-3 cursor-pointer min-h-[56px] ${
-                  isSelected
-                    ? 'bg-[#171922] border-l-2 border-[#C9A24D]'
-                    : 'hover:bg-white/[0.03]'
-                }`}
+                className={`w-full text-left p-3.5 transition-colors flex items-start gap-3 cursor-pointer min-h-[56px] ${isSelected
+                  ? 'bg-[#171922] border-l-2 border-[#C9A24D]'
+                  : 'hover:bg-white/[0.03]'
+                  }`}
               >
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold ${
-                    isGathering
-                      ? 'bg-[#171922] text-[#C9A24D] border border-[#C9A24D]/30'
-                      : 'bg-[#171922] text-zinc-200 border border-white/10'
-                  }`}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold ${isGathering
+                    ? 'bg-[#171922] text-[#C9A24D] border border-[#C9A24D]/30'
+                    : 'bg-[#171922] text-zinc-200 border border-white/10'
+                    }`}
                 >
                   {isGathering ? <Users className="w-4 h-4" /> : room.name.charAt(0)}
                 </div>
@@ -202,10 +199,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
       {/* Main Chat Area */}
       {currentRoom ? (
-        <div 
-          className={`flex-1 flex flex-col bg-[#090a0e] min-w-0 ${
-            mobileView === 'list' ? 'hidden sm:flex' : 'flex'
-          }`}
+        <div
+          className={`flex-1 flex flex-col bg-[#090a0e] min-w-0 ${mobileView === 'list' ? 'hidden sm:flex' : 'flex'
+            }`}
         >
           {/* Header */}
           <div className="gayze-chat-header h-14 px-3 sm:px-4 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
@@ -222,7 +218,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <div className="w-8 h-8 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0">
                 {currentRoom.type === 'gathering' ? <Users className="w-4 h-4" /> : currentRoom.name.charAt(0)}
               </div>
-              
+
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <h2 className="text-xs sm:text-sm font-bold text-white truncate">{currentRoom.name}</h2>
@@ -283,11 +279,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <button
                 onClick={cycleTtl}
                 title="Disappearing messages timer (auto-deletes messages after set time)"
-                className={`h-9 px-2 sm:px-2.5 text-[11px] rounded-xl border transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentRoom.ephemeralTtlSeconds > 0
-                    ? 'bg-[#C9A24D]/15 text-[#C9A24D] border-[#C9A24D]/30'
-                    : 'bg-[#171922] text-zinc-400 border-white/10 hover:text-white'
-                }`}
+                className={`h-9 px-2 sm:px-2.5 text-[11px] rounded-xl border transition-colors cursor-pointer flex items-center gap-1.5 ${currentRoom.ephemeralTtlSeconds > 0
+                  ? 'bg-[#C9A24D]/15 text-[#C9A24D] border-[#C9A24D]/30'
+                  : 'bg-[#171922] text-zinc-400 border-white/10 hover:text-white'
+                  }`}
               >
                 <Clock className="w-3.5 h-3.5 text-[#C9A24D]" />
                 <span className="font-mono">{getTtlLabel(currentRoom.ephemeralTtlSeconds)}</span>
@@ -334,11 +329,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   </div>
 
                   <div
-                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed shadow-sm ${
-                      isMe
-                        ? 'bg-[#C9A24D] text-black font-medium rounded-tr-sm'
-                        : 'bg-[#141620] text-zinc-100 border border-white/[0.08] rounded-tl-sm'
-                    }`}
+                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed shadow-sm ${isMe
+                      ? 'bg-[#C9A24D] text-black font-medium rounded-tr-sm'
+                      : 'bg-[#141620] text-zinc-100 border border-white/[0.08] rounded-tl-sm'
+                      }`}
                   >
                     <p className="whitespace-pre-wrap">{msg.plainText}</p>
 
@@ -350,11 +344,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                             <Calendar className="w-3.5 h-3.5 text-[#C9A24D]" />
                             <span>Safe Meetup Invitation</span>
                           </div>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                            msg.meetingData.status === 'accepted'
-                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
-                              : 'bg-amber-950 text-amber-300 border border-amber-500/40'
-                          }`}>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${msg.meetingData.status === 'accepted'
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                            : 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                            }`}>
                             {msg.meetingData.status.toUpperCase()}
                           </span>
                         </div>
@@ -381,7 +374,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                             className="w-full mt-1.5 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow"
                           >
                             <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>Accept & Arm Safety Beacon</span>
+                            <span>Accept & Start Local Check-in</span>
                           </button>
                         )}
                       </div>

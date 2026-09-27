@@ -181,7 +181,7 @@ export default function App() {
 
   const [activeRoomId, setActiveRoomId] = useState<string>('room_marcus');
 
-  // Safety Beacon State
+  // Local safety check-in timer state
   const [checkinState, setCheckinState] = useState<SafetyCheckin>(() => {
     const saved = localStorage.getItem('gayze_checkin');
     return saved ? JSON.parse(saved) : INITIAL_SAFETY_CHECKIN;
@@ -333,7 +333,7 @@ export default function App() {
           if (prev <= 1) {
             clearInterval(interval);
             hapticTimerExpired();
-            showToast('⚠️ Safety Beacon expired! Automated distress signal primed.');
+            showToast('Safety check-in timer expired. No alert was sent.');
             return 0;
           }
           return prev - 1;
@@ -858,12 +858,11 @@ export default function App() {
     timeStr: string;
     isSafeHaven: boolean;
     durationMinutes: number;
-    armSafetyBeacon: boolean;
+    startLocalCheckin: boolean;
   }) => {
     setIsScheduleMeetingOpen(false);
 
-    // If arming safety beacon immediately
-    if (proposal.armSafetyBeacon) {
+    if (proposal.startLocalCheckin) {
       handleStartSafetyTimer({
         partnerName: scheduleMeetingPeerName,
         venueName: proposal.venueName,
@@ -953,9 +952,9 @@ export default function App() {
     // Send confirmation in room
     await handleSendMessage(
       activeRoomId,
-      `✓ Accepted! I'll see you at ${meeting.venueName} (${meeting.timeStr}). Safety Beacon armed.`
+      `✓ Accepted! I'll see you at ${meeting.venueName} (${meeting.timeStr}). Local check-in timer started.`
     );
-    showToast(`🛡️ Meeting accepted! Safety beacon armed for ${meeting.venueName}.`);
+    showToast(`Local check-in timer started for ${meeting.venueName}.`);
   };
 
   // Calling & Gaze Handlers
@@ -1095,11 +1094,10 @@ export default function App() {
       startedAt: Date.now(),
       durationMinutes: data.durationMinutes,
       notes: data.notes,
-      emergencyBuddyPings: 2,
     });
     setRemainingSeconds(totalSecs);
     setIsSafetyTimerOpen(false);
-    showToast(`🛡️ Safety Beacon active for ${data.durationMinutes} minutes at ${data.venueName}`);
+    showToast(`Local check-in timer started for ${data.durationMinutes} minutes at ${data.venueName}`);
   };
 
   const handleExtendTimer = (extraMinutes: number) => {
@@ -1111,12 +1109,7 @@ export default function App() {
   const handleEndCheckin = () => {
     hapticSensitiveAction();
     setCheckinState((prev) => ({ ...prev, isActive: false }));
-    showToast('✓ Meetup checked in safely! Beacon deactivated.');
-  };
-
-  const handleTriggerDistressBeacon = () => {
-    hapticTimerExpired();
-    showToast('🚨 Encrypted distress alert broadcasted with location to emergency contacts!');
+    showToast('✓ Meetup checked in safely. Local timer ended.');
   };
 
   const handleRevokeDevice = async (deviceId: string) => {
@@ -1356,7 +1349,7 @@ export default function App() {
         userNeighborhood={currentUser.neighborhood}
       />
 
-      {/* Safety Beacon Timer Modal */}
+      {/* Local Safety Check-in Timer Modal */}
       <SafetyTimerModal
         isOpen={isSafetyTimerOpen}
         onClose={() => setIsSafetyTimerOpen(false)}
@@ -1364,7 +1357,6 @@ export default function App() {
         onStartTimer={handleStartSafetyTimer}
         onExtendTimer={handleExtendTimer}
         onEndCheckin={handleEndCheckin}
-        onTriggerDistressBeacon={handleTriggerDistressBeacon}
         remainingSeconds={remainingSeconds}
       />
 

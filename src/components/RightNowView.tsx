@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { 
-  Pulse, 
-  SafeHaven, 
-  LocationPrivacy, 
-  DatingProfile, 
+import {
+  Pulse,
+  SafeHaven,
+  LocationPrivacy,
+  DatingProfile,
   SocialStory,
   UserActiveIntent,
 } from '../types';
@@ -27,11 +27,11 @@ const profileCoords: Record<string, [number, number]> = {
 import { SetIntentSheet } from './SetIntentSheet';
 import { CountdownPill } from './CountdownPill';
 import { CompatibilitySnapshot } from './CompatibilitySnapshot';
-import { 
-  ShieldCheck, 
-  Lock, 
-  Clock, 
-  MapPin, 
+import {
+  ShieldCheck,
+  Lock,
+  Clock,
+  MapPin,
   X,
   Zap,
   CheckCircle2,
@@ -54,10 +54,10 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { MAP_PROVIDERS } from '../config/mapProviders';
-import { 
-  hapticLight, 
-  hapticSensitiveAction, 
-  triggerVibration 
+import {
+  hapticLight,
+  hapticSensitiveAction,
+  triggerVibration
 } from '../services/hapticService';
 
 interface RightNowViewProps {
@@ -107,7 +107,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const parsed = JSON.parse(saved);
         if (parsed.expiresAt > Date.now()) return parsed;
       }
-    } catch {}
+    } catch { }
     return null;
   });
 
@@ -168,7 +168,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
     try {
       localStorage.setItem('gayze_active_user_intent', JSON.stringify(activeUserIntent));
-    } catch {}
+    } catch { }
 
     const updateRemaining = () => {
       const diff = Math.max(0, Math.round((activeUserIntent.expiresAt - Date.now()) / (1000 * 60)));
@@ -191,7 +191,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setActiveUserIntent(intentData);
     try {
       localStorage.setItem('gayze_active_user_intent', JSON.stringify(intentData));
-    } catch {}
+    } catch { }
 
     const categoryMap: Record<string, Pulse['activityCategory']> = {
       Meet: 'coffee',
@@ -250,7 +250,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setActiveUserIntent(updated);
     try {
       localStorage.setItem('gayze_active_user_intent', JSON.stringify(updated));
-    } catch {}
+    } catch { }
     setStatusMessage(nextPaused ? '⏸ Intent paused on map' : '● Intent resumed on map');
     setTimeout(() => setStatusMessage(null), 2500);
   };
@@ -262,7 +262,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setIsUserIntentDrawerOpen(false);
     try {
       localStorage.removeItem('gayze_active_user_intent');
-    } catch {}
+    } catch { }
     setStatusMessage('Intent ended and removed from map');
     setTimeout(() => setStatusMessage(null), 2500);
   };
@@ -395,7 +395,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   };
 
   const getDisplayDescription = (item: MapDiscoveryItem) => {
-    if (item.type === 'haven') return item.item.features?.join(' · ') || 'Verified sanctuary with safety check-in beacon and trained staff.';
+    if (item.type === 'haven') return item.item.features?.join(' · ') || 'Venue details unavailable.';
     if (item.type === 'pulse') return item.item.description;
     return item.item.headline;
   };
@@ -486,7 +486,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       if (activeTileLayer) {
         try {
           targetMap.removeLayer(activeTileLayer);
-        } catch {}
+        } catch { }
         activeTileLayer = null;
       }
 
@@ -602,7 +602,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       if (container && (container as any)._leaflet_id) {
         try {
           delete (container as any)._leaflet_id;
-        } catch {}
+        } catch { }
       }
     };
   }, []);
@@ -649,11 +649,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'haven' && selectedItem.item.id === haven.id;
         const icon = L.divIcon({
           className: 'custom-haven-marker',
-          html: `<div class="w-8 h-8 rounded-xl ${
-            selected
+          html: `<div class="w-8 h-8 rounded-xl ${selected
               ? 'bg-emerald-500 text-black scale-125 ring-4 ring-emerald-400/40 shadow-xl'
               : 'bg-[#10121a] border border-emerald-500/80 text-emerald-400 shadow-lg'
-          } flex items-center justify-center">✓</div>`,
+            } flex items-center justify-center">✓</div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 16],
         });
@@ -677,9 +676,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'profile' && selectedItem.item.id === profile.id;
         const icon = L.divIcon({
           className: 'custom-person-marker',
-          html: `<div class="w-9 h-9 rounded-full border-2 ${
-            selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-[#6F3CC3]' : 'border-[#C9A24D]'
-          } overflow-hidden bg-[#141620]"><img src="${profile.photoUrl}" alt="" class="w-full h-full object-cover" /></div>`,
+          html: `<div class="w-9 h-9 rounded-full border-2 ${selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-[#6F3CC3]' : 'border-[#C9A24D]'
+            } overflow-hidden bg-[#141620]"><img src="${profile.photoUrl}" alt="" class="w-full h-full object-cover" /></div>`,
           iconSize: [36, 36],
           iconAnchor: [18, 18],
         });
@@ -716,9 +714,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'pulse' && selectedItem.item.id === pulse.id;
         const icon = L.divIcon({
           className: 'custom-pulse-marker',
-          html: `<div class="w-8 h-8 rounded-full bg-[#11131a] border-2 ${
-            selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-purple-400' : 'border-[#C9A24D]'
-          } flex items-center justify-center text-xs text-white font-bold">${pulse.peerName ? pulse.peerName.charAt(0) : 'P'}</div>`,
+          html: `<div class="w-8 h-8 rounded-full bg-[#11131a] border-2 ${selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-purple-400' : 'border-[#C9A24D]'
+            } flex items-center justify-center text-xs text-white font-bold">${pulse.peerName ? pulse.peerName.charAt(0) : 'P'}</div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 16],
         });
@@ -776,7 +773,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       <div className="gayze-right-now-topbar absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-20 pointer-events-none">
         <div className="max-w-xl mx-auto flex items-center justify-between gap-2.5">
-          
+
           {/* User's Right Now Intent (Secondary visual element after map) */}
           <div className="pointer-events-auto min-w-0 flex-1">
             {activeUserIntent ? (
@@ -794,9 +791,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {!activeUserIntent.isPaused && (
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6F3CC3] opacity-75" />
                     )}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                      activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3]'
-                    }`} />
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3]'
+                      }`} />
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -850,11 +846,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 setIsFilterDrawerOpen(true);
               }}
-              className={`h-11 min-h-[44px] px-3 rounded-xl backdrop-blur-xl border shadow-lg flex items-center gap-2 text-xs font-medium transition-colors cursor-pointer ${
-                activeFilterCount > 0
+              className={`h-11 min-h-[44px] px-3 rounded-xl backdrop-blur-xl border shadow-lg flex items-center gap-2 text-xs font-medium transition-colors cursor-pointer ${activeFilterCount > 0
                   ? 'bg-[#181424]/92 text-white border-[#6F3CC3]/60 shadow-[0_0_12px_rgba(111,60,195,0.25)]'
                   : 'bg-[#0e1017]/90 hover:bg-[#161822] text-zinc-300 border-white/[0.12] hover:border-white/25'
-              }`}
+                }`}
               aria-label="Open discovery filters"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
@@ -966,11 +961,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Toggle Privacy Area Cloaking (~300m)"
             aria-label="Toggle Privacy Area"
-            className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl backdrop-blur-xl border shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
-              showJitterCircles
+            className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl backdrop-blur-xl border shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer ${showJitterCircles
                 ? 'bg-[#1c152a]/90 text-[#C9A24D] border-[#6F3CC3]/60 shadow-[0_0_10px_rgba(111,60,195,0.3)]'
                 : 'bg-[#0e1017]/85 hover:bg-[#181a26] text-zinc-400 border-white/[0.12]'
-            }`}
+              }`}
           >
             <ShieldCheck className="w-4 h-4" />
           </button>
@@ -1033,8 +1027,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         {selectedItem.type === 'haven'
                           ? `★ ${selectedItem.item.safetyScore}`
                           : selectedItem.type === 'pulse'
-                          ? `· ${(selectedItem.item.intentMode || 'social').toUpperCase()}`
-                          : `· ${(selectedItem.item.intentMode || 'social').toUpperCase()}`}
+                            ? `· ${(selectedItem.item.intentMode || 'social').toUpperCase()}`
+                            : `· ${(selectedItem.item.intentMode || 'social').toUpperCase()}`}
                       </span>
 
                       {/* Live Intent Countdown */}
@@ -1142,11 +1136,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         type="button"
                         onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                         disabled={interestPendingIds.has(selectedItem.item.id)}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
-                          interestedIds.has(selectedItem.item.id)
+                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${interestedIds.has(selectedItem.item.id)
                             ? 'bg-[#20182c] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
                             : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
-                        }`}
+                          }`}
                       >
                         {interestedIds.has(selectedItem.item.id) ? (
                           <>
@@ -1164,11 +1157,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       <button
                         type="button"
                         onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
-                          gazedPeerNames.has(selectedItem.item.name)
+                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${gazedPeerNames.has(selectedItem.item.name)
                             ? 'bg-[#231535] text-purple-300 border-purple-500/60'
                             : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
-                        }`}
+                          }`}
                       >
                         <Eye className="w-3.5 h-3.5 text-[#C9A24D]" />
                         <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze 👀'}</span>
@@ -1240,7 +1232,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
             {/* Scrollable Sheet Content */}
             <div className="px-5 pb-6 overflow-y-auto space-y-4">
-              
+
               {/* Header Profile / Haven Presentation */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -1260,11 +1252,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       <ShieldCheck className="w-7 h-7" />
                     </div>
                   ) : (
-                    <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center font-black text-xl shrink-0 shadow-lg ${
-                      selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
+                    <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center font-black text-xl shrink-0 shadow-lg ${selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
                         ? 'bg-[#251538] border-purple-500 text-purple-200'
                         : 'bg-[#251e12] border-[#C9A24D] text-[#C9A24D]'
-                    }`}>
+                      }`}>
                       {selectedItem.item.peerName.charAt(0)}
                     </div>
                   )}
@@ -1303,18 +1294,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div className="p-3.5 bg-[#12141e] border border-white/[0.08] rounded-2xl space-y-2">
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-zinc-400 uppercase font-semibold">Broadcast Intent</span>
-                  <span className={`px-2 py-0.5 rounded-md font-bold uppercase ${
-                    selectedItem.type === 'haven'
+                  <span className={`px-2 py-0.5 rounded-md font-bold uppercase ${selectedItem.type === 'haven'
                       ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
                       : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
-                      ? 'bg-purple-950 text-purple-300 border border-purple-500/40'
-                      : 'bg-[#C9A24D]/20 text-[#C9A24D] border border-[#C9A24D]/40'
-                  }`}>
+                        ? 'bg-purple-950 text-purple-300 border border-purple-500/40'
+                        : 'bg-[#C9A24D]/20 text-[#C9A24D] border border-[#C9A24D]/40'
+                    }`}>
                     {selectedItem.type === 'haven'
                       ? `SAFE HAVEN · ★ ${selectedItem.item.safetyScore}`
                       : selectedItem.type === 'pulse'
-                      ? `${selectedItem.item.intentMode?.toUpperCase() || 'SOCIAL'} · ${selectedItem.item.intent || selectedItem.item.title}`
-                      : `${selectedItem.item.intentMode?.toUpperCase() || 'SOCIAL'} · ${selectedItem.item.lookingForLabel || 'Connect'}`}
+                        ? `${selectedItem.item.intentMode?.toUpperCase() || 'SOCIAL'} · ${selectedItem.item.intent || selectedItem.item.title}`
+                        : `${selectedItem.item.intentMode?.toUpperCase() || 'SOCIAL'} · ${selectedItem.item.lookingForLabel || 'Connect'}`}
                   </span>
                 </div>
 
@@ -1438,11 +1428,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         type="button"
                         onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                         disabled={interestPendingIds.has(selectedItem.item.id)}
-                        className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
-                          interestedIds.has(selectedItem.item.id)
+                        className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${interestedIds.has(selectedItem.item.id)
                             ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
                             : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
-                        }`}
+                          }`}
                       >
                         {interestedIds.has(selectedItem.item.id) ? (
                           <>
@@ -1460,11 +1449,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       <button
                         type="button"
                         onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
-                        className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${
-                          gazedPeerNames.has(selectedItem.item.name)
+                        className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${gazedPeerNames.has(selectedItem.item.name)
                             ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
                             : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
-                        }`}
+                          }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
                         <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze 👀'}</span>
@@ -1524,7 +1512,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           - Dynamic contextual CTA ("Show 6 active nearby")
          ========================================================================= */}
       {isFilterDrawerOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsFilterDrawerOpen(false)}
         >
@@ -1559,7 +1547,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
             {/* Scrollable Filters Body */}
             <div className="px-5 py-4 overflow-y-auto space-y-5">
-              
+
               {/* SECTION 1: WHAT ARE YOU LOOKING FOR? */}
               <div className="space-y-2">
                 <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
@@ -1583,11 +1571,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           hapticLight();
                           setActiveCategory(cat.id as any);
                         }}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center text-center active:scale-98 ${
-                          isSelected
+                        className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center text-center active:scale-98 ${isSelected
                             ? 'bg-[#1c182c] text-white border-[#6F3CC3]'
                             : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
-                        }`}
+                          }`}
                       >
                         {cat.label}
                       </button>
@@ -1612,13 +1599,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           hapticLight();
                           setActiveIntentMode(mode);
                         }}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center active:scale-98 uppercase font-mono ${
-                          isSelected
+                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center active:scale-98 uppercase font-mono ${isSelected
                             ? mode === 'Private'
                               ? 'bg-purple-950/80 text-purple-200 border-purple-500'
                               : 'bg-[#1c182c] text-white border-[#6F3CC3]'
                             : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
-                        }`}
+                          }`}
                       >
                         {mode}
                       </button>
@@ -1644,13 +1630,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       hapticLight();
                       setShowJitterCircles(!showJitterCircles);
                     }}
-                    className={`w-12 h-6 rounded-full transition-colors p-0.5 cursor-pointer shrink-0 ${
-                      showJitterCircles ? 'bg-[#6F3CC3]' : 'bg-zinc-700'
-                    }`}
+                    className={`w-12 h-6 rounded-full transition-colors p-0.5 cursor-pointer shrink-0 ${showJitterCircles ? 'bg-[#6F3CC3]' : 'bg-zinc-700'
+                      }`}
                   >
-                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                      showJitterCircles ? 'translate-x-6' : 'translate-x-0'
-                    }`} />
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${showJitterCircles ? 'translate-x-6' : 'translate-x-0'
+                      }`} />
                   </button>
                 </div>
 
@@ -1669,11 +1653,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           hapticLight();
                           setMaxDistanceKm(dist.km);
                         }}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center font-mono ${
-                          isSelected
+                        className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center font-mono ${isSelected
                             ? 'bg-[#1e2230] text-[#C9A24D] border-[#C9A24D]/60'
                             : 'bg-[#12141e] text-zinc-400 border-white/[0.08]'
-                        }`}
+                          }`}
                       >
                         {dist.label}
                       </button>
@@ -1713,7 +1696,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           Triggered from the top status pill when user has a broadcast live.
          ========================================================================= */}
       {isUserIntentDrawerOpen && activeUserIntent && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsUserIntentDrawerOpen(false)}
         >
@@ -1732,9 +1715,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   {!activeUserIntent.isPaused && (
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6F3CC3] opacity-75" />
                   )}
-                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                    activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3]'
-                  }`} />
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3]'
+                    }`} />
                 </span>
                 <h3 className="text-sm font-black uppercase tracking-wider text-white font-sans">
                   {activeUserIntent.isPaused ? 'INTENT PAUSED ON MAP' : 'YOUR LIVE BROADCAST'}
@@ -1748,11 +1730,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
             <div className="p-3.5 bg-[#12141e] border border-white/[0.08] rounded-2xl space-y-2">
               <div className="flex items-baseline gap-2">
-                <span className={`text-xs font-black font-mono uppercase px-2 py-0.5 rounded border ${
-                  activeUserIntent.mode === 'private'
+                <span className={`text-xs font-black font-mono uppercase px-2 py-0.5 rounded border ${activeUserIntent.mode === 'private'
                     ? 'bg-purple-950/80 text-purple-300 border-purple-500/40'
                     : 'bg-[#C9A24D]/20 text-[#C9A24D] border-[#C9A24D]/40'
-                }`}>
+                  }`}>
                   {activeUserIntent.mode}
                 </span>
                 <h4 className="text-base font-black text-white uppercase tracking-wide truncate">

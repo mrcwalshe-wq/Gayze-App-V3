@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { SafetyCheckin } from '../types';
-import { 
-  hapticTimerExpired, 
-  hapticTimerWarning, 
-  hapticSensitiveAction, 
+import {
+  hapticTimerWarning,
+  hapticSensitiveAction,
   hapticLight,
-  isVibrationSupported 
+  isVibrationSupported
 } from '../services/hapticService';
-import { Shield, ShieldAlert, Clock, CheckCircle2, AlertTriangle, MapPin, User, X, PhoneCall, Zap } from 'lucide-react';
+import { Shield, Clock, CheckCircle2, AlertTriangle, MapPin, User, X, PhoneCall, Zap } from 'lucide-react';
 
 interface SafetyTimerModalProps {
   isOpen: boolean;
@@ -16,7 +15,6 @@ interface SafetyTimerModalProps {
   onStartTimer: (data: { partnerName: string; venueName: string; durationMinutes: number; notes: string }) => void;
   onExtendTimer: (extraMinutes: number) => void;
   onEndCheckin: () => void;
-  onTriggerDistressBeacon: () => void;
   remainingSeconds: number;
 }
 
@@ -27,14 +25,12 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
   onStartTimer,
   onExtendTimer,
   onEndCheckin,
-  onTriggerDistressBeacon,
   remainingSeconds,
 }) => {
   const [partnerName, setPartnerName] = useState(checkinState.meetupPartnerName || '');
   const [venueName, setVenueName] = useState(checkinState.venueName || '');
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [notes, setNotes] = useState(checkinState.notes || '');
-  const [distressSent, setDistressSent] = useState(false);
 
   if (!isOpen) return null;
 
@@ -54,27 +50,20 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
     });
   };
 
-  const handleSendDistress = () => {
-    hapticTimerExpired();
-    onTriggerDistressBeacon();
-    setDistressSent(true);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
       <div className="relative w-full max-w-md bg-[#11131a] border border-white/10 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              checkinState.isActive ? 'bg-rose-950/40 border border-rose-600/40 text-rose-400' : 'bg-emerald-950/40 border border-emerald-500/40 text-emerald-400'
-            }`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${checkinState.isActive ? 'bg-rose-950/40 border border-rose-600/40 text-rose-400' : 'bg-emerald-950/40 border border-emerald-500/40 text-emerald-400'
+              }`}>
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Safety Check-in Beacon</h3>
+              <h3 className="text-base font-bold text-white">Safety Check-in Timer</h3>
               <span className="text-[11px] text-zinc-400">
-                {checkinState.isActive ? 'Active Check-in in Progress' : 'Set Automatic Safety Check-in'}
+                {checkinState.isActive ? 'Active local check-in' : 'Start a local safety timer'}
               </span>
             </div>
           </div>
@@ -88,13 +77,12 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
         </div>
 
         {checkinState.isActive ? (
-          /* ACTIVE BEACON COUNTDOWN VIEW */
+          /* Active local timer */
           <div className="space-y-4">
-            <div className={`p-4 rounded-xl border text-center space-y-1.5 transition-colors ${
-              isExpiringSoon 
-                ? 'bg-rose-950/40 border-rose-500/60 animate-pulse' 
-                : 'bg-[#141620] border-white/[0.08]'
-            }`}>
+            <div className={`p-4 rounded-xl border text-center space-y-1.5 transition-colors ${isExpiringSoon
+              ? 'bg-rose-950/40 border-rose-500/60 animate-pulse'
+              : 'bg-[#141620] border-white/[0.08]'
+              }`}>
               <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase font-mono tracking-wider font-semibold">
                 {isExpiringSoon ? (
                   <span className="text-rose-400 flex items-center gap-1">
@@ -108,9 +96,8 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
                   </span>
                 )}
               </div>
-              <div className={`text-4xl font-mono font-bold tracking-tight ${
-                isExpiringSoon ? 'text-rose-400' : 'text-[#C9A24D]'
-              }`}>
+              <div className={`text-4xl font-mono font-bold tracking-tight ${isExpiringSoon ? 'text-rose-400' : 'text-[#C9A24D]'
+                }`}>
                 {timeFormatted}
               </div>
               <div className="text-xs text-zinc-400">
@@ -143,28 +130,15 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
               </button>
             </div>
 
-            {/* Emergency Distress Button */}
-            <div className="pt-2 border-t border-white/[0.08]">
-              {distressSent ? (
-                <div className="p-3 bg-rose-950/40 border border-rose-600/40 rounded-xl text-center text-xs font-medium text-rose-300">
-                  ✓ Emergency alert sent to your trusted contacts with your venue details.
-                </div>
-              ) : (
-                <button
-                  onClick={handleSendDistress}
-                  className="w-full h-11 min-h-[44px] py-2.5 px-3 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-rose-950/40"
-                >
-                  <ShieldAlert className="w-4 h-4" />
-                  <span>Send Emergency Alert Now</span>
-                </button>
-              )}
+            <div role="note" className="p-3 bg-rose-950/40 border border-rose-600/40 rounded-xl text-xs text-rose-200 leading-relaxed">
+              This timer is stored on this device only. GAYZE will not contact anyone when it expires. Contact local emergency services or a trusted person directly if you need help.
             </div>
           </div>
         ) : (
-          /* SETUP BEACON FORM */
+          /* Local timer setup form */
           <form onSubmit={handleSubmitStart} className="space-y-4">
             <p className="text-xs text-zinc-300 leading-relaxed">
-              Meeting someone from Gayze? Set an automated safety timer. If you don't confirm you're safe before the timer ends, your trusted safety circle is alerted with venue details.
+              Set a timer on this device to remind yourself to check in. It does not send notifications to contacts when it expires.
             </p>
 
             <div>
@@ -207,10 +181,10 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">Safety Circle</label>
-                <div className="h-9 min-h-[36px] px-3 py-1.5 bg-[#171922] border border-white/10 rounded-xl text-xs text-emerald-400 font-mono flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>2 Buddies Linked</span>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">Contact alerts</label>
+                <div className="h-9 min-h-[36px] px-3 py-1.5 bg-[#171922] border border-white/10 rounded-xl text-xs text-zinc-400 font-mono flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-[#C9A24D]" />
+                  <span>Not connected</span>
                 </div>
               </div>
             </div>
@@ -221,7 +195,7 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Safe word is 'Sunflower'. Wearing grey jacket."
+                placeholder="Notes stay on this device."
                 className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
               />
             </div>
@@ -239,7 +213,7 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
                 className="h-11 min-h-[44px] px-4 py-2 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
               >
                 <Clock className="w-3.5 h-3.5" />
-                <span>Start Safety Beacon</span>
+                <span>Start Local Check-in</span>
               </button>
             </div>
           </form>

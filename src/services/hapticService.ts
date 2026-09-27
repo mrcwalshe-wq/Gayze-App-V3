@@ -54,7 +54,7 @@ export const hapticQRHandshake = (): void => {
 };
 
 /**
- * Triggered when the Safety Check-in Beacon is nearing expiration (< 60s remaining).
+ * Triggered when the local safety check-in timer is nearing expiration (< 60s remaining).
  * Pattern: Urgent pulsing heartbeat warning pattern.
  */
 export const hapticTimerWarning = (): void => {
@@ -62,7 +62,7 @@ export const hapticTimerWarning = (): void => {
 };
 
 /**
- * Triggered when the Safety Beacon expires or emergency distress alert is triggered.
+ * Triggered for local safety check-in timer warnings and expiry.
  * Pattern: Intense repeated distress alarm pattern.
  */
 export const hapticTimerExpired = (): void => {

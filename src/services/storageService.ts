@@ -308,7 +308,7 @@ export const INITIAL_GATHERINGS: Gathering[] = [
     rsvpCount: 18,
     isAttending: false,
     tags: ['Running', 'Nature', 'Morning Coffee'],
-    safetyGuidelines: 'Buddy system paired at start line. Live encrypted group beacon active throughout.',
+    safetyGuidelines: 'Pair with a buddy at the start line and check in with each other during the run.',
   },
   {
     id: 'gath_3',
@@ -488,8 +488,7 @@ export const INITIAL_SAFETY_CHECKIN: SafetyCheckin = {
   venueName: 'Timberyard Cafe',
   startedAt: 0,
   durationMinutes: 60,
-  notes: 'Meeting for coffee after viewing pulse. If not checked in, ping buddy circle.',
-  emergencyBuddyPings: 2,
+  notes: 'Meeting for coffee after viewing pulse. Local timer only.',
 };
 
 export const INITIAL_DATING_PROFILES: DatingProfile[] = [
