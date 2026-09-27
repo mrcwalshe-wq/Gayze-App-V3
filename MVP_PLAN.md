@@ -68,7 +68,7 @@ Start with one honest end-to-end connection journey:
 
 - **Done:** Removed the Base64 encryption/decryption fallbacks; local sends now fail with a clear error if AES-GCM is unavailable. `npm run lint` and `npm run build` pass after the change.
 - Review location collection, fuzzy-coordinate generation, permission denial, retention, and whether raw coordinates are stored. Verify RLS/RPC behavior against unauthorized users.
-- **Partial:** Local timer behavior is labeled accurately and expiry no longer implies that an alert was sent. Before beta, decide whether to keep this local-only or integrate and test a trusted-contact delivery channel; never show “sent” until delivery is confirmed.
+- **Partial:** The local timer resumes from its persisted expiry after reload; extensions persist by increasing the duration, and expiry marks the check-in inactive without implying an alert was sent. Before beta, decide whether to keep this local-only or integrate and test a trusted-contact delivery channel; never show “sent” until delivery is confirmed.
 - Test identity backup/restore, device registration/revocation, data clearing, and account deletion. Avoid clearing unrelated origin-wide storage without explicit scope and confirmation.
 
 **Exit:** Security/privacy tests and a documented threat/privacy review cover the shipped flows; unsupported safety promises are absent. The check-in's actual delivery scope is reflected in UI and onboarding.
@@ -103,7 +103,7 @@ The major scope choices above are confirmed. These questions still affect implem
 - A unilateral interest does not reveal a conversation; mutual interest creates exactly one authorized conversation.
 - QR verification succeeds only after a real peer payload is checked and the user confirms an in-person fingerprint comparison; invalid, expired, or fingerprint-mismatched payloads fail clearly and never alter trust scores.
 - Messages are ciphertext at rest in the backend, decrypt only for conversation participants with valid keys, and fail closed on invalid/missing keys.
-- Safety check-in behavior matches the confirmed delivery scope; expiry and any alert failure are visible, and no unconfirmed alert is described as delivered.
+- Safety check-in resumes its original deadline after reload, persists extensions, and becomes inactive at expiry; its UI accurately states that no contacts are notified unless a delivery integration is added and confirmed.
 - A key change is visible and requires verification; the interface does not mark a peer verified from a simulated scan.
 - No feature claims that a call connected, an emergency alert was delivered, or data was erased unless the underlying operation confirms it.
 - Automated checks cover the rules above; the core path passes on the agreed mobile and desktop browsers.
