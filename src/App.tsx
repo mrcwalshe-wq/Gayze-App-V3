@@ -14,7 +14,7 @@ import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView } from './components/AuthView';
-import { supabase, isSupabaseConfigured } from './services/supabaseClient';
+import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY } from './services/supabaseClient';
 import { watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
@@ -1738,10 +1738,15 @@ export default function App() {
           } finally {
             // Defensive cleanup: remove any persisted Supabase auth token so a
             // failed network call cannot silently restore the previous session.
+            // Remove the deterministic GAYZE session key explicitly.
+            window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+            window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+
+            // Also clear any legacy Supabase auth keys left by older V3 builds.
             for (const storage of [window.localStorage, window.sessionStorage]) {
               for (let i = storage.length - 1; i >= 0; i -= 1) {
                 const key = storage.key(i);
-                if (key && (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
+                if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
                   storage.removeItem(key);
                 }
               }
