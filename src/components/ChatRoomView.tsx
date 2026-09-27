@@ -24,8 +24,10 @@ import {
   Video,
   Calendar,
   MapPin,
-  Coffee
+  Coffee,
+  Image as ImageIcon
 } from 'lucide-react';
+import { preparePhotoAttachment } from '../services/supabaseService';
 
 interface ChatRoomViewProps {
   rooms: SwarmRoom[];
@@ -33,12 +35,13 @@ interface ChatRoomViewProps {
   activeRoomId: string;
   onSelectRoom: (roomId: string) => void;
   currentUser: UserProfile;
-  onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal) => Promise<void>;
+  onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string) => Promise<void>;
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
   onOpenQR?: (peerName?: string) => void;
-  onStartCall?: (peerName: string, callType: 'audio' | 'video') => void;
+  onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
+  onlineUserIds?: Set<string>;
 }
 
 export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
@@ -53,11 +56,14 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onStartCall,
   onOpenScheduleMeeting,
   onAcceptMeeting,
+  onlineUserIds,
 }) => {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
   const [inspectedMessageId, setInspectedMessageId] = useState<string | null>(null);
+  const [attachedMedia, setAttachedMedia] = useState<string | null>(null);
+  const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
   const [isPeerVerified, setIsPeerVerified] = useState<Record<string, boolean>>({
     room_marcus: true,
   });
@@ -83,16 +89,30 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     setMobileView('chat');
   };
 
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await preparePhotoAttachment(file);
+      setAttachedMedia(dataUrl);
+    } catch (err: any) {
+      console.warn('[GAYZE] Photo attachment error:', err);
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || isSending || !currentRoom) return;
+    if ((!inputText.trim() && !attachedMedia) || isSending || !currentRoom) return;
 
-    const textToSend = inputText.trim();
+    const textToSend = inputText.trim() || (attachedMedia ? '📷 Shared an encrypted photo' : '');
+    const mediaToSend = attachedMedia || undefined;
+
     setInputText('');
+    setAttachedMedia(null);
     setIsSending(true);
 
     try {
-      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds);
+      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend);
     } finally {
       setIsSending(false);
     }
@@ -229,10 +249,19 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   )}
                 </div>
                 <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                  <span className="truncate font-mono">
-                    {currentRoom.peerKey ? `Key: ${currentRoom.peerKey.substring(0, 12)}...` : 'Group'}
-                  </span>
+                  {currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                      <span className="text-emerald-400 font-semibold font-mono">Online</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 inline-block" />
+                      <span className="truncate font-mono">
+                        {currentRoom.peerKey ? `Key: ${currentRoom.peerKey.substring(0, 10)}...` : 'Encrypted Group'}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -242,9 +271,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               {/* Audio Call */}
               {currentRoom.type === 'direct' && onStartCall && (
                 <button
-                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'audio')}
+                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'audio', currentRoom.peerUserId)}
                   className="w-9 h-9 min-h-[36px] min-w-[36px] rounded-xl bg-[#171922] hover:bg-[#202330] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                  title="Encrypted Audio Call (P2P)"
+                  title="Encrypted Audio Call (P2P WebRTC)"
                   aria-label="Start audio call"
                 >
                   <Phone className="w-3.5 h-3.5 text-emerald-400" />
@@ -254,9 +283,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               {/* Video Call */}
               {currentRoom.type === 'direct' && onStartCall && (
                 <button
-                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video')}
+                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId)}
                   className="w-9 h-9 min-h-[36px] min-w-[36px] rounded-xl bg-[#171922] hover:bg-[#202330] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                  title="Encrypted Video Call (P2P)"
+                  title="Encrypted Video Call (P2P WebRTC)"
                   aria-label="Start video call"
                 >
                   <Video className="w-3.5 h-3.5 text-[#C9A24D]" />
@@ -334,6 +363,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       : 'bg-[#141620] text-zinc-100 border border-white/[0.08] rounded-tl-sm'
                       }`}
                   >
+                    {/* Encrypted Photo Attachment if present */}
+                    {msg.mediaUrl && (
+                      <div className="mb-2 rounded-xl overflow-hidden border border-black/10 bg-black/40 max-h-60">
+                        <img
+                          src={msg.mediaUrl}
+                          alt="Encrypted attachment"
+                          className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                          onClick={() => setZoomedMediaUrl(msg.mediaUrl || null)}
+                        />
+                      </div>
+                    )}
+
                     <p className="whitespace-pre-wrap">{msg.plainText}</p>
 
                     {/* Rich Meeting Proposal Card if present */}
@@ -417,8 +458,45 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           </div>
 
           {/* Message Input Box */}
-          <form onSubmit={handleSend} className="p-2.5 sm:p-3 bg-[#0d0e14] border-t border-white/[0.08]">
+          <form onSubmit={handleSend} className="p-2.5 sm:p-3 bg-[#0d0e14] border-t border-white/[0.08] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+            {/* Attached Photo Preview Thumbnail */}
+            {attachedMedia && (
+              <div className="relative mb-2.5 inline-flex items-center gap-2.5 p-1.5 bg-[#141620] border border-white/15 rounded-xl animate-in fade-in">
+                <img
+                  src={attachedMedia}
+                  alt="Attachment preview"
+                  className="w-12 h-12 object-cover rounded-lg border border-white/10"
+                />
+                <div className="text-[11px] pr-2">
+                  <span className="text-zinc-200 font-semibold block">Photo attached</span>
+                  <span className="text-emerald-400 font-mono text-[10px]">E2EE encrypted on send</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAttachedMedia(null)}
+                  className="w-5 h-5 rounded-full bg-black/60 hover:bg-black/90 text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+                  aria-label="Remove photo"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 bg-[#141620] border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-[#C9A24D] transition-colors">
+              {/* Photo Upload Action */}
+              <label
+                className="w-8 h-8 rounded-lg bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 text-zinc-400 hover:text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                title="Attach encrypted photo (Max 5MB)"
+              >
+                <ImageIcon className="w-3.5 h-3.5 text-zinc-400 hover:text-[#C9A24D]" />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handlePhotoSelect}
+                />
+              </label>
+
               <input
                 type="text"
                 value={inputText}
@@ -445,7 +523,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
               <button
                 type="submit"
-                disabled={!inputText.trim() || isSending}
+                disabled={(!inputText.trim() && !attachedMedia) || isSending}
                 className="w-8 h-8 rounded-lg bg-[#C9A24D] hover:bg-[#b58f3b] disabled:opacity-30 disabled:hover:bg-[#C9A24D] text-black flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                 aria-label="Send message"
               >
@@ -465,6 +543,29 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       ) : (
         <div className="flex-1 flex items-center justify-center p-8 text-center text-zinc-500 text-xs sm:text-sm">
           Select a group room to view encrypted communications
+        </div>
+      )}
+
+      {/* Fullscreen Photo Zoom Modal */}
+      {zoomedMediaUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in"
+          onClick={() => setZoomedMediaUrl(null)}
+        >
+          <div className="relative max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl border border-white/10 bg-black">
+            <button
+              onClick={() => setZoomedMediaUrl(null)}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors z-10 cursor-pointer"
+              aria-label="Close photo"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <img
+              src={zoomedMediaUrl}
+              alt="Zoomed encrypted attachment"
+              className="w-full h-full object-contain"
+            />
+          </div>
         </div>
       )}
 

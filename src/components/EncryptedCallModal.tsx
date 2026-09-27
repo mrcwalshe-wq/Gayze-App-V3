@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Phone, 
-  PhoneOff, 
-  Mic, 
-  MicOff, 
-  Video, 
-  VideoOff, 
-  Volume2, 
-  VolumeX, 
-  ShieldCheck, 
-  Lock, 
-  Radio
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  PhoneOff,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  Volume2,
+  VolumeX,
+  ShieldCheck,
+  Lock,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { hapticSensitiveAction, triggerVibration } from '../services/hapticService';
+import { webrtcCallService, CallState } from '../services/webrtcService';
 
 interface EncryptedCallModalProps {
   isOpen: boolean;
@@ -20,6 +21,11 @@ interface EncryptedCallModalProps {
   peerName: string;
   peerAvatar?: string;
   callType: 'audio' | 'video';
+  conversationId?: string;
+  callerId?: string;
+  callerName?: string;
+  targetUserId?: string;
+  isIncoming?: boolean;
 }
 
 export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
@@ -28,58 +34,106 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   peerName,
   peerAvatar,
   callType: initialCallType,
+  conversationId,
+  callerId,
+  callerName,
+  targetUserId,
+  isIncoming = false,
 }) => {
-  const [callType, setCallType] = useState<'audio' | 'video'>(initialCallType);
-  const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'connected'>('connecting');
+  const [callState, setCallState] = useState<CallState>(isIncoming ? 'connecting' : 'calling');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(initialCallType === 'video');
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
 
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Subscribe to WebRTC Call Service state and media streams
   useEffect(() => {
-    setCallType(initialCallType);
-    setIsVideoEnabled(initialCallType === 'video');
-  }, [initialCallType]);
+    if (!isOpen) return;
 
-  useEffect(() => {
-    if (!isOpen) {
-      setDurationSeconds(0);
-      setCallStatus('connecting');
-      return;
-    }
+    const unsubState = webrtcCallService.subscribeState((state, error) => {
+      setCallState(state);
+      setErrorMessage(error || null);
 
-    // Realistic call connection progression
-    const ringTimer = setTimeout(() => {
-      setCallStatus('ringing');
-      triggerVibration([80, 100]);
-    }, 1200);
+      if (state === 'ringing') {
+        triggerVibration([80, 100]);
+      } else if (state === 'connected') {
+        triggerVibration([40, 60, 120]);
+      } else if (state === 'ended' || state === 'declined' || state === 'failed') {
+        triggerVibration([100, 50, 100]);
+        // Auto-close modal after brief status display
+        const timer = setTimeout(() => {
+          onClose();
+        }, 2200);
+        return () => clearTimeout(timer);
+      }
+    });
 
-    const connectTimer = setTimeout(() => {
-      setCallStatus('connected');
-      triggerVibration([40, 60, 120]);
-    }, 3200);
+    const unsubStreams = webrtcCallService.subscribeStreams((local, remote) => {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = local;
+      }
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remote;
+      }
+    });
 
     return () => {
-      clearTimeout(ringTimer);
-      clearTimeout(connectTimer);
+      unsubState();
+      unsubStreams();
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
+  // Duration Timer
   useEffect(() => {
     let interval: any = null;
-    if (isOpen && callStatus === 'connected') {
+    if (isOpen && callState === 'connected') {
       interval = setInterval(() => {
         setDurationSeconds((s) => s + 1);
       }, 1000);
+    } else {
+      setDurationSeconds(0);
     }
     return () => clearInterval(interval);
-  }, [isOpen, callStatus]);
+  }, [isOpen, callState]);
+
+  // Start outgoing call when modal opens
+  useEffect(() => {
+    if (isOpen && !isIncoming && conversationId && callerId && targetUserId) {
+      void webrtcCallService.startCall({
+        conversationId,
+        callerId,
+        callerName: callerName || 'Gayze member',
+        targetUserId,
+        targetUserName: peerName,
+        callType: initialCallType,
+      });
+    }
+  }, [isOpen, isIncoming, conversationId, callerId, callerName, targetUserId, peerName, initialCallType]);
 
   if (!isOpen) return null;
 
   const handleEndCall = () => {
     hapticSensitiveAction();
+    void webrtcCallService.endCall();
     onClose();
+  };
+
+  const handleToggleMute = () => {
+    const nextState = webrtcCallService.toggleAudio();
+    setIsMuted(!nextState);
+  };
+
+  const handleToggleVideo = () => {
+    const nextState = webrtcCallService.toggleVideo();
+    setIsVideoEnabled(nextState);
+  };
+
+  const handleFlipCamera = () => {
+    void webrtcCallService.flipCamera();
   };
 
   const formatDuration = (secs: number) => {
@@ -90,72 +144,95 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-xl animate-in fade-in">
-      <div className="relative w-full max-w-sm sm:max-w-md h-[540px] sm:h-[580px] bg-[#0c0d14] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between p-6">
-        
-        {/* Top Header: Encryption & Security */}
-        <div className="flex items-center justify-between text-xs">
+      <div className="relative w-full max-w-sm sm:max-w-md h-[560px] sm:h-[600px] bg-[#0c0d14] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between p-5 sm:p-6">
+        {/* Top Header: Encryption & Call Security */}
+        <div className="flex items-center justify-between text-xs z-20">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-mono">
             <Lock className="w-3 h-3 text-emerald-400" />
-            <span>P2P ENCRYPTED</span>
+            <span>P2P WEBRTC ENCRYPTED</span>
           </div>
 
           <div className="text-[11px] font-mono text-zinc-400">
-            {callStatus === 'connected' ? (
-              <span className="text-white font-bold">{formatDuration(durationSeconds)}</span>
+            {callState === 'connected' ? (
+              <span className="text-white font-bold tracking-wider">{formatDuration(durationSeconds)}</span>
+            ) : callState === 'calling' ? (
+              <span className="text-[#C9A24D] animate-pulse">Calling...</span>
+            ) : callState === 'ringing' ? (
+              <span className="text-[#C9A24D] animate-pulse">Ringing...</span>
+            ) : callState === 'connecting' ? (
+              <span className="text-amber-300 animate-pulse">Securing peer connection...</span>
+            ) : callState === 'declined' ? (
+              <span className="text-rose-400 font-semibold">Call Declined</span>
+            ) : callState === 'missed' ? (
+              <span className="text-amber-400 font-semibold">No Answer</span>
+            ) : callState === 'failed' ? (
+              <span className="text-rose-400 font-semibold">Failed</span>
             ) : (
-              <span className="capitalize text-[#C9A24D]">{callStatus}...</span>
+              <span className="text-zinc-500">Call Ended</span>
             )}
           </div>
         </div>
 
-        {/* Center: Video Preview or Audio Waveform */}
-        <div className="flex-1 flex flex-col items-center justify-center my-4 relative">
-          {callType === 'video' && isVideoEnabled ? (
-            <div className="relative w-full h-full rounded-2xl overflow-hidden bg-[#141622] border border-white/10 flex items-center justify-center">
-              {/* Simulated peer video frame */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
-              <div className="text-center z-10 space-y-2">
-                <div className="w-20 h-20 rounded-full bg-[#1c1f2b] border border-white/20 mx-auto flex items-center justify-center text-2xl font-bold text-[#C9A24D]">
-                  {peerName.charAt(0)}
-                </div>
-                <div className="text-sm font-bold text-white">{peerName}</div>
-                <div className="text-[11px] text-emerald-400 font-mono">Direct Video Stream</div>
-              </div>
+        {/* Center: Live Video Streams or Audio Waveform */}
+        <div className="flex-1 flex flex-col items-center justify-center my-3 relative overflow-hidden rounded-2xl bg-[#090a0f] border border-white/10">
+          {/* Remote Video Stream Element */}
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={`w-full h-full object-cover transition-opacity duration-300 ${
+              callState === 'connected' && isVideoEnabled ? 'opacity-100' : 'opacity-0 absolute'
+            }`}
+          />
 
-              {/* Self Video PIP */}
-              <div className="absolute bottom-3 right-3 w-20 h-28 rounded-xl bg-zinc-900 border border-white/20 overflow-hidden shadow-lg flex flex-col items-center justify-center">
-                <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                  You
-                </div>
-                <span className="text-[9px] text-zinc-500 mt-1">Camera On</span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center space-y-4">
+          {/* Fallback/Audio UI when remote video is not streaming or call is connecting */}
+          {(callState !== 'connected' || !isVideoEnabled) && (
+            <div className="flex flex-col items-center space-y-4 z-10 p-6 text-center">
               <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-[#171922] border-2 border-[#C9A24D]/40 flex items-center justify-center text-3xl font-bold text-[#C9A24D] shadow-xl">
-                  {peerName.charAt(0)}
+                <div className="w-24 h-24 rounded-full bg-[#171922] border-2 border-[#C9A24D]/40 flex items-center justify-center text-3xl font-bold text-[#C9A24D] shadow-xl overflow-hidden">
+                  {peerAvatar ? (
+                    <img src={peerAvatar} alt={peerName} className="w-full h-full object-cover" />
+                  ) : (
+                    peerName.charAt(0).toUpperCase()
+                  )}
                 </div>
-                {callStatus === 'connected' && (
+                {callState === 'connected' && (
                   <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#0c0d14] flex items-center justify-center text-white text-[10px]">
                     <ShieldCheck className="w-3.5 h-3.5" />
                   </span>
                 )}
               </div>
 
-              <div className="text-center space-y-1">
-                <h3 className="text-lg font-bold text-white">{peerName}</h3>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-white tracking-wide">{peerName}</h3>
                 <p className="text-xs text-zinc-400">
-                  {callStatus === 'connected'
-                    ? 'Encrypted Voice Connected'
-                    : callStatus === 'ringing'
-                    ? 'Ringing securely...'
-                    : 'Establishing peer connection...'}
+                  {callState === 'connected'
+                    ? 'Direct peer-to-peer audio connected'
+                    : callState === 'ringing'
+                    ? 'Ringing device securely...'
+                    : callState === 'connecting'
+                    ? 'Negotiating WebRTC handshake...'
+                    : callState === 'calling'
+                    ? 'Contacting peer...'
+                    : callState === 'declined'
+                    ? `${peerName} is unavailable`
+                    : callState === 'missed'
+                    ? `${peerName} did not answer`
+                    : callState === 'failed'
+                    ? 'Connection could not be established'
+                    : 'Call finished'}
                 </p>
               </div>
 
+              {errorMessage && (
+                <div className="max-w-xs p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2 text-left">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
               {/* Animated audio wave pulses when connected */}
-              {callStatus === 'connected' && (
+              {callState === 'connected' && (
                 <div className="flex items-center gap-1.5 h-8 pt-2">
                   <div className="w-1 bg-[#C9A24D] h-4 rounded-full animate-pulse" />
                   <div className="w-1 bg-[#C9A24D] h-7 rounded-full animate-pulse delay-75" />
@@ -166,39 +243,67 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
               )}
             </div>
           )}
+
+          {/* Self Video Picture-in-Picture (Real Local Video) */}
+          <div
+            className={`absolute bottom-3 right-3 w-24 h-32 rounded-xl bg-black/80 border border-white/20 overflow-hidden shadow-2xl z-20 transition-all ${
+              isVideoEnabled ? 'block' : 'hidden'
+            }`}
+          >
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover mirror"
+            />
+            <span className="absolute bottom-1 left-2 text-[9px] font-mono text-white/80 bg-black/60 px-1 rounded">
+              You
+            </span>
+          </div>
         </div>
 
         {/* Bottom Call Controls */}
-        <div className="flex items-center justify-center gap-4 pt-2">
-          {/* Mute Toggle */}
+        <div className="flex items-center justify-center gap-3 pt-2 z-20">
+          {/* Mute Microphone Toggle */}
           <button
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={handleToggleMute}
             className={`w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
               isMuted
                 ? 'bg-rose-500/20 border-rose-500/50 text-rose-400'
                 : 'bg-[#171922] border-white/10 text-white hover:bg-[#202330]'
             }`}
             aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+            title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
           >
             {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
 
-          {/* Video Toggle */}
+          {/* Camera On/Off Toggle */}
           <button
-            onClick={() => {
-              const next = !isVideoEnabled;
-              setIsVideoEnabled(next);
-              setCallType(next ? 'video' : 'audio');
-            }}
+            onClick={handleToggleVideo}
             className={`w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
-              isVideoEnabled
-                ? 'bg-[#C9A24D]/20 border-[#C9A24D]/50 text-[#C9A24D]'
-                : 'bg-[#171922] border-white/10 text-zinc-400 hover:text-white'
+              !isVideoEnabled
+                ? 'bg-zinc-800 text-zinc-500 border-white/5'
+                : 'bg-[#C9A24D]/20 border-[#C9A24D]/50 text-[#C9A24D]'
             }`}
             aria-label={isVideoEnabled ? 'Disable camera' : 'Enable camera'}
+            title={isVideoEnabled ? 'Disable camera' : 'Enable camera'}
           >
             {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
           </button>
+
+          {/* Flip Camera (Mobile Front/Back switch) */}
+          {isVideoEnabled && (
+            <button
+              onClick={handleFlipCamera}
+              className="w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl bg-[#171922] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+              aria-label="Flip camera"
+              title="Flip camera"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Speaker Toggle */}
           <button
@@ -209,6 +314,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
                 : 'bg-[#171922] border-white/10 text-white hover:bg-[#202330]'
             }`}
             aria-label="Toggle speaker"
+            title="Toggle speaker"
           >
             {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </button>
@@ -216,8 +322,9 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
           {/* End Call Button */}
           <button
             onClick={handleEndCall}
-            className="w-14 h-14 min-h-[56px] min-w-[56px] rounded-2xl bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-950/60 transition-transform active:scale-95 cursor-pointer ml-2"
+            className="w-14 h-14 min-h-[56px] min-w-[56px] rounded-2xl bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-950/60 transition-transform active:scale-95 cursor-pointer ml-1"
             aria-label="End call"
+            title="End call"
           >
             <PhoneOff className="w-6 h-6" />
           </button>

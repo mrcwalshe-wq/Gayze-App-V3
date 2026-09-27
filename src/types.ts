@@ -43,6 +43,10 @@ export interface Pulse {
   tags: string[];
   safeHavenVenue?: boolean;
   isPaused?: boolean;
+  peerReliabilityScore?: number;
+  verifiedPeersCount?: number;
+  safetyVerified?: boolean;
+  bio?: string;
 }
 
 export interface Gathering {
@@ -109,6 +113,8 @@ export interface EncryptedMessage {
   isBurned?: boolean;
   isSystem?: boolean;
   meetingData?: MeetingProposal;
+  mediaUrl?: string;
+  mediaType?: 'image';
 }
 
 export interface GazeInteraction {
@@ -199,6 +205,7 @@ export interface SwarmRoom {
   name: string;
   type: 'direct' | 'gathering';
   peerKey?: string;
+  peerUserId?: string;
   peerName?: string;
   peerNeighborhood?: string;
   peerAvatar?: string;

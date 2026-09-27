@@ -11,10 +11,12 @@ import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { EncryptedCallModal } from './components/EncryptedCallModal';
+import { IncomingCallModal } from './components/IncomingCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView } from './components/AuthView';
 import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 import { watchCurrentLocation, type GeoLocation } from './services/locationService';
+import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
@@ -49,7 +51,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, updateProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, updateProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -274,6 +276,10 @@ export default function App() {
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [callPeerName, setCallPeerName] = useState<string>('Marcus');
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
+  const [callTargetUserId, setCallTargetUserId] = useState<string | undefined>(undefined);
+  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  const [isIncomingCallActive, setIsIncomingCallActive] = useState(false);
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
   // Set Intent Sheet state — canonical Right Now intent state.
   // Hydrate once from local storage so Discover / Right Now stay consistent
@@ -331,12 +337,9 @@ export default function App() {
         }
         const rows = await discoverRightNow({ radiusMeters: 5000 });
         if (!disposed) {
-          if (rows && rows.length > 0) {
-            setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
-            setSupabaseReady(true);
-          } else {
-            setSupabaseReady(false);
-          }
+          const parsed = discoveryRowsToPulses(rows, user.id);
+          setSupabaseRightNowPulses(parsed);
+          setSupabaseReady(true);
         }
       } catch (error) {
         console.warn('[GAYZE] Supabase Right Now sync fallback to local pulses:', error);
@@ -352,6 +355,26 @@ export default function App() {
       unsubscribe();
     };
   }, [currentUser]);
+
+  // WebRTC User Signaling & Truthful Presence
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabaseUserId) return;
+
+    // 1. Listen for incoming call requests
+    const unsubSignaling = webrtcCallService.initUserSignaling(supabaseUserId, (call) => {
+      setIncomingCall(call);
+    });
+
+    // 2. Track truthful Realtime presence
+    const unsubPresence = initPresence(supabaseUserId, currentUser.displayName, (onlineIds) => {
+      setOnlineUserIds(onlineIds);
+    });
+
+    return () => {
+      unsubSignaling();
+      unsubPresence();
+    };
+  }, [supabaseUserId, currentUser.displayName]);
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -731,9 +754,21 @@ export default function App() {
       if (!room) return;
 
       let plainText = '[Encrypted message]';
+      let mediaUrl: string | undefined = undefined;
       if (conversationKey && row.nonce) {
         try {
-          plainText = await decryptWithConversationKey(row.ciphertext, row.nonce, conversationKey);
+          const decrypted = await decryptWithConversationKey(row.ciphertext, row.nonce, conversationKey);
+          if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
+            try {
+              const parsed = JSON.parse(decrypted);
+              plainText = parsed.text || '';
+              mediaUrl = parsed.mediaUrl;
+            } catch {
+              plainText = decrypted;
+            }
+          } else {
+            plainText = decrypted;
+          }
         } catch (error) {
           console.warn('[GAYZE] Unable to decrypt conversation message', error);
         }
@@ -750,6 +785,8 @@ export default function App() {
         plainText,
         ephemeralTtlSeconds: room.ephemeralTtlSeconds,
         isBurned: Boolean(row.burned_at),
+        mediaUrl,
+        mediaType: mediaUrl ? 'image' : undefined,
       };
 
       setMessages((prev) => {
@@ -788,13 +825,22 @@ export default function App() {
   }, [activeRoomId, isSupabaseConfigured, currentUser.displayName, rooms, supabaseUserId]);
 
   // Chat message sending with real WebCrypto AES-GCM
-  const handleSendMessage = async (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal) => {
+  const handleSendMessage = async (
+    roomId: string,
+    plainText: string,
+    ephemeralTtlSeconds?: number,
+    meetingData?: MeetingProposal,
+    mediaUrl?: string,
+  ) => {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
 
     const isSupabaseRoom = isSupabaseConfigured && /^[0-9a-f-]{36}$/i.test(roomId);
     let cipherHex: string;
     let nonceHex: string;
+    const textToEncrypt = mediaUrl
+      ? JSON.stringify({ text: plainText, mediaUrl })
+      : plainText;
 
     if (isSupabaseRoom) {
       try {
@@ -815,7 +861,7 @@ export default function App() {
           ));
         }
         const conversationKey = await deriveConversationKey(roomId, peerPublicKeyJwk);
-        ({ cipherHex, nonceHex } = await encryptWithConversationKey(plainText, conversationKey));
+        ({ cipherHex, nonceHex } = await encryptWithConversationKey(textToEncrypt, conversationKey));
       } catch (error) {
         console.error('[GAYZE] Secure conversation encryption failed', error);
         showToast('Secure key exchange is not ready for this conversation');
@@ -823,7 +869,7 @@ export default function App() {
       }
     } else {
       try {
-        ({ cipherHex, nonceHex } = await encryptPayload(plainText, room.swarmSecretKeyHex));
+        ({ cipherHex, nonceHex } = await encryptPayload(textToEncrypt, room.swarmSecretKeyHex));
       } catch (error) {
         console.error('[GAYZE] Local message encryption failed', error);
         showToast('Secure encryption is unavailable. Message not sent.');
@@ -842,6 +888,8 @@ export default function App() {
       plainText,
       ephemeralTtlSeconds: ephemeralTtlSeconds || room.ephemeralTtlSeconds,
       meetingData,
+      mediaUrl,
+      mediaType: mediaUrl ? 'image' : undefined,
     };
 
     if (!(isSupabaseConfigured && /^[0-9a-f-]{36}$/i.test(roomId))) {
@@ -1041,10 +1089,37 @@ export default function App() {
   };
 
   // Calling & Gaze Handlers
-  const handleStartCall = (peerName: string, type: 'audio' | 'video') => {
+  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string) => {
     setCallPeerName(peerName);
     setCallType(type);
+    setCallTargetUserId(targetUserId);
+    setIsIncomingCallActive(false);
     setIsCallModalOpen(true);
+  };
+
+  const handleAcceptIncomingCall = async (call: IncomingCall) => {
+    setIncomingCall(null);
+    setCallPeerName(call.callerName);
+    setCallType(call.callType);
+    setCallTargetUserId(call.callerId);
+    setActiveRoomId(call.conversationId);
+    setIsIncomingCallActive(true);
+    setIsCallModalOpen(true);
+    await webrtcCallService.acceptCall({
+      conversationId: call.conversationId,
+      callerId: call.callerId,
+      userId: supabaseUserId || currentUser.publicKey,
+      callType: call.callType,
+    });
+  };
+
+  const handleDeclineIncomingCall = async (call: IncomingCall) => {
+    setIncomingCall(null);
+    await webrtcCallService.declineCall({
+      conversationId: call.conversationId,
+      callerId: call.callerId,
+      userId: supabaseUserId || currentUser.publicKey,
+    });
   };
 
   const handleGazeAtPeer = (peerName: string) => {
@@ -1348,12 +1423,12 @@ export default function App() {
 
           {activeTab === 'right_now' && (
             <RightNowView
-              pulses={supabaseReady ? [...supabaseRightNowPulses, ...pulses] : pulses}
+              pulses={isSupabaseConfigured && isAuthenticated ? supabaseRightNowPulses : pulses}
               safeHavens={safeHavens}
               userNeighborhood={currentUser.neighborhood}
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
-              datingProfiles={datingProfiles}
+              datingProfiles={isSupabaseConfigured && isAuthenticated ? [] : datingProfiles}
               stories={stories}
               activeUserIntent={activeUserIntent}
               onOpenDirectChat={handleOpenDirectChatFromPulse}
@@ -1367,6 +1442,7 @@ export default function App() {
               onOpenSetIntent={() => setIsSetIntentOpen(true)}
               onSubmitInterest={handleSubmitInterest}
               onSubmitGaze={handleSubmitGaze}
+              onSwitchToLater={() => setActiveTab('later')}
             />
           )}
 
@@ -1397,6 +1473,7 @@ export default function App() {
               onStartCall={handleStartCall}
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
               onAcceptMeeting={handleAcceptMeeting}
+              onlineUserIds={onlineUserIds}
             />
           )}
 
@@ -1427,9 +1504,24 @@ export default function App() {
       {/* Encrypted Audio & Video Call Modal */}
       <EncryptedCallModal
         isOpen={isCallModalOpen}
-        onClose={() => setIsCallModalOpen(false)}
+        onClose={() => {
+          setIsCallModalOpen(false);
+          setIsIncomingCallActive(false);
+        }}
         peerName={callPeerName}
         callType={callType}
+        conversationId={activeRoomId}
+        callerId={supabaseUserId || currentUser.publicKey}
+        callerName={currentUser.displayName}
+        targetUserId={callTargetUserId}
+        isIncoming={isIncomingCallActive}
+      />
+
+      {/* Incoming Call Notification Modal */}
+      <IncomingCallModal
+        incomingCall={incomingCall}
+        onAccept={handleAcceptIncomingCall}
+        onDecline={handleDeclineIncomingCall}
       />
 
       {/* Universal Set Intent Sheet */}

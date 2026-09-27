@@ -232,37 +232,49 @@ export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL
   }
 }
 
-export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[]): Pulse[] {
-  return rows.map((row) => ({
-    id: `supabase_${row.intent_id}`,
-    peerId: row.user_id,
-    peerName: row.display_name || 'Gayze member',
-    peerShortKey: row.user_id.slice(0, 8) + '...',
-    peerAvatar: row.avatar_path || 'user',
-    peerAge: row.age ?? undefined,
-    title: `${row.mode.toUpperCase()} · ${row.intent}`,
-    description: row.description || `Available for ${row.intent.toLowerCase()} nearby.`,
-    activityCategory: row.intent.toLowerCase().includes('drink') ? 'drinks'
-      : row.intent.toLowerCase().includes('meet') ? 'coffee'
-      : row.intent.toLowerCase().includes('walk') ? 'walk'
-      : row.mode === 'private' ? 'chill' : 'active',
-    intentMode: row.mode,
-    intent: row.intent as Pulse['intent'],
-    travelDistance: row.travel_distance_label || undefined,
-    canHost: row.can_host || undefined,
-    travelWillingness: row.travel_willingness || undefined,
-    venueName: row.neighborhood || 'Nearby',
-    neighborhood: row.neighborhood || 'Nearby',
-    approxDistanceKm: row.distance_m / 1000,
-    jitterMeters: 300,
-    lat: row.map_lat,
-    lng: row.map_lng,
-    durationHours: Math.max(1, Math.ceil((new Date(row.expires_at).getTime() - Date.now()) / 3600000)),
-    createdAt: Date.now(),
-    expiresAt: new Date(row.expires_at).getTime(),
-    tags: [row.intent, row.mode],
-    isPaused: false,
-  }));
+export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserId?: string): Pulse[] {
+  const now = Date.now();
+  return rows
+    .filter((row) => {
+      if (currentUserId && row.user_id === currentUserId) return false;
+      const expTime = new Date(row.expires_at).getTime();
+      if (!isNaN(expTime) && expTime <= now) return false;
+      return true;
+    })
+    .map((row) => ({
+      id: `supabase_${row.intent_id}`,
+      peerId: row.user_id,
+      peerName: row.display_name || 'Gayze member',
+      peerShortKey: row.user_id.slice(0, 8) + '...',
+      peerAvatar: row.avatar_path || 'user',
+      peerAge: row.age ?? undefined,
+      title: `${row.mode.toUpperCase()} · ${row.intent}`,
+      description: row.description || `Available for ${row.intent.toLowerCase()} nearby.`,
+      activityCategory: row.intent.toLowerCase().includes('drink') ? 'drinks'
+        : row.intent.toLowerCase().includes('meet') ? 'coffee'
+        : row.intent.toLowerCase().includes('walk') ? 'walk'
+        : row.mode === 'private' ? 'chill' : 'active',
+      intentMode: row.mode,
+      intent: row.intent as Pulse['intent'],
+      travelDistance: row.travel_distance_label || undefined,
+      canHost: row.can_host || undefined,
+      travelWillingness: row.travel_willingness || undefined,
+      venueName: row.neighborhood || 'Nearby',
+      neighborhood: row.neighborhood || 'Nearby',
+      approxDistanceKm: row.distance_m ? row.distance_m / 1000 : 0.4,
+      jitterMeters: 300,
+      lat: row.map_lat,
+      lng: row.map_lng,
+      durationHours: Math.max(1, Math.ceil((new Date(row.expires_at).getTime() - now) / 3600000)),
+      createdAt: now,
+      expiresAt: new Date(row.expires_at).getTime(),
+      tags: [row.intent, row.mode],
+      isPaused: false,
+      peerReliabilityScore: row.reliability_score || 95,
+      verifiedPeersCount: row.verified_peers_count || 0,
+      safetyVerified: Boolean(row.safety_verified),
+      bio: row.bio || undefined,
+    }));
 }
 
 export async function saveActiveIntentWithSession(
@@ -492,4 +504,66 @@ export async function verifyCurrentDevice(deviceId: string, signChallenge: (chal
   });
   if (verifyError || !verified?.verified) throw verifyError ?? new Error('Device signature rejected');
   return true;
+}
+
+/**
+ * Realtime presence tracking for truthful online status
+ */
+export function initPresence(
+  userId: string,
+  displayName: string,
+  onSync: (onlineUserIds: Set<string>) => void,
+): () => void {
+  if (!supabase) return () => undefined;
+
+  const channel = supabase.channel('gayze-presence', {
+    config: {
+      presence: { key: userId },
+    },
+  });
+
+  channel
+    .on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      const onlineIds = new Set<string>();
+      for (const key of Object.keys(state)) {
+        onlineIds.add(key);
+      }
+      onSync(onlineIds);
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({
+          user_id: userId,
+          display_name: displayName,
+          online_at: new Date().toISOString(),
+        });
+      }
+    });
+
+  const client = supabase;
+  return () => {
+    if (client) void client.removeChannel(channel);
+  };
+}
+
+/**
+ * Securely prepare a photo attachment for encrypted chat delivery
+ */
+export async function preparePhotoAttachment(file: File): Promise<string> {
+  // Validate file size and type
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Only image files (JPEG, PNG, WebP) are allowed.');
+  }
+  const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+  if (file.size > MAX_SIZE_BYTES) {
+    throw new Error('Image size must be less than 5MB.');
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.readAsDataURL(file);
+  });
 }

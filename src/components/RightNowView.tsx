@@ -101,6 +101,7 @@ interface RightNowViewProps {
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
   onSubmitInterest?: (pulse: Pulse) => Promise<{ mutual: boolean; conversation_id: string | null }>;
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
+  onSwitchToLater?: () => void;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -122,6 +123,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onUpdateActiveUserIntent,
   onSubmitInterest,
   onSubmitGaze,
+  onSwitchToLater,
 }) => {
   // 1. User's Personal Active Right Now Intent State
   const [localActiveUserIntent, setLocalActiveUserIntent] = useState<UserActiveIntent | null>(() => {
@@ -432,6 +434,31 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
     return count;
   }, [pulses, datingProfiles, safeHavens, activeCategory, activeIntentMode, maxDistanceKm]);
+
+  // Live members count (people only, excluding safe haven facilities)
+  const liveMembersCount = useMemo(() => {
+    let count = 0;
+    if (activeCategory === 'all' || activeCategory === 'people') {
+      count += datingProfiles.filter(p => {
+        const isPrivate = p.intentMode === 'private' || p.lookingFor === 'casual';
+        if (activeIntentMode === 'Social' && isPrivate) return false;
+        if (activeIntentMode === 'Private' && !isPrivate) return false;
+        if (typeof p.approxDistanceKm === 'number' && p.approxDistanceKm > maxDistanceKm) return false;
+        return true;
+      }).length;
+    }
+    if (activeCategory !== 'havens') {
+      count += pulses.filter(p => {
+        if (activeCategory !== 'all' && activeCategory !== 'people' && p.activityCategory !== activeCategory) return false;
+        const isPrivate = p.intentMode === 'private' || p.intent?.includes('Hookup');
+        if (activeIntentMode === 'Social' && isPrivate) return false;
+        if (activeIntentMode === 'Private' && !isPrivate) return false;
+        if (typeof p.approxDistanceKm === 'number' && p.approxDistanceKm > maxDistanceKm) return false;
+        return true;
+      }).length;
+    }
+    return count;
+  }, [pulses, datingProfiles, activeCategory, activeIntentMode, maxDistanceKm]);
 
   // Active filter count for badge
   const activeFilterCount = useMemo(() => {
@@ -1018,6 +1045,64 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <Compass className="w-4 h-4 text-[#C9A24D]" />
           </button>
 
+        </div>
+      )}
+
+      {/* =========================================================================
+          4.5. ELEGANT EMPTY MAP STATE
+          Shown when no live members have active intents nearby in current radius.
+          Offers clear actions: expand radius, set intent, or switch to Later.
+         ========================================================================= */}
+      {liveMembersCount === 0 && !selectedItem && (
+        <div className="absolute top-[calc(env(safe-area-inset-top,0px)+74px)] left-3 right-3 sm:left-auto sm:right-4 sm:w-88 z-30 pointer-events-auto bg-[#0d0f16]/95 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-4 shadow-2xl space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#6F3CC3]/20 border border-[#6F3CC3]/40 flex items-center justify-center text-[#6F3CC3] shrink-0">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-white tracking-wide">Nothing live nearby right now</h4>
+              <p className="text-[10px] text-zinc-400 font-mono">Radius: {maxDistanceKm}km</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-zinc-300 leading-relaxed">
+            No members currently have an active Right Now intent in this area. Expand your radius or broadcast your own live intent.
+          </p>
+          <div className="flex flex-col gap-1.5 pt-1 font-sans">
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setMaxDistanceKm((prev) => (prev <= 5 ? 10 : prev <= 10 ? 25 : 5));
+              }}
+              className="w-full h-8 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-semibold text-zinc-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+            >
+              <span>Expand Radius to {maxDistanceKm <= 5 ? '10km' : maxDistanceKm <= 10 ? '25km' : '5km'}</span>
+            </button>
+            {onOpenSetIntent && (
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  onOpenSetIntent();
+                }}
+                className="w-full h-8 rounded-xl bg-[#6F3CC3] hover:bg-[#5e32a6] text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow active:scale-98"
+              >
+                <span>Broadcast Your Live Intent</span>
+              </button>
+            )}
+            {onSwitchToLater && (
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  onSwitchToLater();
+                }}
+                className="w-full h-7 rounded-xl bg-transparent hover:bg-white/[0.04] text-[11px] font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+              >
+                <span>Explore Later Gatherings →</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 

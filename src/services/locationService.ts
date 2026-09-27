@@ -28,10 +28,10 @@ export function getCurrentLocation(): Promise<GeoLocation> {
 
 export function watchCurrentLocation(
   onLocation: (location: GeoLocation) => void,
-  onError?: (error: GeolocationPositionError) => void,
+  onError?: (error: GeolocationPositionError | Error) => void,
 ): () => void {
   if (!('geolocation' in navigator)) {
-    onError?.(new Error('Geolocation is not supported by this browser.') as GeolocationPositionError);
+    onError?.(new Error('Geolocation is not supported by this browser.'));
     return () => undefined;
   }
 
