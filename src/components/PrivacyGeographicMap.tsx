@@ -307,9 +307,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
           51.5132 + ((idx % 3 - 1) * 0.0035),
           -0.13 + (((idx + 1) % 3 - 1) * 0.004),
         ];
-        const coords = validCoord(item.lat, item.lng)
-          ? [item.lat, item.lng]
-          : fallback;
+        const coords: [number, number] = fallback;
         const selected =
           selectedItem?.type === 'profile' && selectedItem.item.id === item.id;
         const icon = makeIcon(
