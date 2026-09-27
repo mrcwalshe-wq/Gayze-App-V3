@@ -14,7 +14,7 @@ export type MapDiscoveryItem =
   | { type: 'pulse'; item: Pulse }
   | { type: 'profile'; item: DatingProfile };
 
-const fallbackMapCenter: [number, number] = [51.5132, -0.1300];
+const fallbackMapCenter: [number, number] = [FALLBACK_MAP_CENTER.lat, FALLBACK_MAP_CENTER.lng];
 
 const spreadOverlappingCoordinate = (
   lat: number,
@@ -65,7 +65,8 @@ import {
   Sparkles,
   RefreshCw
 } from 'lucide-react';
-import { MAP_PROVIDERS } from '../config/mapProviders';
+import { MAP_PROVIDERS, tileLayerOptions } from '../config/mapProviders';
+import { FALLBACK_MAP_CENTER, FALLBACK_MAP_ZOOM, LOCATED_MAP_ZOOM, resolveAreaLabel } from '../config/mapDefaults';
 import { analytics } from '../services/analyticsService';
 import {
   hapticLight,
@@ -518,14 +519,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
 
     let map: L.Map;
+    const initialCenter: [number, number] = userLocationRef.current
+      ? [userLocationRef.current.lat, userLocationRef.current.lng]
+      : fallbackMapCenter;
+    const initialZoom = userLocationRef.current ? LOCATED_MAP_ZOOM : FALLBACK_MAP_ZOOM;
     try {
       map = L.map(container, {
-        center: [userLocationRef.current?.lat ?? fallbackMapCenter[0], userLocationRef.current?.lng ?? fallbackMapCenter[1]],
-        zoom: 14,
-        minZoom: 11,
+        center: initialCenter,
+        zoom: initialZoom,
+        minZoom: 2,
         maxZoom: 18,
         zoomControl: false,
-        preferCanvas: true,
+        preferCanvas: false,
         attributionControl: true,
       });
     } catch (e) {
@@ -534,12 +539,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         delete (container as any)._leaflet_id;
         container.innerHTML = '';
         map = L.map(container, {
-          center: [userLocationRef.current?.lat ?? fallbackMapCenter[0], userLocationRef.current?.lng ?? fallbackMapCenter[1]],
-          zoom: 14,
-          minZoom: 11,
+          center: initialCenter,
+          zoom: initialZoom,
+          minZoom: 2,
           maxZoom: 18,
           zoomControl: false,
-          preferCanvas: true,
+          preferCanvas: false,
           attributionControl: true,
         });
       } catch (err2) {
@@ -581,16 +586,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       setMapTilesUnavailable(false);
       setCurrentProviderIndex(index);
 
-      const layer = L.tileLayer(provider.url, {
-        attribution: provider.attribution,
-        subdomains: provider.subdomains || 'abcd',
-        maxZoom: provider.maxZoom,
-        minZoom: provider.minZoom,
-        className: provider.className,
-        crossOrigin: provider.crossOrigin,
-        updateWhenIdle: false,
-        keepBuffer: 6,
-      });
+      const layer = L.tileLayer(provider.url, tileLayerOptions(provider));
 
       let errorCount = 0;
       layer.on('tileerror', () => {
@@ -629,7 +625,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       zoomOut: () => map.zoomOut(),
       recenter: () => {
         const location = userLocationRef.current;
-        map.flyTo([location?.lat ?? fallbackMapCenter[0], location?.lng ?? fallbackMapCenter[1]], 14, { duration: 0.8 });
+        if (location) {
+          map.flyTo([location.lat, location.lng], LOCATED_MAP_ZOOM, { duration: 0.8 });
+        } else {
+          map.flyTo(fallbackMapCenter, FALLBACK_MAP_ZOOM, { duration: 0.8 });
+        }
       },
     };
 
@@ -699,10 +699,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     layerGroup.clearLayers();
 
     // 1. User Location and Privacy Jitter Circle
-    if (privacySetting !== 'ghost') {
+    if (privacySetting !== 'ghost' && userLocation) {
       const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 500;
       if (showJitterCircles) {
-        L.circle([userLocation?.lat ?? fallbackMapCenter[0], userLocation?.lng ?? fallbackMapCenter[1]], {
+        L.circle([userLocation.lat, userLocation.lng], {
           radius: userJitterRadius,
           color: '#38bdf8',
           weight: 1,
@@ -717,19 +717,20 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       });
-      L.marker([userLocation?.lat ?? fallbackMapCenter[0], userLocation?.lng ?? fallbackMapCenter[1]], { icon: userIcon })
+      L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
         .addTo(layerGroup)
-        .bindTooltip(`Approximate area · ${userNeighborhood}`, { direction: 'top', offset: [0, -6] });
+        .bindTooltip(`Approximate area · ${resolveAreaLabel(userNeighborhood)}`, { direction: 'top', offset: [0, -6] });
     }
 
     const occupiedMarkerCoordinates = new Map<string, number>();
 
     // 2. Safe Havens
     if (activeCategory === 'all' || activeCategory === 'havens') {
-      safeHavens.forEach((haven, idx) => {
+      safeHavens.forEach((haven) => {
         if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > maxDistanceKm) return;
-        const lat = typeof haven.lat === 'number' && !isNaN(haven.lat) ? haven.lat : 51.5126 + idx * 0.004;
-        const lng = typeof haven.lng === 'number' && !isNaN(haven.lng) ? haven.lng : -0.1268 + ((idx % 2 === 0 ? 1 : -1) * 0.003);
+        if (typeof haven.lat !== 'number' || isNaN(haven.lat) || typeof haven.lng !== 'number' || isNaN(haven.lng)) return;
+        const lat = haven.lat;
+        const lng = haven.lng;
         const markerCoords = spreadOverlappingCoordinate(lat, lng, occupiedMarkerCoordinates);
         const selected = selectedItem?.type === 'haven' && selectedItem.item.id === haven.id;
         const icon = L.divIcon({
@@ -750,18 +751,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       });
     }
 
-    // 3. Profiles
-    if (activeCategory === 'all' || activeCategory === 'people') {
+    // 3. Profiles — only render when we have a live user location (relative placement)
+    // or the profile carries its own coordinates. Never invent a Soho centre.
+    if ((activeCategory === 'all' || activeCategory === 'people') && userLocation) {
       datingProfiles.forEach((profile, idx) => {
         if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
         const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
         if (activeIntentMode === 'Social' && isPrivate) return;
         if (activeIntentMode === 'Private' && !isPrivate) return;
-        const profileCenterLat = userLocation?.lat ?? fallbackMapCenter[0];
-        const profileCenterLng = userLocation?.lng ?? fallbackMapCenter[1];
         const coords: [number, number] = [
-          profileCenterLat + ((idx % 3 - 1) * 0.0035),
-          profileCenterLng + (((idx + 1) % 3 - 1) * 0.004),
+          userLocation.lat + ((idx % 3 - 1) * 0.0035),
+          userLocation.lng + (((idx + 1) % 3 - 1) * 0.004),
         ];
         const markerCoords = spreadOverlappingCoordinate(coords[0], coords[1], occupiedMarkerCoordinates);
         const selected = selectedItem?.type === 'profile' && selectedItem.item.id === profile.id;
@@ -791,8 +791,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
         if (activeIntentMode === 'Social' && isPrivate) return;
         if (activeIntentMode === 'Private' && !isPrivate) return;
-        const lat = typeof pulse.lat === 'number' && !isNaN(pulse.lat) ? pulse.lat : (userLocation?.lat ?? fallbackMapCenter[0]) + ((idx - 2) * 0.004);
-        const lng = typeof pulse.lng === 'number' && !isNaN(pulse.lng) ? pulse.lng : (userLocation?.lng ?? fallbackMapCenter[1]) + ((idx % 3 - 1) * 0.005);
+        const hasCoords = typeof pulse.lat === 'number' && !isNaN(pulse.lat) && typeof pulse.lng === 'number' && !isNaN(pulse.lng);
+        if (!hasCoords && !userLocation) return;
+        const lat = hasCoords ? pulse.lat : userLocation!.lat + ((idx - 2) * 0.004);
+        const lng = hasCoords ? pulse.lng : userLocation!.lng + ((idx % 3 - 1) * 0.005);
         const jitter = typeof pulse.jitterMeters === 'number' && !isNaN(pulse.jitterMeters) ? pulse.jitterMeters : 300;
         if (showJitterCircles) {
           L.circle([lat, lng], {
@@ -899,7 +901,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       </span>
                     </div>
                     <span className="block text-[10px] text-zinc-400 font-mono truncate">
-                      {activeUserIntent.isPaused ? 'Broadcast paused' : `Broadcasting in ${activeUserIntent.area || userNeighborhood}`}
+                      {activeUserIntent.isPaused ? 'Broadcast paused' : `Broadcasting in ${resolveAreaLabel(activeUserIntent.area || userNeighborhood)}`}
                     </span>
                   </div>
                 </div>
@@ -925,7 +927,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     Set Right Now Intent
                   </span>
                   <span className="block text-[10px] text-zinc-400 font-mono">
-                    {filteredActiveCount} nearby in Soho
+                    {filteredActiveCount} nearby near you
                   </span>
                 </div>
                 <Plus className="w-4 h-4 text-[#6F3CC3] ml-auto shrink-0" />
@@ -1040,8 +1042,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               hapticLight();
               mapControlsRef.current?.recenter();
             }}
-            title="Recenter to Soho"
-            aria-label="Recenter to Soho"
+            title="Recenter to your location"
+            aria-label="Recenter to your location"
             className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 text-zinc-300 hover:text-[#C9A24D] shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer"
           >
             <Compass className="w-4 h-4 text-[#C9A24D]" />
@@ -1489,7 +1491,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
                     <span className="text-zinc-500 text-[10px] uppercase font-bold block">Host Status</span>
                     <span className="text-purple-300 font-bold block">{selectedItem.item.canHost}</span>
-                    <span className="text-[10px] text-zinc-400 block">Soho area verified</span>
+                    <span className="text-[10px] text-zinc-400 block">Area verified nearby</span>
                   </div>
                 )}
 
@@ -1769,7 +1771,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   {[
                     { km: 1, label: '< 1 km' },
                     { km: 3, label: '< 3 km' },
-                    { km: 5, label: 'All Soho' },
+                    { km: 5, label: 'All nearby' },
                   ].map((dist) => {
                     const isSelected = maxDistanceKm === dist.km;
                     return (

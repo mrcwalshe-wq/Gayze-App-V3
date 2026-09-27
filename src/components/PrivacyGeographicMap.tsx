@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Pulse, SafeHaven, LocationPrivacy, DatingProfile } from '../types';
-import { MAP_PROVIDERS } from '../config/mapProviders';
+import { MAP_PROVIDERS, tileLayerOptions } from '../config/mapProviders';
+import { FALLBACK_MAP_CENTER, FALLBACK_MAP_ZOOM, LOCATED_MAP_ZOOM, resolveAreaLabel } from '../config/mapDefaults';
 
 export type MapDiscoveryItem =
   | { type: 'pulse'; item: Pulse }
@@ -14,6 +15,7 @@ interface PrivacyGeographicMapProps {
   profiles?: DatingProfile[];
   userNeighborhood: string;
   privacySetting: LocationPrivacy;
+  userLocation?: { lat: number; lng: number } | null;
   filter?: 'all' | 'people' | 'coffee' | 'drinks' | 'active' | 'havens';
   intentModeFilter?: 'All' | 'Social' | 'Private';
   showJitterCircles?: boolean;
@@ -31,51 +33,62 @@ interface PrivacyGeographicMapProps {
 }
 
 export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props) => {
-  const { pulses, safeHavens, profiles = [], userNeighborhood, privacySetting, filter = 'all', intentModeFilter = 'All', showJitterCircles = true, maxDistanceKm = 5, selectedItem, onSelectItem, onMapReady } = props;
+  const {
+    pulses,
+    safeHavens,
+    profiles = [],
+    userNeighborhood,
+    privacySetting,
+    userLocation = null,
+    filter = 'all',
+    intentModeFilter = 'All',
+    showJitterCircles = true,
+    maxDistanceKm = 5,
+    selectedItem,
+    onSelectItem,
+    onMapReady,
+  } = props;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
-  const userCenterLat = 51.5132;
-  const userCenterLng = -0.1300;
-  const profileCoords: Record<string, [number, number]> = {
-    prof_marcus: [51.5126, -0.1268], prof_liam: [51.5140, -0.1280], prof_soren: [51.5135, -0.1295],
-    prof_mateo: [51.5200, -0.1350], prof_kenji: [51.5255, -0.1248], prof_nico: [51.5130, -0.1310],
-    prof_damian: [51.5350, -0.1245], prof_alex: [51.5170, -0.1200],
-  };
+  const userLocationRef = useRef(userLocation);
+
+  useEffect(() => {
+    userLocationRef.current = userLocation;
+    if (userLocation && mapInstanceRef.current) {
+      mapInstanceRef.current.setView(
+        [userLocation.lat, userLocation.lng],
+        Math.max(mapInstanceRef.current.getZoom(), LOCATED_MAP_ZOOM),
+        { animate: true },
+      );
+    }
+  }, [userLocation]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
     const container = mapContainerRef.current;
     container.classList.add('gayze-leaflet-map');
 
+    const hasLocation = Boolean(userLocationRef.current);
     const map = L.map(container, {
-      center: [userCenterLat, userCenterLng],
-      zoom: 14,
-      minZoom: 11,
+      center: hasLocation
+        ? [userLocationRef.current!.lat, userLocationRef.current!.lng]
+        : [FALLBACK_MAP_CENTER.lat, FALLBACK_MAP_CENTER.lng],
+      zoom: hasLocation ? LOCATED_MAP_ZOOM : FALLBACK_MAP_ZOOM,
+      minZoom: 2,
       maxZoom: 18,
       zoomControl: false,
-      preferCanvas: true,
+      preferCanvas: false,
       attributionControl: true,
     });
 
-    // Open/free provider chain with guarded fallback.
-    // A single transient tile error must not switch the whole map provider.
     let currentProviderIndex = 0;
     let tileErrors = 0;
     let fallbackTimer: number | null = null;
 
     const createTileLayer = (index: number) => {
       const provider = MAP_PROVIDERS[index] || MAP_PROVIDERS[0];
-      return L.tileLayer(provider.url, {
-        attribution: provider.attribution,
-        subdomains: provider.subdomains || 'abcd',
-        maxZoom: provider.maxZoom,
-        minZoom: provider.minZoom,
-        className: provider.className,
-        crossOrigin: provider.crossOrigin,
-        updateWhenIdle: false,
-        keepBuffer: 6,
-      });
+      return L.tileLayer(provider.url, tileLayerOptions(provider));
     };
 
     let activeTiles: L.TileLayer = createTileLayer(0).addTo(map);
@@ -95,6 +108,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       try {
         map.removeLayer(activeTiles);
         activeTiles = createTileLayer(currentProviderIndex).addTo(map);
+        activeTiles.on('tileerror', handleTileError);
       } catch (e) {
         console.error('[GAYZE] Map provider fallback error', e);
       }
@@ -104,7 +118,6 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
       tileErrors += 1;
       if (tileErrors < 3 || currentProviderIndex + 1 >= MAP_PROVIDERS.length) return;
 
-      // Give the provider a short window to recover before falling back.
       if (fallbackTimer === null) {
         fallbackTimer = window.setTimeout(() => {
           fallbackTimer = null;
@@ -118,7 +131,17 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
     const layerGroup = L.layerGroup().addTo(map);
     layerGroupRef.current = layerGroup;
     mapInstanceRef.current = map;
-    if (onMapReady) onMapReady({ zoomIn: () => map.zoomIn(), zoomOut: () => map.zoomOut(), recenter: () => map.flyTo([userCenterLat, userCenterLng], 14, { duration: 0.8 }) });
+    if (onMapReady) {
+      onMapReady({
+        zoomIn: () => map.zoomIn(),
+        zoomOut: () => map.zoomOut(),
+        recenter: () => {
+          const location = userLocationRef.current;
+          if (location) map.flyTo([location.lat, location.lng], LOCATED_MAP_ZOOM, { duration: 0.8 });
+          else map.flyTo([FALLBACK_MAP_CENTER.lat, FALLBACK_MAP_CENTER.lng], FALLBACK_MAP_ZOOM, { duration: 0.8 });
+        },
+      });
+    }
     const invalidate = () => requestAnimationFrame(() => {
       if (mapInstanceRef.current) map.invalidateSize({ pan: false, debounceMoveend: true });
     });
@@ -149,49 +172,122 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = (props)
   }, []);
 
   useEffect(() => {
-    if (onMapReady && mapInstanceRef.current) { const map = mapInstanceRef.current; onMapReady({ zoomIn: () => map.zoomIn(), zoomOut: () => map.zoomOut(), recenter: () => map.flyTo([userCenterLat, userCenterLng], 14, { duration: 0.8 }) }); }
+    if (onMapReady && mapInstanceRef.current) {
+      const map = mapInstanceRef.current;
+      onMapReady({
+        zoomIn: () => map.zoomIn(),
+        zoomOut: () => map.zoomOut(),
+        recenter: () => {
+          const location = userLocationRef.current;
+          if (location) map.flyTo([location.lat, location.lng], LOCATED_MAP_ZOOM, { duration: 0.8 });
+          else map.flyTo([FALLBACK_MAP_CENTER.lat, FALLBACK_MAP_CENTER.lng], FALLBACK_MAP_ZOOM, { duration: 0.8 });
+        },
+      });
+    }
   }, [onMapReady]);
 
   useEffect(() => {
-    const map = mapInstanceRef.current; const layerGroup = layerGroupRef.current; if (!map || !layerGroup) return;
+    const map = mapInstanceRef.current;
+    const layerGroup = layerGroupRef.current;
+    if (!map || !layerGroup) return;
     layerGroup.clearLayers();
-    if (privacySetting !== 'ghost') {
+    const areaLabel = resolveAreaLabel(userNeighborhood);
+
+    if (privacySetting !== 'ghost' && userLocation) {
       const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 400;
-      if (showJitterCircles) L.circle([userCenterLat, userCenterLng], { radius: userJitterRadius, color: '#38bdf8', weight: 1, dashArray: '4, 4', fillColor: '#0284c7', fillOpacity: 0.07 }).addTo(layerGroup);
-      const userIcon = L.divIcon({ className: 'custom-user-marker', html: '<div class="relative flex items-center justify-center"><div class="w-4 h-4 rounded-full bg-cyan-400 border-2 border-[#090a0f] shadow-lg ring-4 ring-cyan-400/20"></div></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
-      L.marker([userCenterLat, userCenterLng], { icon: userIcon }).addTo(layerGroup).bindTooltip('You (' + userNeighborhood + ') · ~300m cloaked', { direction: 'top', offset: [0, -6] });
+      if (showJitterCircles) {
+        L.circle([userLocation.lat, userLocation.lng], {
+          radius: userJitterRadius,
+          color: '#38bdf8',
+          weight: 1,
+          dashArray: '4, 4',
+          fillColor: '#0284c7',
+          fillOpacity: 0.07,
+        }).addTo(layerGroup);
+      }
+      const userIcon = L.divIcon({
+        className: 'custom-user-marker',
+        html: '<div class="relative flex items-center justify-center"><div class="w-4 h-4 rounded-full bg-cyan-400 border-2 border-[#090a0f] shadow-lg ring-4 ring-cyan-400/20"></div></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+      L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+        .addTo(layerGroup)
+        .bindTooltip('You (' + areaLabel + ') · ~300m cloaked', { direction: 'top', offset: [0, -6] });
     }
-    if (filter === 'all' || filter === 'havens') safeHavens.forEach((haven, idx) => {
-      if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > maxDistanceKm) return;
-      const lat = typeof haven.lat === 'number' && !isNaN(haven.lat) ? haven.lat : 51.5126 + idx * 0.004;
-      const lng = typeof haven.lng === 'number' && !isNaN(haven.lng) ? haven.lng : -0.1268 + ((idx % 2 === 0 ? 1 : -1) * 0.003);
-      const selected = selectedItem?.type === 'haven' && selectedItem.item.id === haven.id;
-      const icon = L.divIcon({ className: 'custom-haven-marker', html: '<div class="w-8 h-8 rounded-xl ' + (selected ? 'bg-emerald-500 text-black scale-125 ring-4 ring-emerald-400/40 shadow-xl' : 'bg-[#10121a] border border-emerald-500/80 text-emerald-400 shadow-lg') + ' flex items-center justify-center">✓</div>', iconSize: [32, 32], iconAnchor: [16, 16] });
-      const marker = L.marker([lat, lng], { icon }).addTo(layerGroup); marker.on('click', () => onSelectItem({ type: 'haven', item: haven }));
-    });
-    if (filter === 'all' || filter === 'people') profiles.forEach((profile, idx) => {
-      if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
-      const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
-      if (intentModeFilter === 'Social' && isPrivate) return; if (intentModeFilter === 'Private' && !isPrivate) return;
-      const coords = profileCoords[profile.id] || [51.5132 + ((idx % 3 - 1) * 0.0035), -0.1300 + (((idx + 1) % 3 - 1) * 0.004)];
-      const selected = selectedItem?.type === 'profile' && selectedItem.item.id === profile.id;
-      const icon = L.divIcon({ className: 'custom-person-marker', html: '<div class="w-9 h-9 rounded-full border-2 ' + (selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-[#6F3CC3]' : 'border-[#C9A24D]') + ' overflow-hidden bg-[#141620]"><img src="' + profile.photoUrl + '" alt="" class="w-full h-full object-cover" /></div>', iconSize: [36, 36], iconAnchor: [18, 18] });
-      const marker = L.marker(coords, { icon }).addTo(layerGroup); marker.on('click', () => onSelectItem({ type: 'profile', item: profile }));
-    });
-    if (filter !== 'havens' && filter !== 'people') pulses.forEach((pulse, idx) => {
-      if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
-      if (filter !== 'all' && pulse.activityCategory !== filter) return;
-      const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
-      if (intentModeFilter === 'Social' && isPrivate) return; if (intentModeFilter === 'Private' && !isPrivate) return;
-      const lat = typeof pulse.lat === 'number' && !isNaN(pulse.lat) ? pulse.lat : 51.5132 + ((idx - 2) * 0.004);
-      const lng = typeof pulse.lng === 'number' && !isNaN(pulse.lng) ? pulse.lng : -0.1300 + ((idx % 3 - 1) * 0.005);
-      const jitter = typeof pulse.jitterMeters === 'number' && !isNaN(pulse.jitterMeters) ? pulse.jitterMeters : 300;
-      if (showJitterCircles) L.circle([lat, lng], { radius: jitter, color: isPrivate ? '#6F3CC3' : '#C9A24D', weight: 1, dashArray: '3, 4', fillColor: isPrivate ? '#6F3CC3' : '#C9A24D', fillOpacity: 0.06 }).addTo(layerGroup);
-      const selected = selectedItem?.type === 'pulse' && selectedItem.item.id === pulse.id;
-      const icon = L.divIcon({ className: 'custom-pulse-marker', html: '<div class="w-8 h-8 rounded-full bg-[#11131a] border-2 ' + (selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-purple-400' : 'border-[#C9A24D]') + ' flex items-center justify-center text-xs text-white font-bold">' + (pulse.peerName ? pulse.peerName.charAt(0) : 'P') + '</div>', iconSize: [32, 32], iconAnchor: [16, 16] });
-      const marker = L.marker([lat, lng], { icon }).addTo(layerGroup); marker.on('click', () => onSelectItem({ type: 'pulse', item: pulse }));
-    });
-  }, [pulses, safeHavens, profiles, filter, intentModeFilter, showJitterCircles, maxDistanceKm, privacySetting, userNeighborhood, selectedItem]);
+
+    if (filter === 'all' || filter === 'havens') {
+      safeHavens.forEach((haven) => {
+        if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > maxDistanceKm) return;
+        if (typeof haven.lat !== 'number' || isNaN(haven.lat) || typeof haven.lng !== 'number' || isNaN(haven.lng)) return;
+        const selected = selectedItem?.type === 'haven' && selectedItem.item.id === haven.id;
+        const icon = L.divIcon({
+          className: 'custom-haven-marker',
+          html: '<div class="w-8 h-8 rounded-xl ' + (selected ? 'bg-emerald-500 text-black scale-125 ring-4 ring-emerald-400/40 shadow-xl' : 'bg-[#10121a] border border-emerald-500/80 text-emerald-400 shadow-lg') + ' flex items-center justify-center">✓</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+        const marker = L.marker([haven.lat, haven.lng], { icon }).addTo(layerGroup);
+        marker.on('click', () => onSelectItem({ type: 'haven', item: haven }));
+      });
+    }
+
+    if ((filter === 'all' || filter === 'people') && userLocation) {
+      profiles.forEach((profile, idx) => {
+        if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
+        const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
+        if (intentModeFilter === 'Social' && isPrivate) return;
+        if (intentModeFilter === 'Private' && !isPrivate) return;
+        const coords: [number, number] = [
+          userLocation.lat + ((idx % 3 - 1) * 0.0035),
+          userLocation.lng + (((idx + 1) % 3 - 1) * 0.004),
+        ];
+        const selected = selectedItem?.type === 'profile' && selectedItem.item.id === profile.id;
+        const icon = L.divIcon({
+          className: 'custom-person-marker',
+          html: '<div class="w-9 h-9 rounded-full border-2 ' + (selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-[#6F3CC3]' : 'border-[#C9A24D]') + ' overflow-hidden bg-[#141620]"><img src="' + profile.photoUrl + '" alt="" class="w-full h-full object-cover" /></div>',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        });
+        const marker = L.marker(coords, { icon }).addTo(layerGroup);
+        marker.on('click', () => onSelectItem({ type: 'profile', item: profile }));
+      });
+    }
+
+    if (filter !== 'havens' && filter !== 'people') {
+      pulses.forEach((pulse, idx) => {
+        if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
+        if (filter !== 'all' && pulse.activityCategory !== filter) return;
+        const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
+        if (intentModeFilter === 'Social' && isPrivate) return;
+        if (intentModeFilter === 'Private' && !isPrivate) return;
+        const hasCoords = typeof pulse.lat === 'number' && !isNaN(pulse.lat) && typeof pulse.lng === 'number' && !isNaN(pulse.lng);
+        if (!hasCoords && !userLocation) return;
+        const lat = hasCoords ? pulse.lat : userLocation!.lat + ((idx - 2) * 0.004);
+        const lng = hasCoords ? pulse.lng : userLocation!.lng + ((idx % 3 - 1) * 0.005);
+        const jitter = typeof pulse.jitterMeters === 'number' && !isNaN(pulse.jitterMeters) ? pulse.jitterMeters : 300;
+        if (showJitterCircles) {
+          L.circle([lat, lng], {
+            radius: jitter,
+            color: isPrivate ? '#6F3CC3' : '#C9A24D',
+            weight: 1,
+            dashArray: '3, 4',
+            fillColor: isPrivate ? '#6F3CC3' : '#C9A24D',
+            fillOpacity: 0.06,
+          }).addTo(layerGroup);
+        }
+        const selected = selectedItem?.type === 'pulse' && selectedItem.item.id === pulse.id;
+        const icon = L.divIcon({
+          className: 'custom-pulse-marker',
+          html: '<div class="w-8 h-8 rounded-full bg-[#11131a] border-2 ' + (selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-purple-400' : 'border-[#C9A24D]') + ' flex items-center justify-center text-xs text-white font-bold">' + (pulse.peerName ? pulse.peerName.charAt(0) : 'P') + '</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+        const marker = L.marker([lat, lng], { icon }).addTo(layerGroup);
+        marker.on('click', () => onSelectItem({ type: 'pulse', item: pulse }));
+      });
+    }
+  }, [pulses, safeHavens, profiles, filter, intentModeFilter, showJitterCircles, maxDistanceKm, privacySetting, userNeighborhood, selectedItem, userLocation, onSelectItem]);
 
   return (
     <>

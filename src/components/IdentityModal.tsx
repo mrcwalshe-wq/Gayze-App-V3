@@ -24,7 +24,8 @@ import {
   Award,
   UserCheck,
   Zap,
-  Vibrate
+  Vibrate,
+  Loader2
 } from 'lucide-react';
 
 interface IdentityModalProps {
@@ -40,6 +41,7 @@ interface IdentityModalProps {
   currentDeviceFingerprint?: string | null;
   onRevokeDevice?: (deviceId: string) => Promise<void>;
   onSignOut?: () => Promise<void>;
+  signingOut?: boolean;
 }
 
 export const IdentityModal: React.FC<IdentityModalProps> = ({
@@ -55,6 +57,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   currentDeviceFingerprint,
   onRevokeDevice,
   onSignOut,
+  signingOut = false,
 }) => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [handle, setHandle] = useState(user.handle);
@@ -397,10 +400,12 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           {onSignOut && (
         <button
           type="button"
+          disabled={signingOut}
           onClick={() => void onSignOut()}
-          className="w-full mt-4 h-10 rounded-xl border border-red-400/20 bg-red-400/5 text-red-300 hover:bg-red-400/10 text-xs font-semibold transition-colors"
+          className="w-full mt-4 h-10 rounded-xl border border-red-400/20 bg-red-400/5 text-red-300 hover:bg-red-400/10 disabled:opacity-50 text-xs font-semibold transition-colors flex items-center justify-center gap-2"
         >
-          Sign out of GAYZE
+          {signingOut ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+          {signingOut ? 'Signing out…' : 'Sign out of GAYZE'}
         </button>
       )}
 

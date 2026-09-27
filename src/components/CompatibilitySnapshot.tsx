@@ -201,7 +201,7 @@ export function computeCompatibilitySignals(
 export const CompatibilitySnapshot: React.FC<CompatibilitySnapshotProps> = ({
   profile,
   userIntent,
-  userNeighborhood = 'Soho',
+  userNeighborhood = 'Near you',
   variant = 'compact',
   className = '',
 }) => {

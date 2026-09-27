@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Gathering } from '../types';
+import { FALLBACK_MAP_CENTER } from '../config/mapDefaults';
 import { 
   Calendar, 
   MapPin, 
@@ -67,8 +68,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
       address: formAddress,
       neighborhood: formNeighborhood,
       isSafeHavenVenue: formLocation.includes('Haven') || formLocation.includes('Britain') || formLocation.includes('Word'),
-      lat: 51.5132,
-      lng: -0.1300,
+      lat: FALLBACK_MAP_CENTER.lat,
+      lng: FALLBACK_MAP_CENTER.lng,
       capacity: formCapacity,
       tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
       safetyGuidelines: 'Safe Haven principles. Consent-first communication and respectful space conduct.',

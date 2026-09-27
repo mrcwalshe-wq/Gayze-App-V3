@@ -13,11 +13,12 @@ import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
-import { AuthView } from './components/AuthView';
+import { AuthView, type AuthMode } from './components/AuthView';
 import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 import { watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
+import { FALLBACK_MAP_CENTER, NEUTRAL_AREA_LABEL, resolveAreaLabel } from './config/mapDefaults';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
@@ -75,6 +76,10 @@ export default function App() {
 
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [isAuthenticated, setIsAuthenticated] = useState(!isSupabaseConfigured);
+  const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
+  const [pendingAuthEmail, setPendingAuthEmail] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const recoverySessionRef = useRef(false);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const locationPermissionStatusRef = useRef<'granted' | 'denied' | null>(null);
@@ -95,12 +100,52 @@ export default function App() {
     let disposed = false;
     void supabase.auth.getSession().then(({ data }) => {
       if (disposed) return;
+      // Recovery sessions must not enter the authenticated app until password is updated.
+      if (recoverySessionRef.current) {
+        setIsAuthenticated(false);
+        setForcedAuthMode('reset');
+        setAuthReady(true);
+        return;
+      }
       setIsAuthenticated(Boolean(data.session?.user));
       setAuthReady(true);
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(Boolean(session?.user));
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      if (disposed) return;
+
+      if (event === 'PASSWORD_RECOVERY') {
+        recoverySessionRef.current = true;
+        setForcedAuthMode('reset');
+        setPendingAuthEmail(session?.user?.email ?? null);
+        setIsAuthenticated(false);
+        setAuthReady(true);
+        return;
+      }
+
+      if (event === 'SIGNED_OUT') {
+        recoverySessionRef.current = false;
+        setForcedAuthMode(null);
+        setPendingAuthEmail(null);
+        setIsAuthenticated(false);
+        setAuthReady(true);
+        return;
+      }
+
+      if (recoverySessionRef.current && event !== 'USER_UPDATED') {
+        setIsAuthenticated(false);
+        setForcedAuthMode('reset');
+        setAuthReady(true);
+        return;
+      }
+
+      if (event === 'USER_UPDATED' && recoverySessionRef.current) {
+        recoverySessionRef.current = false;
+        setForcedAuthMode(null);
+      }
+
+      setIsAuthenticated(Boolean(session?.user) && !recoverySessionRef.current);
+      if (session?.user?.email) setPendingAuthEmail(session.user.email);
       setAuthReady(true);
     });
 
@@ -116,17 +161,18 @@ export default function App() {
   // Core datasets with local state
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('gayze_user');
-    if (!saved) return INITIAL_USER;
+    if (!saved) return { ...INITIAL_USER, neighborhood: NEUTRAL_AREA_LABEL };
     try {
       const parsed = JSON.parse(saved);
       return {
         ...INITIAL_USER,
         ...parsed,
+        neighborhood: resolveAreaLabel(parsed.neighborhood || INITIAL_USER.neighborhood),
         reliabilityScore: parsed.reliabilityScore || 94,
         verifiedPeersCount: parsed.verifiedPeersCount || 14,
       };
     } catch {
-      return INITIAL_USER;
+      return { ...INITIAL_USER, neighborhood: NEUTRAL_AREA_LABEL };
     }
   });
 
@@ -179,45 +225,6 @@ export default function App() {
     };
   }, [isAuthenticated, currentUser.privacySetting]);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setUserLocation(null);
-      lastSyncedLocationRef.current = null;
-      return;
-    }
-
-    const stop = watchCurrentLocation(
-      (location) => {
-        setUserLocation(location);
-        setLocationError(null);
-        if (locationPermissionStatusRef.current !== 'granted') {
-          locationPermissionStatusRef.current = 'granted';
-          analytics.logEvent('location_permission_granted');
-        }
-
-        if (isSupabaseConfigured && supabase && currentUser.privacySetting !== 'ghost') {
-          const previous = lastSyncedLocationRef.current;
-          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
-          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
-          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
-            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-            void updateProfileLocation({ lat: location.lat, lng: location.lng });
-          }
-        }
-      },
-      (error) => {
-        setLocationError(error?.message || 'Location permission is unavailable.');
-        if (error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED
-          && locationPermissionStatusRef.current !== 'denied') {
-          locationPermissionStatusRef.current = 'denied';
-          analytics.logEvent('location_permission_denied');
-        }
-      },
-    );
-
-    return stop;
-  }, [isAuthenticated, currentUser.privacySetting]);
-
   const [datingProfiles, setDatingProfiles] = useState<DatingProfile[]>(() => {
     const saved = localStorage.getItem('gayze_dating_profiles');
     if (!saved) return INITIAL_DATING_PROFILES;
@@ -247,8 +254,8 @@ export default function App() {
         const initial = INITIAL_PULSES.find((ip) => ip.id === p.id) || INITIAL_PULSES[idx % INITIAL_PULSES.length];
         return {
           ...p,
-          lat: typeof p.lat === 'number' && !isNaN(p.lat) ? p.lat : (initial?.lat ?? 51.5132),
-          lng: typeof p.lng === 'number' && !isNaN(p.lng) ? p.lng : (initial?.lng ?? -0.1300),
+          lat: typeof p.lat === 'number' && !isNaN(p.lat) ? p.lat : (initial?.lat ?? FALLBACK_MAP_CENTER.lat),
+          lng: typeof p.lng === 'number' && !isNaN(p.lng) ? p.lng : (initial?.lng ?? FALLBACK_MAP_CENTER.lng),
           jitterMeters: p.jitterMeters || 300,
         };
       });
@@ -266,8 +273,8 @@ export default function App() {
         const initial = INITIAL_GATHERINGS.find((ig) => ig.id === g.id) || INITIAL_GATHERINGS[idx % INITIAL_GATHERINGS.length];
         return {
           ...g,
-          lat: typeof g.lat === 'number' && !isNaN(g.lat) ? g.lat : (initial?.lat ?? 51.5255),
-          lng: typeof g.lng === 'number' && !isNaN(g.lng) ? g.lng : (initial?.lng ?? -0.1248),
+          lat: typeof g.lat === 'number' && !isNaN(g.lat) ? g.lat : (initial?.lat ?? FALLBACK_MAP_CENTER.lat),
+          lng: typeof g.lng === 'number' && !isNaN(g.lng) ? g.lng : (initial?.lng ?? FALLBACK_MAP_CENTER.lng),
         };
       });
     } catch {
@@ -284,8 +291,8 @@ export default function App() {
         const initial = INITIAL_SAFE_HAVENS.find((is) => is.id === s.id) || INITIAL_SAFE_HAVENS[idx % INITIAL_SAFE_HAVENS.length];
         return {
           ...s,
-          lat: typeof s.lat === 'number' && !isNaN(s.lat) ? s.lat : (initial?.lat ?? 51.5126),
-          lng: typeof s.lng === 'number' && !isNaN(s.lng) ? s.lng : (initial?.lng ?? -0.1268),
+          lat: typeof s.lat === 'number' && !isNaN(s.lat) ? s.lat : (initial?.lat ?? FALLBACK_MAP_CENTER.lat),
+          lng: typeof s.lng === 'number' && !isNaN(s.lng) ? s.lng : (initial?.lng ?? FALLBACK_MAP_CENTER.lng),
         };
       });
     } catch {
@@ -373,14 +380,17 @@ export default function App() {
 
   // Bootstrap a real Supabase session/profile and keep Right Now discovery live.
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !isAuthenticated) return;
     let disposed = false;
 
     const refreshDiscovery = async () => {
       try {
         const user = await ensureSupabaseSession();
         if (!user) {
-          if (!disposed) setSupabaseReady(false);
+          if (!disposed) {
+            setSupabaseReady(false);
+            setSupabaseUserId(null);
+          }
           return;
         }
         setSupabaseUserId(user.id);
@@ -390,6 +400,7 @@ export default function App() {
           displayName: user.user_metadata?.display_name || currentUser.displayName,
           publicKey: identity.fingerprint,
           shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+          neighborhood: resolveAreaLabel(currentUser.neighborhood),
         };
         if (currentUser.publicKey !== identityUser.publicKey || currentUser.shortKey !== identityUser.shortKey) {
           setCurrentUser((prev) => ({ ...prev, publicKey: identityUser.publicKey, shortKey: identityUser.shortKey }));
@@ -423,7 +434,7 @@ export default function App() {
       disposed = true;
       unsubscribe();
     };
-  }, [currentUser]);
+  }, [currentUser, isAuthenticated]);
 
   // WebRTC User Signaling & Truthful Presence
   useEffect(() => {
@@ -1301,8 +1312,8 @@ export default function App() {
       })();
     } else if (currentUser.privacySetting !== 'ghost') {
       const radiusMeters = currentUser.privacySetting === 'neighborhood' ? 800 : 500;
-      const centerLat = userLocation?.lat ?? 51.5132;
-      const centerLng = userLocation?.lng ?? -0.1300;
+      const centerLat = userLocation?.lat ?? FALLBACK_MAP_CENTER.lat;
+      const centerLng = userLocation?.lng ?? FALLBACK_MAP_CENTER.lng;
       const bearing = Math.random() * Math.PI * 2;
       const distance = Math.sqrt(Math.random()) * radiusMeters;
       const lat = centerLat + (distance * Math.cos(bearing)) / 111_320;
@@ -1515,6 +1526,60 @@ export default function App() {
     showToast('Decrypted message cache cleared on this device.');
   };
 
+  const clearAuthenticatedClientState = () => {
+    locationWatchStopRef.current?.();
+    locationWatchStopRef.current = null;
+    lastSyncedLocationRef.current = null;
+    setUserLocation(null);
+    setLocationError(null);
+    setSupabaseUserId(null);
+    setSupabaseRightNowPulses([]);
+    setSupabaseReady(false);
+    setActiveUserIntent(null);
+    setMessages({});
+    setIncomingCall(null);
+    setOnlineUserIds(new Set());
+    setIdentityDevices([]);
+    setCurrentDeviceFingerprint(null);
+    setIsIdentityOpen(false);
+    setIsSetIntentOpen(false);
+    setIsCallModalOpen(false);
+    setIsIncomingCallActive(false);
+    setActiveTab('right_now');
+    try {
+      localStorage.removeItem('gayze_active_user_intent');
+      localStorage.removeItem('gayze_messages');
+    } catch { /* ignore */ }
+    setCurrentUser({
+      ...INITIAL_USER,
+      neighborhood: NEUTRAL_AREA_LABEL,
+    });
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    hapticSensitiveAction();
+    try {
+      if (supabase) {
+        const { error } = await supabase.auth.signOut({ scope: 'global' });
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('[GAYZE] Sign-out failed', error);
+      showToast(error instanceof Error ? error.message : 'Sign-out failed. Please try again.');
+      setIsSigningOut(false);
+      return;
+    }
+
+    recoverySessionRef.current = false;
+    setForcedAuthMode(null);
+    setPendingAuthEmail(null);
+    clearAuthenticatedClientState();
+    setIsAuthenticated(false);
+    setIsSigningOut(false);
+  };
+
   if (showStartup) return <GayzeLoadingScreen mode="startup" />;
 
   // If Discreet Mask is triggered, render pure camouflage
@@ -1522,9 +1587,24 @@ export default function App() {
     return <DiscreetMaskView onExitMask={() => setIsMaskActive(false)} />;
   }
 
-  if (isSupabaseConfigured && (!authReady || !isAuthenticated)) {
+  if (isSupabaseConfigured && (!authReady || !isAuthenticated || forcedAuthMode === 'reset')) {
     if (!authReady) return <GayzeLoadingScreen mode="startup" />;
-    return <AuthView onAuthenticated={() => setIsAuthenticated(true)} />;
+    return (
+      <AuthView
+        forcedMode={forcedAuthMode}
+        pendingEmail={pendingAuthEmail}
+        onClearForcedMode={() => setForcedAuthMode(null)}
+        onPasswordResetComplete={() => {
+          recoverySessionRef.current = false;
+          setForcedAuthMode(null);
+        }}
+        onAuthenticated={() => {
+          recoverySessionRef.current = false;
+          setForcedAuthMode(null);
+          setIsAuthenticated(true);
+        }}
+      />
+    );
   }
 
   return (
@@ -1554,6 +1634,7 @@ export default function App() {
         isSafetyTimerActive={checkinState.isActive}
         onOpenQR={() => handleOpenQRModal()}
         reliabilityScore={currentUser.reliabilityScore || 94}
+        userNeighborhood={resolveAreaLabel(currentUser.neighborhood)}
       />
 
       {/* Main Content Viewport Container */}
@@ -1569,7 +1650,7 @@ export default function App() {
             <DatingGridView
               profiles={datingProfiles}
               safeHavens={safeHavens}
-              userNeighborhood={currentUser.neighborhood}
+              userNeighborhood={resolveAreaLabel(currentUser.neighborhood)}
               stories={stories}
               intentPosts={intentPosts}
               activeUserIntent={activeUserIntent}
@@ -1590,7 +1671,7 @@ export default function App() {
             <RightNowView
               pulses={isSupabaseConfigured && isAuthenticated ? supabaseRightNowPulses : pulses}
               safeHavens={safeHavens}
-              userNeighborhood={currentUser.neighborhood}
+              userNeighborhood={resolveAreaLabel(currentUser.neighborhood)}
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
               datingProfiles={isSupabaseConfigured && isAuthenticated ? [] : datingProfiles}
@@ -1697,7 +1778,7 @@ export default function App() {
         onSaveIntent={handleSaveUserIntent}
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
-        userNeighborhood={currentUser.neighborhood}
+        userNeighborhood={resolveAreaLabel(currentUser.neighborhood)}
       />
 
       {/* Local Safety Check-in Timer Modal */}
@@ -1724,12 +1805,8 @@ export default function App() {
         devices={identityDevices}
         currentDeviceFingerprint={currentDeviceFingerprint}
         onRevokeDevice={handleRevokeDevice}
-        onSignOut={async () => {
-          if (supabase) await supabase.auth.signOut();
-          setIsAuthenticated(false);
-          setSupabaseUserId(null);
-          setIsIdentityOpen(false);
-        }}
+        signingOut={isSigningOut}
+        onSignOut={handleSignOut}
       />
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}

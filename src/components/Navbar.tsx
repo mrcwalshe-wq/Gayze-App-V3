@@ -70,7 +70,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   GAYZE
                 </span>
                 <span className="hidden xs:inline text-[11px] font-medium text-zinc-400">
-                  · {userNeighborhood && userNeighborhood !== 'Soho' && userNeighborhood !== 'Soho / Covent Garden' ? userNeighborhood : 'Near you'}
+                  · {userNeighborhood || 'Near you'}
                 </span>
               </div>
             </button>

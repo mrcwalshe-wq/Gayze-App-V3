@@ -85,9 +85,10 @@ button, input, select, textarea, [role="button"] {
 .gayze-leaflet-map {
   width: 100% !important;
   height: 100% !important;
-  min-height: 100% !important;
+  min-height: 240px !important;
   position: absolute !important;
   inset: 0 !important;
+  z-index: 0 !important;
 }
 
 /* GAYZE Obsidian Dark filter for standard OpenStreetMap tiles */

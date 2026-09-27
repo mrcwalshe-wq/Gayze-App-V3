@@ -1753,7 +1753,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
 
                     <div className="p-3 rounded-xl bg-[#181a24] border border-white/5 flex items-center justify-between text-xs text-zinc-400">
                       <span>Current Area:</span>
-                      <span className="text-white font-mono font-semibold">{userNeighborhood && userNeighborhood !== 'Soho' && userNeighborhood !== 'Soho / Covent Garden' ? userNeighborhood : 'Near you'}</span>
+                      <span className="text-white font-mono font-semibold">{userNeighborhood || 'Near you'}</span>
                     </div>
                   </div>
                 )}
