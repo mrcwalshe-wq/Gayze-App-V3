@@ -87,6 +87,25 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
     };
   }, [isOpen, onClose]);
 
+  // Ensure media tracks are cleanly stopped if modal closes or unmounts unexpectedly
+  useEffect(() => {
+    return () => {
+      const state = webrtcCallService.getState();
+      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
+        void webrtcCallService.endCall();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      const state = webrtcCallService.getState();
+      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
+        void webrtcCallService.endCall();
+      }
+    }
+  }, [isOpen]);
+
   // Duration Timer
   useEffect(() => {
     let interval: any = null;

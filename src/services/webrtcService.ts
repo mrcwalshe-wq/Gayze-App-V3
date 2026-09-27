@@ -87,7 +87,20 @@ class WebRTCCallService {
   private currentFacingMode: 'user' | 'environment' = 'user';
   private currentCallType: CallType = 'video';
   private activeConversationId: string | null = null;
+  private activeTargetUserId: string | null = null;
   private ringingTimeoutTimer: number | null = null;
+  private pendingIceCandidates: RTCIceCandidateInit[] = [];
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        this.cleanup();
+      });
+      window.addEventListener('pagehide', () => {
+        this.cleanup();
+      });
+    }
+  }
 
   private stateListeners: Set<(state: CallState, error?: string | null) => void> = new Set();
   private streamListeners: Set<(local: MediaStream | null, remote: MediaStream | null) => void> = new Set();
@@ -137,7 +150,11 @@ class WebRTCCallService {
   /**
    * Listen for incoming call requests directed to this user
    */
-  public initUserSignaling(userId: string, onIncomingCall: (call: IncomingCall) => void): () => void {
+  public initUserSignaling(
+    userId: string,
+    onIncomingCall: (call: IncomingCall) => void,
+    onCallCancelled?: (conversationId: string) => void,
+  ): () => void {
     if (!supabase) return () => undefined;
 
     if (this.userChannel) {
@@ -173,6 +190,8 @@ class WebRTCCallService {
             callType: signal.callType || 'video',
             timestamp: signal.timestamp || Date.now(),
           });
+        } else if (signal.type === 'call-end' || signal.type === 'call-decline') {
+          onCallCancelled?.(signal.conversationId);
         }
       })
       .subscribe();
@@ -231,6 +250,7 @@ class WebRTCCallService {
     this.setState('calling');
     this.currentCallType = params.callType;
     this.activeConversationId = params.conversationId;
+    this.activeTargetUserId = params.targetUserId;
 
     try {
       // 1. Acquire local media stream first to verify permissions
@@ -480,6 +500,16 @@ class WebRTCCallService {
             if (!isCaller && signal.sdp) {
               this.setState('connecting');
               await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+              if (this.pendingIceCandidates.length > 0) {
+                for (const cand of this.pendingIceCandidates) {
+                  try {
+                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                  } catch (e) {
+                    console.warn('[GAYZE WebRTC] Error adding buffered ICE candidate', e);
+                  }
+                }
+                this.pendingIceCandidates = [];
+              }
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
               await this.broadcastSignal({
@@ -495,15 +525,29 @@ class WebRTCCallService {
           case 'answer':
             if (isCaller && signal.sdp) {
               await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+              if (this.pendingIceCandidates.length > 0) {
+                for (const cand of this.pendingIceCandidates) {
+                  try {
+                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                  } catch (e) {
+                    console.warn('[GAYZE WebRTC] Error adding buffered ICE candidate', e);
+                  }
+                }
+                this.pendingIceCandidates = [];
+              }
             }
             break;
 
           case 'ice-candidate':
             if (signal.candidate) {
-              try {
-                await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-              } catch (e) {
-                console.warn('[GAYZE WebRTC] Error adding ICE candidate', e);
+              if (pc.remoteDescription && pc.remoteDescription.type) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                } catch (e) {
+                  console.warn('[GAYZE WebRTC] Error adding ICE candidate', e);
+                }
+              } else {
+                this.pendingIceCandidates.push(signal.candidate);
               }
             }
             break;
@@ -654,6 +698,27 @@ class WebRTCCallService {
       }
     }
 
+    // If caller cancels before callee answered, also send call-end to target user channel
+    if (supabase && this.activeTargetUserId && this.activeConversationId && (this.state === 'calling' || this.state === 'ringing')) {
+      const client = supabase;
+      const targetUserChan = client.channel(`gayze-user-${this.activeTargetUserId}`);
+      targetUserChan.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await targetUserChan.send({
+            type: 'broadcast',
+            event: 'call-signal',
+            payload: {
+              type: 'call-end',
+              conversationId: this.activeConversationId!,
+              callerId: 'self',
+              timestamp: Date.now(),
+            },
+          });
+          void client.removeChannel(targetUserChan);
+        }
+      });
+    }
+
     this.cleanup();
     this.setState(explicitState);
   }
@@ -662,6 +727,9 @@ class WebRTCCallService {
    * Complete teardown of all media and network resources
    */
   public cleanup() {
+    this.pendingIceCandidates = [];
+    this.activeTargetUserId = null;
+
     if (this.ringingTimeoutTimer) {
       clearTimeout(this.ringingTimeoutTimer);
       this.ringingTimeoutTimer = null;

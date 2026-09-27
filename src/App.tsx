@@ -361,9 +361,15 @@ export default function App() {
     if (!isSupabaseConfigured || !supabaseUserId) return;
 
     // 1. Listen for incoming call requests
-    const unsubSignaling = webrtcCallService.initUserSignaling(supabaseUserId, (call) => {
-      setIncomingCall(call);
-    });
+    const unsubSignaling = webrtcCallService.initUserSignaling(
+      supabaseUserId,
+      (call) => {
+        setIncomingCall(call);
+      },
+      (conversationId) => {
+        setIncomingCall((current) => (current && current.conversationId === conversationId ? null : current));
+      }
+    );
 
     // 2. Track truthful Realtime presence
     const unsubPresence = initPresence(supabaseUserId, currentUser.displayName, (onlineIds) => {
@@ -484,6 +490,7 @@ export default function App() {
       name: pulse.peerName,
       type: 'direct',
       peerKey: pulse.peerShortKey + '_full_public_key_verified',
+      peerUserId: pulse.peerId,
       peerName: pulse.peerName,
       peerNeighborhood: pulse.neighborhood,
       peerAvatar: pulse.peerAvatar,
