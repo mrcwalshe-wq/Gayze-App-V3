@@ -82,11 +82,6 @@ button, input, select, textarea, [role="button"] {
     linear-gradient(180deg, #090b12 0%, #07080b 100%) !important;
 }
 
-.gayze-dark-cartography .leaflet-tile,
-.leaflet-tile-pane.gayze-dark-cartography .leaflet-tile {
-  filter: brightness(1) contrast(1.08) saturate(1.1) !important;
-}
-
 .gayze-leaflet-map {
   width: 100% !important;
   height: 100% !important;

@@ -202,6 +202,7 @@ export default function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
 
   // Schedule Meeting Modal state
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
@@ -366,9 +367,17 @@ export default function App() {
   }, [isIdentityOpen, isSafetyTimerOpen]);
 
   const showToast = (msg: string) => {
+    if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
     setNotificationToast(msg);
-    setTimeout(() => setNotificationToast(null), 4000);
+    toastTimeoutRef.current = window.setTimeout(() => {
+      toastTimeoutRef.current = null;
+      setNotificationToast(null);
+    }, 4000);
   };
+
+  useEffect(() => () => {
+    if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
+  }, []);
 
   // Handlers for "Right Now"
   const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {

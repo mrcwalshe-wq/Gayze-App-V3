@@ -1,30 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  ShieldCheck, 
-  Zap, 
-  Check, 
-  MapPin, 
-  Sparkles, 
-  Car, 
-  Home, 
-  Compass, 
-  Clock, 
+import {
+  X,
+  ShieldCheck,
+  Zap,
+  Check,
+  MapPin,
+  Sparkles,
+  Car,
+  Home,
+  Compass,
+  Clock,
   Navigation,
   ArrowRight,
   Lock,
   MessageSquare
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
-import { 
-  SafeHaven, 
-  TopLevelIntentMode, 
-  EncounterIntent, 
-  SocialIntent, 
+import {
+  SafeHaven,
+  TopLevelIntentMode,
+  EncounterIntent,
+  SocialIntent,
   PrivateIntent,
-  SOCIAL_INTENTS, 
-  PRIVATE_INTENTS, 
-  UserActiveIntent 
+  SOCIAL_INTENTS,
+  PRIVATE_INTENTS,
+  UserActiveIntent
 } from '../types';
 
 export { type UserActiveIntent };
@@ -133,7 +133,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   // Step 3: Contextual Details
   const [description, setDescription] = useState<string>(existingIntent?.description || '');
   const [when, setWhen] = useState<string>(existingIntent?.when || defaultWhen);
-  const [duration, setDuration] = useState<string>(existingIntent?.duration || '2 hrs');
+  const [duration, setDuration] = useState<'1 hr' | '2 hrs'>(existingIntent?.duration === '1 hr' ? '1 hr' : '2 hrs');
   const [travelDistance, setTravelDistance] = useState<string>(
     existingIntent?.travelDistance || 'Within 2 km'
   );
@@ -162,7 +162,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
         setIntent(existingIntent.intent);
         setDescription(existingIntent.description || '');
         setWhen(existingIntent.when || defaultWhen);
-        setDuration(existingIntent.duration || '2 hrs');
+        setDuration(existingIntent.duration === '1 hr' ? '1 hr' : '2 hrs');
         setTravelDistance(existingIntent.travelDistance || 'Within 2 km');
         setCanHost(existingIntent.canHost || 'Can host');
         setTravelWillingness(existingIntent.travelWillingness || 'Yes');
@@ -213,11 +213,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
 
     hapticSensitiveAction();
 
-    let durationMs = 2 * 3600 * 1000;
-    if (duration === '1 hr') durationMs = 1 * 3600 * 1000;
-    else if (duration === '2 hrs') durationMs = 2 * 3600 * 1000;
-    else if (duration === 'Tonight') durationMs = 4 * 3600 * 1000;
-    else if (duration === 'Flexible') durationMs = 6 * 3600 * 1000;
+    const durationMs = duration === '1 hr' ? 3600 * 1000 : 2 * 3600 * 1000;
 
     const activatedAt = Date.now();
     const expiresAt = activatedAt + durationMs;
@@ -249,7 +245,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   };
 
   const whenOptions = ['Now', 'Next 1 hour', 'Next 2 hours', 'Tonight'];
-  const durationOptions = ['1 hr', '2 hrs', 'Tonight', 'Flexible'];
+  const durationOptions = ['1 hr', '2 hrs'] as const;
   const distanceOptions = ['Walking distance', 'Within 2 km', 'Within 5 km', 'Willing to travel'];
 
   const isPrivateMode = mode === 'private';
@@ -309,9 +305,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 </span>
                 {mode && (
                   <span
-                    className={`text-xs font-mono font-bold uppercase ${
-                      mode === 'social' ? 'text-[#C9A24D]' : 'text-purple-400'
-                    }`}
+                    className={`text-xs font-mono font-bold uppercase ${mode === 'social' ? 'text-[#C9A24D]' : 'text-purple-400'
+                      }`}
                   >
                     ✓ {mode}
                   </span>
@@ -323,11 +318,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSelectMode('social')}
-                  className={`h-14 min-h-[56px] rounded-2xl p-3 flex items-center justify-between border transition-all cursor-pointer relative ${
-                    mode === 'social'
+                  className={`h-14 min-h-[56px] rounded-2xl p-3 flex items-center justify-between border transition-all cursor-pointer relative ${mode === 'social'
                       ? 'bg-gradient-to-r from-[#C9A24D]/25 via-[#2a2215] to-[#14151e] border-[#C9A24D] shadow-[0_0_18px_rgba(201,162,77,0.3)] ring-1 ring-[#C9A24D]/40'
                       : 'bg-[#101118] border-white/[0.08] hover:border-white/20 text-zinc-300 hover:text-white'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#C9A24D]" />
@@ -347,11 +341,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSelectMode('private')}
-                  className={`h-14 min-h-[56px] rounded-2xl p-3 flex items-center justify-between border transition-all cursor-pointer relative ${
-                    mode === 'private'
+                  className={`h-14 min-h-[56px] rounded-2xl p-3 flex items-center justify-between border transition-all cursor-pointer relative ${mode === 'private'
                       ? 'bg-gradient-to-r from-[#6F3CC3]/35 via-[#231735] to-[#12111c] border-purple-500 shadow-[0_0_18px_rgba(111,60,195,0.4)] ring-1 ring-purple-500/40'
                       : 'bg-[#101118] border-white/[0.08] hover:border-white/20 text-zinc-300 hover:text-white'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
@@ -381,9 +374,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   </span>
                   {intent && (
                     <span
-                      className={`text-xs font-mono font-bold uppercase ${
-                        isPrivateMode ? 'text-purple-400' : 'text-[#C9A24D]'
-                      }`}
+                      className={`text-xs font-mono font-bold uppercase ${isPrivateMode ? 'text-purple-400' : 'text-[#C9A24D]'
+                        }`}
                     >
                       {intent}
                     </span>
@@ -399,20 +391,18 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                           key={opt}
                           type="button"
                           onClick={() => handleSelectIntent(opt)}
-                          className={`min-h-[46px] px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-between border relative ${
-                            isSelected
+                          className={`min-h-[46px] px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-between border relative ${isSelected
                               ? isPrivateMode
                                 ? 'bg-[#231735] text-purple-300 border-purple-500 shadow-[0_0_12px_rgba(111,60,195,0.35)] scale-[1.02]'
                                 : 'bg-[#1e1910] text-[#C9A24D] border-[#C9A24D] shadow-[0_0_12px_rgba(201,162,77,0.25)] scale-[1.02]'
                               : 'bg-[#101118] text-zinc-300 border-white/[0.08] hover:text-white hover:border-white/20'
-                          }`}
+                            }`}
                         >
                           <span className="truncate">{opt}</span>
                           {isSelected && (
                             <span
-                              className={`w-2 h-2 rounded-full shrink-0 ${
-                                isPrivateMode ? 'bg-purple-400' : 'bg-[#C9A24D]'
-                              }`}
+                              className={`w-2 h-2 rounded-full shrink-0 ${isPrivateMode ? 'bg-purple-400' : 'bg-[#C9A24D]'
+                                }`}
                             />
                           )}
                         </button>
@@ -447,9 +437,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     type="text"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder={`e.g. ${
-                      QUICK_SUGGESTIONS[intent]?.[0] || 'Explain what you are open to...'
-                    }`}
+                    placeholder={`e.g. ${QUICK_SUGGESTIONS[intent]?.[0] || 'Explain what you are open to...'
+                      }`}
                     maxLength={100}
                     className="w-full h-11 px-3.5 bg-[#101118] border border-white/10 focus:border-[#C9A24D] rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none transition-colors"
                   />
@@ -492,11 +481,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                               hapticLight();
                               setCanHost(opt);
                             }}
-                            className={`h-9 min-h-[38px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
-                              isSelected
+                            className={`h-11 min-h-[44px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${isSelected
                                 ? 'bg-purple-950 text-white border-purple-400 font-bold'
                                 : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
-                            }`}
+                              }`}
                           >
                             {opt}
                           </button>
@@ -523,11 +511,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                               hapticLight();
                               setTravelWillingness(opt);
                             }}
-                            className={`h-9 min-h-[38px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
-                              isSelected
+                            className={`h-11 min-h-[44px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${isSelected
                                 ? 'bg-purple-950 text-white border-purple-400 font-bold'
                                 : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
-                            }`}
+                              }`}
                           >
                             {opt}
                           </button>
@@ -554,13 +541,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                             hapticLight();
                             setWhen(opt);
                           }}
-                          className={`h-10 min-h-[40px] px-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-                            isSelected
+                          className={`h-11 min-h-[44px] px-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${isSelected
                               ? isPrivateMode
                                 ? 'bg-purple-950 text-purple-200 border-purple-500 font-bold'
                                 : 'bg-[#1e1910] text-[#C9A24D] border-[#C9A24D] font-bold'
                               : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
-                          }`}
+                            }`}
                         >
                           {opt}
                         </button>
@@ -574,7 +560,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
                     Keep active for:
                   </span>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {durationOptions.map((opt) => {
                       const isSelected = duration === opt;
                       return (
@@ -585,11 +571,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                             hapticLight();
                             setDuration(opt);
                           }}
-                          className={`h-9 min-h-[38px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
-                            isSelected
+                          className={`h-11 min-h-[44px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${isSelected
                               ? 'bg-[#181a24] text-white border-white/40 font-bold'
                               : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
-                          }`}
+                            }`}
                         >
                           {opt}
                         </button>
@@ -615,11 +600,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                             hapticLight();
                             setTravelDistance(opt);
                           }}
-                          className={`h-10 min-h-[40px] px-1.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
-                            isSelected
+                          className={`h-10 min-h-[40px] px-1.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${isSelected
                               ? 'bg-[#181a24] text-white border-[#C9A24D]/60 font-bold'
                               : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
-                          }`}
+                            }`}
                         >
                           {opt}
                         </button>
@@ -657,11 +641,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                           hapticLight();
                           setUseSafeHaven(!useSafeHaven);
                         }}
-                        className={`h-8 min-h-[34px] px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer border shrink-0 ${
-                          useSafeHaven
+                        className={`h-8 min-h-[34px] px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer border shrink-0 ${useSafeHaven
                             ? 'bg-emerald-500 text-black border-emerald-400'
                             : 'bg-transparent text-zinc-400 border-white/10 hover:text-white'
-                        }`}
+                          }`}
                       >
                         {useSafeHaven ? 'Selected' : 'Select'}
                       </button>
@@ -671,11 +654,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
 
                 {/* SUMMARY INTENT CARD PREVIEW */}
                 <div
-                  className={`p-3.5 rounded-2xl border space-y-1.5 transition-colors ${
-                    isPrivateMode
+                  className={`p-3.5 rounded-2xl border space-y-1.5 transition-colors ${isPrivateMode
                       ? 'bg-[#151120] border-purple-500/50 shadow-[0_0_20px_rgba(111,60,195,0.25)]'
                       : 'bg-[#181510] border-[#C9A24D]/50 shadow-[0_0_20px_rgba(201,162,77,0.2)]'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest font-bold text-zinc-400">
                     <span>MY RIGHT NOW INTENT</span>
@@ -716,21 +698,20 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             <button
               type="submit"
               disabled={!mode || !intent}
-              className={`w-full h-12 min-h-[48px] text-xs sm:text-sm font-black rounded-xl transition-all duration-150 cursor-pointer shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider font-sans ${
-                !mode || !intent
+              className={`w-full h-12 min-h-[48px] text-xs sm:text-sm font-black rounded-xl transition-all duration-150 cursor-pointer shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider font-sans ${!mode || !intent
                   ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-white/5'
                   : isPrivateMode
-                  ? 'bg-purple-600 hover:bg-purple-500 active:scale-[0.98] text-white shadow-purple-900/40'
-                  : 'bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] text-black shadow-amber-900/30'
-              }`}
+                    ? 'bg-purple-600 hover:bg-purple-500 active:scale-[0.98] text-white shadow-purple-900/40'
+                    : 'bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] text-black shadow-amber-900/30'
+                }`}
             >
               <Zap className={`w-4 h-4 ${!mode || !intent ? 'fill-zinc-500' : isPrivateMode ? 'fill-white' : 'fill-black'}`} />
               <span>
                 {isEditing
                   ? 'Update Right Now Intent'
                   : mode && intent
-                  ? `Publish ${mode.toUpperCase()} · ${intent} to Map`
-                  : 'Select Intent to Publish'}
+                    ? `Publish ${mode.toUpperCase()} · ${intent} to Map`
+                    : 'Select Intent to Publish'}
               </span>
             </button>
           </div>

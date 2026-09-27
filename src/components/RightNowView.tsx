@@ -128,6 +128,25 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [isSetIntentOpen, setIsSetIntentOpen] = useState<boolean>(false);
   const [isUserIntentDrawerOpen, setIsUserIntentDrawerOpen] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const statusTimeoutRef = useRef<number | null>(null);
+
+  const clearStatusTimeout = () => {
+    if (statusTimeoutRef.current !== null) {
+      window.clearTimeout(statusTimeoutRef.current);
+      statusTimeoutRef.current = null;
+    }
+  };
+
+  const showStatusMessage = (message: string, duration = 3000) => {
+    clearStatusTimeout();
+    setStatusMessage(message);
+    statusTimeoutRef.current = window.setTimeout(() => {
+      statusTimeoutRef.current = null;
+      setStatusMessage(null);
+    }, duration);
+  };
+
+  useEffect(() => clearStatusTimeout, []);
 
   // Map refs & imperative controls
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -180,8 +199,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       if (diff <= 0) {
         setActiveUserIntent(null);
         localStorage.removeItem('gayze_active_user_intent');
-        setStatusMessage('Your Right Now intent expired');
-        setTimeout(() => setStatusMessage(null), 3000);
+        showStatusMessage('Your Right Now intent expired');
       }
     };
 
@@ -211,7 +229,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       Other: 'chill',
     };
 
-    const durationNum = intentData.duration === '1 hr' ? 1 : intentData.duration === '2 hrs' ? 2 : 4;
+    const durationNum = intentData.duration === '1 hr' ? 1 : 2;
     const latJitter = 51.5132 + (Math.random() - 0.5) * 0.005;
     const lngJitter = -0.1300 + (Math.random() - 0.5) * 0.005;
 
@@ -241,8 +259,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       safeHavenVenue: Boolean(intentData.isNearSafeHaven),
     });
 
-    setStatusMessage(`● Intent Broadcasted: ${intentData.mode.toUpperCase()} · ${intentData.intent}`);
-    setTimeout(() => setStatusMessage(null), 3500);
+    showStatusMessage(`● Intent Broadcasted: ${intentData.mode.toUpperCase()} · ${intentData.intent}`, 3500);
   };
 
   // Pause / Resume user intent
@@ -255,8 +272,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     try {
       localStorage.setItem('gayze_active_user_intent', JSON.stringify(updated));
     } catch { }
-    setStatusMessage(nextPaused ? '⏸ Intent paused on map' : '● Intent resumed on map');
-    setTimeout(() => setStatusMessage(null), 2500);
+    showStatusMessage(nextPaused ? '⏸ Intent paused on map' : '● Intent resumed on map', 2500);
   };
 
   // End active intent early
@@ -267,8 +283,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     try {
       localStorage.removeItem('gayze_active_user_intent');
     } catch { }
-    setStatusMessage('Intent ended and removed from map');
-    setTimeout(() => setStatusMessage(null), 2500);
+    showStatusMessage('Intent ended and removed from map', 2500);
   };
 
   // Express interest in a pulse / profile
@@ -304,18 +319,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       if (result.mutual) {
         triggerVibration([40, 60, 100]);
         setMutualMatchPulse(pulseObj);
-        setStatusMessage('⚡ Mutual interest — opening your chat');
-        setTimeout(() => setStatusMessage(null), 2500);
+        showStatusMessage('⚡ Mutual interest — opening your chat', 2500);
         setSelectedItem(null);
         setIsCardExpanded(false);
       } else {
-        setStatusMessage('✓ Interest sent — they can now respond');
-        setTimeout(() => setStatusMessage(null), 2500);
+        showStatusMessage('✓ Interest sent — they can now respond', 2500);
       }
     } catch (error) {
       console.error('[GAYZE] Interest submission failed', error);
-      setStatusMessage('Interest could not be sent — try again');
-      setTimeout(() => setStatusMessage(null), 3000);
+      showStatusMessage('Interest could not be sent — try again');
     } finally {
       setInterestPendingIds((prev) => {
         const next = new Set(prev);
@@ -332,12 +344,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (pulseObj && onSubmitGaze) {
       try {
         await onSubmitGaze(pulseObj);
-        setStatusMessage(`👁️ Gaze sent to ${name}`);
-        setTimeout(() => setStatusMessage(null), 2200);
+        showStatusMessage(`👁️ Gaze sent to ${name}`, 2200);
       } catch (error) {
         console.error('[GAYZE] Gaze submission failed', error);
-        setStatusMessage('Gaze could not be sent — try again');
-        setTimeout(() => setStatusMessage(null), 3000);
+        showStatusMessage('Gaze could not be sent — try again');
       }
     }
 
@@ -956,22 +966,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <Compass className="w-4 h-4 text-[#C9A24D]" />
           </button>
 
-          {/* Toggle Privacy Area Circles */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticLight();
-              setShowJitterCircles(!showJitterCircles);
-            }}
-            title="Toggle Privacy Area Cloaking (~300m)"
-            aria-label="Toggle Privacy Area"
-            className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl backdrop-blur-xl border shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer ${showJitterCircles
-              ? 'bg-[#1c152a]/90 text-[#C9A24D] border-[#6F3CC3]/60 shadow-[0_0_10px_rgba(111,60,195,0.3)]'
-              : 'bg-[#0e1017]/85 hover:bg-[#181a26] text-zinc-400 border-white/[0.12]'
-              }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-          </button>
         </div>
       )}
 
@@ -1521,7 +1515,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           onClick={() => setIsFilterDrawerOpen(false)}
         >
           <div
-            className="w-full max-w-lg mx-auto bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300"
+            className="w-full max-w-lg mx-auto bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px))] animate-in slide-in-from-bottom duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Drag Handle */}
@@ -1555,7 +1549,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               {/* SECTION 1: WHAT ARE YOU LOOKING FOR? */}
               <div className="space-y-2">
                 <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                  CATEGORY & SPOT TYPE
+                  WHAT
                 </span>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -1590,7 +1584,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               {/* SECTION 2: INTENT MODE */}
               <div className="space-y-2">
                 <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                  INTENT MODE
+                  INTENT
                 </span>
                 <div className="grid grid-cols-3 gap-2">
                   {(['All', 'Social', 'Private'] as const).map((mode) => {
@@ -1620,13 +1614,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               {/* SECTION 3: PRIVACY & DISTANCE */}
               <div className="space-y-2">
                 <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                  PRIVACY & DISTANCE
+                  DISTANCE & PRIVACY
                 </span>
 
                 <div className="p-3 bg-[#12141e] border border-white/[0.08] rounded-xl flex items-center justify-between gap-3">
                   <div>
-                    <span className="text-xs font-bold text-white block">±300m Location Cloaking Circles</span>
-                    <span className="text-[11px] text-zinc-400 block">Render fuzzy safety zones over exact coordinates</span>
+                    <span className="text-xs font-bold text-white block">Approximate location radius</span>
+                    <span className="text-[11px] text-zinc-400 block">Display a radius around the map marker</span>
                   </div>
                   <button
                     type="button"
@@ -1634,11 +1628,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       hapticLight();
                       setShowJitterCircles(!showJitterCircles);
                     }}
-                    className={`w-12 h-6 rounded-full transition-colors p-0.5 cursor-pointer shrink-0 ${showJitterCircles ? 'bg-[#6F3CC3]' : 'bg-zinc-700'
-                      }`}
+                    role="switch"
+                    aria-checked={showJitterCircles}
+                    aria-label="Show approximate location radius"
+                    className="w-12 min-w-[44px] h-11 min-h-[44px] flex items-center justify-center cursor-pointer shrink-0"
                   >
-                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${showJitterCircles ? 'translate-x-6' : 'translate-x-0'
-                      }`} />
+                    <span className={`w-12 h-6 rounded-full transition-colors p-0.5 flex items-center ${showJitterCircles ? 'bg-[#6F3CC3]' : 'bg-zinc-700'}`}>
+                      <span className={`w-5 h-5 rounded-full bg-white transition-transform ${showJitterCircles ? 'translate-x-6' : 'translate-x-0'}`} />
+                    </span>
                   </button>
                 </div>
 

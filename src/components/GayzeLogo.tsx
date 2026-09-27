@@ -1,10 +1,9 @@
 import React from 'react';
 
 // Exact official GAYZE roundel artwork supplied by product owner (210x108 WebP)
-export const GAYZE_OFFICIAL_ROUNDEL_DATA_URI =
-  'data:image/webp;base64,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';
 
-export const GAYZE_LOGO_PATH = '/gayze-logo.webp';
+// Exact official GAYZE roundel artwork supplied by product owner (210x108 WebP)
+export const GAYZE_LOGO_PATH = '/gayze-official-logo.webp';
 
 interface GayzeLogoProps {
   size?: number;
@@ -24,7 +23,7 @@ export const GayzeLogo: React.FC<GayzeLogoProps> = ({
       style={{ width: showWordmark ? Math.max(size * 2.2, 180) : size }}
     >
       <img
-        src={GAYZE_OFFICIAL_ROUNDEL_DATA_URI}
+        src={GAYZE_LOGO_PATH}
         alt="GAYZE"
         width={size}
         height={height}

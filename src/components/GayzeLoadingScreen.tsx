@@ -1,5 +1,5 @@
 import React from 'react';
-import { GayzeLogo, GAYZE_OFFICIAL_ROUNDEL_DATA_URI } from './GayzeLogo';
+import { GayzeLogo, GAYZE_LOGO_PATH } from './GayzeLogo';
 
 interface GayzeLoadingScreenProps {
   mode?: 'startup' | 'gazing';
@@ -22,7 +22,7 @@ export const GayzeLoadingScreen: React.FC<GayzeLoadingScreenProps> = ({ mode = '
             <div className="absolute w-36 h-36 rounded-full bg-[#6F3CC3]/15 blur-2xl animate-pulse" />
             <div className="relative w-40 aspect-[210/108] flex items-center justify-center">
               <img
-                src={GAYZE_OFFICIAL_ROUNDEL_DATA_URI}
+                src={GAYZE_LOGO_PATH}
                 alt="GAYZE"
                 className="w-full h-full object-contain drop-shadow-[0_0_28px_rgba(111,60,195,0.28)]"
                 draggable={false}
