@@ -27,6 +27,19 @@ export async function discoverRightNow(options?: { radiusMeters?: number; mode?:
   }
 }
 
+export async function updateProfileLocation(location: { lat: number; lng: number }) {
+  if (!supabase) return false;
+  const user = await ensureSupabaseSession();
+  if (!user) return false;
+  const point = 'SRID=4326;POINT(' + location.lng + ' ' + location.lat + ')';
+  const { error } = await supabase.from('profiles').update({ location: point }).eq('id', user.id);
+  if (error) {
+    console.warn('[GAYZE] Supabase profile location update failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
 export async function saveActiveIntent(intent: UserActiveIntent, location?: { lat: number; lng: number }) {
   if (!supabase) return null;
   try {
@@ -269,7 +282,20 @@ export async function saveActiveIntentWithSession(
   if (identityPublicKey) {
     await ensureSupabaseProfile(user.id, sourceUser, identityPublicKey);
   }
-  return saveActiveIntent(intent, location);
+
+  // Never publish the device's exact GPS point as an intent location.
+  // The discovery RPC returns intent.location to other users, so apply the
+  // user's configured privacy radius before persisting the live intent.
+  let publishedLocation = location;
+  if (location && sourceUser.privacySetting !== 'ghost') {
+    const radiusMeters = sourceUser.privacySetting === 'neighborhood' ? 800 : 500;
+    const bearing = Math.random() * Math.PI * 2;
+    const distance = Math.sqrt(Math.random()) * radiusMeters;
+    const lat = location.lat + (distance * Math.cos(bearing)) / 111_320;
+    const lng = location.lng + (distance * Math.sin(bearing)) / (111_320 * Math.cos(location.lat * Math.PI / 180));
+    publishedLocation = { lat, lng };
+  }
+  return saveActiveIntent(intent, publishedLocation);
 }
 
 
