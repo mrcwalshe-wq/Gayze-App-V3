@@ -487,32 +487,24 @@ export default function App() {
   };
 
   const handleVerifyPeer = async (payload: SwarmQRPayload) => {
-    // Trigger tactile haptic double-pulse upon verified in-person cryptographic handshake
+    // Verification is local to this device and requires the user to compare fingerprints in person.
     hapticQRHandshake();
 
-    // 1. Boost current user's reliability score and increment verified peers
-    let nextUserScore = 95;
+    // Count the verified peer without awarding a trust-score bonus on the client.
     setCurrentUser((prev) => {
-      nextUserScore = Math.min(100, (prev.reliabilityScore || 94) + 3);
       const newCount = (prev.verifiedPeersCount || 14) + 1;
       return {
         ...prev,
-        reliabilityScore: nextUserScore,
         verifiedPeersCount: newCount,
       };
     });
 
-    // 2. Boost the peer's reliability score in dating profiles if present
+    // Associate verification only with an exact public-key match.
     setDatingProfiles((prev) =>
       prev.map((p) => {
-        if (
-          p.peerPublicKey === payload.publicKey ||
-          p.name.toLowerCase() === payload.displayName.toLowerCase()
-        ) {
+        if (p.peerPublicKey === payload.publicKey) {
           return {
             ...p,
-            reliabilityScore: Math.min(100, (p.reliabilityScore || 95) + 3),
-            verifiedPeersCount: (p.verifiedPeersCount || 10) + 1,
             verifiedViaQR: true,
           };
         }
@@ -520,15 +512,13 @@ export default function App() {
       })
     );
 
-    // 3. Find or create the direct Swarm Room
+    // Find or create the direct room using the verified public key.
     let existingRoom = rooms.find(
-      (r) =>
-        r.peerKey?.includes(payload.publicKey.slice(0, 16)) ||
-        r.name.toLowerCase().startsWith(payload.displayName.toLowerCase())
+      (r) => r.peerKey === payload.publicKey
     );
 
     const roomId = existingRoom ? existingRoom.id : `room_qr_${Date.now()}`;
-    const peerScore = Math.min(100, (payload.reliabilityScore || 95) + 3);
+    const peerScore = payload.reliabilityScore;
 
     if (!existingRoom) {
       const safetyNumber = await generateSafetyFingerprint(currentUser.publicKey, payload.publicKey);
@@ -542,7 +532,7 @@ export default function App() {
         peerAvatar: payload.displayName.toLowerCase().slice(0, 8),
         safetyNumber,
         swarmSecretKeyHex: 'seed_qr_swarm_' + Math.random().toString(36).substring(2),
-        lastMessage: `Verified in-person via Group QR · Reliability Score: ${peerScore}/100`,
+        lastMessage: `Fingerprint verified on this device · ${peerScore}/100 trust score`,
         lastTimestamp: Date.now(),
         ephemeralTtlSeconds: 86400,
         verifiedViaQR: true,
@@ -559,7 +549,7 @@ export default function App() {
               verifiedViaQR: true,
               verifiedAt: Date.now(),
               peerReliabilityScore: peerScore,
-              lastMessage: `Verified in-person via Group QR · Reliability Score: ${peerScore}/100`,
+              lastMessage: `Fingerprint verified on this device · ${peerScore}/100 trust score`,
               lastTimestamp: Date.now(),
             }
             : r
@@ -567,26 +557,8 @@ export default function App() {
       );
     }
 
-    // 4. Send encrypted system verification message into the room
-    const verifiedSystemMsg: EncryptedMessage = {
-      id: 'msg_qr_verif_' + Date.now(),
-      roomId,
-      senderKey: currentUser.publicKey,
-      senderName: currentUser.displayName,
-      timestamp: Date.now(),
-      cipherText: '3a0b9f...verified_handshake',
-      nonceHex: '891048192038471029384710',
-      plainText: `🔒 In-Person Group QR verification complete. Mutual public keys authenticated. Safety fingerprint matched. Reliability score boosted (+3 pts to both peers).`,
-      isSystem: true,
-    };
-
-    setMessages((prev) => ({
-      ...prev,
-      [roomId]: [...(prev[roomId] || []), verifiedSystemMsg],
-    }));
-
     setActiveRoomId(roomId);
-    showToast(`✓ Key exchange confirmed with ${payload.displayName}! Reliability Score: ${nextUserScore}/100 (+3)`);
+    showToast(`Fingerprint verified on this device for ${payload.displayName}`);
   };
 
   // Handlers for "Later"
@@ -1419,7 +1391,6 @@ export default function App() {
           setQrTargetPeer(null);
         }}
         currentUser={currentUser}
-        datingProfiles={datingProfiles}
         targetPeer={qrTargetPeer}
         onVerifyPeer={handleVerifyPeer}
       />

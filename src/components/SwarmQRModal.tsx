@@ -1,34 +1,87 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
+import { BrowserQRCodeReader, type IScannerControls } from '@zxing/browser';
 import { UserProfile, DatingProfile, SwarmQRPayload, SwarmRoom } from '../types';
-import { hapticQRHandshake, hapticLight, isVibrationSupported } from '../services/hapticService';
-import { getOrCreateDeviceIdentity } from '../services/cryptoService';
-import { 
-  X, 
-  QrCode, 
-  Camera, 
-  ShieldCheck, 
-  Lock, 
-  Copy, 
-  Check, 
-  RefreshCw, 
-  Award, 
-  UserCheck, 
-  Users, 
-  Sparkles, 
-  Upload, 
+import { hapticLight } from '../services/hapticService';
+import { bufToHex, getOrCreateDeviceIdentity } from '../services/cryptoService';
+import {
+  X,
+  QrCode,
+  Camera,
+  ShieldCheck,
+  Lock,
+  Copy,
+  Check,
+  RefreshCw,
+  Award,
+  UserCheck,
+  Users,
+  Sparkles,
+  Upload,
   AlertCircle,
-  ArrowRight,
   Shield,
   Smartphone,
   Zap
 } from 'lucide-react';
 
+function isSwarmQRPayload(value: unknown): value is SwarmQRPayload {
+  if (!value || typeof value !== 'object') return false;
+  const payload = value as Partial<SwarmQRPayload>;
+  return payload.v === 2
+    && payload.type === 'gayze_swarm_identity'
+    && typeof payload.publicKey === 'string'
+    && typeof payload.shortKey === 'string'
+    && typeof payload.displayName === 'string'
+    && typeof payload.neighborhood === 'string'
+    && typeof payload.reliabilityScore === 'number'
+    && typeof payload.verifiedPeersCount === 'number'
+    && typeof payload.timestamp === 'number'
+    && typeof payload.fingerprint === 'string';
+}
+
+async function validateSwarmQRPayload(rawValue: string): Promise<SwarmQRPayload> {
+  const parsed: unknown = JSON.parse(rawValue);
+  if (!isSwarmQRPayload(parsed)) {
+    throw new Error('This is not a supported GAYZE identity QR. Ask the person to refresh their code.');
+  }
+
+  const ageMs = Date.now() - parsed.timestamp;
+  if (ageMs > 120_000 || ageMs < -30_000) {
+    throw new Error('This identity QR has expired. Ask the person to refresh it.');
+  }
+
+  try {
+    const publicKeyJwk = JSON.parse(parsed.publicKey) as JsonWebKey;
+    await window.crypto.subtle.importKey(
+      'jwk',
+      publicKeyJwk,
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false,
+      [],
+    );
+
+    const digest = await window.crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(parsed.publicKey),
+    );
+    const expectedFingerprint = `pk_${bufToHex(digest).slice(0, 64)}`;
+    if (parsed.fingerprint !== expectedFingerprint) {
+      throw new Error('The fingerprint does not match the public key in this QR.');
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'The fingerprint does not match the public key in this QR.') {
+      throw error;
+    }
+    throw new Error('The public key in this QR is invalid.');
+  }
+
+  return parsed;
+}
+
 interface SwarmQRModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserProfile;
-  datingProfiles: DatingProfile[];
   onVerifyPeer: (payload: SwarmQRPayload) => void;
   targetPeer?: DatingProfile | null;
 }
@@ -37,7 +90,6 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
   isOpen,
   onClose,
   currentUser,
-  datingProfiles,
   onVerifyPeer,
   targetPeer,
 }) => {
@@ -45,23 +97,27 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [ephemeralNonce, setEphemeralNonce] = useState<string>(() => Math.random().toString(36).substring(2, 8));
-  
+
   // Scanning state
   const [cameraActive, setCameraActive] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const scannerControlsRef = useRef<IScannerControls | null>(null);
+  const payloadProcessingRef = useRef(false);
 
   // Manual payload input
   const [manualPayloadInput, setManualPayloadInput] = useState<string>('');
   const [scannedPeerPayload, setScannedPeerPayload] = useState<SwarmQRPayload | null>(null);
   const [verificationSuccess, setVerificationSuccess] = useState<boolean>(false);
+  const [fingerprintConfirmed, setFingerprintConfirmed] = useState(false);
+  const [payloadError, setPayloadError] = useState<string | null>(null);
 
-  // If a target peer is provided when opening, default to scanning/verifying them
+  // If a target peer is provided when opening, go directly to the real scanner.
   useEffect(() => {
     if (targetPeer) {
       setActiveTab('scan_peer');
-      handleSimulatePeerScan(targetPeer);
+      setScannedPeerPayload(null);
+      setFingerprintConfirmed(false);
     }
   }, [targetPeer]);
 
@@ -125,27 +181,31 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
+      if (!videoRef.current) return;
+      const reader = new BrowserQRCodeReader();
+      scannerControlsRef.current = await reader.decodeFromConstraints(
+        { video: { facingMode: { ideal: 'environment' } }, audio: false },
+        videoRef.current,
+        (result, _error, controls) => {
+          if (!result || payloadProcessingRef.current) return;
+          payloadProcessingRef.current = true;
+          void handlePayloadText(result.getText()).finally(() => {
+            payloadProcessingRef.current = false;
+          });
+          controls.stop();
+        },
+      );
       setCameraActive(true);
     } catch (err: any) {
       console.warn('Camera error:', err);
-      setCameraError('Camera permission was denied or is unavailable. Use one-click peer simulator below.');
+      setCameraError('Camera permission was denied or is unavailable. Paste the identity payload instead.');
       setCameraActive(false);
     }
   };
 
   const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
+    scannerControlsRef.current?.stop();
+    scannerControlsRef.current = null;
     setCameraActive(false);
   };
 
@@ -173,44 +233,27 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
     }
   };
 
-  const handleSimulatePeerScan = (peer: DatingProfile) => {
-    hapticLight();
-    const simulatedPayload: SwarmQRPayload = {
-      v: 1,
-      type: 'gayze_swarm_identity',
-      publicKey: peer.peerPublicKey,
-      shortKey: peer.peerPublicKey.slice(0, 7) + '...' + peer.peerPublicKey.slice(-4),
-      displayName: peer.name,
-      neighborhood: peer.neighborhood,
-      reliabilityScore: peer.reliabilityScore || 95,
-      verifiedPeersCount: peer.verifiedPeersCount || 10,
-      timestamp: Date.now(),
-      fingerprint: Math.random().toString(36).substring(2, 8),
-    };
-    setScannedPeerPayload(simulatedPayload);
-    setVerificationSuccess(false);
-  };
-
-  const handleParseManualInput = () => {
+  const handlePayloadText = async (rawValue: string) => {
+    setPayloadError(null);
     try {
-      const parsed = JSON.parse(manualPayloadInput.trim());
-      if (parsed.type === 'gayze_swarm_identity' && parsed.publicKey) {
-        hapticLight();
-        setScannedPeerPayload(parsed);
-        setManualPayloadInput('');
-        setVerificationSuccess(false);
-      } else {
-        alert('Invalid Gayze Group payload format. Missing public key or identity header.');
-      }
-    } catch (err) {
-      alert('Could not parse payload as valid JSON. Please check formatting.');
+      const payload = await validateSwarmQRPayload(rawValue.trim());
+      hapticLight();
+      setScannedPeerPayload(payload);
+      setManualPayloadInput('');
+      setFingerprintConfirmed(false);
+      setVerificationSuccess(false);
+      stopCamera();
+    } catch (error) {
+      setPayloadError(error instanceof Error ? error.message : 'Unable to validate this identity QR.');
     }
   };
 
+  const handleParseManualInput = () => {
+    void handlePayloadText(manualPayloadInput);
+  };
+
   const handleConfirmVerification = () => {
-    if (!scannedPeerPayload) return;
-    // Trigger confident haptic feedback double-pulse for successful QR handshake
-    hapticQRHandshake();
+    if (!scannedPeerPayload || !fingerprintConfirmed) return;
     onVerifyPeer(scannedPeerPayload);
     setVerificationSuccess(true);
     setTimeout(() => {
@@ -236,7 +279,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                 In-Person Safety Verification
               </h2>
               <p className="text-[11px] text-zinc-400">
-                Scan each other's code to confirm identity and build trust score
+                Scan a current identity code, then compare fingerprints in person
               </p>
             </div>
           </div>
@@ -259,11 +302,10 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
               stopCamera();
               setActiveTab('my_qr');
             }}
-            className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'my_qr'
+            className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'my_qr'
                 ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+              }`}
           >
             <QrCode className="w-3.5 h-3.5" />
             <span>My Safety QR</span>
@@ -271,11 +313,10 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
 
           <button
             onClick={() => setActiveTab('scan_peer')}
-            className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'scan_peer'
+            className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'scan_peer'
                 ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+              }`}
           >
             <Camera className="w-3.5 h-3.5" />
             <span>Scan Meetup Partner</span>
@@ -382,11 +423,9 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                   <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                      <span className="text-xs font-semibold text-emerald-300">
-                        Peer Cryptographic Payload Detected
-                      </span>
+                      <span className="text-xs font-semibold text-emerald-300">Identity payload loaded</span>
                     </div>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/40">Secure & Verified</span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/40">Key fingerprint checked</span>
                   </div>
 
                   {/* Scanned Peer Preview */}
@@ -416,12 +455,23 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Benefit explanation */}
-                  <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>
-                      In-person verification confirms real-world meetup and awards <strong>+3 Trust Score</strong> to both members.
-                    </span>
+                  <label className="p-2.5 rounded-xl bg-[#090a0e] border border-white/10 text-[11px] text-zinc-300 flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={fingerprintConfirmed}
+                      onChange={(event) => setFingerprintConfirmed(event.target.checked)}
+                      className="mt-0.5 accent-[#C9A24D]"
+                    />
+                    <span>I compared this fingerprint with the code on the other person's device in person, and they match.</span>
+                  </label>
+                  {payloadError && (
+                    <div role="alert" className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-[11px] text-rose-300">
+                      {payloadError}
+                    </div>
+                  )}
+
+                  <div className="text-[10px] text-zinc-500">
+                    This verifies the key on this device only. The other person must verify your fingerprint separately.
                   </div>
 
                   {/* Action Buttons */}
@@ -435,29 +485,28 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
 
                     <button
                       onClick={handleConfirmVerification}
-                      disabled={verificationSuccess}
-                      className={`flex-1 min-h-[42px] px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md ${
-                        verificationSuccess
+                      disabled={verificationSuccess || !fingerprintConfirmed}
+                      className={`flex-1 min-h-[42px] px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md ${verificationSuccess
                           ? 'bg-emerald-500 text-black'
                           : 'bg-[#C9A24D] hover:bg-[#b58f3b] text-black'
-                      }`}
+                        }`}
                     >
                       {verificationSuccess ? (
                         <>
                           <Check className="w-4 h-4" />
-                          <span>Verified In-Person! (+3 Trust)</span>
+                          <span>Fingerprint matched</span>
                         </>
                       ) : (
                         <>
                           <UserCheck className="w-4 h-4" />
-                          <span>Confirm In-Person Verification</span>
+                          <span>Verify This Fingerprint</span>
                         </>
                       )}
                     </button>
                   </div>
                 </div>
               ) : (
-                /* Scanner View / Simulator */
+                /* Camera QR scanner */
                 <div className="space-y-4">
                   {/* Camera view container */}
                   <div className="relative w-full h-48 bg-[#090a0e] rounded-2xl border border-white/10 overflow-hidden flex flex-col items-center justify-center">
@@ -499,54 +548,30 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                     )}
                   </div>
 
-                  {/* One-Click Peer Exchange Simulator */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-zinc-400">
-                      <span className="font-semibold text-zinc-300">Quick Meetup Simulator:</span>
-                      <span className="text-[11px] text-zinc-400">Tap to simulate scan</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {datingProfiles.slice(0, 4).map((peer) => (
-                        <button
-                          key={peer.id}
-                          onClick={() => handleSimulatePeerScan(peer)}
-                          className="p-2.5 rounded-xl bg-[#141620] hover:bg-[#1c1f2b] border border-white/[0.07] hover:border-[#C9A24D]/40 text-left transition-all cursor-pointer flex items-center justify-between group"
-                        >
-                          <div className="truncate pr-1">
-                            <div className="text-xs font-semibold text-white group-hover:text-[#C9A24D] transition-colors truncate">
-                              {peer.name}, {peer.age}
-                            </div>
-                            <div className="text-[10px] text-zinc-400 font-mono truncate">
-                              Score: {peer.reliabilityScore}/100
-                            </div>
-                          </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-[#C9A24D] shrink-0 transition-colors" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Manual Paste Code */}
                   <div className="p-3 rounded-xl bg-[#141620] border border-white/[0.07] space-y-2">
                     <label className="text-[11px] font-medium text-zinc-400 block">
-                      Or paste partner's safety verification code:
+                      Or paste the identity payload copied from the other person's app:
                     </label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={manualPayloadInput}
                         onChange={(e) => setManualPayloadInput(e.target.value)}
-                        placeholder='Paste safety verification code...'
+                        placeholder='Paste identity JSON...'
                         className="flex-1 bg-[#090a0e] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#C9A24D] font-mono"
                       />
                       <button
                         onClick={handleParseManualInput}
+                        disabled={!manualPayloadInput.trim()}
                         className="min-h-[36px] px-3.5 py-1.5 text-xs font-semibold text-zinc-200 bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 rounded-xl transition-colors cursor-pointer"
                       >
-                        Verify
+                        Check Payload
                       </button>
                     </div>
+                    {payloadError && (
+                      <div role="alert" className="text-[11px] text-rose-300">{payloadError}</div>
+                    )}
                   </div>
                 </div>
               )}
