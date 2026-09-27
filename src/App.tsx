@@ -297,6 +297,7 @@ export default function App() {
         const identity = await getOrCreateDeviceIdentity();
         const identityUser = {
           ...currentUser,
+          displayName: user.user_metadata?.display_name || currentUser.displayName,
           publicKey: identity.fingerprint,
           shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
         };
