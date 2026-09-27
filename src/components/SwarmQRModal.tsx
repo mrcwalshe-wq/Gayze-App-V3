@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
-import { BrowserQRCodeReader, type IScannerControls } from '@zxing/browser';
+import type { IScannerControls } from '@zxing/browser';
 import { UserProfile, DatingProfile, SwarmQRPayload, SwarmRoom } from '../types';
 import { hapticLight } from '../services/hapticService';
 import { bufToHex, getOrCreateDeviceIdentity } from '../services/cryptoService';
@@ -182,6 +182,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
       }
 
       if (!videoRef.current) return;
+      const { BrowserQRCodeReader } = await import('@zxing/browser');
       const reader = new BrowserQRCodeReader();
       scannerControlsRef.current = await reader.decodeFromConstraints(
         { video: { facingMode: { ideal: 'environment' } }, audio: false },
@@ -303,8 +304,8 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
               setActiveTab('my_qr');
             }}
             className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'my_qr'
-                ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200'
               }`}
           >
             <QrCode className="w-3.5 h-3.5" />
@@ -314,8 +315,8 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
           <button
             onClick={() => setActiveTab('scan_peer')}
             className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'scan_peer'
-                ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200'
               }`}
           >
             <Camera className="w-3.5 h-3.5" />
@@ -487,8 +488,8 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                       onClick={handleConfirmVerification}
                       disabled={verificationSuccess || !fingerprintConfirmed}
                       className={`flex-1 min-h-[42px] px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md ${verificationSuccess
-                          ? 'bg-emerald-500 text-black'
-                          : 'bg-[#C9A24D] hover:bg-[#b58f3b] text-black'
+                        ? 'bg-emerald-500 text-black'
+                        : 'bg-[#C9A24D] hover:bg-[#b58f3b] text-black'
                         }`}
                     >
                       {verificationSuccess ? (
