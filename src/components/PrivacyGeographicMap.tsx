@@ -186,7 +186,7 @@ export const PrivacyGeographicMap: React.FC<PrivacyGeographicMapProps> = ({
       layersRef.current = null;
       tilesRef.current = null;
     };
-  }, [onMapReady]);
+  }, []);
 
   const visibleItems = useMemo(() => {
     const result: MapDiscoveryItem[] = [];
