@@ -14,6 +14,29 @@ export type { MapDiscoveryItem };
 
 const userCenterLat = 51.5132;
 const userCenterLng = -0.1300;
+
+
+const spreadOverlappingCoordinate = (
+  lat: number,
+  lng: number,
+  occupied: Map<string, number>,
+): [number, number] => {
+  const key = `${lat.toFixed(4)}:${lng.toFixed(4)}`;
+  const occurrence = occupied.get(key) ?? 0;
+  occupied.set(key, occurrence + 1);
+
+  if (occurrence === 0) return [lat, lng];
+
+  // Visual-only spiderfy offset. The underlying privacy/jitter geometry is unchanged.
+  const angle = (occurrence - 1) * (Math.PI / 3);
+  const ring = Math.floor((occurrence - 1) / 6) + 1;
+  const radius = 0.00028 * ring;
+  return [
+    lat + Math.sin(angle) * radius,
+    lng + Math.cos(angle) * radius,
+  ];
+};
+
 const profileCoords: Record<string, [number, number]> = {
   prof_marcus: [51.5126, -0.1268],
   prof_liam: [51.5140, -0.1280],
@@ -661,12 +684,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         .bindTooltip(`Approximate area · ${userNeighborhood}`, { direction: 'top', offset: [0, -6] });
     }
 
+    const occupiedMarkerCoordinates = new Map<string, number>();
+
     // 2. Safe Havens
     if (activeCategory === 'all' || activeCategory === 'havens') {
       safeHavens.forEach((haven, idx) => {
         if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > maxDistanceKm) return;
         const lat = typeof haven.lat === 'number' && !isNaN(haven.lat) ? haven.lat : 51.5126 + idx * 0.004;
         const lng = typeof haven.lng === 'number' && !isNaN(haven.lng) ? haven.lng : -0.1268 + ((idx % 2 === 0 ? 1 : -1) * 0.003);
+        const markerCoords = spreadOverlappingCoordinate(lat, lng, occupiedMarkerCoordinates);
         const selected = selectedItem?.type === 'haven' && selectedItem.item.id === haven.id;
         const icon = L.divIcon({
           className: 'custom-haven-marker',
@@ -677,7 +703,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           iconSize: [32, 32],
           iconAnchor: [16, 16],
         });
-        const marker = L.marker([lat, lng], { icon }).addTo(layerGroup);
+        const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
           hapticLight();
           setSelectedItem({ type: 'haven', item: haven });
@@ -694,6 +720,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         if (activeIntentMode === 'Social' && isPrivate) return;
         if (activeIntentMode === 'Private' && !isPrivate) return;
         const coords = profileCoords[profile.id] || [51.5132 + ((idx % 3 - 1) * 0.0035), -0.1300 + (((idx + 1) % 3 - 1) * 0.004)];
+        const markerCoords = spreadOverlappingCoordinate(coords[0], coords[1], occupiedMarkerCoordinates);
         const selected = selectedItem?.type === 'profile' && selectedItem.item.id === profile.id;
         const icon = L.divIcon({
           className: 'custom-person-marker',
@@ -702,7 +729,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           iconSize: [36, 36],
           iconAnchor: [18, 18],
         });
-        const marker = L.marker(coords, { icon }).addTo(layerGroup);
+        const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
           hapticLight();
           setSelectedItem({ type: 'profile', item: profile });
@@ -733,6 +760,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             fillOpacity: 0.06,
           }).addTo(layerGroup);
         }
+        const markerCoords = spreadOverlappingCoordinate(lat, lng, occupiedMarkerCoordinates);
         const selected = selectedItem?.type === 'pulse' && selectedItem.item.id === pulse.id;
         const icon = L.divIcon({
           className: 'custom-pulse-marker',
@@ -741,7 +769,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           iconSize: [32, 32],
           iconAnchor: [16, 16],
         });
-        const marker = L.marker([lat, lng], { icon }).addTo(layerGroup);
+        const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
           hapticLight();
           setSelectedItem({ type: 'pulse', item: pulse });
