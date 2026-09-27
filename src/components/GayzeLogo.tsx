@@ -1,9 +1,6 @@
 import React from 'react';
 
-// Exact official GAYZE roundel artwork supplied by product owner (210x108 WebP)
-
-// Exact official GAYZE roundel artwork supplied by product owner (210x108 WebP)
-export const GAYZE_LOGO_PATH = '/gayze-official-logo.webp';
+export const GAYZE_LOGO_PATH = '/ChatGPT Image Sep 27, 2026, 02_03_58 PM.jpg';
 
 interface GayzeLogoProps {
   size?: number;
@@ -16,7 +13,7 @@ export const GayzeLogo: React.FC<GayzeLogoProps> = ({
   showWordmark = true,
   className = '',
 }) => {
-  const height = Math.round(size * (108 / 210));
+  const height = Math.round(size * (874 / 1536));
   return (
     <div
       className={'flex flex-col items-center justify-center ' + className}
