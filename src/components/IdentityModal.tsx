@@ -39,6 +39,7 @@ interface IdentityModalProps {
   devices?: IdentityDevice[];
   currentDeviceFingerprint?: string | null;
   onRevokeDevice?: (deviceId: string) => Promise<void>;
+  onSignOut?: () => Promise<void>;
 }
 
 export const IdentityModal: React.FC<IdentityModalProps> = ({
@@ -53,6 +54,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   devices = [],
   currentDeviceFingerprint,
   onRevokeDevice,
+  onSignOut,
 }) => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [handle, setHandle] = useState(user.handle);
@@ -392,7 +394,17 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           </div>
 
           {/* Save Footer */}
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-white/[0.08]">
+          {onSignOut && (
+        <button
+          type="button"
+          onClick={() => void onSignOut()}
+          className="w-full mt-4 h-10 rounded-xl border border-red-400/20 bg-red-400/5 text-red-300 hover:bg-red-400/10 text-xs font-semibold transition-colors"
+        >
+          Sign out of GAYZE
+        </button>
+      )}
+
+      <div className="pt-3 flex items-center justify-end gap-3 border-t border-white/[0.08]">
             <button
               type="button"
               onClick={onClose}
