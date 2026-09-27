@@ -1,29 +1,29 @@
 import React, { useState } from 'react';
 import { UserProfile, LocationPrivacy } from '../types';
 import type { IdentityDevice } from '../services/supabaseService';
-import { 
-  hapticQRHandshake, 
-  hapticTimerWarning, 
-  hapticMessageDecrypted, 
-  isVibrationSupported, 
+import {
+  hapticQRHandshake,
+  hapticTimerWarning,
+  hapticMessageDecrypted,
+  isVibrationSupported,
   setHapticsEnabled as persistHapticsEnabled,
   areHapticsEnabled
 } from '../services/hapticService';
-import { 
-  Shield, 
-  ShieldCheck, 
-  Key, 
-  Copy, 
-  Check, 
-  EyeOff, 
-  Radio, 
-  MapPin, 
-  Trash2, 
-  X, 
-  QrCode, 
-  Award, 
-  UserCheck, 
-  Zap, 
+import {
+  Shield,
+  ShieldCheck,
+  Key,
+  Copy,
+  Check,
+  EyeOff,
+  Radio,
+  MapPin,
+  Trash2,
+  X,
+  QrCode,
+  Award,
+  UserCheck,
+  Zap,
   Vibrate
 } from 'lucide-react';
 
@@ -91,7 +91,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   };
 
   const handlePurge = () => {
-    if (confirm('Are you sure? This will purge all decrypted message caches on this device.')) {
+    if (confirm('Clear decrypted messages cached on this device? This does not delete your account or synced messages.')) {
       onPurgeLocalCache();
       setPurgedMessage(true);
       setTimeout(() => setPurgedMessage(false), 3000);
@@ -315,11 +315,10 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                   Haptic Feedback & Sensory Beacons
                 </span>
               </div>
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${
-                isVibrationSupported()
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${isVibrationSupported()
                   ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/30'
                   : 'bg-[#171922] text-zinc-400 border-white/10'
-              }`}>
+                }`}>
                 {isVibrationSupported() ? 'Vibration API Ready' : 'Simulated Haptics'}
               </span>
             </div>
@@ -385,10 +384,10 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
               className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Purge Device Cache</span>
+              <span>Clear Message Cache</span>
             </button>
             {purgedMessage && (
-              <span className="text-[11px] text-emerald-400 font-mono">Local cache wiped ✓</span>
+              <span className="text-[11px] text-emerald-400 font-mono">Message cache cleared ✓</span>
             )}
           </div>
 

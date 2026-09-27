@@ -60,7 +60,7 @@ import {
 import { Shield, Lock, Radio, Calendar, HeartHandshake, Eye, AlertCircle } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens'>('dating');
+  const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens'>('right_now');
   const [showStartup, setShowStartup] = useState(true);
 
   useEffect(() => {
@@ -1214,9 +1214,9 @@ export default function App() {
 
   const handlePurgeLocalCache = () => {
     hapticSensitiveAction();
-    localStorage.clear();
+    localStorage.removeItem('gayze_messages');
     setMessages({});
-    showToast('Decrypted local storage securely wiped.');
+    showToast('Decrypted message cache cleared on this device.');
   };
 
   if (showStartup) return <GayzeLoadingScreen mode="startup" />;

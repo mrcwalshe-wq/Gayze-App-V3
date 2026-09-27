@@ -319,8 +319,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   type="button"
                   onClick={() => handleSelectMode('social')}
                   className={`h-14 min-h-[56px] rounded-2xl p-3 flex items-center justify-between border transition-all cursor-pointer relative ${mode === 'social'
-                      ? 'bg-gradient-to-r from-[#C9A24D]/25 via-[#2a2215] to-[#14151e] border-[#C9A24D] shadow-[0_0_18px_rgba(201,162,77,0.3)] ring-1 ring-[#C9A24D]/40'
-                      : 'bg-[#101118] border-white/[0.08] hover:border-white/20 text-zinc-300 hover:text-white'
+                    ? 'bg-gradient-to-r from-[#C9A24D]/25 via-[#2a2215] to-[#14151e] border-[#C9A24D] shadow-[0_0_18px_rgba(201,162,77,0.3)] ring-1 ring-[#C9A24D]/40'
+                    : 'bg-[#101118] border-white/[0.08] hover:border-white/20 text-zinc-300 hover:text-white'
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -342,8 +342,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   type="button"
                   onClick={() => handleSelectMode('private')}
                   className={`h-14 min-h-[56px] rounded-2xl p-3 flex items-center justify-between border transition-all cursor-pointer relative ${mode === 'private'
-                      ? 'bg-gradient-to-r from-[#6F3CC3]/35 via-[#231735] to-[#12111c] border-purple-500 shadow-[0_0_18px_rgba(111,60,195,0.4)] ring-1 ring-purple-500/40'
-                      : 'bg-[#101118] border-white/[0.08] hover:border-white/20 text-zinc-300 hover:text-white'
+                    ? 'bg-gradient-to-r from-[#6F3CC3]/35 via-[#231735] to-[#12111c] border-purple-500 shadow-[0_0_18px_rgba(111,60,195,0.4)] ring-1 ring-purple-500/40'
+                    : 'bg-[#101118] border-white/[0.08] hover:border-white/20 text-zinc-300 hover:text-white'
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -392,10 +392,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                           type="button"
                           onClick={() => handleSelectIntent(opt)}
                           className={`min-h-[46px] px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-between border relative ${isSelected
-                              ? isPrivateMode
-                                ? 'bg-[#231735] text-purple-300 border-purple-500 shadow-[0_0_12px_rgba(111,60,195,0.35)] scale-[1.02]'
-                                : 'bg-[#1e1910] text-[#C9A24D] border-[#C9A24D] shadow-[0_0_12px_rgba(201,162,77,0.25)] scale-[1.02]'
-                              : 'bg-[#101118] text-zinc-300 border-white/[0.08] hover:text-white hover:border-white/20'
+                            ? isPrivateMode
+                              ? 'bg-[#231735] text-purple-300 border-purple-500 shadow-[0_0_12px_rgba(111,60,195,0.35)] scale-[1.02]'
+                              : 'bg-[#1e1910] text-[#C9A24D] border-[#C9A24D] shadow-[0_0_12px_rgba(201,162,77,0.25)] scale-[1.02]'
+                            : 'bg-[#101118] text-zinc-300 border-white/[0.08] hover:text-white hover:border-white/20'
                             }`}
                         >
                           <span className="truncate">{opt}</span>
@@ -454,7 +454,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                             hapticLight();
                             setDescription(promptText);
                           }}
-                          className="text-[10px] px-2.5 py-1 rounded-lg bg-[#141620] hover:bg-[#1a1d2e] border border-white/[0.07] text-zinc-400 hover:text-zinc-200 transition-colors shrink-0 cursor-pointer"
+                          className="min-h-[44px] px-3 py-2 rounded-lg bg-[#141620] hover:bg-[#1a1d2e] border border-white/[0.07] text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors shrink-0 cursor-pointer"
                         >
                           "{promptText.substring(0, 32)}..."
                         </button>
@@ -482,8 +482,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                               setCanHost(opt);
                             }}
                             className={`h-11 min-h-[44px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${isSelected
-                                ? 'bg-purple-950 text-white border-purple-400 font-bold'
-                                : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
+                              ? 'bg-purple-950 text-white border-purple-400 font-bold'
+                              : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
                               }`}
                           >
                             {opt}
@@ -512,8 +512,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                               setTravelWillingness(opt);
                             }}
                             className={`h-11 min-h-[44px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${isSelected
-                                ? 'bg-purple-950 text-white border-purple-400 font-bold'
-                                : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
+                              ? 'bg-purple-950 text-white border-purple-400 font-bold'
+                              : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
                               }`}
                           >
                             {opt}
@@ -542,10 +542,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                             setWhen(opt);
                           }}
                           className={`h-11 min-h-[44px] px-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${isSelected
-                              ? isPrivateMode
-                                ? 'bg-purple-950 text-purple-200 border-purple-500 font-bold'
-                                : 'bg-[#1e1910] text-[#C9A24D] border-[#C9A24D] font-bold'
-                              : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
+                            ? isPrivateMode
+                              ? 'bg-purple-950 text-purple-200 border-purple-500 font-bold'
+                              : 'bg-[#1e1910] text-[#C9A24D] border-[#C9A24D] font-bold'
+                            : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
                             }`}
                         >
                           {opt}
@@ -572,8 +572,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                             setDuration(opt);
                           }}
                           className={`h-11 min-h-[44px] rounded-lg text-xs font-semibold transition-all cursor-pointer border ${isSelected
-                              ? 'bg-[#181a24] text-white border-white/40 font-bold'
-                              : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
+                            ? 'bg-[#181a24] text-white border-white/40 font-bold'
+                            : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
                             }`}
                         >
                           {opt}
@@ -600,9 +600,9 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                             hapticLight();
                             setTravelDistance(opt);
                           }}
-                          className={`h-10 min-h-[40px] px-1.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${isSelected
-                              ? 'bg-[#181a24] text-white border-[#C9A24D]/60 font-bold'
-                              : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
+                          className={`h-11 min-h-[44px] px-1.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${isSelected
+                            ? 'bg-[#181a24] text-white border-[#C9A24D]/60 font-bold'
+                            : 'bg-[#101118] text-zinc-400 border-white/[0.06] hover:text-white'
                             }`}
                         >
                           {opt}
@@ -641,9 +641,9 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                           hapticLight();
                           setUseSafeHaven(!useSafeHaven);
                         }}
-                        className={`h-8 min-h-[34px] px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer border shrink-0 ${useSafeHaven
-                            ? 'bg-emerald-500 text-black border-emerald-400'
-                            : 'bg-transparent text-zinc-400 border-white/10 hover:text-white'
+                        className={`h-11 min-h-[44px] px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer border shrink-0 ${useSafeHaven
+                          ? 'bg-emerald-500 text-black border-emerald-400'
+                          : 'bg-transparent text-zinc-400 border-white/10 hover:text-white'
                           }`}
                       >
                         {useSafeHaven ? 'Selected' : 'Select'}
@@ -655,8 +655,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 {/* SUMMARY INTENT CARD PREVIEW */}
                 <div
                   className={`p-3.5 rounded-2xl border space-y-1.5 transition-colors ${isPrivateMode
-                      ? 'bg-[#151120] border-purple-500/50 shadow-[0_0_20px_rgba(111,60,195,0.25)]'
-                      : 'bg-[#181510] border-[#C9A24D]/50 shadow-[0_0_20px_rgba(201,162,77,0.2)]'
+                    ? 'bg-[#151120] border-purple-500/50 shadow-[0_0_20px_rgba(111,60,195,0.25)]'
+                    : 'bg-[#181510] border-[#C9A24D]/50 shadow-[0_0_20px_rgba(201,162,77,0.2)]'
                     }`}
                 >
                   <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest font-bold text-zinc-400">
@@ -699,10 +699,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
               type="submit"
               disabled={!mode || !intent}
               className={`w-full h-12 min-h-[48px] text-xs sm:text-sm font-black rounded-xl transition-all duration-150 cursor-pointer shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider font-sans ${!mode || !intent
-                  ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-white/5'
-                  : isPrivateMode
-                    ? 'bg-purple-600 hover:bg-purple-500 active:scale-[0.98] text-white shadow-purple-900/40'
-                    : 'bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] text-black shadow-amber-900/30'
+                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-white/5'
+                : isPrivateMode
+                  ? 'bg-purple-600 hover:bg-purple-500 active:scale-[0.98] text-white shadow-purple-900/40'
+                  : 'bg-[#C9A24D] hover:bg-[#b58f3b] active:scale-[0.98] text-black shadow-amber-900/30'
                 }`}
             >
               <Zap className={`w-4 h-4 ${!mode || !intent ? 'fill-zinc-500' : isPrivateMode ? 'fill-white' : 'fill-black'}`} />

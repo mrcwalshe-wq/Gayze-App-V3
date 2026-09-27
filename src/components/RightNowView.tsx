@@ -43,7 +43,6 @@ import {
   Minus,
   Navigation,
   Eye,
-  ChevronUp,
   Maximize2,
   Edit3,
   Pause,
@@ -146,6 +145,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }, duration);
   };
 
+  const dismissStatusMessage = () => {
+    clearStatusTimeout();
+    setStatusMessage(null);
+  };
+
   useEffect(() => clearStatusTimeout, []);
 
   // Map refs & imperative controls
@@ -230,8 +234,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     };
 
     const durationNum = intentData.duration === '1 hr' ? 1 : 2;
-    const latJitter = 51.5132 + (Math.random() - 0.5) * 0.005;
-    const lngJitter = -0.1300 + (Math.random() - 0.5) * 0.005;
+    const jitterRadiusMeters = privacySetting === 'neighborhood' ? 800 : privacySetting === 'ghost' ? 0 : 500;
+    const jitterBearing = Math.random() * Math.PI * 2;
+    const jitterDistanceMeters = Math.sqrt(Math.random()) * jitterRadiusMeters;
+    const latJitter = userCenterLat + (jitterDistanceMeters * Math.cos(jitterBearing)) / 111_320;
+    const lngJitter = userCenterLng + (jitterDistanceMeters * Math.sin(jitterBearing)) / (111_320 * Math.cos(userCenterLat * Math.PI / 180));
 
     // Publish to the map as a live pulse
     onCreatePulse({
@@ -251,7 +258,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       venueName: intentData.area,
       neighborhood: userNeighborhood,
       approxDistanceKm: 0.1,
-      jitterMeters: 250,
+      jitterMeters: jitterRadiusMeters,
       lat: latJitter,
       lng: lngJitter,
       durationHours: durationNum,
@@ -632,7 +639,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
     // 1. User Location and Privacy Jitter Circle
     if (privacySetting !== 'ghost') {
-      const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 400;
+      const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 500;
       if (showJitterCircles) {
         L.circle([userCenterLat, userCenterLng], {
           radius: userJitterRadius,
@@ -651,7 +658,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       });
       L.marker([userCenterLat, userCenterLng], { icon: userIcon })
         .addTo(layerGroup)
-        .bindTooltip(`You (${userNeighborhood}) · ~300m cloaked`, { direction: 'top', offset: [0, -6] });
+        .bindTooltip(`Approximate area · ${userNeighborhood}`, { direction: 'top', offset: [0, -6] });
     }
 
     // 2. Safe Havens
@@ -707,6 +714,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     // 4. Pulses
     if (activeCategory !== 'havens' && activeCategory !== 'people') {
       pulses.forEach((pulse, idx) => {
+        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
         if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
         if (activeCategory !== 'all' && pulse.activityCategory !== activeCategory) return;
         const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
@@ -887,8 +895,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => setStatusMessage(null)}
-            className="text-zinc-400 hover:text-white text-xs cursor-pointer p-1 min-h-[32px] min-w-[32px] flex items-center justify-center"
+            onClick={dismissStatusMessage}
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-lg text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer"
             aria-label="Dismiss message"
           >
             ✕
@@ -1067,22 +1075,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     type="button"
                     onClick={() => {
                       hapticLight();
-                      setIsCardExpanded(true);
-                    }}
-                    className="w-8 h-8 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center justify-center cursor-pointer"
-                    title="Expand details"
-                    aria-label="Expand details"
-                  >
-                    <ChevronUp className="w-4 h-4 text-[#C9A24D]" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      hapticLight();
                       setSelectedItem(null);
                     }}
-                    className="w-8 h-8 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center justify-center cursor-pointer"
+                    className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center justify-center cursor-pointer"
                     title="Close preview"
                     aria-label="Close preview"
                   >
@@ -1515,7 +1510,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           onClick={() => setIsFilterDrawerOpen(false)}
         >
           <div
-            className="w-full max-w-lg mx-auto bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px))] animate-in slide-in-from-bottom duration-300"
+            className="w-full max-w-lg mx-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:mb-0 bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-3.5rem-env(safe-area-inset-bottom,0px))] md:max-h-[calc(100dvh-env(safe-area-inset-top,0px))] animate-in slide-in-from-bottom duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Drag Handle */}
@@ -1823,7 +1818,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button
                 type="button"
                 onClick={() => setMutualMatchPulse(null)}
-                className="w-8 h-8 rounded-lg text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer"
+                className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-lg text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer"
                 aria-label="Dismiss banner"
               >
                 <X className="w-4 h-4" />
