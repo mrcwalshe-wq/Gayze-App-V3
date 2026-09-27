@@ -17,6 +17,7 @@ import { AuthView } from './components/AuthView';
 import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 import { watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
+import { analytics } from './services/analyticsService';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
@@ -51,7 +52,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, updateProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -76,6 +77,17 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!isSupabaseConfigured);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const locationPermissionStatusRef = useRef<'granted' | 'denied' | null>(null);
+  const lastTrackedTabRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (lastTrackedTabRef.current === activeTab) return;
+    lastTrackedTabRef.current = activeTab;
+    if (activeTab === 'right_now') {
+      analytics.logEvent('right_now_open');
+      analytics.logEvent('discovery_viewed', { surface: 'right_now' });
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -99,38 +111,7 @@ export default function App() {
   }, []);
 
   const lastSyncedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setUserLocation(null);
-      lastSyncedLocationRef.current = null;
-      return;
-    }
-
-    const stop = watchCurrentLocation(
-      (location) => {
-        setUserLocation(location);
-        setLocationError(null);
-
-        if (isSupabaseConfigured && supabase) {
-          const previous = lastSyncedLocationRef.current;
-          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
-          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
-          // Avoid writing every GPS tick; refresh the server-side location after
-          // a meaningful move so proximity discovery follows the user.
-          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
-            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-            void updateProfileLocation({ lat: location.lat, lng: location.lng });
-          }
-        }
-      },
-      (error) => {
-        setLocationError(error?.message || 'Location permission is unavailable.');
-      },
-    );
-
-    return stop;
-  }, [isAuthenticated]);
+  const locationWatchStopRef = useRef<(() => void) | null>(null);
 
   // Core datasets with local state
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
@@ -148,6 +129,94 @@ export default function App() {
       return INITIAL_USER;
     }
   });
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      locationWatchStopRef.current?.();
+      locationWatchStopRef.current = null;
+      setUserLocation(null);
+      lastSyncedLocationRef.current = null;
+      return;
+    }
+
+    if (currentUser.privacySetting === 'ghost' && isSupabaseConfigured) {
+      void clearProfileLocation();
+    }
+
+    const stop = watchCurrentLocation(
+      (location) => {
+        setUserLocation(location);
+        setLocationError(null);
+        if (locationPermissionStatusRef.current !== 'granted') {
+          locationPermissionStatusRef.current = 'granted';
+          analytics.logEvent('location_permission_granted');
+        }
+
+        if (isSupabaseConfigured && supabase && currentUser.privacySetting !== 'ghost') {
+          const previous = lastSyncedLocationRef.current;
+          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
+          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
+          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
+            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
+            void updateProfileLocation({ lat: location.lat, lng: location.lng });
+          }
+        }
+      },
+      (error) => {
+        setLocationError(error?.message || 'Location permission is unavailable.');
+        if (error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED
+          && locationPermissionStatusRef.current !== 'denied') {
+          locationPermissionStatusRef.current = 'denied';
+          analytics.logEvent('location_permission_denied');
+        }
+      },
+    );
+    locationWatchStopRef.current = stop;
+
+    return () => {
+      stop();
+      if (locationWatchStopRef.current === stop) locationWatchStopRef.current = null;
+    };
+  }, [isAuthenticated, currentUser.privacySetting]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setUserLocation(null);
+      lastSyncedLocationRef.current = null;
+      return;
+    }
+
+    const stop = watchCurrentLocation(
+      (location) => {
+        setUserLocation(location);
+        setLocationError(null);
+        if (locationPermissionStatusRef.current !== 'granted') {
+          locationPermissionStatusRef.current = 'granted';
+          analytics.logEvent('location_permission_granted');
+        }
+
+        if (isSupabaseConfigured && supabase && currentUser.privacySetting !== 'ghost') {
+          const previous = lastSyncedLocationRef.current;
+          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
+          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
+          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
+            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
+            void updateProfileLocation({ lat: location.lat, lng: location.lng });
+          }
+        }
+      },
+      (error) => {
+        setLocationError(error?.message || 'Location permission is unavailable.');
+        if (error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED
+          && locationPermissionStatusRef.current !== 'denied') {
+          locationPermissionStatusRef.current = 'denied';
+          analytics.logEvent('location_permission_denied');
+        }
+      },
+    );
+
+    return stop;
+  }, [isAuthenticated, currentUser.privacySetting]);
 
   const [datingProfiles, setDatingProfiles] = useState<DatingProfile[]>(() => {
     const saved = localStorage.getItem('gayze_dating_profiles');
@@ -473,12 +542,18 @@ export default function App() {
 
   // Handlers for "Right Now"
   const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {
+    const isSupabaseConversation = Boolean(
+      isSupabaseConfigured
+      && conversationId
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(conversationId)
+    );
     // Check if room already exists
-    const existingRoom = rooms.find((r) => r.id === conversationId || (!conversationId && (r.peerKey?.includes(pulse.peerShortKey) || r.name === pulse.peerName)));
+    const existingRoom = rooms.find((r) => r.id === conversationId || (!conversationId && (r.peerUserId === pulse.peerId || r.peerKey?.includes(pulse.peerShortKey) || r.name === pulse.peerName)));
 
     if (existingRoom) {
       setActiveRoomId(existingRoom.id);
       setActiveTab('swarms');
+      analytics.logEvent('chat_opened', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
       return;
     }
 
@@ -489,13 +564,14 @@ export default function App() {
       id: roomId,
       name: pulse.peerName,
       type: 'direct',
-      peerKey: pulse.peerShortKey + '_full_public_key_verified',
+      peerKey: isSupabaseConversation ? undefined : pulse.peerShortKey + '_full_public_key_verified',
       peerUserId: pulse.peerId,
       peerName: pulse.peerName,
       peerNeighborhood: pulse.neighborhood,
       peerAvatar: pulse.peerAvatar,
       safetyNumber,
-      swarmSecretKeyHex: 'seed_swarm_' + Math.random().toString(36).substring(2),
+      swarmSecretKeyHex: isSupabaseConversation ? '' : 'seed_swarm_' + Math.random().toString(36).substring(2),
+      connectionContext: `Connected via ${pulse.intentMode || 'social'} intent: ${pulse.title}`,
       lastMessage: `Connected via pulse: "${pulse.title}"`,
       lastTimestamp: Date.now(),
       ephemeralTtlSeconds: 3600, // default 1 hr burner
@@ -513,14 +589,18 @@ export default function App() {
     };
 
     setRooms((prev) => [newRoom, ...prev]);
-    setMessages((prev) => ({
-      ...prev,
-      [roomId]: [initialMsg],
-    }));
+    if (!isSupabaseConversation) {
+      setMessages((prev) => ({
+        ...prev,
+        [roomId]: [initialMsg],
+      }));
+    }
 
     setActiveRoomId(roomId);
     setActiveTab('swarms');
-    showToast(`End-to-End Encrypted Group opened with ${pulse.peerName}`);
+    analytics.logEvent('conversation_created', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
+    analytics.logEvent('chat_opened', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
+    showToast(`Chat opened with ${pulse.peerName}`);
   };
 
   // Handlers for "Dating"
@@ -545,6 +625,7 @@ export default function App() {
     if (existingRoom) {
       setActiveRoomId(existingRoom.id);
       setActiveTab('swarms');
+      analytics.logEvent('chat_opened', { source: 'discover' });
       return;
     }
 
@@ -560,6 +641,7 @@ export default function App() {
       peerAvatar: profile.name.toLowerCase(),
       safetyNumber,
       swarmSecretKeyHex: 'seed_swarm_' + Math.random().toString(36).substring(2),
+      connectionContext: `Connected via Discover: ${profile.headline}`,
       lastMessage: `Connected via Gayze Dating · ${profile.headline}`,
       lastTimestamp: Date.now(),
       ephemeralTtlSeconds: 86400, // 24hr default
@@ -584,6 +666,8 @@ export default function App() {
     }));
     setActiveRoomId(roomId);
     setActiveTab('swarms');
+    analytics.logEvent('conversation_created', { source: 'discover' });
+    analytics.logEvent('chat_opened', { source: 'discover' });
     showToast(`Encrypted chat opened with ${profile.name}`);
   };
 
@@ -725,7 +809,7 @@ export default function App() {
       expiresAt: Date.now() + newPulse.durationHours * 3600 * 1000,
     };
     setPulses((prev) => [pulse, ...prev]);
-    showToast('✓ Pulse posted with approximate location (~250m privacy zone)!');
+    showToast('✓ Pulse posted with an approximate location.');
   };
 
   const handleCreateGathering = (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => {
@@ -1144,19 +1228,23 @@ export default function App() {
 
   const handleSubmitInterest = async (pulse: Pulse) => {
     if (!isSupabaseConfigured) {
-      return { mutual: false, conversation_id: null };
+      return { sent: false, mutual: false, conversation_id: null };
     }
 
     const isSupabasePulse = pulse.id.startsWith('supabase_');
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulse.peerId);
     if (!isSupabasePulse || !isUuid) {
-      return { mutual: false, conversation_id: null };
+      return { sent: false, mutual: false, conversation_id: null };
     }
 
     const intentId = pulse.id.slice('supabase_'.length);
     const result = await submitInterest(pulse.peerId, intentId);
+    if (result.sent) {
+      analytics.logEvent('interest_sent', { intent_mode: pulse.intentMode || 'social' });
+    }
 
     if (result.mutual) {
+      analytics.logEvent('mutual_interest', { intent_mode: pulse.intentMode || 'social' });
       await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
       showToast(`⚡ Mutual interest with ${pulse.peerName} — chat opened`);
     } else {
@@ -1183,21 +1271,86 @@ export default function App() {
     hapticSensitiveAction();
     setActiveUserIntent(intent);
 
+    const durationHours = intent.duration === '1 hr' ? 1 : 2;
+
     if (isSupabaseConfigured) {
       void (async () => {
         try {
           const location = userLocation
             ? { lat: userLocation.lat, lng: userLocation.lng }
             : undefined;
-          await saveActiveIntentWithSession(intent, location, currentUser, currentUser.publicKey);
+          const savedIntent = await saveActiveIntentWithSession(intent, location, currentUser, currentUser.publicKey);
+          if (!savedIntent) {
+            showToast('Intent saved on this device; secure sync is unavailable.');
+            return;
+          }
           const rows = await discoverRightNow({ radiusMeters: 5000 });
           setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
+          analytics.logEvent('intent_published', {
+            mode: intent.mode,
+            intent: intent.intent,
+            timing: intent.when,
+            privacy: currentUser.privacySetting,
+            safe_haven: Boolean(intent.isNearSafeHaven),
+          });
           showToast('✓ Right Now intent is live on Supabase');
         } catch (error) {
           console.error('[GAYZE] Failed to persist Right Now intent', error);
           showToast('Right Now saved locally; secure sync is unavailable');
         }
       })();
+    } else if (currentUser.privacySetting !== 'ghost') {
+      const radiusMeters = currentUser.privacySetting === 'neighborhood' ? 800 : 500;
+      const centerLat = userLocation?.lat ?? 51.5132;
+      const centerLng = userLocation?.lng ?? -0.1300;
+      const bearing = Math.random() * Math.PI * 2;
+      const distance = Math.sqrt(Math.random()) * radiusMeters;
+      const lat = centerLat + (distance * Math.cos(bearing)) / 111_320;
+      const lng = centerLng + (distance * Math.sin(bearing)) / (111_320 * Math.cos(centerLat * Math.PI / 180));
+      const categoryMap: Record<string, Pulse['activityCategory']> = {
+        Meet: 'coffee', Drinks: 'drinks', Date: 'walk', Chat: 'culture', Group: 'active',
+        Hookup: 'chill', 'Hookup · Host': 'chill', 'Hookup · Travel': 'chill',
+        'Hookup · Outdoor': 'chill', 'Hookup · Car': 'chill', Other: 'chill',
+      };
+      handleCreatePulse({
+        peerId: 'peer_me',
+        peerName: currentUser.displayName,
+        peerShortKey: currentUser.shortKey,
+        peerAvatar: currentUser.avatarSeed,
+        title: `${intent.mode.toUpperCase()} · ${intent.intent}`,
+        description: intent.description,
+        activityCategory: categoryMap[intent.intent] || 'drinks',
+        intentMode: intent.mode,
+        intent: intent.intent,
+        travelDistance: intent.travelDistance,
+        canHost: intent.canHost,
+        travelWillingness: intent.travelWillingness,
+        venueName: intent.safeHavenName || currentUser.neighborhood,
+        neighborhood: currentUser.neighborhood,
+        approxDistanceKm: 0.1,
+        jitterMeters: radiusMeters,
+        lat,
+        lng,
+        durationHours,
+        tags: [intent.intent, intent.mode, intent.when],
+        safeHavenVenue: Boolean(intent.isNearSafeHaven),
+      });
+      analytics.logEvent('intent_published', {
+        mode: intent.mode,
+        intent: intent.intent,
+        timing: intent.when,
+        privacy: currentUser.privacySetting,
+        safe_haven: Boolean(intent.isNearSafeHaven),
+        transport: 'local',
+      });
+    } else {
+      analytics.logEvent('intent_published', {
+        mode: intent.mode,
+        intent: intent.intent,
+        timing: intent.when,
+        privacy: 'ghost',
+        transport: 'local',
+      });
     }
     setIsSetIntentOpen(false);
 
@@ -1239,6 +1392,11 @@ export default function App() {
     setIntentPosts((prev) => [newPost, ...prev]);
 
     showToast(`✓ Status updated: ${intent.intent} (${intent.when})`);
+  };
+
+  const handleOpenIntentSheet = () => {
+    analytics.logEvent('intent_started');
+    setIsSetIntentOpen(true);
   };
 
   // Safety Timer Handlers
@@ -1422,7 +1580,7 @@ export default function App() {
               onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
               onGazeAtPeer={handleGazeAtPeer}
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
-              onOpenSetIntent={() => setIsSetIntentOpen(true)}
+              onOpenSetIntent={handleOpenIntentSheet}
               onUpdateActiveUserIntent={setActiveUserIntent}
               onOpenMap={() => setActiveTab('right_now')}
             />
@@ -1446,7 +1604,7 @@ export default function App() {
               onCreatePulse={handleCreatePulse}
               onGazeAtPeer={handleGazeAtPeer}
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
-              onOpenSetIntent={() => setIsSetIntentOpen(true)}
+              onOpenSetIntent={handleOpenIntentSheet}
               onSubmitInterest={handleSubmitInterest}
               onSubmitGaze={handleSubmitGaze}
               onSwitchToLater={() => setActiveTab('later')}
@@ -1480,6 +1638,7 @@ export default function App() {
               onStartCall={handleStartCall}
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
               onAcceptMeeting={handleAcceptMeeting}
+              onReturnToDiscovery={() => setActiveTab('right_now')}
               onlineUserIds={onlineUserIds}
             />
           )}

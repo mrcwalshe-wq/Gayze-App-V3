@@ -40,6 +40,18 @@ export async function updateProfileLocation(location: { lat: number; lng: number
   return true;
 }
 
+export async function clearProfileLocation() {
+  if (!supabase) return false;
+  const { data, error: authError } = await supabase.auth.getUser();
+  if (authError || !data.user) return false;
+  const { error } = await supabase.from('profiles').update({ location: null }).eq('id', data.user.id);
+  if (error) {
+    console.warn('[GAYZE] Supabase profile location cleanup failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
 export async function saveActiveIntent(intent: UserActiveIntent, location?: { lat: number; lng: number }) {
   if (!supabase) return null;
   try {
@@ -64,18 +76,29 @@ export async function saveActiveIntent(intent: UserActiveIntent, location?: { la
   }
 }
 
-export async function submitInterest(toUserId: string, intentId?: string) {
-  if (!supabase) return { mutual: false, conversation_id: null };
+export interface SubmitInterestResult {
+  sent: boolean;
+  mutual: boolean;
+  conversation_id: string | null;
+}
+
+export async function submitInterest(toUserId: string, intentId?: string): Promise<SubmitInterestResult> {
+  if (!supabase) return { sent: false, mutual: false, conversation_id: null };
   try {
     const { data, error } = await supabase.rpc('submit_interest', { p_to_user: toUserId, p_intent_id: intentId ?? null });
     if (error) {
       console.warn('[GAYZE] Supabase submit_interest unavailable:', error.message);
-      return { mutual: false, conversation_id: null };
+      return { sent: false, mutual: false, conversation_id: null };
     }
-    return data as { mutual: boolean; conversation_id: string | null };
+    const result = data as { mutual?: boolean; conversation_id?: string | null };
+    return {
+      sent: true,
+      mutual: Boolean(result.mutual),
+      conversation_id: result.conversation_id ?? null,
+    };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase submit_interest exception:', err?.message || err);
-    return { mutual: false, conversation_id: null };
+    return { sent: false, mutual: false, conversation_id: null };
   }
 }
 
@@ -298,7 +321,7 @@ export async function saveActiveIntentWithSession(
   // Never publish the device's exact GPS point as an intent location.
   // The discovery RPC returns intent.location to other users, so apply the
   // user's configured privacy radius before persisting the live intent.
-  let publishedLocation = location;
+  let publishedLocation = sourceUser.privacySetting === 'ghost' ? undefined : location;
   if (location && sourceUser.privacySetting !== 'ghost') {
     const radiusMeters = sourceUser.privacySetting === 'neighborhood' ? 800 : 500;
     const bearing = Math.random() * Math.PI * 2;

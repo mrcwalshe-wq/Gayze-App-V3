@@ -40,6 +40,7 @@ import { hapticLight, triggerVibration } from '../services/hapticService';
 import { CountdownPill } from './CountdownPill';
 import { CompatibilitySnapshot } from './CompatibilitySnapshot';
 import { TrustReputationSnapshot } from './TrustReputationSnapshot';
+import { analytics } from '../services/analyticsService';
 import { UserProfile, UserActiveIntent } from '../types';
 
 export type DiscoveryDisplayMode = 'grid' | 'feed';
@@ -1029,7 +1030,7 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
                 type="button"
                 onClick={() => {
                   hapticLight();
-                  onOpenSetIntent();
+                  onOpenSetIntent?.();
                 }}
                 className="h-10 px-4 text-xs font-bold text-white bg-[#6F3CC3] hover:bg-[#5e32a6] rounded-xl transition-colors cursor-pointer shadow"
               >
@@ -1048,7 +1049,10 @@ export const DatingGridView: React.FC<DatingGridViewProps> = ({
               return (
                 <div
                   key={profile.id}
-                  onClick={() => setSelectedProfile(profile)}
+                  onClick={() => {
+                    analytics.logEvent('profile_opened', { surface: 'discover', intent_mode: profile.intentMode || 'social' });
+                    setSelectedProfile(profile);
+                  }}
                   className="gayze-profile-card group relative bg-[#11131a] rounded-[18px] overflow-hidden border border-white/[0.08] hover:border-[#C9A24D]/50 transition-all cursor-pointer flex flex-col justify-end aspect-[3/4] select-none"
                 >
                   {/* Photo Container */}

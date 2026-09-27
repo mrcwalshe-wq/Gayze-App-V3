@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
+import { analytics } from '../services/analyticsService';
 
 interface AuthViewProps {
   onAuthenticated: () => void;
@@ -29,8 +30,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
         });
         if (error) throw error;
         if (data.session) {
+          analytics.logEvent('signup_completed');
           onAuthenticated();
         } else {
+          analytics.logEvent('signup_completed');
           setMessage('Account created. Check your email to confirm the account, then sign in.');
           setMode('signin');
         }
@@ -40,6 +43,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
           password,
         });
         if (error) throw error;
+        analytics.logEvent('login_completed');
         onAuthenticated();
       }
     } catch (error) {

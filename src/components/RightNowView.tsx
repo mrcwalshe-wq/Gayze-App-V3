@@ -14,6 +14,8 @@ export type MapDiscoveryItem =
   | { type: 'pulse'; item: Pulse }
   | { type: 'profile'; item: DatingProfile };
 
+const fallbackMapCenter: [number, number] = [51.5132, -0.1300];
+
 const spreadOverlappingCoordinate = (
   lat: number,
   lng: number,
@@ -64,6 +66,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { MAP_PROVIDERS } from '../config/mapProviders';
+import { analytics } from '../services/analyticsService';
 import {
   hapticLight,
   hapticSensitiveAction,
@@ -87,7 +90,7 @@ interface RightNowViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
-  onSubmitInterest?: (pulse: Pulse) => Promise<{ mutual: boolean; conversation_id: string | null }>;
+  onSubmitInterest?: (pulse: Pulse) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null }>;
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
   onSwitchToLater?: () => void;
 }
@@ -260,8 +263,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     const jitterRadiusMeters = privacySetting === 'neighborhood' ? 800 : privacySetting === 'ghost' ? 0 : 500;
     const jitterBearing = Math.random() * Math.PI * 2;
     const jitterDistanceMeters = Math.sqrt(Math.random()) * jitterRadiusMeters;
-    const centerLat = userLocation?.lat ?? userCenterLat;
-    const centerLng = userLocation?.lng ?? userCenterLng;
+    const centerLat = userLocation?.lat ?? fallbackMapCenter[0];
+    const centerLng = userLocation?.lng ?? fallbackMapCenter[1];
     const latJitter = centerLat + (jitterDistanceMeters * Math.cos(jitterBearing)) / 111_320;
     const lngJitter = centerLng + (jitterDistanceMeters * Math.sin(jitterBearing)) / (111_320 * Math.cos(centerLat * Math.PI / 180));
 
@@ -335,11 +338,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setInterestPendingIds((prev) => new Set(prev).add(id));
 
     try {
-      let result: { mutual: boolean; conversation_id: string | null } = { mutual: false, conversation_id: null };
+      let result = { sent: false, mutual: false, conversation_id: null as string | null };
       const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulseObj.peerId);
 
       if (looksLikeUuid && onSubmitInterest) {
         result = await onSubmitInterest(pulseObj);
+      }
+
+      if (!result.sent) {
+        showStatusMessage('Interest could not be sent. Connect to live discovery and try again.');
+        return;
       }
 
       setInterestedIds((prev) => {
@@ -512,7 +520,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     let map: L.Map;
     try {
       map = L.map(container, {
-        center: [userCenterLat, userCenterLng],
+        center: [userLocationRef.current?.lat ?? fallbackMapCenter[0], userLocationRef.current?.lng ?? fallbackMapCenter[1]],
         zoom: 14,
         minZoom: 11,
         maxZoom: 18,
@@ -526,7 +534,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         delete (container as any)._leaflet_id;
         container.innerHTML = '';
         map = L.map(container, {
-          center: [userCenterLat, userCenterLng],
+          center: [userLocationRef.current?.lat ?? fallbackMapCenter[0], userLocationRef.current?.lng ?? fallbackMapCenter[1]],
           zoom: 14,
           minZoom: 11,
           maxZoom: 18,
@@ -621,7 +629,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       zoomOut: () => map.zoomOut(),
       recenter: () => {
         const location = userLocationRef.current;
-        map.flyTo([location?.lat ?? userCenterLat, location?.lng ?? userCenterLng], 14, { duration: 0.8 });
+        map.flyTo([location?.lat ?? fallbackMapCenter[0], location?.lng ?? fallbackMapCenter[1]], 14, { duration: 0.8 });
       },
     };
 
@@ -694,7 +702,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (privacySetting !== 'ghost') {
       const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 500;
       if (showJitterCircles) {
-        L.circle([userLocation?.lat ?? userCenterLat, userLocation?.lng ?? userCenterLng], {
+        L.circle([userLocation?.lat ?? fallbackMapCenter[0], userLocation?.lng ?? fallbackMapCenter[1]], {
           radius: userJitterRadius,
           color: '#38bdf8',
           weight: 1,
@@ -709,7 +717,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       });
-      L.marker([userLocation?.lat ?? userCenterLat, userLocation?.lng ?? userCenterLng], { icon: userIcon })
+      L.marker([userLocation?.lat ?? fallbackMapCenter[0], userLocation?.lng ?? fallbackMapCenter[1]], { icon: userIcon })
         .addTo(layerGroup)
         .bindTooltip(`Approximate area · ${userNeighborhood}`, { direction: 'top', offset: [0, -6] });
     }
@@ -749,7 +757,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
         if (activeIntentMode === 'Social' && isPrivate) return;
         if (activeIntentMode === 'Private' && !isPrivate) return;
-        const coords = profileCoords[profile.id] || [51.5132 + ((idx % 3 - 1) * 0.0035), -0.1300 + (((idx + 1) % 3 - 1) * 0.004)];
+        const profileCenterLat = userLocation?.lat ?? fallbackMapCenter[0];
+        const profileCenterLng = userLocation?.lng ?? fallbackMapCenter[1];
+        const coords: [number, number] = [
+          profileCenterLat + ((idx % 3 - 1) * 0.0035),
+          profileCenterLng + (((idx + 1) % 3 - 1) * 0.004),
+        ];
         const markerCoords = spreadOverlappingCoordinate(coords[0], coords[1], occupiedMarkerCoordinates);
         const selected = selectedItem?.type === 'profile' && selectedItem.item.id === profile.id;
         const icon = L.divIcon({
@@ -762,6 +775,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
           hapticLight();
+          analytics.logEvent('profile_opened', { surface: 'right_now', kind: 'profile' });
           setSelectedItem({ type: 'profile', item: profile });
           setIsCardExpanded(false);
         });
@@ -777,8 +791,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
         if (activeIntentMode === 'Social' && isPrivate) return;
         if (activeIntentMode === 'Private' && !isPrivate) return;
-        const lat = typeof pulse.lat === 'number' && !isNaN(pulse.lat) ? pulse.lat : 51.5132 + ((idx - 2) * 0.004);
-        const lng = typeof pulse.lng === 'number' && !isNaN(pulse.lng) ? pulse.lng : -0.1300 + ((idx % 3 - 1) * 0.005);
+        const lat = typeof pulse.lat === 'number' && !isNaN(pulse.lat) ? pulse.lat : (userLocation?.lat ?? fallbackMapCenter[0]) + ((idx - 2) * 0.004);
+        const lng = typeof pulse.lng === 'number' && !isNaN(pulse.lng) ? pulse.lng : (userLocation?.lng ?? fallbackMapCenter[1]) + ((idx % 3 - 1) * 0.005);
         const jitter = typeof pulse.jitterMeters === 'number' && !isNaN(pulse.jitterMeters) ? pulse.jitterMeters : 300;
         if (showJitterCircles) {
           L.circle([lat, lng], {

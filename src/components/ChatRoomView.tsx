@@ -41,6 +41,7 @@ interface ChatRoomViewProps {
   onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
+  onReturnToDiscovery?: () => void;
   onlineUserIds?: Set<string>;
 }
 
@@ -56,6 +57,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onStartCall,
   onOpenScheduleMeeting,
   onAcceptMeeting,
+  onReturnToDiscovery,
   onlineUserIds,
 }) => {
   const [inputText, setInputText] = useState('');
@@ -339,6 +341,25 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               Decrypted in browser
             </span>
           </div>
+
+          {currentRoom.connectionContext && (
+            <div className="px-3 sm:px-4 py-2 border-b border-white/[0.06] flex items-center justify-between gap-2 text-[11px]">
+              <span className="min-w-0 truncate text-zinc-300">
+                <span className="text-[#C9A24D] font-semibold">Connected via</span>{' '}
+                {currentRoom.connectionContext.replace(/^Connected via\s*/i, '')}
+              </span>
+              {onReturnToDiscovery && (
+                <button
+                  type="button"
+                  onClick={onReturnToDiscovery}
+                  className="min-h-[44px] px-2 flex items-center gap-1 text-[#C9A24D] hover:text-white shrink-0 cursor-pointer"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Map</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Messages Feed */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">

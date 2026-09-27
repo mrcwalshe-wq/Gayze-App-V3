@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { analytics } from './analyticsService';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type CallState =
@@ -172,7 +173,7 @@ class WebRTCCallService {
         const signal = envelope.payload;
         if (signal.type === 'call-request') {
           // If already in a call, notify caller that we're busy
-          if (this.state !== 'idle') {
+          if (this.state === 'calling' || this.state === 'ringing' || this.state === 'connecting' || this.state === 'connected') {
             void this.sendDirectSignal(signal.conversationId, {
               type: 'call-decline',
               conversationId: signal.conversationId,
@@ -294,6 +295,8 @@ class WebRTCCallService {
         timestamp: Date.now(),
       });
 
+      analytics.logEvent('call_started', { type: params.callType });
+
       // 4. Auto-timeout if no answer within 35 seconds
       this.ringingTimeoutTimer = window.setTimeout(() => {
         if (this.state === 'calling' || this.state === 'ringing') {
@@ -338,6 +341,7 @@ class WebRTCCallService {
         callType: params.callType,
         timestamp: Date.now(),
       });
+      analytics.logEvent('call_started', { type: params.callType, direction: 'incoming' });
     } catch (err: any) {
       console.error('[GAYZE WebRTC] acceptCall failed:', err);
       const message = this.parseMediaError(err);
@@ -685,11 +689,15 @@ class WebRTCCallService {
    * End the call and cleanly stop all tracks and close connections
    */
   public async endCall(explicitState: CallState = 'ended'): Promise<void> {
-    if (this.callChannel && this.activeConversationId) {
+    const conversationId = this.activeConversationId;
+    const targetUserId = this.activeTargetUserId;
+    const wasRinging = this.state === 'calling' || this.state === 'ringing';
+
+    if (this.callChannel && conversationId) {
       try {
         await this.broadcastSignal({
           type: 'call-end',
-          conversationId: this.activeConversationId,
+          conversationId,
           callerId: 'self',
           timestamp: Date.now(),
         });
@@ -699,9 +707,9 @@ class WebRTCCallService {
     }
 
     // If caller cancels before callee answered, also send call-end to target user channel
-    if (supabase && this.activeTargetUserId && this.activeConversationId && (this.state === 'calling' || this.state === 'ringing')) {
+    if (supabase && targetUserId && conversationId && wasRinging) {
       const client = supabase;
-      const targetUserChan = client.channel(`gayze-user-${this.activeTargetUserId}`);
+      const targetUserChan = client.channel(`gayze-user-${targetUserId}`);
       targetUserChan.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await targetUserChan.send({
@@ -709,7 +717,7 @@ class WebRTCCallService {
             event: 'call-signal',
             payload: {
               type: 'call-end',
-              conversationId: this.activeConversationId!,
+              conversationId,
               callerId: 'self',
               timestamp: Date.now(),
             },
@@ -721,6 +729,7 @@ class WebRTCCallService {
 
     this.cleanup();
     this.setState(explicitState);
+    analytics.logEvent('call_completed', { outcome: explicitState });
   }
 
   /**

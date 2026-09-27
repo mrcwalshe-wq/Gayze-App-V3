@@ -49,6 +49,22 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const terminalCloseTimerRef = useRef<number | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCallState(isIncoming ? 'connecting' : 'calling');
+    setErrorMessage(null);
+    setDurationSeconds(0);
+    setIsMuted(false);
+    setIsVideoEnabled(initialCallType === 'video');
+    setIsSpeakerOn(true);
+  }, [isOpen, isIncoming, initialCallType, conversationId]);
 
   // Subscribe to WebRTC Call Service state and media streams
   useEffect(() => {
@@ -64,11 +80,14 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
         triggerVibration([40, 60, 120]);
       } else if (state === 'ended' || state === 'declined' || state === 'failed') {
         triggerVibration([100, 50, 100]);
-        // Auto-close modal after brief status display
-        const timer = setTimeout(() => {
-          onClose();
+        if (terminalCloseTimerRef.current !== null) window.clearTimeout(terminalCloseTimerRef.current);
+        terminalCloseTimerRef.current = window.setTimeout(() => {
+          terminalCloseTimerRef.current = null;
+          onCloseRef.current();
         }, 2200);
-        return () => clearTimeout(timer);
+      } else if (terminalCloseTimerRef.current !== null) {
+        window.clearTimeout(terminalCloseTimerRef.current);
+        terminalCloseTimerRef.current = null;
       }
     });
 
@@ -84,8 +103,18 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
     return () => {
       unsubState();
       unsubStreams();
+      if (terminalCloseTimerRef.current !== null) {
+        window.clearTimeout(terminalCloseTimerRef.current);
+        terminalCloseTimerRef.current = null;
+      }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.volume = isSpeakerOn ? 1 : 0;
+    }
+  }, [isSpeakerOn]);
 
   // Ensure media tracks are cleanly stopped if modal closes or unmounts unexpectedly
   useEffect(() => {
@@ -266,7 +295,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
           {/* Self Video Picture-in-Picture (Real Local Video) */}
           <div
             className={`absolute bottom-3 right-3 w-24 h-32 rounded-xl bg-black/80 border border-white/20 overflow-hidden shadow-2xl z-20 transition-all ${
-              isVideoEnabled ? 'block' : 'hidden'
+              initialCallType === 'video' && isVideoEnabled ? 'block' : 'hidden'
             }`}
           >
             <video
@@ -299,21 +328,23 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
           </button>
 
           {/* Camera On/Off Toggle */}
-          <button
-            onClick={handleToggleVideo}
-            className={`w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
-              !isVideoEnabled
-                ? 'bg-zinc-800 text-zinc-500 border-white/5'
-                : 'bg-[#C9A24D]/20 border-[#C9A24D]/50 text-[#C9A24D]'
-            }`}
-            aria-label={isVideoEnabled ? 'Disable camera' : 'Enable camera'}
-            title={isVideoEnabled ? 'Disable camera' : 'Enable camera'}
-          >
-            {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-          </button>
+          {initialCallType === 'video' && (
+            <button
+              onClick={handleToggleVideo}
+              className={`w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
+                !isVideoEnabled
+                  ? 'bg-zinc-800 text-zinc-500 border-white/5'
+                  : 'bg-[#C9A24D]/20 border-[#C9A24D]/50 text-[#C9A24D]'
+              }`}
+              aria-label={isVideoEnabled ? 'Disable camera' : 'Enable camera'}
+              title={isVideoEnabled ? 'Disable camera' : 'Enable camera'}
+            >
+              {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+            </button>
+          )}
 
           {/* Flip Camera (Mobile Front/Back switch) */}
-          {isVideoEnabled && (
+          {initialCallType === 'video' && isVideoEnabled && (
             <button
               onClick={handleFlipCamera}
               className="w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl bg-[#171922] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"

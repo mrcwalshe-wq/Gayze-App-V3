@@ -206,6 +206,7 @@ export interface SwarmRoom {
   type: 'direct' | 'gathering';
   peerKey?: string;
   peerUserId?: string;
+  connectionContext?: string;
   peerName?: string;
   peerNeighborhood?: string;
   peerAvatar?: string;

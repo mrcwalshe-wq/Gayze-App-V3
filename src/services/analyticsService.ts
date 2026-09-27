@@ -1,18 +1,27 @@
 import { supabase } from './supabaseClient';
 
 export type AnalyticsEvent =
+  | 'login_completed'
   | 'signup_completed'
+  | 'right_now_open'
+  | 'intent_started'
   | 'location_permission_granted'
   | 'location_permission_denied'
   | 'active_session'
   | 'intent_published'
+  | 'discovery_viewed'
   | 'discovery_session'
   | 'nearby_results_viewed'
   | 'profile_opened'
+  | 'interest_sent'
+  | 'mutual_interest'
   | 'interest_submitted'
   | 'mutual_interest_matched'
+  | 'chat_opened'
   | 'conversation_created'
   | 'message_sent'
+  | 'call_started'
+  | 'call_completed'
   | 'video_call_initiated'
   | 'video_call_connected'
   | 'video_call_ended';
