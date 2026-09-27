@@ -8,13 +8,11 @@ import {
   SocialStory,
   UserActiveIntent,
 } from '../types';
-import type { MapDiscoveryItem } from './PrivacyGeographicMap';
 
-export type { MapDiscoveryItem };
-
-const userCenterLat = 51.5132;
-const userCenterLng = -0.1300;
-
+export type MapDiscoveryItem =
+  | { type: 'haven'; item: SafeHaven }
+  | { type: 'pulse'; item: Pulse }
+  | { type: 'profile'; item: DatingProfile };
 
 const spreadOverlappingCoordinate = (
   lat: number,
@@ -37,16 +35,6 @@ const spreadOverlappingCoordinate = (
   ];
 };
 
-const profileCoords: Record<string, [number, number]> = {
-  prof_marcus: [51.5126, -0.1268],
-  prof_liam: [51.5140, -0.1280],
-  prof_soren: [51.5135, -0.1295],
-  prof_mateo: [51.5200, -0.1350],
-  prof_kenji: [51.5255, -0.1248],
-  prof_nico: [51.5130, -0.1310],
-  prof_damian: [51.5350, -0.1245],
-  prof_alex: [51.5170, -0.1200],
-};
 import { SetIntentSheet } from './SetIntentSheet';
 import { CountdownPill } from './CountdownPill';
 import { CompatibilitySnapshot } from './CompatibilitySnapshot';

@@ -21,7 +21,7 @@ export const INITIAL_USER: UserProfile = {
   displayName: 'Julian K.',
   bio: 'Architectural designer · espresso & gallery walks · advocate for digital privacy',
   avatarSeed: 'julian',
-  neighborhood: 'Soho / Covent Garden',
+  neighborhood: 'Near you',
   privacySetting: 'fuzzy_500m',
   safetyVerified: true,
   interests: ['Architecture', 'Film', 'Bouldering', 'Queer History', 'Specialty Coffee'],
