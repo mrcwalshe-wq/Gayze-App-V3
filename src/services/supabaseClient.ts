@@ -15,6 +15,7 @@ export const supabase = isSupabaseConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storageKey: GAYZE_AUTH_STORAGE_KEY,
       },
     })
   : null;
