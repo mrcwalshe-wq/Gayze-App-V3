@@ -42,33 +42,24 @@ export async function encryptPayload(
   text: string,
   roomSeedHex: string
 ): Promise<{ cipherHex: string; nonceHex: string }> {
-  try {
-    const key = await getRoomKey(roomSeedHex);
-    const nonce = window.crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
-    const encoded = new TextEncoder().encode(text);
+  const key = await getRoomKey(roomSeedHex);
+  const nonce = window.crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
+  const encoded = new TextEncoder().encode(text);
 
-    const ciphertext = await window.crypto.subtle.encrypt(
-      {
-        name: 'AES-GCM',
-        iv: nonce,
-        tagLength: 128,
-      },
-      key,
-      encoded
-    );
+  const ciphertext = await window.crypto.subtle.encrypt(
+    {
+      name: 'AES-GCM',
+      iv: nonce,
+      tagLength: 128,
+    },
+    key,
+    encoded
+  );
 
-    return {
-      cipherHex: bufToHex(ciphertext),
-      nonceHex: bufToHex(nonce.buffer),
-    };
-  } catch (err) {
-    console.error('Encryption failed:', err);
-    // Fallback if subtle crypto fails
-    return {
-      cipherHex: btoa(text),
-      nonceHex: '000000000000000000000000',
-    };
-  }
+  return {
+    cipherHex: bufToHex(ciphertext),
+    nonceHex: bufToHex(nonce.buffer),
+  };
 }
 
 // Decrypt AES-GCM 256-bit ciphertext
@@ -77,30 +68,21 @@ export async function decryptPayload(
   nonceHex: string,
   roomSeedHex: string
 ): Promise<string> {
-  try {
-    const key = await getRoomKey(roomSeedHex);
-    const nonce = hexToBuf(nonceHex);
-    const ciphertext = hexToBuf(cipherHex);
+  const key = await getRoomKey(roomSeedHex);
+  const nonce = hexToBuf(nonceHex);
+  const ciphertext = hexToBuf(cipherHex);
 
-    const decrypted = await window.crypto.subtle.decrypt(
-      {
-        name: 'AES-GCM',
-        iv: nonce as unknown as Uint8Array<ArrayBuffer>,
-        tagLength: 128,
-      },
-      key,
-      ciphertext as unknown as BufferSource
-    );
+  const decrypted = await window.crypto.subtle.decrypt(
+    {
+      name: 'AES-GCM',
+      iv: nonce as unknown as Uint8Array<ArrayBuffer>,
+      tagLength: 128,
+    },
+    key,
+    ciphertext as unknown as BufferSource
+  );
 
-    return new TextDecoder().decode(decrypted);
-  } catch (err) {
-    console.error('Decryption failed, using envelope fallback:', err);
-    try {
-      return atob(cipherHex);
-    } catch {
-      return '[Encrypted ciphertext could not be decoded]';
-    }
-  }
+  return new TextDecoder().decode(decrypted);
 }
 
 // Generate Safety Number fingerprint formatted as 12 numeric chunks like Signal/Keet

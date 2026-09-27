@@ -18,13 +18,13 @@ import { SwarmQRModal } from './components/SwarmQRModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
-import { 
-  Pulse, 
-  Gathering, 
-  SafeHaven, 
-  SwarmRoom, 
-  EncryptedMessage, 
-  UserProfile, 
+import {
+  Pulse,
+  Gathering,
+  SafeHaven,
+  SwarmRoom,
+  EncryptedMessage,
+  UserProfile,
   SafetyCheckin,
   DatingProfile,
   SwarmQRPayload,
@@ -32,13 +32,13 @@ import {
   IntentActivityPost,
   MeetingProposal
 } from './types';
-import { 
-  INITIAL_USER, 
-  INITIAL_PULSES, 
-  INITIAL_GATHERINGS, 
-  INITIAL_SAFE_HAVENS, 
-  INITIAL_ROOMS, 
-  INITIAL_MESSAGES, 
+import {
+  INITIAL_USER,
+  INITIAL_PULSES,
+  INITIAL_GATHERINGS,
+  INITIAL_SAFE_HAVENS,
+  INITIAL_ROOMS,
+  INITIAL_MESSAGES,
   INITIAL_SAFETY_CHECKIN,
   INITIAL_DATING_PROFILES,
   INITIAL_STORIES,
@@ -47,11 +47,11 @@ import {
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
 import { isSupabaseConfigured } from './services/supabaseClient';
 import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice } from './services/supabaseService';
-import { 
-  hapticQRHandshake, 
-  hapticTimerWarning, 
-  hapticTimerExpired, 
-  hapticMessageDecrypted, 
+import {
+  hapticQRHandshake,
+  hapticTimerWarning,
+  hapticTimerExpired,
+  hapticMessageDecrypted,
   hapticSensitiveAction,
   hapticLight,
   triggerVibration
@@ -66,7 +66,7 @@ export default function App() {
     const timer = window.setTimeout(() => setShowStartup(false), 300);
     return () => window.clearTimeout(timer);
   }, []);
-  
+
   // Core datasets with local state
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('gayze_user');
@@ -555,13 +555,13 @@ export default function App() {
         prev.map((r) =>
           r.id === roomId
             ? {
-                ...r,
-                verifiedViaQR: true,
-                verifiedAt: Date.now(),
-                peerReliabilityScore: peerScore,
-                lastMessage: `Verified in-person via Group QR · Reliability Score: ${peerScore}/100`,
-                lastTimestamp: Date.now(),
-              }
+              ...r,
+              verifiedViaQR: true,
+              verifiedAt: Date.now(),
+              peerReliabilityScore: peerScore,
+              lastMessage: `Verified in-person via Group QR · Reliability Score: ${peerScore}/100`,
+              lastTimestamp: Date.now(),
+            }
             : r
         )
       );
@@ -767,7 +767,13 @@ export default function App() {
         return;
       }
     } else {
-      ({ cipherHex, nonceHex } = await encryptPayload(plainText, room.swarmSecretKeyHex));
+      try {
+        ({ cipherHex, nonceHex } = await encryptPayload(plainText, room.swarmSecretKeyHex));
+      } catch (error) {
+        console.error('[GAYZE] Local message encryption failed', error);
+        showToast('Secure encryption is unavailable. Message not sent.');
+        return;
+      }
     }
 
     const newMsg: EncryptedMessage = {

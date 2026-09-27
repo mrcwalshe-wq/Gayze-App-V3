@@ -16,7 +16,7 @@
 - **Frontend:** React 19 + TypeScript + Vite. `src/App.tsx` owns navigation, most app state, and feature orchestration; feature views live in `src/components/`.
 - **Persistence:** Much of the profile, discovery, chat, event, story, and safety state is seeded and stored in `localStorage` via state initialization and effects in `src/App.tsx`; starter datasets live in `src/services/storageService.ts`.
 - **Backend:** Supabase is optional (`src/services/supabaseClient.ts`). `src/services/supabaseService.ts` has real calls for Right Now discovery/intents, interest and gaze, profiles/devices, and encrypted conversation messages. The UI falls back to local/demo behavior when the configured path is unavailable.
-- **Security:** Web Crypto and device identity/recovery logic live in `src/services/cryptoService.ts`. Some flows still create local demo rooms or simulated peers; the encryption helper contains a Base64 fallback if Web Crypto fails. Treat that fallback as a release blocker for anything presented as encrypted.
+- **Security:** Web Crypto and device identity/recovery logic live in `src/services/cryptoService.ts`. Local AES-GCM encryption now fails closed when Web Crypto fails, and the send handler reports that the message was not sent. Some flows still create local demo rooms or simulated peers, so this does not make those rooms production end-to-end encrypted.
 - **Feature surfaces:** Dating/profile browsing, live Right Now map, planned gatherings, chat, safe havens, identity/device management, QR verification, safety timer, stories, and call UI. Several are richer than their backing behavior: for example, calls progress through simulated states, and the distress action currently reports success through UI without a delivery integration.
 - **Project readiness:** No README, SQL migrations, automated test files, or visible CI workflow were found. Dependencies are installed from `bun.lock`; the lockfile was refreshed because `@supabase/supabase-js` was declared in `package.json` but missing from the lockfile. `npm run lint` passes and `npm run build` succeeds. The build still warns about `__dirname` in `vite.config.ts` and a 715 KB JavaScript chunk.
 
@@ -66,7 +66,7 @@ Start with one honest end-to-end connection journey:
 
 ### P3. Make privacy and safety behavior dependable
 
-- Remove the Base64 “encryption” fallback; fail closed and show a clear error when secure cryptography is unavailable.
+- **Done:** Removed the Base64 encryption/decryption fallbacks; local sends now fail with a clear error if AES-GCM is unavailable. `npm run lint` and `npm run build` pass after the change.
 - Review location collection, fuzzy-coordinate generation, permission denial, retention, and whether raw coordinates are stored. Verify RLS/RPC behavior against unauthorized users.
 - Ship the required check-in with a documented, tested timer and expiry behavior. Confirm whether alerts go only to the user, to trusted contacts, or to an emergency service; do not show “sent” until a configured delivery provider confirms it. If external delivery is not available for beta, explicitly label the feature as a local check-in and offer a user-controlled fallback.
 - Test identity backup/restore, device registration/revocation, data clearing, and account deletion. Avoid clearing unrelated origin-wide storage without explicit scope and confirmation.
