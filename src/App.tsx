@@ -186,7 +186,13 @@ export default function App() {
     const saved = localStorage.getItem('gayze_checkin');
     return saved ? JSON.parse(saved) : INITIAL_SAFETY_CHECKIN;
   });
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(3600);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(() => {
+    if (!checkinState.isActive) return 3600;
+    const expiresAt = checkinState.startedAt + checkinState.durationMinutes * 60 * 1000;
+    return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+  });
+  const lastRemainingSecondsRef = useRef(remainingSeconds);
+  const expiredCheckinStartedAtRef = useRef<number | null>(null);
 
   // Modals & Mask
   const [isMaskActive, setIsMaskActive] = useState(false);
@@ -321,27 +327,31 @@ export default function App() {
 
   // Safety Timer Interval with Vibration API Haptic Warnings
   useEffect(() => {
-    let interval: any = null;
-    if (checkinState.isActive && remainingSeconds > 0) {
-      interval = setInterval(() => {
-        setRemainingSeconds((prev) => {
-          // Trigger tactile haptic warning when nearing expiration (at 60s, 30s, 10s, and final 5s countdown)
-          if (prev === 61 || prev === 31 || prev === 11 || (prev <= 6 && prev > 1)) {
-            hapticTimerWarning();
-          }
+    if (!checkinState.isActive) return;
 
-          if (prev <= 1) {
-            clearInterval(interval);
-            hapticTimerExpired();
-            showToast('Safety check-in timer expired. No alert was sent.');
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [checkinState.isActive, remainingSeconds]);
+    const expiresAt = checkinState.startedAt + checkinState.durationMinutes * 60 * 1000;
+    const interval = window.setInterval(() => {
+      const nextRemainingSeconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      const previousRemainingSeconds = lastRemainingSecondsRef.current;
+      const crossedWarningThreshold = (previousRemainingSeconds > 60 && nextRemainingSeconds <= 60)
+        || (previousRemainingSeconds > 30 && nextRemainingSeconds <= 30)
+        || (previousRemainingSeconds > 10 && nextRemainingSeconds <= 10)
+        || (previousRemainingSeconds > 1 && nextRemainingSeconds <= 6);
+
+      if (crossedWarningThreshold) hapticTimerWarning();
+      lastRemainingSecondsRef.current = nextRemainingSeconds;
+      setRemainingSeconds(nextRemainingSeconds);
+
+      if (nextRemainingSeconds === 0 && expiredCheckinStartedAtRef.current !== checkinState.startedAt) {
+        expiredCheckinStartedAtRef.current = checkinState.startedAt;
+        hapticTimerExpired();
+        setCheckinState((prev) => prev.startedAt === checkinState.startedAt ? { ...prev, isActive: false } : prev);
+        showToast('Safety check-in timer expired. No alert was sent.');
+      }
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [checkinState.isActive, checkinState.startedAt, checkinState.durationMinutes]);
 
   // Keyboard shortcut: Escape enters mask mode if nothing open
   useEffect(() => {
@@ -1095,6 +1105,8 @@ export default function App() {
       durationMinutes: data.durationMinutes,
       notes: data.notes,
     });
+    lastRemainingSecondsRef.current = totalSecs;
+    expiredCheckinStartedAtRef.current = null;
     setRemainingSeconds(totalSecs);
     setIsSafetyTimerOpen(false);
     showToast(`Local check-in timer started for ${data.durationMinutes} minutes at ${data.venueName}`);
@@ -1102,6 +1114,7 @@ export default function App() {
 
   const handleExtendTimer = (extraMinutes: number) => {
     hapticSensitiveAction();
+    setCheckinState((prev) => ({ ...prev, durationMinutes: prev.durationMinutes + extraMinutes }));
     setRemainingSeconds((prev) => prev + extraMinutes * 60);
     showToast(`✓ Safety check-in extended by ${extraMinutes} minutes.`);
   };
