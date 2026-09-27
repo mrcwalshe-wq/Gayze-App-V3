@@ -180,20 +180,12 @@ export function subscribeToRightNow(onChange: () => void) {
 export async function ensureSupabaseSession() {
   if (!supabase) return null;
   try {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      console.warn('[GAYZE] Supabase getSession info:', sessionError.message);
-    }
-    if (sessionData?.session?.user) return sessionData.session.user;
-
-    const { data, error } = await supabase.auth.signInAnonymously();
+    const { data, error } = await supabase.auth.getSession();
     if (error) {
-      // Anonymous sign-ins are disabled on this Supabase project or provider is turned off.
-      // Gracefully return null so the app continues seamlessly with peer-to-peer / local mode.
-      console.warn('[GAYZE] Supabase anonymous sign-in unavailable (disabled on project):', error.message);
+      console.warn('[GAYZE] Supabase getSession info:', error.message);
       return null;
     }
-    return data.user;
+    return data.session?.user ?? null;
   } catch (err: any) {
     console.warn('[GAYZE] Supabase session check error:', err?.message || err);
     return null;
