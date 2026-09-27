@@ -208,10 +208,12 @@ export async function ensureSupabaseSession() {
 export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL_USER, identityPublicKey?: string) {
   if (!supabase) return null;
   try {
+    const sanitizedHandle = String(sourceUser.handle ?? 'gayze-user').trim() || 'gayze-user';
+    const sanitizedDisplayName = String(sourceUser.displayName ?? 'Gayze User').trim() || 'Gayze User';
     const { data, error } = await supabase.from('profiles').upsert({
       id: userId,
-      handle: sourceUser.handle || 'gayze-user',
-      display_name: sourceUser.displayName || 'Gayze User',
+      handle: sanitizedHandle,
+      display_name: sanitizedDisplayName,
       bio: sourceUser.bio || null,
       age: null,
       privacy_setting: sourceUser.privacySetting || 'fuzzy_500m',

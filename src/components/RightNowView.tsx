@@ -113,6 +113,19 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onSubmitGaze,
   onSwitchToLater,
 }) => {
+  const userCenterLat = 51.5132;
+  const userCenterLng = -0.1300;
+  const profileCoords: Record<string, [number, number]> = {
+    prof_marcus: [51.5126, -0.1268],
+    prof_liam: [51.5140, -0.1280],
+    prof_soren: [51.5135, -0.1295],
+    prof_mateo: [51.5200, -0.1350],
+    prof_kenji: [51.5255, -0.1248],
+    prof_nico: [51.5130, -0.1310],
+    prof_damian: [51.5350, -0.1245],
+    prof_alex: [51.5170, -0.1200],
+  };
+
   // 1. User's Personal Active Right Now Intent State
   const [localActiveUserIntent, setLocalActiveUserIntent] = useState<UserActiveIntent | null>(() => {
     try {
@@ -260,8 +273,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     const jitterRadiusMeters = privacySetting === 'neighborhood' ? 800 : privacySetting === 'ghost' ? 0 : 500;
     const jitterBearing = Math.random() * Math.PI * 2;
     const jitterDistanceMeters = Math.sqrt(Math.random()) * jitterRadiusMeters;
-    const centerLat = userLocation?.lat ?? userCenterLat;
-    const centerLng = userLocation?.lng ?? userCenterLng;
+    const fallbackCenterLat = userLocation?.lat ?? userCenterLat;
+    const fallbackCenterLng = userLocation?.lng ?? userCenterLng;
+    const centerLat = fallbackCenterLat;
+    const centerLng = fallbackCenterLng;
     const latJitter = centerLat + (jitterDistanceMeters * Math.cos(jitterBearing)) / 111_320;
     const lngJitter = centerLng + (jitterDistanceMeters * Math.sin(jitterBearing)) / (111_320 * Math.cos(centerLat * Math.PI / 180));
 

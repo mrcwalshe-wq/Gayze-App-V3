@@ -1,0 +1,26 @@
+- generic [ref=e3]:
+  - generic [ref=e4]: Live location unavailable. Enable location permission to centre the map and appear correctly in proximity discovery.
+  - banner [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - button "GAYZE Home" [ref=e8] [cursor=pointer]:
+          - img "GAYZE" [ref=e11]
+          - generic [ref=e12]: GAYZE
+        - generic [ref=e14]: P2P ENCRYPTED
+      - navigation [ref=e17]:
+        - button "Discover" [ref=e18] [cursor=pointer]
+        - button "Map" [ref=e22] [cursor=pointer]
+        - button "Later" [ref=e27] [cursor=pointer]
+        - button "Groups" [ref=e31] [cursor=pointer]
+        - button "Safe Havens" [ref=e35] [cursor=pointer]
+      - generic [ref=e39]:
+        - button "Safety Check-in Timer" [ref=e40] [cursor=pointer]:
+          - generic [ref=e43]: Safety
+        - button "QR Code Key Exchange" [ref=e44] [cursor=pointer]:
+          - generic [ref=e51]: Verify
+          - generic [ref=e52]: "94"
+        - button "Toggle Discreet Mask" [ref=e53] [cursor=pointer]:
+          - generic [ref=e59]: Mask
+        - button "Open Identity Settings" [ref=e60] [cursor=pointer]: JK
+  - main [ref=e61]:
+    - generic [ref=e62]: Loading view…

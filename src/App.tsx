@@ -83,12 +83,16 @@ export default function App() {
     let disposed = false;
     void supabase.auth.getSession().then(({ data }) => {
       if (disposed) return;
-      setIsAuthenticated(Boolean(data.session?.user));
+      const user = data.session?.user;
+      setIsAuthenticated(Boolean(user));
+      if (user) syncAuthenticatedProfile(user);
       setAuthReady(true);
     });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(Boolean(session?.user));
+      const user = session?.user;
+      setIsAuthenticated(Boolean(user));
+      if (user) syncAuthenticatedProfile(user);
       setAuthReady(true);
     });
 
@@ -99,6 +103,32 @@ export default function App() {
   }, []);
 
   const lastSyncedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  const syncAuthenticatedProfile = (user: { email?: string | null; user_metadata?: Record<string, unknown> } | null | undefined) => {
+    if (!user) return;
+
+    const meta = user.user_metadata ?? {};
+    const derivedDisplayName = String(
+      meta.display_name ?? meta.name ?? meta.full_name ?? user.email?.split('@')[0] ?? 'Gayze User'
+    ).trim() || 'Gayze User';
+
+    const derivedHandle = (() => {
+      const handleFromMeta = typeof meta.handle === 'string' ? meta.handle.trim() : '';
+      if (handleFromMeta) return handleFromMeta;
+      const emailPrefix = user.email?.split('@')[0]?.trim();
+      return emailPrefix ? `@${emailPrefix}` : '@gayze-user';
+    })();
+
+    setCurrentUser((prev) => ({
+      ...prev,
+      displayName: derivedDisplayName,
+      handle: derivedHandle,
+      neighborhood: typeof meta.neighborhood === 'string' && meta.neighborhood.trim() ? meta.neighborhood : prev.neighborhood,
+      privacySetting: typeof meta.privacy_setting === 'string' ? (meta.privacy_setting as UserProfile['privacySetting']) : prev.privacySetting,
+      reliabilityScore: typeof meta.reliability_score === 'number' ? meta.reliability_score : prev.reliabilityScore,
+      verifiedPeersCount: typeof meta.verified_peers_count === 'number' ? meta.verified_peers_count : prev.verifiedPeersCount,
+    }));
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -316,15 +346,21 @@ export default function App() {
         }
         setSupabaseUserId(user.id);
         const identity = await getOrCreateDeviceIdentity();
+        const safeDisplayName = String(user.user_metadata?.display_name ?? currentUser.displayName ?? 'Gayze User').trim() || 'Gayze User';
         const identityUser = {
           ...currentUser,
-          displayName: user.user_metadata?.display_name || currentUser.displayName,
+          displayName: safeDisplayName,
+          handle: String(user.user_metadata?.handle ?? currentUser.handle ?? `@${user.email?.split('@')[0] ?? 'gayze-user'}`).trim() || '@gayze-user',
           publicKey: identity.fingerprint,
           shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
         };
-        if (currentUser.publicKey !== identityUser.publicKey || currentUser.shortKey !== identityUser.shortKey) {
-          setCurrentUser((prev) => ({ ...prev, publicKey: identityUser.publicKey, shortKey: identityUser.shortKey }));
-        }
+        setCurrentUser((prev) => ({
+          ...prev,
+          displayName: identityUser.displayName,
+          handle: identityUser.handle,
+          publicKey: identityUser.publicKey,
+          shortKey: identityUser.shortKey,
+        }));
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
         try {
           await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48), identity.signingPublicKeyJwkString, identity.deviceId);

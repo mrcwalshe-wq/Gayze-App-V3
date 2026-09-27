@@ -1,0 +1,72 @@
+- generic [ref=f15e3]:
+  - generic [ref=f15e4]: Live location unavailable. Enable location permission to centre the map and appear correctly in proximity discovery.
+  - banner [ref=f15e5]:
+    - generic [ref=f15e6]:
+      - generic [ref=f15e7]:
+        - button "GAYZE Home" [ref=f15e8] [cursor=pointer]:
+          - img "GAYZE" [ref=f15e11]
+          - generic [ref=f15e12]: GAYZE
+        - generic [ref=f15e14]: P2P ENCRYPTED
+      - navigation [ref=f15e17]:
+        - button "Discover" [ref=f15e18] [cursor=pointer]
+        - button "Map" [ref=f15e22] [cursor=pointer]
+        - button "Later" [ref=f15e27] [cursor=pointer]
+        - button "Groups" [ref=f15e31] [cursor=pointer]
+        - button "Safe Havens" [ref=f15e35] [cursor=pointer]
+      - generic [ref=f15e39]:
+        - button "Safety Check-in Timer" [ref=f15e40] [cursor=pointer]:
+          - generic [ref=f15e43]: Safety
+        - button "QR Code Key Exchange" [ref=f15e44] [cursor=pointer]:
+          - generic [ref=f15e51]: Verify
+          - generic [ref=f15e52]: "94"
+        - button "Toggle Discreet Mask" [ref=f15e53] [cursor=pointer]:
+          - generic [ref=f15e59]: Mask
+        - button "Open Identity Settings" [ref=f15e60] [cursor=pointer]: JK
+  - main [ref=f15e61]:
+    - generic [ref=f15e62]:
+      - generic:
+        - generic:
+          - button "Set your Right Now intent" [ref=f15e64] [cursor=pointer]:
+            - generic [ref=f15e66]:
+              - generic [ref=f15e67]: Set Right Now Intent
+              - generic [ref=f15e68]: 23 nearby in Soho
+          - button "Open discovery filters" [ref=f15e71] [cursor=pointer]:
+            - generic [ref=f15e73]: Filter
+      - generic [ref=f15e75]:
+        - generic:
+          - generic:
+            - button [ref=f15e77] [cursor=pointer]
+            - button "✓" [ref=f15e80] [cursor=pointer]
+            - button "✓" [ref=f15e82] [cursor=pointer]
+            - button "✓" [ref=f15e84] [cursor=pointer]
+            - button "✓" [ref=f15e86] [cursor=pointer]
+            - button "✓" [ref=f15e88] [cursor=pointer]
+            - button [ref=f15e90] [cursor=pointer]
+            - button [ref=f15e92] [cursor=pointer]
+            - button [ref=f15e94] [cursor=pointer]
+            - button [ref=f15e96] [cursor=pointer]
+            - button [ref=f15e98] [cursor=pointer]
+            - button [ref=f15e100] [cursor=pointer]
+            - button [ref=f15e102] [cursor=pointer]
+            - button [ref=f15e104] [cursor=pointer]
+            - button [ref=f15e106] [cursor=pointer]
+            - button [ref=f15e108] [cursor=pointer]
+            - button [ref=f15e110] [cursor=pointer]
+            - button [ref=f15e112] [cursor=pointer]
+            - button "M" [ref=f15e114] [cursor=pointer]
+            - button "E" [ref=f15e116] [cursor=pointer]
+            - button "N" [ref=f15e118] [cursor=pointer]
+            - button "S" [ref=f15e120] [cursor=pointer]
+            - button "N" [ref=f15e122] [cursor=pointer]
+            - button "A" [ref=f15e124] [cursor=pointer]
+        - generic [ref=f15e126]:
+          - link "Leaflet" [ref=f15e127] [cursor=pointer]:
+            - /url: https://leafletjs.com
+          - text: "| ©"
+          - link "OpenStreetMap" [ref=f15e132] [cursor=pointer]:
+            - /url: https://www.openstreetmap.org/copyright
+          - text: contributors
+      - generic [ref=f15e133]:
+        - button "Zoom In" [ref=f15e134] [cursor=pointer]
+        - button "Zoom Out" [ref=f15e136] [cursor=pointer]
+        - button "Recenter to Soho" [ref=f15e138] [cursor=pointer]
