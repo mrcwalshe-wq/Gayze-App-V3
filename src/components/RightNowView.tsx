@@ -87,6 +87,7 @@ interface RightNowViewProps {
   safeHavens: SafeHaven[];
   userNeighborhood: string;
   privacySetting?: LocationPrivacy;
+  userLocation?: { lat: number; lng: number } | null;
   datingProfiles?: DatingProfile[];
   stories?: SocialStory[];
   activeUserIntent?: UserActiveIntent | null;
@@ -107,6 +108,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   safeHavens,
   userNeighborhood,
   privacySetting = 'fuzzy_500m',
+  userLocation = null,
   datingProfiles = [],
   stories = [],
   activeUserIntent: propActiveUserIntent,
@@ -182,9 +184,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const activeTileLayerRef = useRef<L.TileLayer | null>(null);
   const mapTileRetryRef = useRef<(() => void) | null>(null);
   const mapControlsRef = useRef<{ zoomIn: () => void; zoomOut: () => void; recenter: () => void } | null>(null);
+  const userLocationRef = useRef(userLocation);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [mapTilesUnavailable, setMapTilesUnavailable] = useState<boolean>(false);
   const [currentProviderIndex, setCurrentProviderIndex] = useState<number>(0);
+
+  useEffect(() => {
+    userLocationRef.current = userLocation;
+    if (userLocation && mapInstanceRef.current) {
+      mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], Math.max(mapInstanceRef.current.getZoom(), 14), { animate: true });
+    }
+  }, [userLocation]);
 
   // 3. Filtering States
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
@@ -260,8 +270,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     const jitterRadiusMeters = privacySetting === 'neighborhood' ? 800 : privacySetting === 'ghost' ? 0 : 500;
     const jitterBearing = Math.random() * Math.PI * 2;
     const jitterDistanceMeters = Math.sqrt(Math.random()) * jitterRadiusMeters;
-    const latJitter = userCenterLat + (jitterDistanceMeters * Math.cos(jitterBearing)) / 111_320;
-    const lngJitter = userCenterLng + (jitterDistanceMeters * Math.sin(jitterBearing)) / (111_320 * Math.cos(userCenterLat * Math.PI / 180));
+    const centerLat = userLocation?.lat ?? userCenterLat;
+    const centerLng = userLocation?.lng ?? userCenterLng;
+    const latJitter = centerLat + (jitterDistanceMeters * Math.cos(jitterBearing)) / 111_320;
+    const lngJitter = centerLng + (jitterDistanceMeters * Math.sin(jitterBearing)) / (111_320 * Math.cos(centerLat * Math.PI / 180));
 
     // Publish to the map as a live pulse
     onCreatePulse({
@@ -592,7 +604,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     mapControlsRef.current = {
       zoomIn: () => map.zoomIn(),
       zoomOut: () => map.zoomOut(),
-      recenter: () => map.flyTo([userCenterLat, userCenterLng], 14, { duration: 0.8 }),
+      recenter: () => {
+        const location = userLocationRef.current;
+        map.flyTo([location?.lat ?? userCenterLat, location?.lng ?? userCenterLng], 14, { duration: 0.8 });
+      },
     };
 
     const invalidate = () => {
@@ -664,7 +679,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (privacySetting !== 'ghost') {
       const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 500;
       if (showJitterCircles) {
-        L.circle([userCenterLat, userCenterLng], {
+        L.circle([userLocation?.lat ?? userCenterLat, userLocation?.lng ?? userCenterLng], {
           radius: userJitterRadius,
           color: '#38bdf8',
           weight: 1,
@@ -679,7 +694,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       });
-      L.marker([userCenterLat, userCenterLng], { icon: userIcon })
+      L.marker([userLocation?.lat ?? userCenterLat, userLocation?.lng ?? userCenterLng], { icon: userIcon })
         .addTo(layerGroup)
         .bindTooltip(`Approximate area · ${userNeighborhood}`, { direction: 'top', offset: [0, -6] });
     }
@@ -789,6 +804,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     privacySetting,
     userNeighborhood,
     selectedItem,
+    userLocation,
   ]);
 
   return (
