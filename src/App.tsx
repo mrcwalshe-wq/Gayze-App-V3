@@ -12,6 +12,9 @@ import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
+import { AuthView } from './components/AuthView';
+import { supabase, isSupabaseConfigured } from './services/supabaseClient';
+import { watchCurrentLocation, type GeoLocation } from './services/locationService';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
@@ -46,7 +49,6 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { isSupabaseConfigured } from './services/supabaseClient';
 import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice } from './services/supabaseService';
 import {
   hapticQRHandshake,
@@ -67,6 +69,51 @@ export default function App() {
     const timer = window.setTimeout(() => setShowStartup(false), 300);
     return () => window.clearTimeout(timer);
   }, []);
+
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [isAuthenticated, setIsAuthenticated] = useState(!isSupabaseConfigured);
+  const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    let disposed = false;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (disposed) return;
+      setIsAuthenticated(Boolean(data.session?.user));
+      setAuthReady(true);
+    });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(Boolean(session?.user));
+      setAuthReady(true);
+    });
+
+    return () => {
+      disposed = true;
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setUserLocation(null);
+      return;
+    }
+
+    const stop = watchCurrentLocation(
+      (location) => {
+        setUserLocation(location);
+        setLocationError(null);
+      },
+      (error) => {
+        setLocationError(error?.message || 'Location permission is unavailable.');
+      },
+    );
+
+    return stop;
+  }, [isAuthenticated]);
 
   // Core datasets with local state
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
@@ -1041,16 +1088,9 @@ export default function App() {
     if (isSupabaseConfigured) {
       void (async () => {
         try {
-          let location: { lat: number; lng: number } | undefined;
-          if ('geolocation' in navigator) {
-            location = await new Promise<{ lat: number; lng: number } | undefined>((resolve) => {
-              navigator.geolocation.getCurrentPosition(
-                (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
-                () => resolve(undefined),
-                { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
-              );
-            });
-          }
+          const location = userLocation
+            ? { lat: userLocation.lat, lng: userLocation.lng }
+            : undefined;
           await saveActiveIntentWithSession(intent, location, currentUser, currentUser.publicKey);
           const rows = await discoverRightNow({ radiusMeters: 5000 });
           setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
@@ -1226,6 +1266,11 @@ export default function App() {
     return <DiscreetMaskView onExitMask={() => setIsMaskActive(false)} />;
   }
 
+  if (isSupabaseConfigured && (!authReady || !isAuthenticated)) {
+    if (!authReady) return <GayzeLoadingScreen mode="startup" />;
+    return <AuthView onAuthenticated={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <div className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#090a0f] text-[#f1f3f7] flex flex-col font-sans selection:bg-[#C9A24D]/25 selection:text-[#C9A24D]">
       {/* Toast Notification */}
@@ -1285,6 +1330,7 @@ export default function App() {
               safeHavens={safeHavens}
               userNeighborhood={currentUser.neighborhood}
               privacySetting={currentUser.privacySetting}
+              userLocation={userLocation}
               datingProfiles={datingProfiles}
               stories={stories}
               activeUserIntent={activeUserIntent}
