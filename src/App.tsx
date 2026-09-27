@@ -1466,6 +1466,12 @@ export default function App() {
         devices={identityDevices}
         currentDeviceFingerprint={currentDeviceFingerprint}
         onRevokeDevice={handleRevokeDevice}
+        onSignOut={async () => {
+          if (supabase) await supabase.auth.signOut();
+          setIsAuthenticated(false);
+          setSupabaseUserId(null);
+          setIsIdentityOpen(false);
+        }}
       />
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
