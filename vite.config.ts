@@ -20,7 +20,8 @@ export default defineConfig(() => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined;
             if (id.includes('leaflet')) return 'map-vendor';
-            if (id.includes('@zxing') || id.includes('qrcode')) return 'qr-vendor';
+            if (id.includes('@zxing')) return 'zxing-vendor';
+            if (id.includes('qrcode')) return 'qrcode-vendor';
             if (id.includes('@supabase')) return 'supabase-vendor';
             if (id.includes('lucide-react')) return 'icons-vendor';
             if (id.includes('@google/genai')) return 'ai-vendor';

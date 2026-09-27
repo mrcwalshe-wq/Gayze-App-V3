@@ -60,10 +60,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-2.5 group text-left cursor-pointer focus:outline-none"
               aria-label="GAYZE Home"
             >
-              <div className="w-10 h-7 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <GayzeLogo size={36} showWordmark={false} />
               </div>
-              <div className="flex items-baseline gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <span className="text-base sm:text-lg font-bold tracking-wider text-white uppercase font-sans">
                   GAYZE
                 </span>

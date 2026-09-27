@@ -77,6 +77,14 @@ button, input, select, textarea, [role="button"] {
   width: 100% !important;
   height: 100% !important;
   min-height: 100% !important;
+  filter: saturate(1.1) contrast(1.08) brightness(0.93) !important;
+  background-image: radial-gradient(circle at center, rgba(111, 60, 195, 0.18), transparent 52%),
+    linear-gradient(180deg, #090b12 0%, #07080b 100%) !important;
+}
+
+.gayze-dark-cartography .leaflet-tile,
+.leaflet-tile-pane.gayze-dark-cartography .leaflet-tile {
+  filter: brightness(1) contrast(1.08) saturate(1.1) !important;
 }
 
 .gayze-leaflet-map {
@@ -90,7 +98,56 @@ button, input, select, textarea, [role="button"] {
 /* GAYZE Obsidian Dark filter for standard OpenStreetMap tiles */
 .gayze-osm-dark-tiles .leaflet-tile,
 .leaflet-tile-pane.gayze-osm-dark-tiles .leaflet-tile {
-  filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(92%) saturate(30%) !important;
+  filter: invert(100%) hue-rotate(180deg) brightness(87%) contrast(96%) saturate(32%) !important;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28) !important;
+}
+
+.leaflet-control-zoom a {
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  background: rgba(15, 17, 24, 0.94) !important;
+  color: rgba(255, 255, 255, 0.82) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(25, 28, 38, 0.97) !important;
+  color: white !important;
+}
+
+.leaflet-marker-icon,
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-user-marker,
+.custom-haven-marker,
+.custom-person-marker,
+.custom-pulse-marker {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.36));
+}
+
+.leaflet-tooltip {
+  background: rgba(11, 12, 18, 0.95) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  border-radius: 10px !important;
+  color: rgba(255,255,255,0.9) !important;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.28) !important;
+  padding: 7px 9px !important;
+  font-size: 10px !important;
+  letter-spacing: 0.02em !important;
+}
+
+.leaflet-tooltip-top:before {
+  border-top-color: rgba(11,12,18,0.95) !important;
 }
 
 .leaflet-popup-content-wrapper {

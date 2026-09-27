@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import QRCode from 'qrcode';
 import type { IScannerControls } from '@zxing/browser';
 import { UserProfile, DatingProfile, SwarmQRPayload, SwarmRoom } from '../types';
 import { hapticLight } from '../services/hapticService';
@@ -143,8 +142,8 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
         };
 
         const payloadString = JSON.stringify(payload);
-
-        QRCode.toDataURL(payloadString, {
+        const qrCodeModule = await import('qrcode');
+        const url = await qrCodeModule.toDataURL(payloadString, {
           width: 320,
           margin: 1.5,
           color: {
@@ -152,11 +151,9 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
             light: '#111219',
           },
           errorCorrectionLevel: 'M',
-        })
-          .then((url) => {
-            if (!cancelled) setQrDataUrl(url);
-          })
-          .catch((err) => console.error('Error generating QR code:', err));
+        });
+
+        if (!cancelled) setQrDataUrl(url);
       } catch (err) {
         console.error('Error preparing identity QR:', err);
       }

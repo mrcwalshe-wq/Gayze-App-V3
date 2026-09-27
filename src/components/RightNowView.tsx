@@ -152,6 +152,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // explicitly selects a person, pulse, or Safe Haven.
   const [selectedItem, setSelectedItem] = useState<MapDiscoveryItem | null>(null);
 
+  const glowPulseBg = useMemo(() => ({
+    background: 'radial-gradient(circle at 50% 20%, rgba(111, 60, 195, 0.18), transparent 36%), linear-gradient(180deg, rgba(14,16,23,0.96), rgba(8,9,14,0.98))',
+  }), []);
+
   const [isCardExpanded, setIsCardExpanded] = useState<boolean>(false);
 
   // 5. "I'm Interested" & Gaze States
@@ -650,8 +654,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const icon = L.divIcon({
           className: 'custom-haven-marker',
           html: `<div class="w-8 h-8 rounded-xl ${selected
-              ? 'bg-emerald-500 text-black scale-125 ring-4 ring-emerald-400/40 shadow-xl'
-              : 'bg-[#10121a] border border-emerald-500/80 text-emerald-400 shadow-lg'
+            ? 'bg-emerald-500 text-black scale-125 ring-4 ring-emerald-400/40 shadow-xl'
+            : 'bg-[#10121a] border border-emerald-500/80 text-emerald-400 shadow-lg'
             } flex items-center justify-center">✓</div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 16],
@@ -742,7 +746,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   ]);
 
   return (
-    <div className="gayze-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none bg-[#07080b]">
+    <div className="gayze-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none bg-[#07080b]" style={glowPulseBg}>
       {/* Subtle Map Tile Failure Fallback State */}
       {mapTilesUnavailable && (
         <div className="absolute top-16 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm mx-auto bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 shadow-2xl animate-in fade-in duration-200 pointer-events-auto">
@@ -783,7 +787,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   hapticLight();
                   setIsUserIntentDrawerOpen(true);
                 }}
-                className="w-full text-left bg-[#101019]/92 hover:bg-[#141420]/96 backdrop-blur-xl border border-white/[0.14] hover:border-[#6F3CC3]/55 rounded-xl px-3.5 py-2.5 transition-colors shadow-lg flex items-center justify-between gap-2.5 cursor-pointer group"
+                className="w-full text-left bg-[#101019]/92 hover:bg-[#141420]/96 backdrop-blur-xl border border-white/[0.14] hover:border-[#6F3CC3]/55 rounded-xl px-3.5 py-2.5 transition-colors shadow-[0_18px_42px_rgba(0,0,0,0.28)] flex items-center justify-between gap-2.5 cursor-pointer group"
                 aria-label="Manage your Right Now intent"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -821,7 +825,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   setIsSetIntentOpen(true);
                   onOpenSetIntent?.();
                 }}
-                className="bg-[#0e1017]/90 hover:bg-[#161822]/95 backdrop-blur-xl border border-white/[0.12] hover:border-white/25 rounded-xl px-3.5 py-2.5 transition-colors shadow-lg flex items-center gap-2.5 cursor-pointer"
+                className="bg-[#0e1017]/90 hover:bg-[#161822]/95 backdrop-blur-xl border border-white/[0.12] hover:border-white/25 rounded-xl px-3.5 py-2.5 transition-colors shadow-[0_18px_42px_rgba(0,0,0,0.24)] flex items-center gap-2.5 cursor-pointer"
                 aria-label="Set your Right Now intent"
               >
                 <span className="w-2 h-2 rounded-full bg-zinc-500 shrink-0" />
@@ -846,9 +850,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 setIsFilterDrawerOpen(true);
               }}
-              className={`h-11 min-h-[44px] px-3 rounded-xl backdrop-blur-xl border shadow-lg flex items-center gap-2 text-xs font-medium transition-colors cursor-pointer ${activeFilterCount > 0
-                  ? 'bg-[#181424]/92 text-white border-[#6F3CC3]/60 shadow-[0_0_12px_rgba(111,60,195,0.25)]'
-                  : 'bg-[#0e1017]/90 hover:bg-[#161822] text-zinc-300 border-white/[0.12] hover:border-white/25'
+              className={`h-11 min-h-[44px] px-3 rounded-xl backdrop-blur-xl border shadow-[0_14px_32px_rgba(0,0,0,0.2)] flex items-center gap-2 text-xs font-medium transition-colors cursor-pointer ${activeFilterCount > 0
+                ? 'bg-[#181424]/92 text-white border-[#6F3CC3]/60 shadow-[0_0_12px_rgba(111,60,195,0.25)]'
+                : 'bg-[#0e1017]/90 hover:bg-[#161822] text-zinc-300 border-white/[0.12] hover:border-white/25'
                 }`}
               aria-label="Open discovery filters"
             >
@@ -888,7 +892,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           Maintains an explicit height and handles ResizeObserver container layout changes.
          ========================================================================= */}
       <div className="w-full h-full absolute inset-0 z-0" style={{ height: '100%', minHeight: '100%', width: '100%' }}>
-        <style>{'.leaflet-control-attribution{margin-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px) + 6px)!important;margin-right:.5rem!important;padding:2px 5px!important;border-radius:5px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}'}</style>
+        <style>{'.leaflet-control-attribution{margin-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px) + 6px)!important;margin-right:.5rem!important;padding:2px 5px!important;border-radius:5px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}.leaflet-control-zoom{display:none!important}.leaflet-touch .leaflet-control-zoom{display:none!important}'}</style>
         <div
           ref={mapContainerRef}
           className="w-full h-full min-h-full overflow-hidden z-0 bg-[#07080b] rounded-none"
@@ -896,7 +900,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             height: '100%',
             minHeight: '100%',
             width: '100%',
-            backgroundImage: 'radial-gradient(circle at 50% 42%, rgba(111, 60, 195, 0.045), transparent 58%)'
+            backgroundImage: 'radial-gradient(circle at 50% 42%, rgba(111, 60, 195, 0.16), transparent 44%), radial-gradient(circle at 15% 10%, rgba(201, 162, 77, 0.08), transparent 30%)'
           }}
         />
       </div>
@@ -919,7 +923,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Zoom In"
             aria-label="Zoom In"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -933,7 +937,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Zoom Out"
             aria-label="Zoom Out"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer"
           >
             <Minus className="w-4 h-4" />
           </button>
@@ -947,7 +951,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Recenter to Soho"
             aria-label="Recenter to Soho"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 text-zinc-300 hover:text-[#C9A24D] shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 text-zinc-300 hover:text-[#C9A24D] shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer"
           >
             <Compass className="w-4 h-4 text-[#C9A24D]" />
           </button>
@@ -961,9 +965,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             }}
             title="Toggle Privacy Area Cloaking (~300m)"
             aria-label="Toggle Privacy Area"
-            className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl backdrop-blur-xl border shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer ${showJitterCircles
-                ? 'bg-[#1c152a]/90 text-[#C9A24D] border-[#6F3CC3]/60 shadow-[0_0_10px_rgba(111,60,195,0.3)]'
-                : 'bg-[#0e1017]/85 hover:bg-[#181a26] text-zinc-400 border-white/[0.12]'
+            className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl backdrop-blur-xl border shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer ${showJitterCircles
+              ? 'bg-[#1c152a]/90 text-[#C9A24D] border-[#6F3CC3]/60 shadow-[0_0_10px_rgba(111,60,195,0.3)]'
+              : 'bg-[#0e1017]/85 hover:bg-[#181a26] text-zinc-400 border-white/[0.12]'
               }`}
           >
             <ShieldCheck className="w-4 h-4" />
@@ -983,7 +987,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {selectedItem && !isCardExpanded && (
         <div className="gayze-discovery-card fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:bottom-6 left-3 right-3 max-w-lg mx-auto z-40 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-auto">
-          <div className="relative bg-[#0d0f16]/97 backdrop-blur-xl border border-white/[0.14] rounded-2xl p-3.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)]">
+          <div className="relative bg-[#0d0f16]/97 backdrop-blur-xl border border-white/[0.14] rounded-2xl p-3.5 shadow-[0_20px_52px_rgba(0,0,0,0.48)]">
             <div className="relative space-y-2.5">
               {/* Row 1: Header (Avatar, Name, Age, Intent Badge, Expand & Close triggers) */}
               <div className="flex items-start justify-between gap-2.5">
@@ -1137,8 +1141,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                         disabled={interestPendingIds.has(selectedItem.item.id)}
                         className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${interestedIds.has(selectedItem.item.id)
-                            ? 'bg-[#20182c] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
-                            : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
+                          ? 'bg-[#20182c] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
+                          : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
                           }`}
                       >
                         {interestedIds.has(selectedItem.item.id) ? (
@@ -1158,8 +1162,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         type="button"
                         onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
                         className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${gazedPeerNames.has(selectedItem.item.name)
-                            ? 'bg-[#231535] text-purple-300 border-purple-500/60'
-                            : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
+                          ? 'bg-[#231535] text-purple-300 border-purple-500/60'
+                          : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
                           }`}
                       >
                         <Eye className="w-3.5 h-3.5 text-[#C9A24D]" />
@@ -1237,7 +1241,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   {selectedItem.type === 'profile' ? (
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-lg">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-[0_12px_24px_rgba(201,162,77,0.22)]">
                       <img
                         src={selectedItem.item.photoUrl}
                         alt={selectedItem.item.name}
@@ -1248,13 +1252,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       />
                     </div>
                   ) : selectedItem.type === 'haven' ? (
-                    <div className="w-14 h-14 rounded-2xl bg-[#10221c] border-2 border-emerald-500/70 text-emerald-400 flex items-center justify-center shrink-0 shadow-lg">
+                    <div className="w-14 h-14 rounded-2xl bg-[#10221c] border-2 border-emerald-500/70 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_12px_24px_rgba(16,185,129,0.18)]">
                       <ShieldCheck className="w-7 h-7" />
                     </div>
                   ) : (
-                    <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center font-black text-xl shrink-0 shadow-lg ${selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
-                        ? 'bg-[#251538] border-purple-500 text-purple-200'
-                        : 'bg-[#251e12] border-[#C9A24D] text-[#C9A24D]'
+                    <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center font-black text-xl shrink-0 shadow-[0_12px_24px_rgba(111,60,195,0.2)] ${selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
+                      ? 'bg-[#251538] border-purple-500 text-purple-200'
+                      : 'bg-[#251e12] border-[#C9A24D] text-[#C9A24D]'
                       }`}>
                       {selectedItem.item.peerName.charAt(0)}
                     </div>
@@ -1295,10 +1299,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-zinc-400 uppercase font-semibold">Broadcast Intent</span>
                   <span className={`px-2 py-0.5 rounded-md font-bold uppercase ${selectedItem.type === 'haven'
-                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
-                      : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
-                        ? 'bg-purple-950 text-purple-300 border border-purple-500/40'
-                        : 'bg-[#C9A24D]/20 text-[#C9A24D] border border-[#C9A24D]/40'
+                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                    : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
+                      ? 'bg-purple-950 text-purple-300 border border-purple-500/40'
+                      : 'bg-[#C9A24D]/20 text-[#C9A24D] border border-[#C9A24D]/40'
                     }`}>
                     {selectedItem.type === 'haven'
                       ? `SAFE HAVEN · ★ ${selectedItem.item.safetyScore}`
@@ -1399,7 +1403,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         onSelectHaven(selectedItem.item);
                         setIsCardExpanded(false);
                       }}
-                      className="h-12 min-h-[44px] px-3 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wide font-sans shadow-lg"
+                      className="h-12 min-h-[44px] px-3 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wide font-sans shadow-[0_12px_24px_rgba(201,162,77,0.22)]"
                     >
                       <MapPin className="w-4 h-4 fill-black" />
                       <span>View Safe Haven</span>
@@ -1429,8 +1433,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                         disabled={interestPendingIds.has(selectedItem.item.id)}
                         className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${interestedIds.has(selectedItem.item.id)
-                            ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
-                            : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
+                          ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
+                          : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
                           }`}
                       >
                         {interestedIds.has(selectedItem.item.id) ? (
@@ -1450,8 +1454,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         type="button"
                         onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
                         className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${gazedPeerNames.has(selectedItem.item.name)
-                            ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
-                            : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
+                          ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
+                          : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
                           }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
@@ -1488,7 +1492,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenDirectChatWithProfile(selectedItem.item);
                         }
                       }}
-                      className="h-12 min-h-[44px] px-2 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg active:scale-98 uppercase tracking-wider font-sans"
+                      className="h-12 min-h-[44px] px-2 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[0_12px_24px_rgba(201,162,77,0.22)] active:scale-98 uppercase tracking-wider font-sans"
                     >
                       <Lock className="w-4 h-4 fill-black" />
                       <span>Message</span>
@@ -1572,8 +1576,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           setActiveCategory(cat.id as any);
                         }}
                         className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center text-center active:scale-98 ${isSelected
-                            ? 'bg-[#1c182c] text-white border-[#6F3CC3]'
-                            : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
+                          ? 'bg-[#1c182c] text-white border-[#6F3CC3]'
+                          : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
                           }`}
                       >
                         {cat.label}
@@ -1600,10 +1604,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           setActiveIntentMode(mode);
                         }}
                         className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center active:scale-98 uppercase font-mono ${isSelected
-                            ? mode === 'Private'
-                              ? 'bg-purple-950/80 text-purple-200 border-purple-500'
-                              : 'bg-[#1c182c] text-white border-[#6F3CC3]'
-                            : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
+                          ? mode === 'Private'
+                            ? 'bg-purple-950/80 text-purple-200 border-purple-500'
+                            : 'bg-[#1c182c] text-white border-[#6F3CC3]'
+                          : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
                           }`}
                       >
                         {mode}
@@ -1654,8 +1658,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           setMaxDistanceKm(dist.km);
                         }}
                         className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center font-mono ${isSelected
-                            ? 'bg-[#1e2230] text-[#C9A24D] border-[#C9A24D]/60'
-                            : 'bg-[#12141e] text-zinc-400 border-white/[0.08]'
+                          ? 'bg-[#1e2230] text-[#C9A24D] border-[#C9A24D]/60'
+                          : 'bg-[#12141e] text-zinc-400 border-white/[0.08]'
                           }`}
                       >
                         {dist.label}
@@ -1682,7 +1686,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   hapticLight();
                   setIsFilterDrawerOpen(false);
                 }}
-                className="flex-1 h-12 min-h-[44px] px-4 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg uppercase tracking-wide font-sans active:scale-98"
+                className="flex-1 h-12 min-h-[44px] px-4 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[0_12px_24px_rgba(201,162,77,0.22)] uppercase tracking-wide font-sans active:scale-98"
               >
                 <span>Show {filteredActiveCount} Active Nearby</span>
               </button>
@@ -1731,8 +1735,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <div className="p-3.5 bg-[#12141e] border border-white/[0.08] rounded-2xl space-y-2">
               <div className="flex items-baseline gap-2">
                 <span className={`text-xs font-black font-mono uppercase px-2 py-0.5 rounded border ${activeUserIntent.mode === 'private'
-                    ? 'bg-purple-950/80 text-purple-300 border-purple-500/40'
-                    : 'bg-[#C9A24D]/20 text-[#C9A24D] border-[#C9A24D]/40'
+                  ? 'bg-purple-950/80 text-purple-300 border-purple-500/40'
+                  : 'bg-[#C9A24D]/20 text-[#C9A24D] border-[#C9A24D]/40'
                   }`}>
                   {activeUserIntent.mode}
                 </span>
