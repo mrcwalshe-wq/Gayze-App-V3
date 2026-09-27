@@ -49,7 +49,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, updateProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -96,9 +96,12 @@ export default function App() {
     };
   }, []);
 
+  const lastSyncedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) {
       setUserLocation(null);
+      lastSyncedLocationRef.current = null;
       return;
     }
 
@@ -106,6 +109,18 @@ export default function App() {
       (location) => {
         setUserLocation(location);
         setLocationError(null);
+
+        if (isSupabaseConfigured && supabase) {
+          const previous = lastSyncedLocationRef.current;
+          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
+          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
+          // Avoid writing every GPS tick; refresh the server-side location after
+          // a meaningful move so proximity discovery follows the user.
+          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
+            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
+            void updateProfileLocation({ lat: location.lat, lng: location.lng });
+          }
+        }
       },
       (error) => {
         setLocationError(error?.message || 'Location permission is unavailable.');
@@ -1279,6 +1294,12 @@ export default function App() {
         <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-4 z-50 bg-[#11131a]/95 backdrop-blur-md border border-white/10 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2">
           <Shield className="w-4 h-4 text-[#C9A24D] shrink-0" />
           <span className="truncate font-medium">{notificationToast}</span>
+        </div>
+      )}
+
+      {locationError && (
+        <div className="fixed top-[calc(4.5rem+env(safe-area-inset-top,0px))] left-3 right-3 z-40 sm:left-auto sm:right-4 sm:max-w-sm rounded-xl border border-amber-400/20 bg-[#11131a]/95 backdrop-blur-md px-3 py-2.5 text-[11px] text-zinc-300 shadow-xl">
+          <span className="text-amber-300 font-semibold">Live location unavailable.</span> Enable location permission to centre the map and appear correctly in proximity discovery.
         </div>
       )}
 
