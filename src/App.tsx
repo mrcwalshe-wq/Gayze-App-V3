@@ -1725,10 +1725,23 @@ export default function App() {
         currentDeviceFingerprint={currentDeviceFingerprint}
         onRevokeDevice={handleRevokeDevice}
         onSignOut={async () => {
-          if (supabase) await supabase.auth.signOut();
-          setIsAuthenticated(false);
-          setSupabaseUserId(null);
-          setIsIdentityOpen(false);
+          try {
+            if (supabase) {
+              const { error } = await supabase.auth.signOut({ scope: 'local' });
+              if (error) {
+                console.error('[GAYZE] Sign-out failed:', error);
+                return;
+              }
+            }
+
+            // Immediately clear the app's authenticated state. The Supabase
+            // auth listener will also confirm the signed-out session.
+            setIsAuthenticated(false);
+            setSupabaseUserId(null);
+            setIsIdentityOpen(false);
+          } catch (error) {
+            console.error('[GAYZE] Sign-out exception:', error);
+          }
         }}
       />
 
