@@ -94,6 +94,7 @@ interface RightNowViewProps {
   onSubmitInterest?: (pulse: Pulse) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null }>;
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
   onSwitchToLater?: () => void;
+  onRequestLocation?: () => void;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -116,6 +117,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onSubmitInterest,
   onSubmitGaze,
   onSwitchToLater,
+  onRequestLocation,
 }) => {
   // 1. User's Personal Active Right Now Intent State
   const [localActiveUserIntent, setLocalActiveUserIntent] = useState<UserActiveIntent | null>(() => {
@@ -1013,6 +1015,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           }}
         />
       </div>
+      {!userLocation && onRequestLocation && (
+        <button
+          type="button"
+          onClick={onRequestLocation}
+          className="absolute top-[calc(env(safe-area-inset-top,0px)+88px)] left-3 z-30 flex min-h-[44px] items-center gap-2 rounded-xl border border-[#6F3CC3]/45 bg-[#11131a]/95 px-3 text-xs font-semibold text-white shadow-xl backdrop-blur-md"
+          aria-label="Use my location"
+        >
+          <MapPin className="h-4 w-4 text-[#C9A24D]" />
+          <span>Use my location</span>
+        </button>
+      )}
+
       {/* =========================================================================
           4. CLEAN FLOATING VERTICAL MAP CONTROLS
           Independent vertical group on top-right edge:
