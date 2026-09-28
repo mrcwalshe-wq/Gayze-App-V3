@@ -228,6 +228,31 @@ export async function ensureSupabaseSession() {
   }
 }
 
+export async function loadSupabaseProfile(userId: string): Promise<Partial<UserProfile> | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('display_name,handle,bio,privacy_setting,reliability_score,verified_peers_count,safety_verified,neighborhood,identity_public_key')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) {
+    console.warn('[GAYZE] Supabase profile load failed:', error.message);
+    return null;
+  }
+  if (!data) return null;
+  return {
+    displayName: data.display_name || undefined,
+    handle: data.handle || undefined,
+    bio: data.bio || '',
+    privacySetting: data.privacy_setting || undefined,
+    reliabilityScore: Number(data.reliability_score) || 94,
+    verifiedPeersCount: Number(data.verified_peers_count) || 0,
+    safetyVerified: Boolean(data.safety_verified),
+    neighborhood: data.neighborhood || 'Near you',
+    publicKey: data.identity_public_key || undefined,
+  };
+}
+
 export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL_USER, identityPublicKey?: string) {
   if (!supabase) return null;
   try {
