@@ -96,12 +96,18 @@ export const StoriesTray: React.FC<StoriesTrayProps> = ({
                 }`}
               >
                 <div className="w-full h-full rounded-[14px] overflow-hidden bg-[#090a0e] relative">
-                  <img
-                    src={story.avatarUrl}
-                    alt={story.peerName}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover object-center"
-                  />
+                  {story.avatarUrl ? (
+                    <img
+                      src={story.avatarUrl}
+                      alt={story.peerName}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover object-center"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-lg font-semibold text-zinc-300">
+                      {story.peerName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors" />
                 </div>
 
@@ -146,11 +152,17 @@ export const StoriesTray: React.FC<StoriesTrayProps> = ({
             {/* Top Bar: Peer info, time, category badge, and close */}
             <div className="relative z-10 p-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <img
-                  src={activeStory.avatarUrl}
-                  alt={activeStory.peerName}
-                  className="w-9 h-9 rounded-xl border border-white/30 object-cover"
-                />
+                {activeStory.avatarUrl ? (
+                  <img
+                    src={activeStory.avatarUrl}
+                    alt={activeStory.peerName}
+                    className="w-9 h-9 rounded-xl border border-white/30 object-cover"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-xl border border-white/30 bg-[#171922] flex items-center justify-center text-sm font-semibold text-zinc-300">
+                    {activeStory.peerName.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold text-white tracking-tight">
