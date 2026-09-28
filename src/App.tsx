@@ -79,6 +79,7 @@ export default function App() {
   const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
   const [pendingAuthEmail, setPendingAuthEmail] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const authGenerationRef = useRef(0);
   const recoverySessionRef = useRef(false);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -136,8 +137,9 @@ export default function App() {
       }
     }
 
+    const generation = authGenerationRef.current;
     void supabase.auth.getSession().then(({ data }) => {
-      if (disposed) return;
+      if (disposed || generation !== authGenerationRef.current) return;
       if (recoverySessionRef.current) {
         setIsAuthenticated(false);
         setAuthReady(true);
@@ -159,6 +161,7 @@ export default function App() {
       }
 
       if (event === 'SIGNED_OUT') {
+        authGenerationRef.current += 1;
         recoverySessionRef.current = false;
         setIsAuthenticated(false);
         setAuthReady(true);
@@ -421,18 +424,21 @@ export default function App() {
 
   // Bootstrap a real Supabase session/profile and keep Right Now discovery live.
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut) return;
     let disposed = false;
+    const generation = authGenerationRef.current;
+    const isStale = () => disposed || generation !== authGenerationRef.current;
 
     const refreshDiscovery = async () => {
       try {
         const user = await ensureSupabaseSession();
-        if (!user) {
-          if (!disposed) setSupabaseReady(false);
+        if (!user || isStale()) {
+          if (!isStale()) setSupabaseReady(false);
           return;
         }
         setSupabaseUserId(user.id);
         const identity = await getOrCreateDeviceIdentity();
+        if (isStale()) return;
         const identityUser = {
           ...currentUser,
           handle: currentUser.handle === 'julian.peer' ? 'gayze-user' : currentUser.handle,
@@ -446,6 +452,7 @@ export default function App() {
           setCurrentUser((prev) => ({ ...prev, publicKey: identityUser.publicKey, shortKey: identityUser.shortKey }));
         }
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
+        if (isStale()) return;
         const savedProfile = await loadSupabaseProfile(user.id);
         if (!disposed && savedProfile) {
           setCurrentUser((prev) => ({
@@ -460,19 +467,19 @@ export default function App() {
           await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
           setCurrentDeviceFingerprint(identity.deviceId);
           const registeredDevices = await listIdentityDevices();
-          setIdentityDevices(registeredDevices);
+          if (!isStale()) setIdentityDevices(registeredDevices);
         } catch (deviceError) {
           console.warn('[GAYZE] Device registry unavailable', deviceError);
         }
         const rows = await discoverRightNow({ radiusMeters: 5000 });
-        if (!disposed) {
+        if (!isStale()) {
           const parsed = discoveryRowsToPulses(rows, user.id);
           setSupabaseRightNowPulses(parsed);
           setSupabaseReady(true);
         }
       } catch (error) {
         console.warn('[GAYZE] Supabase Right Now sync fallback to local pulses:', error);
-        if (!disposed) setSupabaseReady(false);
+        if (!isStale()) setSupabaseReady(false);
       }
     };
 
@@ -483,7 +490,7 @@ export default function App() {
       disposed = true;
       unsubscribe();
     };
-  }, [currentUser]);
+  }, [currentUser, isAuthenticated, isSigningOut]);
 
   // WebRTC User Signaling & Truthful Presence
   useEffect(() => {
@@ -1809,8 +1816,16 @@ export default function App() {
         currentDeviceFingerprint={currentDeviceFingerprint}
         onRevokeDevice={handleRevokeDevice}
         onSignOut={async () => {
+          if (isSigningOut) return;
+          setIsSigningOut(true);
+          // Invalidate every in-flight auth/bootstrap operation before touching
+          // storage so a late getSession/discovery response cannot sign the UI
+          // back in after the user has explicitly signed out.
+          authGenerationRef.current += 1;
+          locationWatchStopRef.current?.();
+          locationWatchStopRef.current = null;
+
           try {
-            // Tell Supabase to invalidate the local session first.
             if (supabase) {
               const { error } = await supabase.auth.signOut({ scope: 'local' });
               if (error) {
@@ -1820,34 +1835,29 @@ export default function App() {
           } catch (error) {
             console.warn('[GAYZE] Supabase sign-out exception:', error);
           } finally {
-            // Defensive cleanup: remove any persisted Supabase auth token so a
-            // failed network call cannot silently restore the previous session.
-            // Remove the deterministic GAYZE session key explicitly.
             window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
             window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-
-            // Also clear any legacy Supabase auth keys left by older V3 builds.
-            for (const storage of [window.localStorage, window.sessionStorage]) {
-              for (let i = storage.length - 1; i >= 0; i -= 1) {
-                const key = storage.key(i);
-                if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-                  storage.removeItem(key);
-                }
-              }
-            }
-
             localStorage.removeItem('gayze_messages');
             localStorage.removeItem('gayze_active_user_intent');
+
             setActiveUserIntent(null);
             setSupabaseRightNowPulses([]);
-            setIsAuthenticated(false);
+            setSupabaseReady(false);
             setSupabaseUserId(null);
+            setIdentityDevices([]);
+            setCurrentDeviceFingerprint(null);
+            setOnlineUserIds(new Set());
+            setUserLocation(null);
+            setLocationError(null);
             setIsIdentityOpen(false);
+            setIsAuthenticated(false);
+            setAuthReady(true);
+            recoverySessionRef.current = false;
 
-            // Restart auth bootstrap from a clean browser session.
+            // Let React render the signed-out state before the navigation.
             window.setTimeout(() => {
               window.location.replace(window.location.origin);
-            }, 50);
+            }, 0);
           }
         }}
       />
