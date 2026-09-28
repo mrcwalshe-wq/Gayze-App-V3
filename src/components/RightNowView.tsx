@@ -502,6 +502,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (!mapContainerRef.current) return;
     const container = mapContainerRef.current;
     container.classList.add('gayze-leaflet-map');
+    container.style.position = 'absolute';
+    container.style.inset = '0';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.minHeight = '320px';
 
     if (mapInstanceRef.current) {
       try {
