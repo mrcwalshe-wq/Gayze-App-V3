@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { UserActiveIntent, Pulse, SafeHaven, UserProfile } from '../types';
+import { getProfilePhotoUrl } from './profilePhotoService';
 
 export interface RightNowDiscoveryRow {
   intent_id: string; user_id: string; display_name: string; age: number | null; bio: string | null;
@@ -662,7 +663,7 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('display_name,handle,bio,privacy_setting,reliability_score,verified_peers_count,safety_verified,neighborhood,identity_public_key')
+    .select('display_name,handle,bio,privacy_setting,reliability_score,verified_peers_count,safety_verified,neighborhood,identity_public_key,avatar_path')
     .eq('id', userId)
     .maybeSingle();
   if (error) {
@@ -670,10 +671,15 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
     return null;
   }
   if (!data) return null;
+  let avatarUrl: string | undefined = undefined;
+  if (data.avatar_path) {
+    avatarUrl = (await getProfilePhotoUrl(data.avatar_path)) || undefined;
+  }
   return {
     displayName: data.display_name || undefined,
     handle: data.handle || undefined,
     bio: data.bio || '',
+    avatarUrl,
     privacySetting: data.privacy_setting || undefined,
     // Trust signals are shown exactly as stored. A profile with no history reads
     // as 0, never as a fabricated score.
@@ -771,6 +777,20 @@ export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserI
 }
 
 /**
+ * Hydrate pulses with signed avatar URLs from the profile-photos bucket.
+ * Uses the in-memory signed URL cache to avoid redundant network calls.
+ */
+export async function resolvePulsesWithAvatars(pulses: Pulse[]): Promise<Pulse[]> {
+  return Promise.all(
+    pulses.map(async (pulse) => {
+      if (!pulse.peerAvatar || pulse.peerAvatar === 'user') return pulse;
+      const url = await getProfilePhotoUrl(pulse.peerAvatar);
+      return url ? { ...pulse, peerAvatar: url } : pulse;
+    }),
+  );
+}
+
+/**
  * Persist the live broadcast.
  *
  * Two privacy rules are enforced here:
@@ -838,6 +858,7 @@ export interface ConversationMemberProfile {
   userId: string;
   displayName: string | null;
   neighborhood: string | null;
+  avatarPath: string | null;
 }
 
 export interface MyConversations {
@@ -895,7 +916,7 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
     if (memberIds.length) {
       const { data: profileRows, error: profileError } = await supabase
         .from('profiles')
-        .select('id,display_name,neighborhood')
+        .select('id,display_name,neighborhood,avatar_path')
         .in('id', memberIds);
       if (profileError) {
         console.warn('[GAYZE] Conversation member profiles unavailable:', profileError.message);
@@ -904,6 +925,7 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
         userId: row.id as string,
         displayName: (row.display_name as string) || null,
         neighborhood: (row.neighborhood as string) || null,
+        avatarPath: (row.avatar_path as string) || null,
       }));
     }
 

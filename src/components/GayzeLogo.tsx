@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const GAYZE_LOGO_PATH = '/gayze-logo.jpg';
+export const GAYZE_LOGO_PATH = '/gayze-official-logo.webp';
 
 interface GayzeLogoProps {
   size?: number;

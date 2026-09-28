@@ -280,6 +280,12 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                     alt=""
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
+                ) : (row.item.peerAvatar && row.item.peerAvatar !== 'user') ? (
+                  <img
+                    src={row.item.peerAvatar}
+                    alt=""
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
                 ) : (
                   <span>{row.item.peerName.charAt(0)}</span>
                 )}
@@ -346,6 +352,12 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   {selected.kind === 'profile' ? (
                     <img
                       src={selected.item.photoUrl}
+                      alt=""
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (selected.item.peerAvatar && selected.item.peerAvatar !== 'user') ? (
+                    <img
+                      src={selected.item.peerAvatar}
                       alt=""
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />

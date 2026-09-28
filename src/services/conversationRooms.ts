@@ -15,6 +15,9 @@ export function buildRoomsFromSupabase(
   const nameByUser = new Map(
     result.profiles.map((profile) => [profile.userId, profile.displayName || 'Gayze member']),
   );
+  const avatarByUser = new Map(
+    result.profiles.map((profile) => [profile.userId, profile.avatarPath]),
+  );
 
   return result.summaries.map((summary) => {
     const memberIds = result.members
@@ -39,7 +42,7 @@ export function buildRoomsFromSupabase(
         type: 'direct' as const,
         peerUserId: others[0],
         peerName,
-        peerAvatar: 'user',
+        peerAvatar: avatarByUser.get(others[0]) || 'user',
         safetyNumber: '',
         swarmSecretKeyHex: '',
         lastMessage: '',

@@ -7,6 +7,7 @@ export interface UserProfile {
   displayName: string;
   bio: string;
   avatarSeed: string;
+  avatarUrl?: string;
   neighborhood: string;
   privacySetting: LocationPrivacy;
   safetyVerified: boolean;

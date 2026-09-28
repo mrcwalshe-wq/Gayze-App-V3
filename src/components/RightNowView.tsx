@@ -227,6 +227,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [isNearbyOpen, setIsNearbyOpen] = useState<boolean>(false);
   const [activeCategory, setActiveCategory] = useState<'all' | 'people' | 'coffee' | 'drinks' | 'active' | 'havens'>('all');
   const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social' | 'Private'>('All');
+  const [selectedSubIntent, setSelectedSubIntent] = useState<string | null>(null);
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
   const [maxDistanceKm, setMaxDistanceKm] = useState<number>(5);
 
@@ -404,10 +405,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     category: 'pulse' | 'haven' | 'profile';
     activityCategory?: string;
     hasIntent?: boolean;
+    specificIntent?: string;
   }): boolean => {
-    const { category, isPrivate, km, activityCategory } = input;
+    const { category, isPrivate, km, activityCategory, specificIntent } = input;
     if (activeIntentMode === 'Social' && isPrivate) return false;
     if (activeIntentMode === 'Private' && !isPrivate) return false;
+    if (selectedSubIntent && specificIntent && specificIntent !== selectedSubIntent) return false;
     if (!withinDistance(km, maxDistanceKm)) return false;
     if (category === 'haven') return activeCategory === 'all' || activeCategory === 'havens';
     if (category === 'profile') return activeCategory === 'all' || activeCategory === 'people';

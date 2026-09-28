@@ -29,6 +29,7 @@ import {
   MoreHorizontal
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
+import { getProfilePhotoUrl } from '../services/profilePhotoService';
 
 interface ChatRoomViewProps {
   rooms: SwarmRoom[];
@@ -73,6 +74,36 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [attachedMedia, setAttachedMedia] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
+  const [avatarUrls, setAvatarUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let active = true;
+    const toResolve = rooms
+      .map((r) => r.peerAvatar)
+      .filter((a): a is string => Boolean(a && a !== 'user' && !a.startsWith('http') && !avatarUrls[a]));
+
+    if (!toResolve.length) return;
+
+    void Promise.all(
+      toResolve.map(async (path) => ({
+        path,
+        url: await getProfilePhotoUrl(path),
+      }))
+    ).then((items) => {
+      if (!active) return;
+      setAvatarUrls((prev) => {
+        const next = { ...prev };
+        for (const item of items) {
+          if (item.url) next[item.path] = item.url;
+        }
+        return next;
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [rooms, avatarUrls]);
   // Local trust decisions only: a room is marked verified when the user
   // compares the real safety code out-of-band. Nothing is pre-verified and
   // nothing is asserted about a peer the user has not confirmed.
@@ -205,6 +236,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           {rooms.map((room) => {
             const isSelected = room.id === currentRoom?.id;
             const isGathering = room.type === 'gathering';
+            const roomAvatar = room.peerAvatar && room.peerAvatar !== 'user'
+              ? (avatarUrls[room.peerAvatar] || (room.peerAvatar.startsWith('http') ? room.peerAvatar : null))
+              : null;
 
             return (
               <button
@@ -216,12 +250,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   }`}
               >
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold ${isGathering
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold overflow-hidden ${isGathering
                     ? 'bg-[#171922] text-[#C9A24D] border border-[#C9A24D]/30'
                     : 'bg-[#171922] text-zinc-200 border border-white/10'
                     }`}
                 >
-                  {isGathering ? <Users className="w-4 h-4" /> : room.name.charAt(0)}
+                  {isGathering ? (
+                    <Users className="w-4 h-4" />
+                  ) : roomAvatar ? (
+                    <img src={roomAvatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    room.name.charAt(0)
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -281,8 +321,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              <div className="w-8 h-8 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0">
-                {currentRoom.type === 'gathering' ? <Users className="w-4 h-4" /> : currentRoom.name.charAt(0)}
+              <div className="w-8 h-8 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0 overflow-hidden">
+                {currentRoom.type === 'gathering' ? (
+                  <Users className="w-4 h-4" />
+                ) : (currentRoom.peerAvatar && currentRoom.peerAvatar !== 'user' && (avatarUrls[currentRoom.peerAvatar] || (currentRoom.peerAvatar.startsWith('http') ? currentRoom.peerAvatar : null))) ? (
+                  <img
+                    src={avatarUrls[currentRoom.peerAvatar] || currentRoom.peerAvatar}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  currentRoom.name.charAt(0)
+                )}
               </div>
 
               <div className="min-w-0">

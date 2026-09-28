@@ -20,7 +20,7 @@ export { type UserActiveIntent };
 interface SetIntentSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaveIntent: (intentData: UserActiveIntent) => void;
+  onSaveIntent: (intentData: UserActiveIntent) => Promise<boolean | void> | void;
   existingIntent?: UserActiveIntent | null;
   safeHavens?: SafeHaven[];
   userNeighborhood: string;
@@ -102,12 +102,16 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   const [travelWillingness, setTravelWillingness] = useState<'Yes' | 'Within reason' | 'Car required'>('Yes');
   const [useSafeHaven, setUseSafeHaven] = useState(false);
   const [selectedHaven, setSelectedHaven] = useState<SafeHaven | null>(safeHavens[0] ?? null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isEditing = Boolean(existingIntent);
   const isPrivateMode = mode === 'private';
 
   useEffect(() => {
     if (!isOpen) return;
+    setErrorMessage(null);
+    setIsSubmitting(false);
     if (existingIntent) {
       setMode(existingIntent.mode);
       setIntent(existingIntent.intent);
@@ -157,10 +161,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mode || !intent) return;
+    if (!mode || !intent || isSubmitting) return;
     hapticSensitiveAction();
+    setIsSubmitting(true);
+    setErrorMessage(null);
 
     const durationMs = (duration === '1 hr' ? 1 : 2) * 3600 * 1000;
     const activatedAt = Date.now();
@@ -171,6 +177,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       : `${userNeighborhood} (Approximate ±300m)`;
 
     const activeData: UserActiveIntent = {
+      remoteId: existingIntent?.remoteId,
       mode,
       intent,
       description: description.trim() || `Available for ${optionLabel(intent)} in ${userNeighborhood}`,
@@ -188,8 +195,18 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       isPaused: false,
     };
 
-    onSaveIntent(activeData);
-    onClose();
+    try {
+      const res = await onSaveIntent(activeData);
+      if (res === false) {
+        setErrorMessage('Could not publish your signal. Please try again.');
+      } else {
+        onClose();
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Failed to save signal. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const suggestions = intent ? QUICK_SUGGESTIONS[intent] ?? [] : [];
@@ -459,6 +476,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   </div>
                 )}
 
+                {errorMessage && (
+                  <div className="text-[12px] text-amber-300 mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    {errorMessage}
+                  </div>
+                )}
+
                 <p className="text-[11px] text-zinc-500 leading-relaxed">
                   Your position stays approximate (±300 m). The signal disappears when it expires. Precise GPS never leaves this device.
                 </p>
@@ -481,9 +504,9 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             <button
               type="submit"
               className="g-btn g-btn--primary min-w-[128px]"
-              disabled={!mode || !intent}
+              disabled={!mode || !intent || isSubmitting}
             >
-              {isEditing ? 'Update' : 'Go live'}
+              {isSubmitting ? 'Publishing…' : (isEditing ? 'Update signal' : 'Go live')}
             </button>
           </div>
         </form>
