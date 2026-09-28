@@ -192,7 +192,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-xl animate-in fade-in">
-      <div className="relative w-full max-w-sm sm:max-w-md h-[560px] sm:h-[600px] bg-[#0c0d14] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between p-5 sm:p-6">
+      <div className="relative w-full max-w-sm sm:max-w-md h-[560px] sm:h-[600px] g-panel !rounded-[22px] overflow-hidden flex flex-col justify-between p-5 sm:p-6">
         {/* Top Header: Encryption & Call Security */}
         <div className="flex items-center justify-between text-xs z-20">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-mono">

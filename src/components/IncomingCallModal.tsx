@@ -32,7 +32,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="relative w-full max-w-sm bg-[#0e1017] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6 text-center">
+      <div className="g-panel relative w-full max-w-sm p-6 !rounded-[22px] space-y-6 text-center">
         {/* Security Badge */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-mono">
           <Lock className="w-3 h-3 text-emerald-400" />

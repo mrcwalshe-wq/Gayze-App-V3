@@ -235,10 +235,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // explicitly selects a person, pulse, or Safe Haven.
   const [selectedItem, setSelectedItem] = useState<MapDiscoveryItem | null>(null);
 
-  const glowPulseBg = useMemo(() => ({
-    background: 'radial-gradient(circle at 50% 20%, rgba(111, 60, 195, 0.18), transparent 36%), linear-gradient(180deg, rgba(14,16,23,0.96), rgba(8,9,14,0.98))',
-  }), []);
-
   const [isCardExpanded, setIsCardExpanded] = useState<boolean>(false);
 
   // 5. "I'm Interested" & Gaze States
@@ -836,16 +832,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       });
 
       clusterIntents(hazePoints, 1.1)
-        .slice(0, 24)
+        .slice(0, 20)
         .forEach((cluster) => {
           const radius = hazeRadiusFor(cluster.count);
           const dense = cluster.count > 3;
-          // Outer shell first so the inner fills stack on top of it.
+          // Three bands of very low alpha resolve as one soft gradient. Only the
+          // outer shell animates, so a busy map costs three fills per hotspot and
+          // a single animated property.
           [
             { scale: 1, opacity: 0.05, layer: 'outer' },
-            { scale: 0.72, opacity: 0.05, layer: 'outer' },
-            { scale: 0.46, opacity: 0.055, layer: 'mid' },
-            { scale: 0.24, opacity: 0.06, layer: 'core' },
+            { scale: 0.62, opacity: 0.052, layer: 'mid' },
+            { scale: 0.3, opacity: 0.058, layer: 'core' },
           ].forEach((band) => {
             L.circle([cluster.lat, cluster.lng], {
               pane: 'gayzeHaze',
@@ -1012,7 +1009,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   ]);
 
   return (
-    <div className="gayze-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none bg-[#07080b]" style={glowPulseBg}>
+    <div className="g-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none">
       {/* Subtle Map Tile Failure Fallback State */}
       {mapTilesUnavailable && (
         <div className="absolute top-16 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm mx-auto g-panel p-3.5 !rounded-[18px] pointer-events-auto">

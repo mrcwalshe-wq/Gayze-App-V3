@@ -1187,6 +1187,14 @@ button, input, select, textarea, [role="button"] {
   z-index: 1;
 }
 
+/* Right Now's own backdrop: the deepest part of the room. It sits under the map
+   so tile loading and gaps never flash a different colour than the brand. */
+.g-right-now-shell {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(111, 60, 195, 0.16), transparent 38%),
+    linear-gradient(180deg, rgba(13, 15, 22, 0.97), rgba(8, 9, 14, 0.99));
+}
+
 /* Map edge transitions: the map dissolves into glass chrome instead of
    stopping at a hard boundary. */
 .g-map-edge {
@@ -1206,15 +1214,17 @@ button, input, select, textarea, [role="button"] {
   height: 190px;
   background: linear-gradient(0deg, rgba(8, 9, 13, 0.92), rgba(8, 9, 13, 0.4) 52%, transparent);
 }
-/* Violet bleed where map meets chrome — the GAYZE spatial signature. */
+/* Violet bleed where map meets chrome — the GAYZE spatial signature. It lifts
+   light from the bottom edge rather than washing colour over the map. */
 .g-map-edge--violet {
   position: absolute;
   inset: 0;
   z-index: 4;
   pointer-events: none;
+  mix-blend-mode: screen;
   background:
-    radial-gradient(120% 46% at 50% 116%, var(--g-violet-18), transparent 70%),
-    radial-gradient(90% 34% at 50% -10%, var(--g-violet-08), transparent 72%);
+    radial-gradient(120% 44% at 50% 118%, rgba(111, 60, 195, 0.16), transparent 72%),
+    radial-gradient(90% 32% at 50% -12%, rgba(111, 60, 195, 0.07), transparent 74%);
 }
 
 /* ---------- Right Now atmospheric haze --------------------------------------
@@ -1229,8 +1239,6 @@ button, input, select, textarea, [role="button"] {
   pointer-events: none;
 }
 .g-haze--outer { animation: g-haze-breathe 11s ease-in-out infinite; }
-.g-haze--mid { animation: g-haze-breathe 11s ease-in-out -1.8s infinite; }
-.g-haze--core { animation: g-haze-breathe 11s ease-in-out -3.6s infinite; }
 .g-haze--dense { mix-blend-mode: screen; }
 @keyframes g-haze-breathe {
   0%, 100% { fill-opacity: 0.045; }
@@ -1238,7 +1246,7 @@ button, input, select, textarea, [role="button"] {
 }
 .g-haze-pane { z-index: 350 !important; }
 @media (prefers-reduced-motion: reduce) {
-  .g-haze--outer, .g-haze--mid, .g-haze--core { animation: none; }
+  .g-haze { animation: none; }
 }
 
 /* A single halo of light used by the transitional screens. */

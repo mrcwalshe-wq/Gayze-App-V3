@@ -37,15 +37,15 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
             </button>
           )}
           <div className="flex items-center gap-3">
-            <span className="h-7 w-[2px] bg-gradient-to-b from-emerald-400 to-[#C9A24D]" />
+            <span className="h-7 w-[2px] rounded-full" style={{ background: 'linear-gradient(180deg, rgba(52,211,153,0.65), rgba(201,162,77,0.45))' }} />
             <div>
               <div className="g-label">Trusted places</div>
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
+              <h1 className="text-[25px] sm:text-[30px] font-semibold tracking-[-0.03em] text-white">
                 Verified Queer Safe Havens
               </h1>
             </div>
           </div>
-          <p className="text-[11px] sm:text-xs text-zinc-400 sm:max-w-md leading-relaxed">
+          <p className="text-[12.5px] text-zinc-500 sm:max-w-md leading-relaxed">
             Community-vetted venues with trained staff, emergency support, and safe meetup spaces
           </p>
         </div>
