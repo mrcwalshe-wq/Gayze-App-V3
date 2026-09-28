@@ -2020,19 +2020,27 @@ export default function App() {
           setIsAuthenticated(false);
           setAuthReady(true);
 
-          // Best-effort server-side/session cleanup. Do not block the logout UI
-          // on this request; a failed request cannot restore the local session.
+          // Close the modal immediately so the sign-out action cannot be obscured by
+          // the authenticated shell while Supabase finishes its own session cleanup.
+          setIsIdentityOpen(false);
+
+          // Best-effort server-side/session cleanup. Bound the wait so a network
+          // failure can never trap the user in the authenticated shell.
           if (supabase) {
-            void supabase.auth.signOut({ scope: 'local' }).catch((error) => {
-              console.warn('[GAYZE] Supabase local sign-out failed after local logout:', error);
-            });
+            try {
+              await Promise.race([
+                supabase.auth.signOut({ scope: 'local' }),
+                new Promise((resolve) => window.setTimeout(resolve, 1500)),
+              ]);
+            } catch (error) {
+              console.warn('[GAYZE] Supabase local sign-out failed:', error);
+            }
           }
 
-          // Do not reload the document here. React now owns the auth boundary:
-          // setIsAuthenticated(false) above immediately renders AuthView. A hard
-          // navigation can race Supabase session restoration and put the user back
-          // into the authenticated shell.
-          setIsSigningOut(false);
+          // Reload into a clean document after local credentials and application
+          // state have already been cleared. This prevents a stale Supabase
+          // bootstrap callback or browser auth refresh from restoring the shell.
+          window.location.replace(window.location.origin + '/?signed_out=1');
         }}
       />
 
