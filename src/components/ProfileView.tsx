@@ -23,6 +23,8 @@ interface ProfileViewProps {
   areaLabel?: string;
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
+  /** True while a publish/pause/end write is in flight. */
+  intentBusy?: boolean;
   onOpenSafetyTimer: () => void;
   isSafetyTimerActive: boolean;
   onOpenMask: () => void;
@@ -56,6 +58,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   areaLabel,
   onOpenSetIntent,
   onUpdateActiveUserIntent,
+  intentBusy = false,
   onOpenSafetyTimer,
   isSafetyTimerActive,
   onOpenMask,
@@ -144,7 +147,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             {areaLabel || currentUser.neighborhood} · approximate area
           </div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className="g-badge g-badge--trust">Reliability {currentUser.reliabilityScore}</span>
+            <span className="g-badge g-badge--trust">
+              {currentUser.reliabilityScore > 0
+                ? `Reliability ${currentUser.reliabilityScore}`
+                : 'No reliability history yet'}
+            </span>
             <span className="g-badge g-badge--quiet font-mono">{currentUser.shortKey}</span>
           </div>
         </div>
@@ -193,15 +200,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2 mt-4">
-              <button type="button" className="g-btn g-btn--danger-quiet !px-3.5" onClick={handleEnd}>
+              <button type="button" className="g-btn g-btn--danger-quiet !px-3.5" onClick={handleEnd} disabled={intentBusy}>
                 <X className="w-4 h-4" /> End
               </button>
-              <button type="button" className="g-btn g-btn--quiet flex-1" onClick={handlePause}>
+              <button type="button" className="g-btn g-btn--quiet flex-1" onClick={handlePause} disabled={intentBusy}>
                 {activeUserIntent.isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                 {activeUserIntent.isPaused ? 'Resume' : 'Pause'}
               </button>
-              <button type="button" className="g-btn g-btn--primary flex-1" onClick={() => { hapticLight(); onOpenSetIntent?.(); }}>
-                Edit
+              <button type="button" className="g-btn g-btn--primary flex-1" onClick={() => { hapticLight(); onOpenSetIntent?.(); }} disabled={intentBusy}>
+                {intentBusy ? 'Saving…' : 'Edit'}
               </button>
             </div>
           </>

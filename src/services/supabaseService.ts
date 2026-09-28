@@ -260,59 +260,233 @@ export async function clearProfileLocation() {
   return true;
 }
 
-export async function saveActiveIntent(intent: UserActiveIntent, location?: { lat: number; lng: number }) {
+/**
+ * Intent rows are the live source of truth for the Right Now broadcast.
+ * `intents.created_at` is not assumed to exist — ordering uses `starts_at`,
+ * which GAYZE writes on every insert.
+ */
+export interface SupabaseIntentRecord {
+  id: string;
+  expiresAt: number;
+  isPaused: boolean;
+}
+
+/** Published privacy radius for other users' intents (client-side display only). */
+export const DISCOVERY_JITTER_METERS = 300;
+
+type IntentRow = {
+  id: string;
+  mode: string | null;
+  intent: string | null;
+  description: string | null;
+  starts_at: string | null;
+  expires_at: string | null;
+  duration_label: string | null;
+  travel_distance_label: string | null;
+  travel_willingness: string | null;
+  can_host: string | null;
+  context: string | null;
+  area: string | null;
+  is_near_safe_haven: boolean | null;
+  is_paused: boolean | null;
+};
+
+const INTENT_COLUMNS = 'id,mode,intent,description,starts_at,expires_at,duration_label,travel_distance_label,travel_willingness,can_host,context,area,is_near_safe_haven,is_paused';
+
+const CAN_HOST_VALUES = ['Can host', 'Cannot host', 'Depends'] as const;
+const TRAVEL_VALUES = ['Yes', 'Within reason', 'Car required'] as const;
+const CONTEXT_VALUES = ['Private', 'Public', 'Either'] as const;
+
+/**
+ * `intents.when_label` does not exist in the schema, so the composer's timing
+ * choice is derived from the activation time on reload. See
+ * docs/BACKEND_REQUIREMENTS.md.
+ */
+function deriveIntentWhen(activatedAt: number): string {
+  const minutesAgo = (Date.now() - activatedAt) / 60000;
+  if (minutesAgo < 60) return 'Now';
+  if (minutesAgo < 180) return 'Next 1 hour';
+  if (minutesAgo < 360) return 'Next 2 hours';
+  return 'Tonight';
+}
+
+export function intentRowToActiveIntent(row: IntentRow): UserActiveIntent {
+  const activatedAt = row.starts_at ? new Date(row.starts_at).getTime() : Date.now();
+  const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : activatedAt;
+  return {
+    remoteId: row.id,
+    mode: row.mode === 'private' ? 'private' : 'social',
+    intent: (row.intent || 'Meet') as UserActiveIntent['intent'],
+    description: row.description || '',
+    when: deriveIntentWhen(activatedAt),
+    duration: row.duration_label || '2 hrs',
+    travelDistance: row.travel_distance_label || 'Within 2 km',
+    canHost: CAN_HOST_VALUES.find((value) => value === row.can_host),
+    travelWillingness: TRAVEL_VALUES.find((value) => value === row.travel_willingness),
+    context: CONTEXT_VALUES.find((value) => value === row.context),
+    area: row.area || 'Near you',
+    isNearSafeHaven: Boolean(row.is_near_safe_haven),
+    activatedAt,
+    expiresAt,
+    isPaused: Boolean(row.is_paused),
+  };
+}
+
+/**
+ * The single live intent for the authenticated user, straight from Supabase.
+ * Expired and paused rows are never returned, so a reload can never resurrect
+ * a stale broadcast.
+ */
+export async function loadActiveIntent(): Promise<UserActiveIntent | null> {
+  if (!supabase) return null;
+  const user = await ensureSupabaseSession();
+  if (!user) return null;
+  const { data, error } = await supabase
+    .from('intents')
+    .select(INTENT_COLUMNS)
+    .eq('user_id', user.id)
+    .eq('is_paused', false)
+    .gt('expires_at', new Date().toISOString())
+    .order('starts_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn('[GAYZE] Supabase loadActiveIntent unavailable:', error.message);
+    return null;
+  }
+  if (!data) return null;
+  const intent = intentRowToActiveIntent(data as IntentRow);
+  return intent.expiresAt > Date.now() ? intent : null;
+}
+
+/** Retire every other live broadcast so one account can never hold two. */
+async function retireOtherActiveIntents(userId: string, keepIntentId?: string | null) {
+  if (!supabase) return;
+  let query = supabase
+    .from('intents')
+    .update({ is_paused: true })
+    .eq('user_id', userId)
+    .eq('is_paused', false)
+    .gt('expires_at', new Date().toISOString());
+  if (keepIntentId) query = query.neq('id', keepIntentId);
+  const { error } = await query;
+  if (error) console.warn('[GAYZE] Supabase retire intents failed:', error.message);
+}
+
+export async function saveActiveIntent(
+  intent: UserActiveIntent,
+  location?: { lat: number; lng: number },
+): Promise<SupabaseIntentRecord | null> {
   if (!supabase) return null;
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) return null;
     const point = location ? 'SRID=4326;POINT(' + location.lng + ' ' + location.lat + ')' : null;
-    // GAYZE keeps one live broadcast per user. Retire any previous active intents first.
-    await supabase
-      .from('intents')
-      .update({ is_paused: true })
-      .eq('user_id', userData.user.id)
-      .eq('is_paused', false)
-      .gt('expires_at', new Date().toISOString());
+    const values = {
+      user_id: userData.user.id,
+      mode: intent.mode,
+      intent: intent.intent,
+      description: intent.description,
+      starts_at: new Date(intent.activatedAt).toISOString(),
+      expires_at: new Date(intent.expiresAt).toISOString(),
+      duration_label: intent.duration,
+      travel_distance_label: intent.travelDistance,
+      travel_willingness: intent.travelWillingness ?? null,
+      can_host: intent.canHost ?? null,
+      context: intent.context ?? null,
+      area: intent.area,
+      is_near_safe_haven: Boolean(intent.isNearSafeHaven),
+      safe_haven_id: null,
+      location: point,
+      is_paused: Boolean(intent.isPaused),
+    };
 
-    const { data, error } = await supabase.from('intents').insert({
-      user_id: userData.user.id, mode: intent.mode, intent: intent.intent, description: intent.description,
-      starts_at: new Date(intent.activatedAt).toISOString(), expires_at: new Date(intent.expiresAt).toISOString(),
-      duration_label: intent.duration, travel_distance_label: intent.travelDistance, travel_willingness: intent.travelWillingness,
-      can_host: intent.canHost, context: intent.context, area: intent.area, is_near_safe_haven: Boolean(intent.isNearSafeHaven),
-      safe_haven_id: null, location: point, is_paused: Boolean(intent.isPaused),
-    }).select('id,expires_at').single();
+    // Editing an existing broadcast updates the same row: never insert a second
+    // live intent for the same account.
+    if (intent.remoteId) {
+      const { data, error } = await supabase
+        .from('intents')
+        .update(values)
+        .eq('id', intent.remoteId)
+        .select('id,expires_at,is_paused')
+        .maybeSingle();
+      if (!error && data) {
+        await retireOtherActiveIntents(userData.user.id, intent.remoteId);
+        return {
+          id: data.id,
+          expiresAt: new Date(data.expires_at).getTime(),
+          isPaused: Boolean(data.is_paused),
+        };
+      }
+      console.warn('[GAYZE] Intent update failed, inserting a fresh broadcast:', error?.message);
+    }
+
+    await retireOtherActiveIntents(userData.user.id, null);
+    const { data, error } = await supabase
+      .from('intents')
+      .insert(values)
+      .select('id,expires_at,is_paused')
+      .single();
     if (error) {
       console.warn('[GAYZE] Supabase saveActiveIntent error:', error.message);
       return null;
     }
-    return data;
+    return {
+      id: data.id,
+      expiresAt: new Date(data.expires_at).getTime(),
+      isPaused: Boolean(data.is_paused),
+    };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase saveActiveIntent exception:', err?.message || err);
     return null;
   }
 }
 
+/** Pause or resume the live broadcast. Returns false when the write failed. */
+export async function updateActiveIntentPause(intentId: string, isPaused: boolean): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from('intents').update({ is_paused: isPaused }).eq('id', intentId);
+  if (error) {
+    console.warn('[GAYZE] Supabase intent pause update failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * End the live broadcast. `expires_at` is pushed to now so the intent stops
+ * being discoverable even if a discovery function only filters on expiry.
+ */
+export async function endActiveIntent(intentId?: string | null): Promise<boolean> {
+  if (!supabase) return false;
+  const user = await ensureSupabaseSession();
+  if (!user) return false;
+  const nowIso = new Date().toISOString();
+
+  const runUpdate = async (includeExpiry: boolean) => {
+    const values: Record<string, unknown> = { is_paused: true };
+    if (includeExpiry) values.expires_at = nowIso;
+    const base = supabase!.from('intents').update(values);
+    const scoped = intentId ? base.eq('id', intentId) : base.eq('user_id', user.id).eq('is_paused', false);
+    return scoped;
+  };
+
+  const { error } = await runUpdate(true);
+  if (error) {
+    console.warn('[GAYZE] Ending intent with expiry failed, retrying without expiry:', error.message);
+    const retry = await runUpdate(false);
+    if (retry.error) {
+      console.warn('[GAYZE] Failed to end active intent:', retry.error.message);
+      return false;
+    }
+  }
+  return true;
+}
+
 export interface SubmitInterestResult {
   sent: boolean;
   mutual: boolean;
   conversation_id: string | null;
-}
-
-export async function endActiveIntents(): Promise<boolean> {
-  if (!supabase) return false;
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return false;
-  const result = await supabase
-    .from('intents')
-    .update({ is_paused: true })
-    .eq('user_id', data.user.id)
-    .eq('is_paused', false)
-    .gt('expires_at', new Date().toISOString());
-  if (result.error) {
-    console.warn('[GAYZE] Failed to end active intents:', result.error.message);
-    return false;
-  }
-  return true;
 }
 
 export async function verifyPeerIdentity(
@@ -501,7 +675,9 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
     handle: data.handle || undefined,
     bio: data.bio || '',
     privacySetting: data.privacy_setting || undefined,
-    reliabilityScore: Number(data.reliability_score) || 94,
+    // Trust signals are shown exactly as stored. A profile with no history reads
+    // as 0, never as a fabricated score.
+    reliabilityScore: Number(data.reliability_score) || 0,
     verifiedPeersCount: Number(data.verified_peers_count) || 0,
     safetyVerified: Boolean(data.safety_verified),
     neighborhood: data.neighborhood || 'Near you',
@@ -523,11 +699,10 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
       handle: uniqueHandle,
       display_name: sourceUser.displayName || 'Gayze User',
       bio: sourceUser.bio || null,
-      age: null,
       privacy_setting: sourceUser.privacySetting || 'fuzzy_500m',
-      reliability_score: sourceUser.reliabilityScore || 94,
-      verified_peers_count: sourceUser.verifiedPeersCount || 0,
-      safety_verified: Boolean(sourceUser.safetyVerified),
+      // Reliability and verification counters are never written from the client:
+      // they are computed by the backend. Sending 0 (or a default) here would
+      // wipe a real score, so the columns are left untouched on conflict.
       neighborhood: sourceUser.neighborhood || null,
       identity_public_key: identityPublicKey ?? null,
     }, { onConflict: 'id' }).select('*').single();
@@ -546,16 +721,20 @@ export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserI
   const now = Date.now();
   return rows
     .filter((row) => {
+      // The authenticated user is never a "nearby person" in their own view.
       if (currentUserId && row.user_id === currentUserId) return false;
       const expTime = new Date(row.expires_at).getTime();
       if (!isNaN(expTime) && expTime <= now) return false;
+      if (!Number.isFinite(row.map_lat) || !Number.isFinite(row.map_lng)) return false;
       return true;
     })
     .map((row) => ({
       id: `supabase_${row.intent_id}`,
       peerId: row.user_id,
       peerName: row.display_name || 'Gayze member',
-      peerShortKey: row.user_id.slice(0, 8) + '...',
+      // A short member reference for display only. This is NOT key material and
+      // must never be used to derive a safety code or a conversation key.
+      peerShortKey: `${row.user_id.slice(0, 8)}…`,
       peerAvatar: row.avatar_path || 'user',
       peerAge: row.age ?? undefined,
       title: `${row.mode.toUpperCase()} · ${row.intent}`,
@@ -571,8 +750,11 @@ export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserI
       travelWillingness: row.travel_willingness || undefined,
       venueName: row.neighborhood || 'Nearby',
       neighborhood: row.neighborhood || 'Nearby',
-      approxDistanceKm: row.distance_m ? row.distance_m / 1000 : 0.4,
-      jitterMeters: 300,
+      // Distances are whatever the discovery function measured. Never invent one.
+      approxDistanceKm: typeof row.distance_m === 'number' && isFinite(row.distance_m)
+        ? row.distance_m / 1000
+        : 0,
+      jitterMeters: DISCOVERY_JITTER_METERS,
       lat: row.map_lat,
       lng: row.map_lng,
       durationHours: Math.max(1, Math.ceil((new Date(row.expires_at).getTime() - now) / 3600000)),
@@ -580,44 +762,160 @@ export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserI
       expiresAt: new Date(row.expires_at).getTime(),
       tags: [row.intent, row.mode],
       isPaused: false,
-      peerReliabilityScore: row.reliability_score || 95,
+      // A zero reliability score means "not established yet" — not 95.
+      peerReliabilityScore: Number(row.reliability_score) > 0 ? Number(row.reliability_score) : undefined,
       verifiedPeersCount: row.verified_peers_count || 0,
       safetyVerified: Boolean(row.safety_verified),
       bio: row.bio || undefined,
     }));
 }
 
+/**
+ * Persist the live broadcast.
+ *
+ * Two privacy rules are enforced here:
+ *  1. the device's exact GPS point is never written — the stored point is
+ *     jittered inside the user's configured privacy radius;
+ *  2. nothing about the profile is written, so the device identity key that
+ *     other clients need for E2EE can never be overwritten with a fingerprint.
+ */
 export async function saveActiveIntentWithSession(
   intent: UserActiveIntent,
   sourceUser: UserProfile,
   location?: { lat: number; lng: number },
-  identityPublicKey?: string,
-) {
+): Promise<SupabaseIntentRecord | null> {
   const user = await ensureSupabaseSession();
-  if (!user) {
-    return null;
-  }
-  // Preserve the existing device identity when this helper is used after bootstrap.
-  // Passing undefined keeps the existing identity_public_key untouched via a direct
-  // update of only the intent; profile synchronisation is only needed when explicitly
-  // supplied by the caller.
-  if (identityPublicKey) {
-    await ensureSupabaseProfile(user.id, sourceUser, identityPublicKey);
-  }
+  if (!user) return null;
 
-  // Never publish the device's exact GPS point as an intent location.
-  // The discovery RPC returns intent.location to other users, so apply the
-  // user's configured privacy radius before persisting the live intent.
-  let publishedLocation = sourceUser.privacySetting === 'ghost' ? undefined : location;
+  let publishedLocation: { lat: number; lng: number } | undefined;
   if (location && sourceUser.privacySetting !== 'ghost') {
-    const radiusMeters = sourceUser.privacySetting === 'neighborhood' ? 800 : 500;
-    const bearing = Math.random() * Math.PI * 2;
-    const distance = Math.sqrt(Math.random()) * radiusMeters;
-    const lat = location.lat + (distance * Math.cos(bearing)) / 111_320;
-    const lng = location.lng + (distance * Math.sin(bearing)) / (111_320 * Math.cos(location.lat * Math.PI / 180));
-    publishedLocation = { lat, lng };
+    publishedLocation = jitterLocation(location, privacyRadiusMeters(sourceUser.privacySetting));
   }
   return saveActiveIntent(intent, publishedLocation);
+}
+
+/** Privacy radius (metres) for each location-privacy setting. */
+export function privacyRadiusMeters(setting: UserProfile['privacySetting'] | undefined): number {
+  if (setting === 'neighborhood') return 800;
+  return 500;
+}
+
+/**
+ * Privacy jitter: offsets a position by a random bearing and distance inside
+ * `radiusMeters`. The offset is random per call (not derivable from the
+ * published point), so an observer cannot recover the true position from the
+ * stored/discovered coordinate.
+ */
+export function jitterLocation(
+  location: { lat: number; lng: number },
+  radiusMeters: number,
+): { lat: number; lng: number } {
+  const bearing = Math.random() * Math.PI * 2;
+  const distance = Math.sqrt(Math.random()) * radiusMeters;
+  return {
+    lat: location.lat + (distance * Math.cos(bearing)) / 111_320,
+    lng: location.lng + (distance * Math.sin(bearing)) / (111_320 * Math.cos(location.lat * Math.PI / 180)),
+  };
+}
+
+export interface ConversationPeerKey {
+  peer_user_id: string;
+  peer_public_key: string | null;
+  peer_display_name: string | null;
+}
+
+export interface ConversationSummary {
+  id: string;
+  createdAt: string | null;
+}
+
+export interface ConversationMemberRecord {
+  conversationId: string;
+  userId: string;
+}
+
+export interface ConversationMemberProfile {
+  userId: string;
+  displayName: string | null;
+  neighborhood: string | null;
+}
+
+export interface MyConversations {
+  summaries: ConversationSummary[];
+  members: ConversationMemberRecord[];
+  profiles: ConversationMemberProfile[];
+}
+
+/**
+ * Load the authenticated user's conversations, their membership rows and the
+ * member display names, so Messages survives a reload and stays Supabase-backed.
+ *
+ * Every step degrades on its own: if a table is not readable under the current
+ * RLS policies the result is empty (an honest empty state), never fabricated.
+ */
+export async function loadMyConversations(): Promise<MyConversations | null> {
+  if (!supabase) return null;
+  const user = await ensureSupabaseSession();
+  if (!user) return null;
+  try {
+    const { data: mine, error: mineError } = await supabase
+      .from('conversation_members')
+      .select('conversation_id,user_id')
+      .eq('user_id', user.id)
+      .limit(50);
+    if (mineError) {
+      console.warn('[GAYZE] Conversation list unavailable:', mineError.message);
+      return null;
+    }
+    const conversationIds = Array.from(new Set((mine ?? []).map((row) => row.conversation_id as string)));
+    if (!conversationIds.length) return { summaries: [], members: [], profiles: [] };
+
+    const { data: summaries, error: summaryError } = await supabase
+      .from('conversations')
+      .select('id,created_at')
+      .in('id', conversationIds);
+    if (summaryError) {
+      console.warn('[GAYZE] Conversation rows unavailable:', summaryError.message);
+    }
+
+    const { data: members, error: memberError } = await supabase
+      .from('conversation_members')
+      .select('conversation_id,user_id')
+      .in('conversation_id', conversationIds);
+    if (memberError) {
+      console.warn('[GAYZE] Conversation members unavailable:', memberError.message);
+    }
+    const memberRows: ConversationMemberRecord[] = (members ?? []).map((row) => ({
+      conversationId: row.conversation_id as string,
+      userId: row.user_id as string,
+    }));
+
+    const memberIds = Array.from(new Set(memberRows.map((row) => row.userId)));
+    let profiles: ConversationMemberProfile[] = [];
+    if (memberIds.length) {
+      const { data: profileRows, error: profileError } = await supabase
+        .from('profiles')
+        .select('id,display_name,neighborhood')
+        .in('id', memberIds);
+      if (profileError) {
+        console.warn('[GAYZE] Conversation member profiles unavailable:', profileError.message);
+      }
+      profiles = (profileRows ?? []).map((row) => ({
+        userId: row.id as string,
+        displayName: (row.display_name as string) || null,
+        neighborhood: (row.neighborhood as string) || null,
+      }));
+    }
+
+    const summaryRows: ConversationSummary[] = summaryError
+      ? conversationIds.map((id) => ({ id, createdAt: null }))
+      : (summaries ?? []).map((row) => ({ id: row.id as string, createdAt: (row.created_at as string) || null }));
+
+    return { summaries: summaryRows, members: memberRows, profiles };
+  } catch (err: any) {
+    console.warn('[GAYZE] Conversation load exception:', err?.message || err);
+    return null;
+  }
 }
 
 

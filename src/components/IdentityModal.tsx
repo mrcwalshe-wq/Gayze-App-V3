@@ -194,7 +194,10 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
             </div>
             <div>
               <div className="text-xs font-semibold text-white">
-                Reliability Score: <span className="text-[#C9A24D] font-mono">{user.reliabilityScore || 94}/100</span>
+                Reliability Score:{' '}
+                <span className="text-[#C9A24D] font-mono">
+                  {user.reliabilityScore > 0 ? `${user.reliabilityScore}/100` : 'no history yet'}
+                </span>
               </div>
               <div className="text-[11px] text-zinc-400">
                 {user.verifiedPeersCount || 14} in-person Group verifications
@@ -269,7 +272,8 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                     <span>Approximate Location (~500m Blur, Recommended)</span>
                   </div>
                   <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
-                    Protects your privacy by fuzzing your coordinates by ~300m–500m. Nearby peers see your general zone without discovering your exact street.
+                    Your published position is fuzzed by ~500 m, and your exact GPS never leaves this
+                    device. Nearby peers see your general zone without discovering your street.
                   </p>
                 </div>
               </label>
@@ -285,7 +289,8 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                 <div>
                   <div className="text-xs font-medium text-white">Neighborhood Only</div>
                   <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
-                    Shows only your neighborhood name (e.g. "{user.neighborhood}"). Distance in kilometers is completely hidden.
+                    Only your neighborhood area (e.g. "{user.neighborhood}") is published, fuzzed by
+                    ~800 m. Distances shown to others are approximate.
                   </p>
                 </div>
               </label>

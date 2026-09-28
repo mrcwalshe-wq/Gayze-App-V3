@@ -5,7 +5,6 @@ import {
   SafeHaven,
   LocationPrivacy,
   DatingProfile,
-  SocialStory,
   UserActiveIntent,
 } from '../types';
 
@@ -15,6 +14,26 @@ export type MapDiscoveryItem =
   | { type: 'profile'; item: DatingProfile };
 
 const fallbackMapCenter: [number, number] = [FALLBACK_MAP_CENTER.lat, FALLBACK_MAP_CENTER.lng];
+
+/** Published privacy radius for other people's intent positions. */
+const PRIVACY_RADIUS_METERS = 300;
+
+/** Great-circle distance in km — computed on the device, never invented. */
+const haversineKm = (aLat: number, aLng: number, bLat: number, bLng: number): number => {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+};
+
+const formatDistanceKm = (km?: number): string => {
+  if (km === undefined || !isFinite(km)) return 'distance unavailable';
+  if (km < 0.1) return 'under 100 m';
+  if (km < 10) return `~${km.toFixed(1)} km`;
+  return `~${Math.round(km)} km`;
+};
 
 const spreadOverlappingCoordinate = (
   lat: number,
@@ -82,12 +101,12 @@ interface RightNowViewProps {
   privacySetting?: LocationPrivacy;
   userLocation?: { lat: number; lng: number } | null;
   datingProfiles?: DatingProfile[];
-  stories?: SocialStory[];
   activeUserIntent?: UserActiveIntent | null;
+  /** True while a publish/pause/end write is in flight. */
+  intentBusy?: boolean;
   onOpenDirectChat: (pulse: Pulse) => void;
   onOpenDirectChatWithProfile?: (profile: DatingProfile) => void;
   onSelectHaven: (haven: SafeHaven) => void;
-  onCreatePulse: (newPulse: Omit<Pulse, 'id' | 'createdAt' | 'expiresAt'>) => void;
   onGazeAtPeer?: (peerName: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
@@ -105,12 +124,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   privacySetting = 'fuzzy_500m',
   userLocation = null,
   datingProfiles = [],
-  stories = [],
-  activeUserIntent: propActiveUserIntent,
+  activeUserIntent = null,
+  intentBusy = false,
   onOpenDirectChat,
   onOpenDirectChatWithProfile,
   onSelectHaven,
-  onCreatePulse,
   onGazeAtPeer,
   onOpenScheduleMeeting,
   onOpenSetIntent,
@@ -120,30 +138,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onSwitchToLater,
   onRequestLocation,
 }) => {
-  // 1. User's Personal Active Right Now Intent State
-  const [localActiveUserIntent, setLocalActiveUserIntent] = useState<UserActiveIntent | null>(() => {
-    try {
-      const saved = localStorage.getItem('gayze_active_user_intent');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.expiresAt > Date.now()) return parsed;
-      }
-    } catch { }
-    return null;
-  });
-
-  const activeUserIntent = propActiveUserIntent !== undefined ? propActiveUserIntent : localActiveUserIntent;
+  // 1. The active Right Now signal is owned by App (Supabase in live mode).
+  //    Right Now renders it and routes every change through
+  //    `onUpdateActiveUserIntent` — it never writes intent state itself.
   const setActiveUserIntent = (val: UserActiveIntent | null) => {
-    if (onUpdateActiveUserIntent) {
-      onUpdateActiveUserIntent(val);
-    } else {
-      setLocalActiveUserIntent(val);
-    }
-    if (val) {
-      localStorage.setItem('gayze_active_user_intent', JSON.stringify(val));
-    } else {
-      localStorage.removeItem('gayze_active_user_intent');
-    }
+    onUpdateActiveUserIntent?.(val);
   };
 
   const [isUserIntentDrawerOpen, setIsUserIntentDrawerOpen] = useState<boolean>(false);
@@ -185,11 +184,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [mapTilesUnavailable, setMapTilesUnavailable] = useState<boolean>(false);
   const [currentProviderIndex, setCurrentProviderIndex] = useState<number>(0);
 
+  // Keep the latest location reachable from imperative map code. The camera move
+  // itself happens in the single `flyTo` effect below — one move per fix.
   useEffect(() => {
     userLocationRef.current = userLocation;
-    if (userLocation && mapInstanceRef.current) {
-      mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], Math.max(mapInstanceRef.current.getZoom(), 14), { animate: true });
-    }
   }, [userLocation]);
 
   // 3. Filtering States
@@ -221,26 +219,30 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [remainingMinutes, setRemainingMinutes] = useState<number>(0);
 
   useEffect(() => {
-    if (!activeUserIntent) return;
-
-    try {
-      localStorage.setItem('gayze_active_user_intent', JSON.stringify(activeUserIntent));
-    } catch { }
-
+    if (!activeUserIntent) {
+      setRemainingMinutes(0);
+      return;
+    }
+    // Display-only countdown. Expiry itself is handled where the signal lives
+    // (App / Supabase), so this never mutates intent state.
     const updateRemaining = () => {
-      const diff = Math.max(0, Math.round((activeUserIntent.expiresAt - Date.now()) / (1000 * 60)));
-      setRemainingMinutes(diff);
-      if (diff <= 0) {
-        setActiveUserIntent(null);
-        localStorage.removeItem('gayze_active_user_intent');
-        showStatusMessage('Your Right Now intent expired');
-      }
+      setRemainingMinutes(Math.max(0, Math.round((activeUserIntent.expiresAt - Date.now()) / 60000)));
     };
-
     updateRemaining();
-    const interval = setInterval(updateRemaining, 30000);
-    return () => clearInterval(interval);
-  }, [activeUserIntent, onUpdateActiveUserIntent]);
+    const interval = window.setInterval(updateRemaining, 30000);
+    return () => window.clearInterval(interval);
+  }, [activeUserIntent?.remoteId, activeUserIntent?.expiresAt, activeUserIntent?.isPaused]);
+
+  // A slow tick keeps expired intents off the map even between discovery refreshes.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowTick(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+  const livePulses = useMemo(
+    () => pulses.filter((pulse) => !pulse.expiresAt || pulse.expiresAt > nowTick),
+    [pulses, nowTick],
+  );
 
   // Handle saving newly created or edited Right Now intent
   // Pause / Resume user intent
@@ -248,23 +250,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (!activeUserIntent) return;
     hapticLight();
     const nextPaused = !activeUserIntent.isPaused;
-    const updated = { ...activeUserIntent, isPaused: nextPaused };
-    setActiveUserIntent(updated);
-    try {
-      localStorage.setItem('gayze_active_user_intent', JSON.stringify(updated));
-    } catch { }
-    showStatusMessage(nextPaused ? '⏸ Intent paused on map' : '● Intent resumed on map', 2500);
+    setActiveUserIntent({ ...activeUserIntent, isPaused: nextPaused });
+    showStatusMessage(nextPaused ? 'Pausing your signal…' : 'Resuming your signal…', 2500);
   };
 
   // End active intent early
   const handleEndIntent = () => {
     hapticSensitiveAction();
-    setActiveUserIntent(null);
     setIsUserIntentDrawerOpen(false);
-    try {
-      localStorage.removeItem('gayze_active_user_intent');
-    } catch { }
-    showStatusMessage('Intent ended and removed from map', 2500);
+    setActiveUserIntent(null);
+    showStatusMessage('Ending your signal…', 2500);
   };
 
   // Express interest in a pulse / profile
@@ -347,60 +342,100 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     return `${m}m`;
   };
 
+  // ---------------------------------------------------------------------------
+  // Distance is either the value measured by the discovery function or computed
+  // on-device from the (already privacy-jittered) coordinates. It is never
+  // substituted with a placeholder number.
+  // ---------------------------------------------------------------------------
+  const distanceKmForPulse = (pulse: Pulse): number | undefined => {
+    if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > 0) return pulse.approxDistanceKm;
+    if (userLocation && Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng)) {
+      return haversineKm(userLocation.lat, userLocation.lng, pulse.lat, pulse.lng);
+    }
+    return undefined;
+  };
+
+  const distanceKmForHaven = (haven: SafeHaven): number | undefined => {
+    if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > 0) return haven.approxDistanceKm;
+    if (userLocation && Number.isFinite(haven.lat) && Number.isFinite(haven.lng)) {
+      return haversineKm(userLocation.lat, userLocation.lng, haven.lat, haven.lng);
+    }
+    return undefined;
+  };
+
+  const distanceKmForProfile = (profile: DatingProfile): number | undefined =>
+    typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > 0
+      ? profile.approxDistanceKm
+      : undefined;
+
+  const withinDistance = (km: number | undefined, maxKm: number) => km === undefined || km <= maxKm;
+
+  const matchesFilters = (input: {
+    isPrivate: boolean;
+    km: number | undefined;
+    category: 'pulse' | 'haven' | 'profile';
+    activityCategory?: string;
+    hasIntent?: boolean;
+  }): boolean => {
+    const { category, isPrivate, km, activityCategory } = input;
+    if (activeIntentMode === 'Social' && isPrivate) return false;
+    if (activeIntentMode === 'Private' && !isPrivate) return false;
+    if (!withinDistance(km, maxDistanceKm)) return false;
+    if (category === 'haven') return activeCategory === 'all' || activeCategory === 'havens';
+    if (category === 'profile') return activeCategory === 'all' || activeCategory === 'people';
+    if (activeCategory === 'people' || activeCategory === 'havens') return false;
+    if (activeCategory !== 'all' && activityCategory !== activeCategory) return false;
+    return true;
+  };
+
   // Filtered active count
   const filteredActiveCount = useMemo(() => {
     let count = 0;
     if (activeCategory === 'all' || activeCategory === 'people') {
-      const matchProfiles = datingProfiles.filter(p => {
-        const isPrivate = p.intentMode === 'private' || p.lookingFor === 'casual';
-        if (activeIntentMode === 'Social' && isPrivate) return false;
-        if (activeIntentMode === 'Private' && !isPrivate) return false;
-        if (typeof p.approxDistanceKm === 'number' && p.approxDistanceKm > maxDistanceKm) return false;
-        return true;
-      });
-      count += matchProfiles.length;
+      count += datingProfiles.filter((profile) => matchesFilters({
+        category: 'profile',
+        isPrivate: profile.intentMode === 'private' || profile.lookingFor === 'casual',
+        km: distanceKmForProfile(profile),
+      })).length;
     }
     if (activeCategory !== 'people' && activeCategory !== 'havens') {
-      const matchPulses = pulses.filter(p => {
-        if (activeCategory !== 'all' && p.activityCategory !== activeCategory) return false;
-        const isPrivate = p.intentMode === 'private' || p.intent?.includes('Hookup');
-        if (activeIntentMode === 'Social' && isPrivate) return false;
-        if (activeIntentMode === 'Private' && !isPrivate) return false;
-        if (typeof p.approxDistanceKm === 'number' && p.approxDistanceKm > maxDistanceKm) return false;
-        return true;
-      });
-      count += matchPulses.length;
+      count += livePulses.filter((pulse) => matchesFilters({
+        category: 'pulse',
+        isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+        km: distanceKmForPulse(pulse),
+        activityCategory: pulse.activityCategory,
+      })).length;
     }
     if (activeCategory === 'all' || activeCategory === 'havens') {
-      count += safeHavens.filter((h) => typeof h.approxDistanceKm !== 'number' || h.approxDistanceKm <= maxDistanceKm).length;
+      count += safeHavens.filter((haven) => matchesFilters({
+        category: 'haven',
+        isPrivate: false,
+        km: distanceKmForHaven(haven),
+      })).length;
     }
     return count;
-  }, [pulses, datingProfiles, safeHavens, activeCategory, activeIntentMode, maxDistanceKm]);
+  }, [livePulses, datingProfiles, safeHavens, activeCategory, activeIntentMode, maxDistanceKm, userLocation]);
 
   // Live members count (people only, excluding safe haven facilities)
   const liveMembersCount = useMemo(() => {
     let count = 0;
     if (activeCategory === 'all' || activeCategory === 'people') {
-      count += datingProfiles.filter(p => {
-        const isPrivate = p.intentMode === 'private' || p.lookingFor === 'casual';
-        if (activeIntentMode === 'Social' && isPrivate) return false;
-        if (activeIntentMode === 'Private' && !isPrivate) return false;
-        if (typeof p.approxDistanceKm === 'number' && p.approxDistanceKm > maxDistanceKm) return false;
-        return true;
-      }).length;
+      count += datingProfiles.filter((profile) => matchesFilters({
+        category: 'profile',
+        isPrivate: profile.intentMode === 'private' || profile.lookingFor === 'casual',
+        km: distanceKmForProfile(profile),
+      })).length;
     }
     if (activeCategory !== 'havens') {
-      count += pulses.filter(p => {
-        if (activeCategory !== 'all' && activeCategory !== 'people' && p.activityCategory !== activeCategory) return false;
-        const isPrivate = p.intentMode === 'private' || p.intent?.includes('Hookup');
-        if (activeIntentMode === 'Social' && isPrivate) return false;
-        if (activeIntentMode === 'Private' && !isPrivate) return false;
-        if (typeof p.approxDistanceKm === 'number' && p.approxDistanceKm > maxDistanceKm) return false;
-        return true;
-      }).length;
+      count += livePulses.filter((pulse) => (activeCategory === 'people' ? false : matchesFilters({
+        category: 'pulse',
+        isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+        km: distanceKmForPulse(pulse),
+        activityCategory: pulse.activityCategory,
+      }))).length;
     }
     return count;
-  }, [pulses, datingProfiles, activeCategory, activeIntentMode, maxDistanceKm]);
+  }, [livePulses, datingProfiles, activeCategory, activeIntentMode, maxDistanceKm, userLocation]);
 
   // Active filter count for badge
   const activeFilterCount = useMemo(() => {
@@ -415,34 +450,47 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // Nearby rows for the discovery drawer — same filter set as the map, sorted by distance
   const nearbyItems = useMemo<MapDiscoveryItem[]>(() => {
     const collected: { item: MapDiscoveryItem; km: number }[] = [];
-    if ((activeCategory === 'all' || activeCategory === 'people') && userLocation) {
+    if (activeCategory === 'all' || activeCategory === 'people') {
       datingProfiles.forEach((profile) => {
-        if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
-        const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
-        if (activeIntentMode === 'Social' && isPrivate) return;
-        if (activeIntentMode === 'Private' && !isPrivate) return;
-        collected.push({ item: { type: 'profile', item: profile }, km: profile.approxDistanceKm ?? 99 });
+        const km = distanceKmForProfile(profile);
+        if (!matchesFilters({
+          category: 'profile',
+          isPrivate: profile.intentMode === 'private' || profile.lookingFor === 'casual',
+          km,
+        })) return;
+        collected.push({ item: { type: 'profile', item: profile }, km: km ?? Number.POSITIVE_INFINITY });
       });
     }
     if (activeCategory !== 'people' && activeCategory !== 'havens') {
-      pulses.forEach((pulse) => {
+      livePulses.forEach((pulse) => {
         if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
-        if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
-        if (activeCategory !== 'all' && pulse.activityCategory !== activeCategory) return;
-        const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
-        if (activeIntentMode === 'Social' && isPrivate) return;
-        if (activeIntentMode === 'Private' && !isPrivate) return;
-        collected.push({ item: { type: 'pulse', item: pulse }, km: pulse.approxDistanceKm ?? 99 });
+        const km = distanceKmForPulse(pulse);
+        if (!matchesFilters({
+          category: 'pulse',
+          isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+          km,
+          activityCategory: pulse.activityCategory,
+        })) return;
+        collected.push({ item: { type: 'pulse', item: pulse }, km: km ?? Number.POSITIVE_INFINITY });
       });
     }
     if (activeCategory === 'all' || activeCategory === 'havens') {
       safeHavens.forEach((haven) => {
-        if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > maxDistanceKm) return;
-        collected.push({ item: { type: 'haven', item: haven }, km: haven.approxDistanceKm ?? 99 });
+        const km = distanceKmForHaven(haven);
+        if (!matchesFilters({ category: 'haven', isPrivate: false, km })) return;
+        collected.push({ item: { type: 'haven', item: haven }, km: km ?? Number.POSITIVE_INFINITY });
       });
     }
-    return collected.sort((a, b) => a.km - b.km).map((entry) => entry.item);
-  }, [datingProfiles, pulses, safeHavens, activeCategory, activeIntentMode, maxDistanceKm, privacySetting, userLocation]);
+    return collected
+      .sort((a, b) => a.km - b.km)
+      .map((entry) => entry.item);
+  }, [datingProfiles, livePulses, safeHavens, activeCategory, activeIntentMode, maxDistanceKm, privacySetting, userLocation]);
+
+  const itemDistanceKm = (item: MapDiscoveryItem): number | undefined => {
+    if (item.type === 'pulse') return distanceKmForPulse(item.item);
+    if (item.type === 'haven') return distanceKmForHaven(item.item);
+    return distanceKmForProfile(item.item);
+  };
 
   // Helpers for discovery item rendering
   const getDisplayName = (item: MapDiscoveryItem) => {
@@ -706,44 +754,30 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
     layerGroup.clearLayers();
 
-    // 0. Purple activity haze — subtle energy over live intent areas
+    // 0. Purple activity haze — one breathing marker per real live intent.
+    //    Nothing is drawn when there is no live intent (no synthetic heat, no
+    //    invented coordinates).
     const hazeTargets: { lat: number; lng: number }[] = [];
-    if (activeCategory !== 'people') {
-      pulses.forEach((pulse, idx) => {
+    if (activeCategory !== 'people' && activeCategory !== 'havens') {
+      livePulses.forEach((pulse) => {
         if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
         if (pulse.peerId === 'peer_me' && activeUserIntent?.isPaused) return;
-        if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
-        if (activeCategory !== 'all' && pulse.activityCategory !== activeCategory) return;
-        const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
-        if (activeIntentMode === 'Social' && isPrivate) return;
-        if (activeIntentMode === 'Private' && !isPrivate) return;
-        const hasCoords = Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng);
-        if (!hasCoords && !userLocation) return;
-        hazeTargets.push(
-          hasCoords
-            ? { lat: pulse.lat, lng: pulse.lng }
-            : { lat: userLocation!.lat + ((idx - 2) * 0.004), lng: userLocation!.lng + ((idx % 3 - 1) * 0.005) },
-        );
-      });
-    }
-    if ((activeCategory === 'all' || activeCategory === 'people') && userLocation) {
-      datingProfiles.forEach((profile, idx) => {
-        if (!profile.hasRightNowIntent) return;
-        if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
-        const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
-        if (activeIntentMode === 'Social' && isPrivate) return;
-        if (activeIntentMode === 'Private' && !isPrivate) return;
-        hazeTargets.push({
-          lat: userLocation.lat + ((idx % 3 - 1) * 0.0035),
-          lng: userLocation.lng + (((idx + 1) % 3 - 1) * 0.004),
-        });
+        if (!Number.isFinite(pulse.lat) || !Number.isFinite(pulse.lng)) return;
+        if (!matchesFilters({
+          category: 'pulse',
+          isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+          km: distanceKmForPulse(pulse),
+          activityCategory: pulse.activityCategory,
+        })) return;
+        hazeTargets.push({ lat: pulse.lat, lng: pulse.lng });
       });
     }
     hazeTargets.slice(0, 60).forEach((target) => {
+      const isPrivate = false;
       L.circle([target.lat, target.lng], {
         radius: 470,
         stroke: false,
-        fillColor: '#6F3CC3',
+        fillColor: isPrivate ? '#6F3CC3' : '#6F3CC3',
         fillOpacity: 0.10,
         className: 'gayze-haze',
       }).addTo(layerGroup);
@@ -785,8 +819,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     // 2. Safe Havens
     if (activeCategory === 'all' || activeCategory === 'havens') {
       safeHavens.forEach((haven) => {
-        if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > maxDistanceKm) return;
         if (typeof haven.lat !== 'number' || isNaN(haven.lat) || typeof haven.lng !== 'number' || isNaN(haven.lng)) return;
+        if (!withinDistance(distanceKmForHaven(haven), maxDistanceKm)) return;
         const lat = haven.lat;
         const lng = haven.lng;
         const markerCoords = spreadOverlappingCoordinate(lat, lng, occupiedMarkerCoordinates);
@@ -806,8 +840,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       });
     }
 
-    // 3. Profiles — only render when we have a live user location (relative placement)
-    // or the profile carries its own coordinates. Never invent a Soho centre.
+    // 3. Demo profiles — only used when Supabase is not configured. Live mode
+    //    renders real intent rows (below) at their published coordinates.
     if ((activeCategory === 'all' || activeCategory === 'people') && userLocation) {
       datingProfiles.forEach((profile, idx) => {
         if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
@@ -822,7 +856,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'profile' && selectedItem.item.id === profile.id;
         const icon = L.divIcon({
           className: 'custom-person-marker',
-          html: `<div class="gm-profile ${isPrivate ? 'gm-profile--private' : ''} ${selected ? 'gm-profile--sel' : ''}"><img src="${profile.photoUrl}" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'" /></div>`,
+          html: `<div class="gm-profile ${isPrivate ? 'gm-profile--private' : ''} ${selected ? 'gm-profile--sel' : ''}">${profile.name.charAt(0)}</div>`,
           iconSize: [38, 38],
           iconAnchor: [19, 19],
         });
@@ -838,18 +872,21 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
     // 4. Pulses
     if (activeCategory !== 'havens' && activeCategory !== 'people') {
-      pulses.forEach((pulse, idx) => {
+      livePulses.forEach((pulse) => {
         if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
         if (pulse.peerId === 'peer_me' && activeUserIntent?.isPaused) return;
-        if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
-        if (activeCategory !== 'all' && pulse.activityCategory !== activeCategory) return;
-        const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
-        if (activeIntentMode === 'Social' && isPrivate) return;
-        if (activeIntentMode === 'Private' && !isPrivate) return;
-        const hasCoords = typeof pulse.lat === 'number' && !isNaN(pulse.lat) && typeof pulse.lng === 'number' && !isNaN(pulse.lng);
-        if (!hasCoords && !userLocation) return;
-        const lat = hasCoords ? pulse.lat : userLocation!.lat + ((idx - 2) * 0.004);
-        const lng = hasCoords ? pulse.lng : userLocation!.lng + ((idx % 3 - 1) * 0.005);
+        const isPrivate = pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup'));
+        // Only real, published coordinates are ever mapped.
+        const hasCoords = Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng);
+        if (!hasCoords) return;
+        if (!matchesFilters({
+          category: 'pulse',
+          isPrivate,
+          km: distanceKmForPulse(pulse),
+          activityCategory: pulse.activityCategory,
+        })) return;
+        const lat = pulse.lat;
+        const lng = pulse.lng;
         const jitter = typeof pulse.jitterMeters === 'number' && !isNaN(pulse.jitterMeters) ? pulse.jitterMeters : 300;
         if (showJitterCircles) {
           L.circle([lat, lng], {
@@ -879,7 +916,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
   }, [
     isMapReady,
-    pulses,
+    livePulses,
     safeHavens,
     datingProfiles,
     activeCategory,
@@ -1256,7 +1293,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {selectedItem.type === 'haven' ? 'Safe haven' : 'Available now'}
                   </span>
                   <span className="font-mono shrink-0">
-                    · ~{selectedItem.type === 'haven' ? '0.2' : (selectedItem.item as any).approxDistanceKm || '0.3'} km
+                    · {formatDistanceKm(itemDistanceKm(selectedItem))}
                   </span>
                   <span className="truncate">
                     · {selectedItem.type === 'haven'
@@ -1416,7 +1453,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         alt={selectedItem.item.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg';
+                          // No stand-in portrait is substituted: a missing photo
+                          // shows the person's initial instead.
+                          (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
                     </div>
@@ -1446,9 +1485,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         Active Right Now
                       </span>
                       <span>·</span>
-                      <span>
-                        ~{selectedItem.type === 'haven' ? '0.2' : (selectedItem.item as any).approxDistanceKm || '0.3'} km away
-                      </span>
+                      <span>{formatDistanceKm(itemDistanceKm(selectedItem))} away</span>
                     </div>
                   </div>
                 </div>
@@ -1531,7 +1568,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       {selectedItem.type === 'haven' ? selectedItem.item.neighborhood : (selectedItem.item as any).venueName || userNeighborhood}
                     </span>
                   </div>
-                  <span className="text-[10px] text-zinc-400 block">±300m privacy cloaked</span>
+                  <span className="text-[10px] text-zinc-400 block">±{PRIVACY_RADIUS_METERS}m privacy area</span>
                 </div>
 
                 {selectedItem.type === 'pulse' && selectedItem.item.canHost && (
@@ -1559,7 +1596,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   </div>
                   <div className="text-[11px] text-zinc-300 flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Approximate location only · nothing precise is stored</span>
+                    <span>Approximate location only · exact GPS stays on the device</span>
                   </div>
                 </div>
               </div>
@@ -1719,7 +1756,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <div className="flex flex-wrap gap-2 mt-2.5">
                   {[
                     { id: 'all', label: 'Everything' },
-                    { id: 'people', label: 'People' },
+                    // "People" only exists when there is a separate people
+                    // dataset (demo mode). In live mode every row is an intent.
+                    ...(datingProfiles.length > 0 ? [{ id: 'people', label: 'People' }] : []),
                     { id: 'coffee', label: 'Coffee' },
                     { id: 'drinks', label: 'Drinks' },
                     { id: 'active', label: 'Active' },
@@ -1811,7 +1850,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               </div>
 
               <p className="text-[11px] text-zinc-500 leading-relaxed">
-                Markers show approximate areas (±300 m). Precise positions are never displayed.
+                Markers show approximate areas (±{PRIVACY_RADIUS_METERS} m). Precise positions are never displayed.
               </p>
             </div>
 
@@ -1918,7 +1957,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       : item.type === 'pulse'
                         ? item.item.intent?.replace(' · ', ' ') || (isPrivate ? 'Private' : 'Social')
                         : item.item.intent || item.item.lookingForLabel;
-                  const km = (item.type === 'haven' ? item.item.approxDistanceKm : (item.item as any).approxDistanceKm) ?? 0.3;
                   const expires =
                     item.type === 'pulse' ? item.item.expiresAt : item.type === 'profile' ? item.item.intentExpiresAt : undefined;
 
@@ -1968,7 +2006,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           )}
                         </div>
                         <div className="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5 min-w-0">
-                          <span className="font-mono shrink-0">~{typeof km === 'number' ? km.toFixed(1) : '0.3'} km</span>
+                          <span className="font-mono shrink-0">{formatDistanceKm(itemDistanceKm(item))}</span>
                           <span className="truncate">
                             · {item.type === 'haven' ? item.item.neighborhood : item.type === 'pulse' ? item.item.neighborhood : item.item.neighborhood}
                           </span>
@@ -2060,7 +2098,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <span className="truncate">
                     {activeUserIntent.when} · {activeUserIntent.duration} · {activeUserIntent.travelDistance}
                   </span>
-                  <span className="text-[#C9A24D] shrink-0">±300 m</span>
+                  <span className="text-[#C9A24D] shrink-0">±{PRIVACY_RADIUS_METERS} m</span>
                 </div>
               </div>
 
@@ -2074,6 +2112,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button
                 type="button"
                 onClick={handleEndIntent}
+                disabled={intentBusy}
                 className="g-btn g-btn--danger-quiet !px-4"
               >
                 End
@@ -2081,6 +2120,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button
                 type="button"
                 onClick={handleTogglePause}
+                disabled={intentBusy}
                 className="g-btn g-btn--quiet flex-1"
               >
                 {activeUserIntent.isPaused ? (
@@ -2100,9 +2140,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   setIsUserIntentDrawerOpen(false);
                   onOpenSetIntent?.();
                 }}
+                disabled={intentBusy}
                 className="g-btn g-btn--primary flex-1"
               >
-                <Edit3 className="w-4 h-4" /> Edit
+                <Edit3 className="w-4 h-4" /> {intentBusy ? 'Saving…' : 'Edit'}
               </button>
             </div>
           </div>
@@ -2140,7 +2181,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
             <div className="flex items-center gap-2 text-[11.5px] text-zinc-500 px-3 py-2 rounded-[10px] bg-white/[0.03] border border-white/[0.06]">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Approximate locations only · chat is end-to-end encrypted</span>
+              <span>Approximate locations only · messages are encrypted on your device</span>
             </div>
 
             <div className="flex items-center gap-2 pt-0.5">

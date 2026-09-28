@@ -21,6 +21,10 @@ interface LaterViewProps {
   currentUser: UserProfile;
   currentUserId: string | null;
   userLocation: { lat: number; lng: number } | null;
+  /** True only when a real group conversation can be opened for a gathering. */
+  groupChatAvailable?: boolean;
+  /** Gathering id currently being written to the backend (RSVP/create). */
+  busyGatheringId?: string | null;
 }
 
 export const LaterView: React.FC<LaterViewProps> = ({
@@ -31,6 +35,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
   currentUser,
   currentUserId,
   userLocation,
+  groupChatAvailable = false,
+  busyGatheringId = null,
 }) => {
   const [timeFilter, setTimeFilter] = useState<'all' | 'tonight' | 'tomorrow' | 'weekend'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -40,6 +46,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formCategory, setFormCategory] = useState<Gathering['category']>('social');
+  // Stored as a `datetime-local` value (YYYY-MM-DDTHH:mm) so the scheduled time
+  // is always a real, unambiguous timestamp.
   const [formDate, setFormDate] = useState('');
   const [formLocation, setFormLocation] = useState('');
   const [formAddress, setFormAddress] = useState('');
@@ -47,21 +55,50 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [formCapacity, setFormCapacity] = useState(16);
   const [formTags, setFormTags] = useState('');
 
-  const filteredGatherings = gatherings.filter((g) => {
-    if (categoryFilter !== 'all' && g.category !== categoryFilter) return false;
-    if (timeFilter === 'tonight' && !g.dateStr.toLowerCase().includes('tonight')) return false;
-    if (timeFilter === 'tomorrow' && !g.dateStr.toLowerCase().includes('tomorrow')) return false;
-    if (timeFilter === 'weekend' && !g.dateStr.toLowerCase().includes('sunday') && !g.dateStr.toLowerCase().includes('saturday') && !g.dateStr.toLowerCase().includes('friday')) return false;
-    return true;
-  });
+  // Filters run off the real scheduled timestamp, so they also work for
+  // backend gatherings (whose dateStr is a formatted date, not a label).
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfTomorrow = startOfToday + 24 * 60 * 60 * 1000;
+  const startOfDayAfterTomorrow = startOfTomorrow + 24 * 60 * 60 * 1000;
+
+  const filteredGatherings = gatherings
+    .filter((g) => g.timestamp > Date.now())
+    .filter((g) => {
+      if (categoryFilter !== 'all' && g.category !== categoryFilter) return false;
+      if (timeFilter === 'tonight' && !(g.timestamp >= startOfToday && g.timestamp < startOfTomorrow)) return false;
+      if (timeFilter === 'tomorrow' && !(g.timestamp >= startOfTomorrow && g.timestamp < startOfDayAfterTomorrow)) return false;
+      if (timeFilter === 'weekend') {
+        const weekday = new Date(g.timestamp).getDay();
+        if (weekday !== 5 && weekday !== 6 && weekday !== 0) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleHostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formTitle.trim()) return;
+    if (!formTitle.trim()) {
+      setFormError('Add a title for the gathering.');
+      return;
+    }
 
     const timestamp = new Date(formDate).getTime();
-    if (!Number.isFinite(timestamp) || timestamp <= Date.now()) return;
-    if (!formLocation.trim()) return;
+    if (!Number.isFinite(timestamp)) {
+      setFormError('Choose a date and time for the gathering.');
+      return;
+    }
+    if (timestamp <= Date.now()) {
+      setFormError('Choose a date and time in the future.');
+      return;
+    }
+    if (!formLocation.trim()) {
+      setFormError('Add a venue name.');
+      return;
+    }
+    setFormError(null);
 
     onCreateGathering({
       hostId: currentUserId || 'local-user',
@@ -91,6 +128,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
     setFormLocation('');
     setFormAddress('');
     setFormNeighborhood('');
+    setFormError(null);
   };
 
   return (
@@ -169,6 +207,19 @@ export const LaterView: React.FC<LaterViewProps> = ({
           ))}
         </div>
       </div>
+
+      {filteredGatherings.length === 0 && (
+        <div className="gayze-premium-panel rounded-2xl p-6 text-center space-y-1.5">
+          <p className="text-sm font-semibold text-zinc-200">
+            {gatherings.length === 0 ? 'No gatherings yet' : 'Nothing matches these filters'}
+          </p>
+          <p className="text-xs text-zinc-400">
+            {gatherings.length === 0
+              ? 'Gatherings posted by the community will appear here. Host one to get things started.'
+              : 'Try a different date range or circle.'}
+          </p>
+        </div>
+      )}
 
       {/* Gatherings List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -259,31 +310,46 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 {/* RSVP Toggle Button */}
                 <button
                   onClick={() => onToggleRsvp(gathering.id)}
-                  className={`h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
+                  disabled={busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending)}
+                  className={`h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${
                     gathering.isAttending
                       ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/50'
                       : 'bg-[#1c1f2b] hover:bg-[#252838] text-zinc-200 border border-white/10'
                   }`}
                 >
-                  {gathering.isAttending ? (
+                  {busyGatheringId === gathering.id ? (
+                    <span>Saving…</span>
+                  ) : gathering.isAttending ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Attending</span>
                     </>
+                  ) : spotsLeft === 0 ? (
+                    <span>Full</span>
                   ) : (
                     <span>RSVP</span>
                   )}
                 </button>
 
-                {/* Open Group Chat */}
-                <button
-                  onClick={() => onOpenGatheringChat(gathering)}
-                  className="h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Group Room</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                {/* Open Group Chat — only offered when a real conversation exists. */}
+                {groupChatAvailable ? (
+                  <button
+                    onClick={() => onOpenGatheringChat(gathering)}
+                    className="h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Group Room</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <span
+                    title="Group conversations are not available for gatherings yet"
+                    className="h-11 min-h-[44px] flex items-center gap-1.5 px-3 text-[11px] font-medium text-zinc-500 bg-white/[0.03] border border-white/[0.07] rounded-xl"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Group chat not available yet</span>
+                  </span>
+                )}
               </div>
             </div>
           );
@@ -316,6 +382,11 @@ export const LaterView: React.FC<LaterViewProps> = ({
             </div>
 
             <form onSubmit={handleHostSubmit} className="space-y-4">
+              {formError && (
+                <p className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-2">
+                  {formError}
+                </p>
+              )}
               <div>
                 <label className="block text-xs font-medium text-zinc-300 mb-1">
                   Gathering Title
@@ -362,11 +433,10 @@ export const LaterView: React.FC<LaterViewProps> = ({
               <div>
                 <label className="block text-xs font-medium text-zinc-300 mb-1">Date & Time</label>
                 <input
-                  type="text"
+                  type="datetime-local"
                   required
                   value={formDate}
                   onChange={(e) => setFormDate(e.target.value)}
-                  placeholder="e.g. Saturday, 19:30"
                   className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
                 />
               </div>

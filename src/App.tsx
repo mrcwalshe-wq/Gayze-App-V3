@@ -37,8 +37,6 @@ import {
   SafetyCheckin,
   DatingProfile,
   SwarmQRPayload,
-  SocialStory,
-  IntentActivityPost,
   MeetingProposal
 } from './types';
 import {
@@ -49,12 +47,48 @@ import {
   INITIAL_ROOMS,
   INITIAL_MESSAGES,
   INITIAL_SAFETY_CHECKIN,
-  INITIAL_DATING_PROFILES,
-  INITIAL_STORIES,
-  INITIAL_INTENT_POSTS
+  INITIAL_DATING_PROFILES
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, loadGatherings, createGathering, toggleGatheringRsvp, loadActiveSafetyCheckin, startSafetyCheckin, updateSafetyCheckin, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, endActiveIntents, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, verifyPeerIdentity, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence, loadStories, createStoryFromIntent } from './services/supabaseService';
+import {
+  discoverRightNow,
+  discoveryRowsToPulses,
+  ensureSupabaseSession,
+  ensureSupabaseProfile,
+  loadSupabaseProfile,
+  loadSafeHavens,
+  loadGatherings,
+  createGathering,
+  toggleGatheringRsvp,
+  loadActiveSafetyCheckin,
+  startSafetyCheckin,
+  updateSafetyCheckin,
+  updateProfileLocation,
+  clearProfileLocation,
+  saveActiveIntentWithSession,
+  loadActiveIntent,
+  updateActiveIntentPause,
+  endActiveIntent,
+  subscribeToRightNow,
+  submitInterest,
+  submitGaze,
+  loadConversationMessages,
+  persistConversationMessage,
+  subscribeToConversationMessages,
+  verifyPeerIdentity,
+  registerIdentityDevice,
+  listIdentityDevices,
+  revokeIdentityDevice,
+  verifyCurrentDevice,
+  initPresence,
+  createStoryFromIntent,
+  loadMyConversations,
+  loadConversationPeerKey,
+  jitterLocation,
+  privacyRadiusMeters,
+} from './services/supabaseService';
+import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';
+import { resolveConversationKey } from './services/conversationKeyService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -65,6 +99,37 @@ import {
   triggerVibration
 } from './services/hapticService';
 import { Shield, Lock, Radio, Calendar, HeartHandshake, Eye, AlertCircle } from 'lucide-react';
+
+/**
+ * Live mode (Supabase configured) never seeds a profile, a check-in or an
+ * intent from demo fixtures or localStorage. Everything the authenticated
+ * shell renders comes from the backend or is empty.
+ */
+const LIVE_EMPTY_USER: UserProfile = {
+  publicKey: '',
+  shortKey: '',
+  handle: 'gayze-user',
+  displayName: 'Gayze User',
+  bio: '',
+  avatarSeed: 'gayze',
+  neighborhood: NEUTRAL_AREA_LABEL,
+  privacySetting: 'fuzzy_500m',
+  safetyVerified: false,
+  interests: [],
+  reliabilityScore: 0,
+  verifiedPeersCount: 0,
+};
+
+const LIVE_EMPTY_CHECKIN: SafetyCheckin = {
+  isActive: false,
+  meetupPartnerName: '',
+  venueName: '',
+  startedAt: 0,
+  durationMinutes: 60,
+  notes: '',
+};
+
+const IS_LIVE_BACKEND = isSupabaseConfigured;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens' | 'profile'>('right_now');
@@ -93,11 +158,12 @@ export default function App() {
       locationPermissionStatusRef.current = 'granted';
       if (isSupabaseConfigured && currentUser.privacySetting !== 'ghost') {
         lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-        await updateProfileLocation(location);
-        // Discovery is calculated from the authenticated user's real PostGIS
-        // location. Refresh immediately after permission is granted.
-        const rows = await discoverRightNow({ radiusMeters: 5000 });
-        setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
+        await updateProfileLocation(
+          jitterLocation({ lat: location.lat, lng: location.lng }, privacyRadiusMeters(currentUser.privacySetting)),
+        );
+        // Distances are measured by the discovery function from the stored
+        // (privacy-jittered) point; refresh immediately after permission.
+        await refreshDiscoveryRef.current();
       }
     } catch (error) {
       const message = error instanceof GeolocationPositionError
@@ -195,6 +261,7 @@ export default function App() {
 
   // Core datasets with local state
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    if (IS_LIVE_BACKEND) return LIVE_EMPTY_USER;
     const saved = localStorage.getItem('gayze_user');
     if (!saved) return INITIAL_USER;
     try {
@@ -202,8 +269,8 @@ export default function App() {
       return {
         ...INITIAL_USER,
         ...parsed,
-        reliabilityScore: parsed.reliabilityScore || 94,
-        verifiedPeersCount: parsed.verifiedPeersCount || 14,
+        reliabilityScore: parsed.reliabilityScore || 0,
+        verifiedPeersCount: parsed.verifiedPeersCount || 0,
       };
     } catch {
       return INITIAL_USER;
@@ -238,7 +305,11 @@ export default function App() {
           const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
           if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
             lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-            void updateProfileLocation({ lat: location.lat, lng: location.lng });
+            // Exact GPS never leaves the device: the stored point is jittered
+            // inside the user's configured privacy radius first.
+            void updateProfileLocation(
+              jitterLocation({ lat: location.lat, lng: location.lng }, privacyRadiusMeters(currentUser.privacySetting)),
+            );
           }
         }
       },
@@ -280,7 +351,9 @@ export default function App() {
     }
   });
 
-  const [pulses, setPulses] = useState<Pulse[]>(() => {
+  // Demo/offline fixture list. Live discovery never writes here — Right Now
+  // renders `supabaseRightNowPulses` whenever Supabase is configured.
+  const [pulses] = useState<Pulse[]>(() => {
     if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_pulses');
     if (!saved) return INITIAL_PULSES;
@@ -350,26 +423,13 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_MESSAGES;
   });
 
-  const [stories, setStories] = useState<SocialStory[]>(() => {
-    if (isSupabaseConfigured) return [];
-    const saved = localStorage.getItem('gayze_stories');
-    return saved ? JSON.parse(saved) : INITIAL_STORIES;
-  });
-
-  const [intentPosts, setIntentPosts] = useState<IntentActivityPost[]>(() => {
-    if (isSupabaseConfigured) return [];
-    const saved = localStorage.getItem('gayze_intent_posts');
-    return saved ? JSON.parse(saved) : INITIAL_INTENT_POSTS;
-  });
-
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated) return;
     let disposed = false;
-    void Promise.all([loadSafeHavens(), loadGatherings(), loadActiveSafetyCheckin(), loadStories()]).then(([havens, liveGatherings, activeCheckin, liveStories]) => {
+    void Promise.all([loadSafeHavens(), loadGatherings(), loadActiveSafetyCheckin()]).then(([havens, liveGatherings, activeCheckin]) => {
       if (disposed) return;
       setSafeHavens(havens);
       setGatherings(liveGatherings);
-      setStories(liveStories);
       if (activeCheckin) {
         const remaining = Math.max(0, Math.ceil((activeCheckin.expiresAt - Date.now()) / 1000));
         setCheckinState({
@@ -388,10 +448,11 @@ export default function App() {
     return () => { disposed = true; };
   }, [isAuthenticated]);
 
-  const [activeRoomId, setActiveRoomId] = useState<string>('room_marcus');
+  const [activeRoomId, setActiveRoomId] = useState<string>(() => (IS_LIVE_BACKEND ? '' : 'room_marcus'));
 
   // Local safety check-in timer state
   const [checkinState, setCheckinState] = useState<SafetyCheckin>(() => {
+    if (IS_LIVE_BACKEND) return LIVE_EMPTY_CHECKIN;
     const saved = localStorage.getItem('gayze_checkin');
     return saved ? JSON.parse(saved) : INITIAL_SAFETY_CHECKIN;
   });
@@ -429,7 +490,17 @@ export default function App() {
   // Hydrate once from local storage so Discover / Right Now stay consistent
   // across tab changes and reloads.
   const [isSetIntentOpen, setIsSetIntentOpen] = useState(false);
+  const [intentBusy, setIntentBusy] = useState(false);
+  const [conversationKeyState, setConversationKeyState] = useState<{
+    roomId: string;
+    status: 'loading' | 'ready' | 'unavailable';
+    reason?: string;
+  }>({ roomId: '', status: 'loading' });
+  // Canonical intent state. In live mode this is hydrated from Supabase
+  // (`intents`) and only ever written back through the Supabase service layer.
+  // In local/demo mode it is a device-local setting.
   const [activeUserIntent, setActiveUserIntent] = useState<UserActiveIntent | null>(() => {
+    if (IS_LIVE_BACKEND) return null;
     try {
       const saved = localStorage.getItem('gayze_active_user_intent');
       if (!saved) return null;
@@ -446,75 +517,173 @@ export default function App() {
   const [identityDevices, setIdentityDevices] = useState<import('./services/supabaseService').IdentityDevice[]>([]);
   const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState<string | null>(null);
 
-  // Bootstrap a real Supabase session/profile and keep Right Now discovery live.
+  // ---------------------------------------------------------------------------
+  // Live backend wiring
+  //   1. session + profile + device identity bootstrap
+  //   2. active intent hydration, pause/resume/end and expiry
+  //   3. Right Now discovery (initial load, Realtime, slow poll)
+  //   4. conversation list hydration
+  // Each effect is keyed on the authenticated user id so switching accounts
+  // cannot leak the previous account's state into the UI.
+  // ---------------------------------------------------------------------------
+
+  const supabaseUserIdRef = useRef<string | null>(null);
+  const currentUserRef = useRef(currentUser);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+
+  const roomsRef = useRef<SwarmRoom[]>(rooms);
+  useEffect(() => { roomsRef.current = rooms; }, [rooms]);
+
+  const activeUserIntentRef = useRef<UserActiveIntent | null>(activeUserIntent);
+  useEffect(() => { activeUserIntentRef.current = activeUserIntent; }, [activeUserIntent]);
+
+  const refreshDiscoveryRef = useRef<() => Promise<void>>(async () => undefined);
+
+  const refreshDiscovery = async () => {
+    if (!IS_LIVE_BACKEND) return;
+    const viewerId = supabaseUserIdRef.current;
+    if (!viewerId || isSigningOutRef.current) return;
+    const generation = authGenerationRef.current;
+    try {
+      const rows = await discoverRightNow({ radiusMeters: 5000 });
+      if (generation !== authGenerationRef.current || isSigningOutRef.current) return;
+      // The authenticated user is never part of their own nearby list.
+      setSupabaseRightNowPulses(discoveryRowsToPulses(rows, viewerId));
+      setSupabaseReady(true);
+    } catch (error) {
+      console.warn('[GAYZE] Discovery refresh failed:', error);
+      if (generation === authGenerationRef.current && !isSigningOutRef.current) setSupabaseReady(false);
+    }
+  };
+
+  // Keep the latest discovery refresher reachable from the effects and
+  // callbacks below without re-subscribing on every render.
+  useEffect(() => { refreshDiscoveryRef.current = refreshDiscovery; });
+
+  // 1. Session, profile and device identity.
   useEffect(() => {
-    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut) return;
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut) return;
     let disposed = false;
     const generation = authGenerationRef.current;
-    const isStale = () => disposed || generation !== authGenerationRef.current;
+    const isStale = () => disposed || generation !== authGenerationRef.current || isSigningOutRef.current;
 
-    const refreshDiscovery = async () => {
+    void (async () => {
       try {
         const user = await ensureSupabaseSession();
-        if (!user || isStale()) {
-          if (!isStale()) setSupabaseReady(false);
-          return;
-        }
+        if (!user || isStale()) return;
+        supabaseUserIdRef.current = user.id;
         setSupabaseUserId(user.id);
+
         const identity = await getOrCreateDeviceIdentity();
         if (isStale()) return;
-        const identityUser = {
-          ...currentUser,
-          handle: currentUser.handle === 'julian.peer' ? 'gayze-user' : currentUser.handle,
-          displayName: user.user_metadata?.display_name || (currentUser.displayName === 'Julian K.' ? 'Gayze User' : currentUser.displayName),
-          bio: currentUser.displayName === 'Julian K.' ? '' : currentUser.bio,
-          neighborhood: currentUser.neighborhood === 'Near you' ? 'Near you' : currentUser.neighborhood,
+        const shortKey = `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`;
+
+        // Display name comes from the auth record first — never from demo fixtures.
+        const metadataName = typeof user.user_metadata?.display_name === 'string'
+          ? user.user_metadata.display_name.trim()
+          : '';
+        const emailName = (user.email || '').split('@')[0];
+        const resolvedName = metadataName || (emailName ? emailName.replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Gayze User');
+
+        const baseUser = currentUserRef.current;
+        const identityUser: UserProfile = {
+          ...baseUser,
+          displayName: resolvedName,
+          handle: baseUser.handle || 'gayze-user',
+          bio: baseUser.bio || '',
           publicKey: identity.fingerprint,
-          shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+          shortKey,
         };
-        if (currentUser.publicKey !== identityUser.publicKey || currentUser.shortKey !== identityUser.shortKey) {
-          setCurrentUser((prev) => ({ ...prev, publicKey: identityUser.publicKey, shortKey: identityUser.shortKey }));
-        }
+
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
         if (isStale()) return;
+
         const savedProfile = await loadSupabaseProfile(user.id);
-        if (!disposed && savedProfile) {
+        if (isStale()) return;
+        if (savedProfile) {
           setCurrentUser((prev) => ({
             ...prev,
             ...Object.fromEntries(Object.entries(savedProfile).filter(([, value]) => value !== undefined)),
+            // The device identity key is what peers need for E2EE; only this
+            // bootstrap may set it, and it is never overwritten from a fingerprint.
             publicKey: identity.fingerprint,
             shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
           }));
         }
+
         try {
           await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48), identity.signingPublicKeyJwkString, identity.deviceId);
           await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
+          if (isStale()) return;
           setCurrentDeviceFingerprint(identity.deviceId);
           const registeredDevices = await listIdentityDevices();
           if (!isStale()) setIdentityDevices(registeredDevices);
         } catch (deviceError) {
           console.warn('[GAYZE] Device registry unavailable', deviceError);
         }
-        const rows = await discoverRightNow({ radiusMeters: 5000 });
-        if (!isStale()) {
-          const parsed = discoveryRowsToPulses(rows, user.id);
-          setSupabaseRightNowPulses(parsed);
-          setSupabaseReady(true);
-        }
+
+        await refreshDiscoveryRef.current();
       } catch (error) {
-        console.warn('[GAYZE] Supabase Right Now sync fallback to local pulses:', error);
-        if (!isStale()) setSupabaseReady(false);
+        console.warn('[GAYZE] Supabase bootstrap failed:', error);
       }
-    };
+    })();
 
-    void refreshDiscovery();
-    const unsubscribe = subscribeToRightNow(() => { void refreshDiscovery(); });
+    return () => { disposed = true; };
+  }, [isAuthenticated, isSigningOut]);
 
+  // 2. Active intent: hydrate from Supabase, expire locally when it lapses.
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    let disposed = false;
+    // A leftover demo intent must never surface in the live shell.
+    try { localStorage.removeItem('gayze_active_user_intent'); } catch { /* ignore */ }
+
+    void (async () => {
+      const intent = await loadActiveIntent();
+      if (disposed || isSigningOutRef.current) return;
+      setActiveUserIntent(intent);
+    })();
+
+    return () => { disposed = true; };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+
+  // Expired intents disappear from the UI without waiting for a reload.
+  useEffect(() => {
+    if (!activeUserIntent) return;
+    const remaining = activeUserIntent.expiresAt - Date.now();
+    if (remaining <= 0) {
+      setActiveUserIntent(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setActiveUserIntent(null), Math.min(remaining, 2147483000));
+    return () => window.clearTimeout(timer);
+  }, [activeUserIntent?.remoteId, activeUserIntent?.expiresAt, activeUserIntent?.isPaused]);
+
+  // 3. Discovery: realtime subscription + slow poll so expiry is reflected even
+  //    when Realtime is not enabled for the table.
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    void refreshDiscoveryRef.current();
+    const unsubscribe = subscribeToRightNow(() => { void refreshDiscoveryRef.current(); });
+    const poll = window.setInterval(() => { void refreshDiscoveryRef.current(); }, 90000);
     return () => {
-      disposed = true;
       unsubscribe();
+      window.clearInterval(poll);
     };
-  }, [currentUser, isAuthenticated, isSigningOut]);
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+
+  // 4. Conversation list hydration (Supabase is the source of truth).
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    let disposed = false;
+    void (async () => {
+      const result = await loadMyConversations();
+      if (disposed || !result || isSigningOutRef.current) return;
+      const loaded = buildRoomsFromSupabase(result, supabaseUserId);
+      setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserId));
+    })();
+    return () => { disposed = true; };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
   // WebRTC User Signaling & Truthful Presence
   useEffect(() => {
@@ -542,42 +711,52 @@ export default function App() {
     };
   }, [supabaseUserId, currentUser.displayName]);
 
-  // Sync to LocalStorage
+  // Local persistence is limited to local/demo mode (no Supabase configured).
+  // In live mode Supabase is the source of truth: nothing here is written from
+  // or read into authenticated application data.
   useEffect(() => {
+    if (IS_LIVE_BACKEND) return;
     localStorage.setItem('gayze_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
   useEffect(() => {
+    if (IS_LIVE_BACKEND) return;
     localStorage.setItem('gayze_dating_profiles', JSON.stringify(datingProfiles));
   }, [datingProfiles]);
 
   useEffect(() => {
+    if (IS_LIVE_BACKEND) return;
     localStorage.setItem('gayze_pulses', JSON.stringify(pulses));
   }, [pulses]);
 
   useEffect(() => {
+    if (IS_LIVE_BACKEND) return;
     localStorage.setItem('gayze_gatherings', JSON.stringify(gatherings));
   }, [gatherings]);
 
   useEffect(() => {
+    if (IS_LIVE_BACKEND) return;
     localStorage.setItem('gayze_rooms', JSON.stringify(rooms));
   }, [rooms]);
 
   useEffect(() => {
+    if (IS_LIVE_BACKEND) return;
     localStorage.setItem('gayze_messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem('gayze_stories', JSON.stringify(stories));
-  }, [stories]);
-
-  useEffect(() => {
-    localStorage.setItem('gayze_intent_posts', JSON.stringify(intentPosts));
-  }, [intentPosts]);
-
-  useEffect(() => {
+    if (IS_LIVE_BACKEND) return;
     localStorage.setItem('gayze_checkin', JSON.stringify(checkinState));
   }, [checkinState]);
+
+  useEffect(() => {
+    if (IS_LIVE_BACKEND) return;
+    if (activeUserIntent) {
+      localStorage.setItem('gayze_active_user_intent', JSON.stringify(activeUserIntent));
+    } else {
+      localStorage.removeItem('gayze_active_user_intent');
+    }
+  }, [activeUserIntent]);
 
   // Safety Timer Interval with Vibration API Haptic Warnings
   useEffect(() => {
@@ -636,38 +815,6 @@ export default function App() {
     if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
   }, []);
 
-  const liveDatingProfiles: DatingProfile[] = isSupabaseConfigured && isAuthenticated
-    ? supabaseRightNowPulses.map((pulse) => ({
-        id: pulse.peerId,
-        name: pulse.peerName,
-        age: pulse.peerAge ?? 0,
-        photoUrl: '',
-        neighborhood: pulse.neighborhood || 'Nearby',
-        approxDistanceKm: pulse.approxDistanceKm ?? 0,
-        headline: pulse.title,
-        bio: pulse.bio || pulse.description,
-        lookingFor: pulse.intentMode === 'private' ? 'casual' : 'friends',
-        lookingForLabel: pulse.intent || 'Meet',
-        heightCm: 0,
-        interests: pulse.tags || [],
-        tribes: [],
-        isOnline: true,
-        lastActive: 'now',
-        safetyVerified: Boolean(pulse.safetyVerified),
-        peerPublicKey: '',
-        reliabilityScore: pulse.peerReliabilityScore || 0,
-        verifiedPeersCount: pulse.verifiedPeersCount || 0,
-        intentMode: pulse.intentMode,
-        intent: pulse.intent,
-        hasRightNowIntent: true,
-        rightNowDetail: pulse.description,
-        intentExpiresAt: pulse.expiresAt,
-        activityCategory: pulse.activityCategory,
-        canHost: (pulse.canHost === 'Can host' || pulse.canHost === 'Cannot host' || pulse.canHost === 'Depends') ? pulse.canHost : undefined,
-        travelWillingness: (pulse.travelWillingness === 'Yes' || pulse.travelWillingness === 'Within reason' || pulse.travelWillingness === 'Car required') ? pulse.travelWillingness : undefined,
-      }))
-    : [];
-
   // Handlers for "Right Now"
   const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {
     const isSupabaseConversation = Boolean(
@@ -685,43 +832,57 @@ export default function App() {
       return;
     }
 
-    // Create new direct encrypted room with peer
+    // Create new direct encrypted room with peer. The safety code is derived
+    // later from the real device keys (see the conversation hydrate effect) —
+    // never from a display handle. Demo rooms derive theirs from the local room
+    // secret so it is at least deterministic within the demo.
     const roomId = conversationId || `room_${pulse.peerId}_${Date.now()}`;
-    const safetyNumber = await generateSafetyFingerprint(currentUser.publicKey, pulse.peerShortKey);
+    const demoRoomSecret = isSupabaseConversation ? '' : `seed_swarm_${Math.random().toString(36).substring(2)}`;
+    const demoSafetyNumber = isSupabaseConversation
+      ? ''
+      : await generateSafetyFingerprint(demoRoomSecret, pulse.peerId);
     const newRoom: SwarmRoom = {
       id: roomId,
       name: pulse.peerName,
       type: 'direct',
-      peerKey: isSupabaseConversation ? undefined : pulse.peerShortKey + '_full_public_key_verified',
+      // Demo rooms carry a local room secret; live rooms resolve their peer key
+      // (and safety code) from the backend.
+      peerKey: isSupabaseConversation ? undefined : `demo_peer_${pulse.peerId}`,
       peerUserId: pulse.peerId,
       peerName: pulse.peerName,
       peerNeighborhood: pulse.neighborhood,
       peerAvatar: pulse.peerAvatar,
-      safetyNumber,
-      swarmSecretKeyHex: isSupabaseConversation ? '' : 'seed_swarm_' + Math.random().toString(36).substring(2),
+      safetyNumber: demoSafetyNumber,
+      swarmSecretKeyHex: demoRoomSecret,
       connectionContext: `Connected via ${pulse.intentMode || 'social'} intent: ${pulse.title}`,
       lastMessage: `Connected via pulse: "${pulse.title}"`,
       lastTimestamp: Date.now(),
       ephemeralTtlSeconds: 3600, // default 1 hr burner
     };
 
-    const initialMsg: EncryptedMessage = {
-      id: 'msg_init_' + Date.now(),
-      roomId,
-      senderKey: currentUser.publicKey,
-      senderName: currentUser.displayName,
-      timestamp: Date.now(),
-      cipherText: '9a01f8...encrypted',
-      nonceHex: '190284719203847102938471',
-      plainText: `Hey ${pulse.peerName}, saw your pulse for ${pulse.title}!`,
-    };
-
     setRooms((prev) => [newRoom, ...prev]);
     if (!isSupabaseConversation) {
-      setMessages((prev) => ({
-        ...prev,
-        [roomId]: [initialMsg],
-      }));
+      // Demo mode only: the opening line is encrypted with the room secret
+      // rather than stored as a hand-written placeholder ciphertext.
+      const opening = `Hey ${pulse.peerName}, saw your pulse for ${pulse.title}!`;
+      try {
+        const encrypted = await encryptPayload(opening, newRoom.swarmSecretKeyHex);
+        setMessages((prev) => ({
+          ...prev,
+          [roomId]: [{
+            id: 'msg_init_' + Date.now(),
+            roomId,
+            senderKey: currentUser.publicKey,
+            senderName: currentUser.displayName,
+            timestamp: Date.now(),
+            cipherText: encrypted.cipherHex,
+            nonceHex: encrypted.nonceHex,
+            plainText: opening,
+          }],
+        }));
+      } catch (error) {
+        console.warn('[GAYZE] Could not encrypt demo opening message', error);
+      }
     }
 
     setActiveRoomId(roomId);
@@ -975,20 +1136,6 @@ export default function App() {
     setActiveTab('swarms');
   };
 
-  const handleCreatePulse = (newPulse: Omit<Pulse, 'id' | 'createdAt' | 'expiresAt'>) => {
-    const pulse: Pulse = {
-      ...newPulse,
-      id: 'pulse_' + Date.now(),
-      createdAt: Date.now(),
-      expiresAt: Date.now() + newPulse.durationHours * 3600 * 1000,
-    };
-    setPulses((prev) => [
-      pulse,
-      // One live signal per person — replacing keeps the map honest on edit.
-      ...prev.filter((existing) => existing.peerId !== newPulse.peerId || existing.id === pulse.id),
-    ]);
-  };
-
   const handleCreateGathering = async (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => {
     if (isSupabaseConfigured && isAuthenticated) {
       const id = await createGathering(newGathering);
@@ -1009,11 +1156,15 @@ export default function App() {
   };
 
   // Hydrate and subscribe to real Supabase conversation messages.
+  // Direct conversations derive their key from the two device identities;
+  // group conversations resolve a per-device key envelope. When no key can be
+  // resolved the chat says so and sending is blocked — nothing is faked.
   useEffect(() => {
-    if (!isSupabaseConfigured || !activeRoomId || !/^[0-9a-f-]{36}$/i.test(activeRoomId)) return;
+    if (!IS_LIVE_BACKEND || !activeRoomId || !/^[0-9a-f-]{36}$/i.test(activeRoomId)) return;
     let disposed = false;
 
     let conversationKey: CryptoKey | null = null;
+    const room = roomsRef.current.find((candidate) => candidate.id === activeRoomId);
 
     const applyRow = async (row: {
       id: string;
@@ -1026,8 +1177,8 @@ export default function App() {
       burned_at: string | null;
     }) => {
       if (disposed) return;
-      const room = rooms.find((candidate) => candidate.id === activeRoomId);
-      if (!room) return;
+      const targetRoom = roomsRef.current.find((candidate) => candidate.id === activeRoomId);
+      if (!targetRoom) return;
 
       let plainText = '[Encrypted message]';
       let mediaUrl: string | undefined = undefined;
@@ -1050,16 +1201,20 @@ export default function App() {
         }
       }
 
+      const senderName = row.sender_id === supabaseUserIdRef.current
+        ? 'You'
+        : targetRoom.memberNames?.[row.sender_id] || targetRoom.peerName || targetRoom.name || 'Gayze member';
+
       const message: EncryptedMessage = {
         id: row.id,
         roomId: row.conversation_id,
         senderKey: row.sender_id,
-        senderName: row.sender_id === supabaseUserId ? currentUser.displayName : room.peerName || room.name,
+        senderName,
         timestamp: new Date(row.created_at).getTime(),
         cipherText: row.ciphertext,
         nonceHex: row.nonce || '',
         plainText,
-        ephemeralTtlSeconds: room.ephemeralTtlSeconds,
+        ephemeralTtlSeconds: targetRoom.ephemeralTtlSeconds,
         isBurned: Boolean(row.burned_at),
         mediaUrl,
         mediaType: mediaUrl ? 'image' : undefined,
@@ -1073,22 +1228,64 @@ export default function App() {
     };
 
     const hydrate = async () => {
-      try {
-        const peer = await loadConversationPeerKey(activeRoomId);
-        if (!peer?.peer_public_key) {
-          console.warn('[GAYZE] Conversation has no peer identity key yet');
-          const rows = await loadConversationMessages(activeRoomId);
-          for (const row of rows) await applyRow(row);
-          return;
-        }
-
-        const peerPublicKey = JSON.parse(peer.peer_public_key) as JsonWebKey;
-        conversationKey = await deriveConversationKey(activeRoomId, peerPublicKey);
-        const rows = await loadConversationMessages(activeRoomId);
-        for (const row of rows) await applyRow(row);
-      } catch (error) {
-        console.error('[GAYZE] Failed to initialize secure conversation', error);
+      setConversationKeyState({ roomId: activeRoomId, status: 'loading' });
+      if (!room) {
+        setConversationKeyState({
+          roomId: activeRoomId,
+          status: 'unavailable',
+          reason: 'This conversation is still loading.',
+        });
+        return;
       }
+      try {
+        const result = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
+        if (disposed) return;
+        conversationKey = result.key;
+        setConversationKeyState({
+          roomId: activeRoomId,
+          status: result.status,
+          reason: result.reason,
+        });
+      } catch (error: any) {
+        if (disposed) return;
+        setConversationKeyState({
+          roomId: activeRoomId,
+          status: 'unavailable',
+          reason: error?.message || 'The conversation key could not be resolved on this device.',
+        });
+      }
+
+      // Direct conversations get a real safety code, derived from both device
+      // keys. It is only set when the peer's key is actually available; until
+      // then the verification screen says the code is unavailable.
+      if (!disposed && room.type === 'direct' && !room.safetyNumber) {
+        try {
+          const peer = await loadConversationPeerKey(room.id);
+          if (peer?.peer_public_key) {
+            const peerJwk = JSON.parse(peer.peer_public_key) as JsonWebKey;
+            const identity = await getOrCreateDeviceIdentity();
+            const coords = (jwk: JsonWebKey) => `${jwk.x ?? ''}.${jwk.y ?? ''}`;
+            if (coords(identity.publicKeyJwk) !== '.') {
+              const safetyNumber = await generateSafetyFingerprint(
+                coords(identity.publicKeyJwk),
+                coords(peerJwk),
+              );
+              if (!disposed) {
+                setRooms((prev) => prev.map((candidate) => (
+                  candidate.id === room.id
+                    ? { ...candidate, peerKey: peer.peer_public_key ?? undefined, safetyNumber }
+                    : candidate
+                )));
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('[GAYZE] Safety code unavailable for this conversation', error);
+        }
+      }
+
+      const rows = await loadConversationMessages(activeRoomId);
+      for (const row of rows) await applyRow(row);
     };
 
     void hydrate();
@@ -1098,7 +1295,7 @@ export default function App() {
       disposed = true;
       unsubscribe();
     };
-  }, [activeRoomId, isSupabaseConfigured, currentUser.displayName, rooms, supabaseUserId]);
+  }, [activeRoomId, supabaseUserId]);
 
   // Chat message sending with real WebCrypto AES-GCM
   const handleSendMessage = async (
@@ -1111,7 +1308,7 @@ export default function App() {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
 
-    const isSupabaseRoom = isSupabaseConfigured && /^[0-9a-f-]{36}$/i.test(roomId);
+    const isSupabaseRoom = IS_LIVE_BACKEND && /^[0-9a-f-]{36}$/i.test(roomId);
     let cipherHex: string;
     let nonceHex: string;
     const textToEncrypt = mediaUrl
@@ -1119,28 +1316,16 @@ export default function App() {
       : plainText;
 
     if (isSupabaseRoom) {
+      const resolved = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
+      if (!resolved.key) {
+        showToast(resolved.reason || 'This conversation cannot be encrypted on this device yet');
+        return;
+      }
       try {
-        let peerPublicKeyJwk: JsonWebKey | null = null;
-        if (room.peerKey) {
-          try {
-            peerPublicKeyJwk = JSON.parse(room.peerKey) as JsonWebKey;
-          } catch {
-            peerPublicKeyJwk = null;
-          }
-        }
-        if (!peerPublicKeyJwk) {
-          const peer = await loadConversationPeerKey(roomId);
-          if (!peer?.peer_public_key) throw new Error('Peer identity key is unavailable');
-          peerPublicKeyJwk = JSON.parse(peer.peer_public_key) as JsonWebKey;
-          setRooms((prev) => prev.map((candidate) =>
-            candidate.id === roomId ? { ...candidate, peerKey: peer.peer_public_key || candidate.peerKey } : candidate
-          ));
-        }
-        const conversationKey = await deriveConversationKey(roomId, peerPublicKeyJwk);
-        ({ cipherHex, nonceHex } = await encryptWithConversationKey(textToEncrypt, conversationKey));
+        ({ cipherHex, nonceHex } = await encryptWithConversationKey(textToEncrypt, resolved.key));
       } catch (error) {
         console.error('[GAYZE] Secure conversation encryption failed', error);
-        showToast('Secure key exchange is not ready for this conversation');
+        showToast('Secure encryption failed. Message not sent.');
         return;
       }
     } else {
@@ -1168,7 +1353,7 @@ export default function App() {
       mediaType: mediaUrl ? 'image' : undefined,
     };
 
-    if (!(isSupabaseConfigured && /^[0-9a-f-]{36}$/i.test(roomId))) {
+    if (!isSupabaseRoom) {
       setMessages((prev) => ({
         ...prev,
         [roomId]: [...(prev[roomId] || []), newMsg],
@@ -1193,14 +1378,16 @@ export default function App() {
         await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt);
       } catch (error) {
         console.error('[GAYZE] Failed to persist encrypted message', error);
-        showToast('Message saved on this device; secure sync failed');
+        showToast('Message was not sent — secure sync failed');
       }
       return;
     }
 
-    // If direct chat, simulate an authentic, friendly peer reply after 1.5s
-    if (room.type === 'direct') {
-      setTimeout(async () => {
+    // Demo mode only (no Supabase configured): the local prototype simulates a
+    // friendly reply so the local chat shell can be exercised. This never runs
+    // against the live backend.
+    if (!IS_LIVE_BACKEND && room.type === 'direct') {
+      window.setTimeout(async () => {
         let randomReply: string;
         if (meetingData) {
           randomReply = `Sounds fantastic! I'd love to meet at ${meetingData.venueName} (${meetingData.timeStr}). Looking forward to it!`;
@@ -1208,8 +1395,8 @@ export default function App() {
           const peerReplies = [
             "Hey! Sounds great. I'm right nearby in the courtyard area.",
             "Awesome. Let me know when you get here, I'll keep an eye out.",
-            "Perfect! I appreciate you verifying the safety number too.",
-            "Looking forward to it! See you shortly in the public lounge."
+            'Perfect! I appreciate you verifying the safety number too.',
+            'Looking forward to it! See you shortly in the public lounge.',
           ];
           randomReply = peerReplies[Math.floor(Math.random() * peerReplies.length)];
         }
@@ -1232,7 +1419,6 @@ export default function App() {
           [roomId]: [...(prev[roomId] || []), peerMsg],
         }));
 
-        // Haptic feedback for incoming encrypted peer message decrypted locally
         hapticMessageDecrypted();
 
         setRooms((prev) =>
@@ -1461,136 +1647,149 @@ export default function App() {
 
 
 
+  /**
+   * Publish a new signal, or update the existing one.
+   *
+   * Live mode writes to Supabase first and only then reflects the result in the
+   * UI — if the write fails nothing is pretended to be live. Local/demo mode
+   * keeps the signal on the device.
+   */
   const handleSaveUserIntent = (intent: UserActiveIntent) => {
     hapticSensitiveAction();
-    setActiveUserIntent(intent);
+    const previous = activeUserIntentRef.current;
+    const isFirstPublish = !previous;
 
-    const durationHours = intent.duration === '1 hr' ? 1 : 2;
-
-    if (isSupabaseConfigured) {
-      void (async () => {
-        try {
-          const location = userLocation
-            ? { lat: userLocation.lat, lng: userLocation.lng }
-            : undefined;
-          const savedIntent = await saveActiveIntentWithSession(intent, currentUser, location, currentUser.publicKey);
-          if (!savedIntent) {
-            showToast('Intent saved on this device; secure sync is unavailable.');
-            return;
-          }
-          const storyId = await createStoryFromIntent(intent);
-          if (storyId) {
-            const refreshedStories = await loadStories();
-            setStories(refreshedStories);
-          }
-          const rows = await discoverRightNow({ radiusMeters: 5000 });
-          setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
-          analytics.logEvent('intent_published', {
-            mode: intent.mode,
-            intent: intent.intent,
-            timing: intent.when,
-            privacy: currentUser.privacySetting,
-            safe_haven: Boolean(intent.isNearSafeHaven),
-          });
-          showToast('✓ Right Now intent is live on Supabase');
-        } catch (error) {
-          console.error('[GAYZE] Failed to persist Right Now intent', error);
-          showToast('Right Now saved locally; secure sync is unavailable');
-        }
-      })();
-    } else if (currentUser.privacySetting !== 'ghost') {
-      const radiusMeters = currentUser.privacySetting === 'neighborhood' ? 800 : 500;
-      const centerLat = userLocation?.lat ?? 51.5132;
-      const centerLng = userLocation?.lng ?? -0.1300;
-      const bearing = Math.random() * Math.PI * 2;
-      const distance = Math.sqrt(Math.random()) * radiusMeters;
-      const lat = centerLat + (distance * Math.cos(bearing)) / 111_320;
-      const lng = centerLng + (distance * Math.sin(bearing)) / (111_320 * Math.cos(centerLat * Math.PI / 180));
-      const categoryMap: Record<string, Pulse['activityCategory']> = {
-        Meet: 'coffee', Drinks: 'drinks', Date: 'walk', Chat: 'culture', Group: 'active',
-        Hookup: 'chill', 'Hookup · Host': 'chill', 'Hookup · Travel': 'chill',
-        'Hookup · Outdoor': 'chill', 'Hookup · Car': 'chill', Other: 'chill',
-      };
-      handleCreatePulse({
-        peerId: 'peer_me',
-        peerName: currentUser.displayName,
-        peerShortKey: currentUser.shortKey,
-        peerAvatar: currentUser.avatarSeed,
-        title: `${intent.mode.toUpperCase()} · ${intent.intent}`,
-        description: intent.description,
-        activityCategory: categoryMap[intent.intent] || 'drinks',
-        intentMode: intent.mode,
-        intent: intent.intent,
-        travelDistance: intent.travelDistance,
-        canHost: intent.canHost,
-        travelWillingness: intent.travelWillingness,
-        venueName: intent.safeHavenName || currentUser.neighborhood,
-        neighborhood: currentUser.neighborhood,
-        approxDistanceKm: 0.1,
-        jitterMeters: radiusMeters,
-        lat,
-        lng,
-        durationHours,
-        tags: [intent.intent, intent.mode, intent.when],
-        safeHavenVenue: Boolean(intent.isNearSafeHaven),
-      });
-      analytics.logEvent('intent_published', {
-        mode: intent.mode,
-        intent: intent.intent,
-        timing: intent.when,
-        privacy: currentUser.privacySetting,
-        safe_haven: Boolean(intent.isNearSafeHaven),
-        transport: 'local',
-      });
-    } else {
-      analytics.logEvent('intent_published', {
-        mode: intent.mode,
-        intent: intent.intent,
-        timing: intent.when,
-        privacy: 'ghost',
-        transport: 'local',
-      });
+    if (!IS_LIVE_BACKEND) {
+      setActiveUserIntent(intent);
+      setIsSetIntentOpen(false);
+      showToast(`✓ Status updated: ${intent.intent} (${intent.when})`);
+      return;
     }
+
+    if (!isAuthenticated) {
+      showToast('Sign in to publish a live intent.');
+      return;
+    }
+
+    // Responsive UI: show the change immediately, then reconcile with the write.
+    setActiveUserIntent({ ...intent, remoteId: previous?.remoteId, isPaused: false });
     setIsSetIntentOpen(false);
+    setIntentBusy(true);
 
-    // Add as a live story
-    const newStory: SocialStory = {
-      id: 'story_user_' + Date.now(),
-      peerId: currentUser.publicKey,
-      peerName: currentUser.displayName,
-      avatarUrl: 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg',
-      photoUrl: 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg',
-      caption: `Status: ${intent.intent} · ${intent.when} around ${intent.area}`,
-      locationName: intent.isNearSafeHaven && intent.safeHavenName ? intent.safeHavenName : intent.area,
-      timestamp: Date.now(),
-      intent: intent.intent,
-      category: intent.intent.includes('Hookup') ? 'private' : 'social',
-    };
-    setStories((prev) => [newStory, ...prev]);
+    void (async () => {
+      try {
+        const location = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined;
+        const sourceUser = currentUserRef.current;
+        const saved = await saveActiveIntentWithSession(
+          { ...intent, remoteId: previous?.remoteId },
+          sourceUser,
+          location,
+        );
+        if (!saved) {
+          // Honest failure: revert instead of showing a live signal that is not live.
+          setActiveUserIntent(previous);
+          showToast('Could not publish your intent. Nothing was saved.');
+          return;
+        }
+        setActiveUserIntent((prev) => ({
+          ...(prev || intent),
+          ...intent,
+          remoteId: saved.id,
+          expiresAt: saved.expiresAt,
+          isPaused: saved.isPaused,
+        }));
+        await refreshDiscoveryRef.current();
+        analytics.logEvent('intent_published', {
+          mode: intent.mode,
+          intent: intent.intent,
+          timing: intent.when,
+          privacy: sourceUser.privacySetting,
+          safe_haven: Boolean(intent.isNearSafeHaven),
+        });
+        if (isFirstPublish) {
+          // Real story record, authored by the signed-in user. Media stays empty
+          // until a storage-backed upload exists.
+          void createStoryFromIntent(intent).catch((error) => {
+            console.warn('[GAYZE] Story creation failed', error);
+          });
+        }
+        showToast(isFirstPublish ? '✓ You are live on the map' : '✓ Intent updated');
+      } catch (error) {
+        console.error('[GAYZE] Failed to persist Right Now intent', error);
+        setActiveUserIntent(previous);
+        showToast('Could not publish your intent. Nothing was saved.');
+      } finally {
+        setIntentBusy(false);
+      }
+    })();
+  };
 
-    // Add as an intent activity post
-    const newPost: IntentActivityPost = {
-      id: 'post_user_' + Date.now(),
-      peerId: currentUser.publicKey,
-      peerName: currentUser.displayName,
-      peerAvatar: 'user',
-      photoUrl: 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg',
-      activityTitle: `${intent.intent} · ${intent.when}`,
-      description: `Looking to connect around ${intent.area}. Context: ${intent.context || 'Flexible'} · Duration: ${intent.duration}`,
-      category: intent.intent.includes('Hookup') ? 'private' : 'social',
-      intent: intent.intent,
-      timing: intent.when === 'Now' ? 'Right Now' : (intent.when as IntentActivityPost['timing']) || 'Right Now',
-      venueName: intent.isNearSafeHaven && intent.safeHavenName ? intent.safeHavenName : intent.area,
-      neighborhood: intent.area,
-      approxDistanceKm: 0.1,
-      timestamp: Date.now(),
-      isSafeHaven: Boolean(intent.isNearSafeHaven),
-      reliabilityScore: currentUser.reliabilityScore || 95,
-      gazesCount: 0,
-    };
-    setIntentPosts((prev) => [newPost, ...prev]);
+  /** Pause/resume is a backend state change in live mode, not a local flag. */
+  const handleToggleIntentPause = (isPaused: boolean) => {
+    const intent = activeUserIntentRef.current;
+    if (!intent) return;
+    hapticLight();
 
-    showToast(`✓ Status updated: ${intent.intent} (${intent.when})`);
+    if (!IS_LIVE_BACKEND || !intent.remoteId) {
+      setActiveUserIntent({ ...intent, isPaused });
+      return;
+    }
+
+    setActiveUserIntent({ ...intent, isPaused });
+    void (async () => {
+      const ok = await updateActiveIntentPause(intent.remoteId!, isPaused);
+      if (!ok) {
+        setActiveUserIntent(intent);
+        showToast(`Could not ${isPaused ? 'pause' : 'resume'} your intent. It is unchanged.`);
+        return;
+      }
+      await refreshDiscoveryRef.current();
+      showToast(isPaused ? 'Intent paused — hidden from discovery' : 'Intent resumed');
+    })();
+  };
+
+  /** Ending a signal removes it from the backend and from application state. */
+  const handleEndUserIntent = () => {
+    const intent = activeUserIntentRef.current;
+    if (!intent) return;
+    hapticSensitiveAction();
+
+    if (!IS_LIVE_BACKEND) {
+      setActiveUserIntent(null);
+      showToast('Intent ended');
+      return;
+    }
+
+    void (async () => {
+      const ok = await endActiveIntent(intent.remoteId ?? null);
+      if (!ok) {
+        showToast('Could not end your intent. It is still live.');
+        return;
+      }
+      setActiveUserIntent(null);
+      await refreshDiscoveryRef.current();
+      showToast('Intent ended');
+    })();
+  };
+
+  /**
+   * Single entry point used by Right Now and Profile: routes end / pause /
+   * edit to the right backend operation and never writes an intent locally in
+   * live mode.
+   */
+  const handleUpdateActiveUserIntent = (next: UserActiveIntent | null) => {
+    const current = activeUserIntentRef.current;
+    if (!next) {
+      handleEndUserIntent();
+      return;
+    }
+    const isPauseToggle = Boolean(current && current.remoteId === next.remoteId
+      && Boolean(current.isPaused) !== Boolean(next.isPaused));
+    if (isPauseToggle) {
+      handleToggleIntentPause(Boolean(next.isPaused));
+      return;
+    }
+    handleSaveUserIntent(next);
   };
 
   const handleOpenIntentSheet = () => {
@@ -1781,7 +1980,7 @@ export default function App() {
         onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
         isSafetyTimerActive={checkinState.isActive}
         onOpenQR={() => handleOpenQRModal()}
-        reliabilityScore={currentUser.reliabilityScore || 94}
+        reliabilityScore={currentUser.reliabilityScore}
         userNeighborhood={currentUser.neighborhood}
       />
 
@@ -1796,7 +1995,10 @@ export default function App() {
         <Suspense fallback={<div className="flex h-full min-h-[40vh] items-center justify-center text-xs text-zinc-400">Loading view…</div>}>
           {activeTab === 'dating' && (
             <DiscoverView
-              profiles={isSupabaseConfigured && isAuthenticated ? liveDatingProfiles : datingProfiles}
+              // In live mode every row is a real active intent (the pulses carry
+              // identity, intent, area, distance and availability). Demo photo
+              // profiles are only used when Supabase is not configured.
+              profiles={isSupabaseConfigured && isAuthenticated ? [] : datingProfiles}
               pulses={isSupabaseConfigured && isAuthenticated ? supabaseRightNowPulses : pulses}
               safeHavens={safeHavens}
               userNeighborhood={currentUser.neighborhood}
@@ -1818,28 +2020,8 @@ export default function App() {
               activeUserIntent={activeUserIntent}
               areaLabel={resolveAreaLabel(currentUser.neighborhood)}
               onOpenSetIntent={handleOpenIntentSheet}
-              onUpdateActiveUserIntent={(intent) => {
-                setActiveUserIntent(intent);
-                // Keep the local map pulse in step with the signal.
-                setPulses((prev) => {
-                  const others = prev.filter((pulse) => pulse.peerId !== 'peer_me');
-                  if (!intent || intent.isPaused) return others;
-                  const existing = prev.find((pulse) => pulse.peerId === 'peer_me');
-                  if (!existing) return others;
-                  return [
-                    ...others,
-                    {
-                      ...existing,
-                      intent: intent.intent,
-                      description: intent.description,
-                      expiresAt: intent.expiresAt,
-                    },
-                  ];
-                });
-                if (!intent && isSupabaseConfigured) {
-                  void endActiveIntents();
-                }
-              }}
+              onUpdateActiveUserIntent={handleUpdateActiveUserIntent}
+              intentBusy={intentBusy}
               onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
               isSafetyTimerActive={checkinState.isActive}
               onOpenMask={() => setIsMaskActive(true)}
@@ -1859,17 +2041,17 @@ export default function App() {
               userNeighborhood={currentUser.neighborhood}
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
-              datingProfiles={isSupabaseConfigured && isAuthenticated
-                ? liveDatingProfiles
-                : datingProfiles}
-              stories={stories}
+              // Live discovery rows already carry the person's real
+              // (privacy-jittered) coordinates. Derived photo-grid profiles are
+              // demo-only data and are never mixed into the live map.
+              datingProfiles={isSupabaseConfigured && isAuthenticated ? [] : datingProfiles}
               activeUserIntent={activeUserIntent}
+              intentBusy={intentBusy}
               onOpenDirectChat={handleOpenDirectChatFromPulse}
               onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
-              onSelectHaven={(h) => {
+              onSelectHaven={() => {
                 setActiveTab('safe_havens');
               }}
-              onCreatePulse={handleCreatePulse}
               onGazeAtPeer={handleGazeAtPeer}
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
               onOpenSetIntent={handleOpenIntentSheet}
@@ -1877,27 +2059,7 @@ export default function App() {
               onSubmitGaze={handleSubmitGaze}
               onSwitchToLater={() => setActiveTab('later')}
               onRequestLocation={requestUserLocation}
-              onUpdateActiveUserIntent={(intent) => {
-                setActiveUserIntent(intent);
-                setPulses((prev) => {
-                  const others = prev.filter((pulse) => pulse.peerId !== 'peer_me');
-                  if (!intent || intent.isPaused) return others;
-                  const existing = prev.find((pulse) => pulse.peerId === 'peer_me');
-                  if (!existing) return others;
-                  return [
-                    ...others,
-                    {
-                      ...existing,
-                      intent: intent.intent,
-                      description: intent.description,
-                      expiresAt: intent.expiresAt,
-                    },
-                  ];
-                });
-                if (!intent && isSupabaseConfigured) {
-                  void endActiveIntents();
-                }
-              }}
+              onUpdateActiveUserIntent={handleUpdateActiveUserIntent}
             />
           )}
 
@@ -1933,6 +2095,12 @@ export default function App() {
               onAcceptMeeting={handleAcceptMeeting}
               onReturnToDiscovery={() => setActiveTab('right_now')}
               onlineUserIds={onlineUserIds}
+              conversationKeyUnavailable={
+                Boolean(activeRoomId)
+                && conversationKeyState.roomId === activeRoomId
+                && conversationKeyState.status === 'unavailable'
+              }
+              conversationKeyReason={conversationKeyState.reason}
             />
           )}
 
@@ -2062,9 +2230,23 @@ export default function App() {
             console.warn('[GAYZE] Could not clear browser auth storage:', error);
           }
 
-          // Clear local application state synchronously.
-          localStorage.removeItem('gayze_messages');
-          localStorage.removeItem('gayze_active_user_intent');
+          // Clear local application state synchronously. Device identity keys are
+          // deliberately kept (they belong to the device, not the account) but
+          // every account-derived cache is removed.
+          for (const key of [
+            'gayze_messages',
+            'gayze_active_user_intent',
+            'gayze_user',
+            'gayze_rooms',
+            'gayze_pulses',
+            'gayze_gatherings',
+            'gayze_stories',
+            'gayze_intent_posts',
+            'gayze_checkin',
+            'gayze_verified_rooms',
+          ]) {
+            localStorage.removeItem(key);
+          }
           setActiveUserIntent(null);
           setSupabaseRightNowPulses([]);
           setSupabaseReady(false);

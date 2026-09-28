@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal } from '../types';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import {
@@ -43,6 +43,9 @@ interface ChatRoomViewProps {
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
   onlineUserIds?: Set<string>;
+  /** True when no conversation key could be resolved on this device. */
+  conversationKeyUnavailable?: boolean;
+  conversationKeyReason?: string;
 }
 
 export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
@@ -59,6 +62,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onAcceptMeeting,
   onReturnToDiscovery,
   onlineUserIds,
+  conversationKeyUnavailable = false,
+  conversationKeyReason,
 }) => {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -66,9 +71,25 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [inspectedMessageId, setInspectedMessageId] = useState<string | null>(null);
   const [attachedMedia, setAttachedMedia] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
-  const [isPeerVerified, setIsPeerVerified] = useState<Record<string, boolean>>({
-    room_marcus: true,
+  // Local trust decisions only: a room is marked verified when the user
+  // compares the real safety code out-of-band. Nothing is pre-verified and
+  // nothing is asserted about a peer the user has not confirmed.
+  const [isPeerVerified, setIsPeerVerified] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem('gayze_verified_rooms');
+      return stored ? (JSON.parse(stored) as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('gayze_verified_rooms', JSON.stringify(isPeerVerified));
+    } catch {
+      /* storage unavailable — verification simply won't survive a reload */
+    }
+  }, [isPeerVerified]);
   // Mobile responsive view: 'list' | 'chat'
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
 
@@ -76,6 +97,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const currentRoom = rooms.find((r) => r.id === activeRoomId) || rooms[0];
   const currentMessages = messages[currentRoom?.id || ''] || [];
   const prevCountRef = useRef<number>(currentMessages.length);
+
+  // Real safety code for this conversation: only shown when both device keys are
+  // known. There is deliberately no placeholder number.
+  const safetyBlocks = useMemo(() => {
+    const code = currentRoom?.safetyNumber?.trim();
+    if (!code) return null;
+    const blocks = code.split(/\s+/).filter(Boolean);
+    return blocks.length ? blocks : null;
+  }, [currentRoom?.safetyNumber]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -203,7 +233,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   </div>
 
                   <p className="text-[11px] text-zinc-400 truncate mt-0.5">
-                    {room.lastMessage || 'End-to-end encrypted session initialized.'}
+                    {room.lastMessage || 'No messages yet — encrypted on this device.'}
                   </p>
 
                   <div className="flex items-center gap-2 mt-1.5 text-[10px] text-zinc-500">
@@ -227,7 +257,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         {/* Footnote */}
         <div className="p-3 bg-[#090a0e] border-t border-white/[0.08] text-[11px] text-zinc-600 flex items-center gap-1.5">
           <Lock className="w-3 h-3 text-emerald-400/80" />
-          <span>End-to-end encrypted · auto-delete per chat</span>
+          <span>Encrypted on device · auto-delete per chat</span>
         </div>
       </div>
 
@@ -272,7 +302,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 inline-block" />
                       <span className="truncate font-mono">
-                        {currentRoom.peerKey ? `Key: ${currentRoom.peerKey.substring(0, 10)}...` : 'Encrypted Group'}
+                        {currentRoom.type === 'direct'
+                          ? (currentRoom.peerKey ? 'Device-to-device key' : 'Direct conversation')
+                          : 'Group conversation'}
                       </span>
                     </>
                   )}
@@ -343,11 +375,17 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             </div>
           </div>
 
+          {conversationKeyUnavailable && (
+            <div className="px-3 sm:px-4 py-2 bg-amber-500/10 border-b border-amber-500/25 text-[11px] text-amber-200">
+              {conversationKeyReason || 'This conversation cannot be decrypted on this device yet.'}
+            </div>
+          )}
+
           {/* Privacy & E2EE Info Strip */}
           <div className="px-3 sm:px-4 py-2 bg-[#0c0d12] border-b border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-400">
             <div className="flex items-center gap-2">
               <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="truncate">End-to-End Encrypted · Zero Cloud Retention</span>
+              <span className="truncate">Encrypted on your device · stored only as ciphertext</span>
             </div>
             <span className="text-[10px] font-mono text-zinc-500 shrink-0 hidden md:inline">
               Decrypted in browser
@@ -533,6 +571,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <input
                 type="text"
                 value={inputText}
+                disabled={conversationKeyUnavailable}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={
                   currentRoom.ephemeralTtlSeconds > 0
@@ -567,9 +606,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             <div className="mt-1.5 flex items-center justify-between text-[10px] text-zinc-500 px-1 font-mono">
               <span className="flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                Metadata stripped on send
+                Message content encrypted before sending
               </span>
-              <span>Local device only</span>
+              <span>Keys stay on your device</span>
             </div>
           </form>
         </div>
@@ -635,20 +674,28 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               Compare this security code with <strong className="text-white">{currentRoom.name}</strong> or scan each other's QR code in person to guarantee your chat is direct and unintercepted.
             </p>
 
-            {/* 6-block Safety Number */}
-            <div className="p-4 bg-[#141620] border border-white/[0.07] rounded-xl space-y-2">
-              <div className="text-[10px] uppercase font-mono tracking-wider text-zinc-400 font-semibold">
-                Verification Blocks
+            {/* Real safety code derived from both device keys — never a placeholder. */}
+            {safetyBlocks ? (
+              <div className="p-4 bg-[#141620] border border-white/[0.07] rounded-xl space-y-2">
+                <div className="text-[10px] uppercase font-mono tracking-wider text-zinc-400 font-semibold">
+                  Verification Blocks
+                </div>
+                <div className="grid grid-cols-3 gap-2 font-mono text-center text-sm font-bold text-emerald-400">
+                  {safetyBlocks.slice(0, 6).map((block, index) => (
+                    <span key={`${block}-${index}`} className="p-2 bg-[#090a0e] rounded-lg border border-white/10">
+                      {block}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 font-mono text-center text-sm font-bold text-emerald-400">
-                <span className="p-2 bg-[#090a0e] rounded-lg border border-white/10">48291</span>
-                <span className="p-2 bg-[#090a0e] rounded-lg border border-white/10">90312</span>
-                <span className="p-2 bg-[#090a0e] rounded-lg border border-white/10">65120</span>
-                <span className="p-2 bg-[#090a0e] rounded-lg border border-white/10">11894</span>
-                <span className="p-2 bg-[#090a0e] rounded-lg border border-white/10">77239</span>
-                <span className="p-2 bg-[#090a0e] rounded-lg border border-white/10">55401</span>
+            ) : (
+              <div className="p-4 bg-[#141620] border border-white/[0.07] rounded-xl">
+                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                  This conversation's device keys are not both available on this device yet, so no safety
+                  code can be shown. It will appear once the other person's identity key has been loaded.
+                </p>
               </div>
-            </div>
+            )}
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2">
               {onOpenQR && currentRoom.type === 'direct' && (
@@ -669,7 +716,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   setIsPeerVerified((prev) => ({ ...prev, [currentRoom.id]: true }));
                   setIsSafetyModalOpen(false);
                 }}
-                className="w-full sm:flex-1 py-2.5 text-xs font-semibold text-black bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                disabled={!safetyBlocks}
+                title={safetyBlocks ? 'I compared this code in person' : 'No safety code available to compare yet'}
+                className="w-full sm:flex-1 py-2.5 text-xs font-semibold text-black bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="w-4 h-4" />
                 <span>Mark Verified</span>
