@@ -181,8 +181,8 @@ export async function submitGaze(toUserId: string, intentId?: string) {
     if (userError || !userData?.user) return { sent: false };
 
     const { error } = await supabase.from('gazes').insert({
-      from_user: userData.user.id,
-      to_user: toUserId,
+      from_user_id: userData.user.id,
+      to_user_id: toUserId,
       intent_id: intentId ?? null,
     });
 
