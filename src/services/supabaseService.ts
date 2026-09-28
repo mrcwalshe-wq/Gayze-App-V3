@@ -887,7 +887,7 @@ export async function loadStories(): Promise<import('../types').SocialStory[]> {
 
   const { data, error } = await supabase
     .from('stories')
-    .select('id,user_id,photo_url,caption,location_name,intent,category,created_at,expires_at')
+    .select('id,user_id,photo_url,caption,location_name,intent,category,author_display_name,author_avatar_path,created_at,expires_at')
     .gt('expires_at', new Date().toISOString())
     .neq('user_id', user.id)
     .order('created_at', { ascending: false });
@@ -897,27 +897,12 @@ export async function loadStories(): Promise<import('../types').SocialStory[]> {
     return [];
   }
 
-  const userIds = [...new Set((data ?? []).map((row) => row.user_id))];
-  if (!userIds.length) return [];
-
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('id,display_name,avatar_path')
-    .in('id', userIds);
-
-  if (profileError) {
-    console.warn('[GAYZE] Story profile load failed:', profileError.message);
-  }
-
-  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
-
   return (data ?? []).map((row) => {
-    const profile = profileMap.get(row.user_id);
     return {
       id: row.id,
       peerId: row.user_id,
-      peerName: profile?.display_name || 'Gayze member',
-      avatarUrl: profile?.avatar_path || '',
+      peerName: row.author_display_name || 'Gayze member',
+      avatarUrl: row.author_avatar_path || '',
       photoUrl: row.photo_url || '',
       caption: row.caption || '',
       locationName: row.location_name || 'Nearby',
@@ -934,11 +919,14 @@ export async function createStoryFromIntent(intent: UserActiveIntent, photoUrl?:
   if (!user) return null;
 
   const category = intent.mode === 'private' ? 'private' : 'social';
+  const profile = await loadSupabaseProfile(user.id);
   const { data, error } = await supabase
     .from('stories')
     .insert({
       user_id: user.id,
       photo_url: photoUrl || null,
+      author_display_name: profile?.displayName || 'Gayze member',
+      author_avatar_path: null,
       caption: intent.description || \`Available for ${intent.intent.toLowerCase()} nearby.\`,
       location_name: intent.area || 'Nearby',
       intent: intent.intent,
