@@ -351,7 +351,9 @@ export default function App() {
     }
   });
 
-  const [pulses, setPulses] = useState<Pulse[]>(() => {
+  // Demo/offline fixture list. Live discovery never writes here — Right Now
+  // renders `supabaseRightNowPulses` whenever Supabase is configured.
+  const [pulses] = useState<Pulse[]>(() => {
     if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_pulses');
     if (!saved) return INITIAL_PULSES;
