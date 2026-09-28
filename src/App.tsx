@@ -410,7 +410,10 @@ export default function App() {
         const identity = await getOrCreateDeviceIdentity();
         const identityUser = {
           ...currentUser,
-          displayName: user.user_metadata?.display_name || currentUser.displayName,
+          handle: currentUser.handle === 'julian.peer' ? 'gayze-user' : currentUser.handle,
+          displayName: user.user_metadata?.display_name || (currentUser.displayName === 'Julian K.' ? 'Gayze User' : currentUser.displayName),
+          bio: currentUser.displayName === 'Julian K.' ? '' : currentUser.bio,
+          neighborhood: currentUser.neighborhood === 'Near you' ? 'Near you' : currentUser.neighborhood,
           publicKey: identity.fingerprint,
           shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
         };
