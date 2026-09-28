@@ -822,6 +822,22 @@ export default function App() {
       && conversationId
       && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(conversationId)
     );
+    // Live conversations are created only by the backend after mutual interest.
+    // Never create a synthetic room in live mode: it cannot persist messages or
+    // establish a valid call context.
+    if (isSupabaseConfigured && isAuthenticated && !conversationId) {
+      const intentId = pulse.id.startsWith('supabase_') ? pulse.id.slice('supabase_'.length) : undefined;
+      const result = await submitInterest(pulse.peerId, intentId);
+      if (result.mutual && result.conversation_id) {
+        await handleOpenDirectChatFromPulse(pulse, result.conversation_id);
+        showToast('Mutual interest with ' + pulse.peerName + ' — chat opened');
+      } else if (result.sent) {
+        showToast('Interest sent to ' + pulse.peerName);
+      } else {
+        showToast('Could not send interest. Try again.');
+      }
+      return;
+    }
     // Check if room already exists
     const existingRoom = rooms.find((r) => r.id === conversationId || (!conversationId && (r.peerUserId === pulse.peerId || r.peerKey?.includes(pulse.peerShortKey) || r.name === pulse.peerName)));
 
