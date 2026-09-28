@@ -1,0 +1,272 @@
+import React, { useEffect, useState } from 'react';
+import {
+  Radio,
+  Shield,
+  EyeOff,
+  QrCode,
+  KeyRound,
+  ChevronRight,
+  ShieldCheck,
+  Plus,
+  Pause,
+  Play,
+  X,
+  Edit3,
+  Compass,
+} from 'lucide-react';
+import { UserActiveIntent, UserProfile } from '../types';
+import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
+
+interface ProfileViewProps {
+  currentUser: UserProfile;
+  activeUserIntent?: UserActiveIntent | null;
+  areaLabel?: string;
+  onOpenSetIntent?: () => void;
+  onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
+  onOpenSafetyTimer: () => void;
+  isSafetyTimerActive: boolean;
+  onOpenMask: () => void;
+  onOpenIdentity: () => void;
+  onOpenQR: () => void;
+  onOpenSafeHavens: () => void;
+  onOpenDiscover?: () => void;
+}
+
+const privacyLabel: Record<string, string> = {
+  fuzzy_500m: 'Fuzzy ±500 m',
+  neighborhood: 'Neighbourhood only',
+  ghost: 'Ghost mode',
+};
+
+const formatRemaining = (ms: number): string => {
+  if (ms <= 0) return '0:00';
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m.toString().padStart(2, '0')}m` : `${m}m`;
+};
+
+/**
+ * Profile — secondary to intent. Identity, current signal, trust, safety.
+ * One surface with hairline dividers; no card grid, no dating-photo wall.
+ */
+export const ProfileView: React.FC<ProfileViewProps> = ({
+  currentUser,
+  activeUserIntent,
+  areaLabel,
+  onOpenSetIntent,
+  onUpdateActiveUserIntent,
+  onOpenSafetyTimer,
+  isSafetyTimerActive,
+  onOpenMask,
+  onOpenIdentity,
+  onOpenQR,
+  onOpenSafeHavens,
+  onOpenDiscover,
+}) => {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!activeUserIntent || activeUserIntent.isPaused) return;
+    const id = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(id);
+  }, [activeUserIntent]);
+
+  const initials = currentUser.displayName
+    .split(/\s+/)
+    .map((part) => part.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleEnd = () => {
+    hapticSensitiveAction();
+    onUpdateActiveUserIntent?.(null);
+  };
+
+  const handlePause = () => {
+    if (!activeUserIntent) return;
+    hapticLight();
+    onUpdateActiveUserIntent?.({ ...activeUserIntent, isPaused: !activeUserIntent.isPaused });
+  };
+
+  const rows: {
+    key: string;
+    icon: React.ReactNode;
+    label: string;
+    meta?: string;
+    onClick: () => void;
+    tone?: 'emerald' | 'amber' | 'purple';
+  }[] = [
+    {
+      key: 'safety',
+      icon: <Shield className="w-4 h-4" />,
+      label: 'Safety check-in',
+      meta: isSafetyTimerActive ? 'Active' : undefined,
+      onClick: onOpenSafetyTimer,
+      tone: isSafetyTimerActive ? 'amber' : undefined,
+    },
+    { key: 'havens', icon: <ShieldCheck className="w-4 h-4" />, label: 'Safe Havens', onClick: onOpenSafeHavens, tone: 'emerald' },
+    { key: 'qr', icon: <QrCode className="w-4 h-4" />, label: 'QR verification', meta: `${currentUser.verifiedPeersCount} verified`, onClick: onOpenQR, tone: 'amber' },
+    { key: 'mask', icon: <EyeOff className="w-4 h-4" />, label: 'Discreet mask', meta: 'Instant camouflage', onClick: onOpenMask },
+    { key: 'identity', icon: <KeyRound className="w-4 h-4" />, label: 'Identity & devices', meta: privacyLabel[currentUser.privacySetting] || currentUser.privacySetting, onClick: onOpenIdentity },
+  ];
+
+  const toneClass = (tone?: string) =>
+    tone === 'emerald' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25'
+    : tone === 'amber' ? 'text-[#e7c98a] bg-[#C9A24D]/10 border-[#C9A24D]/30'
+    : tone === 'purple' ? 'text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40'
+    : 'text-zinc-400 bg-white/[0.05] border-white/10';
+
+  return (
+    <div className="max-w-xl mx-auto pb-6">
+      <header className="pt-4 pb-1">
+        <span className="g-label">Profile</span>
+      </header>
+
+      {/* Identity */}
+      <section className="flex items-center gap-4 py-4">
+        <div className="g-avatar w-16 h-16 !rounded-[20px] text-[19px] !bg-[#191430] !text-[#c9b0f5] !border-[#6F3CC3]/50">
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-[21px] font-extrabold tracking-[-0.01em] text-white truncate">
+              {currentUser.displayName}
+            </h1>
+            {currentUser.safetyVerified && (
+              <span className="g-badge g-badge--verify">
+                <ShieldCheck className="w-3 h-3" /> Verified
+              </span>
+            )}
+          </div>
+          <div className="text-[12px] text-zinc-500 mt-1 truncate">
+            {areaLabel || currentUser.neighborhood} · approximate area
+          </div>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="g-badge g-badge--trust">Reliability {currentUser.reliabilityScore}</span>
+            <span className="g-badge g-badge--quiet font-mono">{currentUser.shortKey}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => { hapticLight(); onOpenIdentity(); }}
+          className="g-icon-btn shrink-0"
+          aria-label="Edit profile and identity"
+        >
+          <Edit3 className="w-4 h-4" />
+        </button>
+      </section>
+
+      {/* Current signal */}
+      <section className="g-panel p-4 mb-5">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <span className="g-label">Your signal</span>
+          {activeUserIntent && (
+            <span className={`g-chip ${activeUserIntent.isPaused ? 'g-chip--quiet' : 'g-chip--live'}`}>
+              <span className={`g-dot ${activeUserIntent.isPaused ? 'g-dot--muted' : ''}`} />
+              {activeUserIntent.isPaused ? 'Paused' : 'Live'}
+            </span>
+          )}
+        </div>
+
+        {activeUserIntent ? (
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`g-chip ${activeUserIntent.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
+                {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
+              </span>
+              <span className="text-[16px] font-extrabold text-white tracking-tight">
+                {activeUserIntent.intent.replace(' · ', ' ')}
+              </span>
+            </div>
+            <p className="text-[13px] text-zinc-400 leading-relaxed mt-2">{activeUserIntent.description}</p>
+            <div className="flex items-center justify-between gap-3 mt-3 text-[11px] font-mono text-zinc-500">
+              <span className="truncate">
+                {activeUserIntent.when} · {activeUserIntent.duration} · {activeUserIntent.travelDistance}
+              </span>
+              <span className="text-[#C9A24D] shrink-0">
+                {activeUserIntent.isPaused
+                  ? 'paused'
+                  : `expires in ${formatRemaining(Math.max(0, activeUserIntent.expiresAt - now))}`}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 mt-4">
+              <button type="button" className="g-btn g-btn--danger-quiet !px-3.5" onClick={handleEnd}>
+                <X className="w-4 h-4" /> End
+              </button>
+              <button type="button" className="g-btn g-btn--quiet flex-1" onClick={handlePause}>
+                {activeUserIntent.isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                {activeUserIntent.isPaused ? 'Resume' : 'Pause'}
+              </button>
+              <button type="button" className="g-btn g-btn--primary flex-1" onClick={() => { hapticLight(); onOpenSetIntent?.(); }}>
+                Edit
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] text-zinc-500 leading-relaxed mb-3.5">
+              You are not broadcasting. Set a signal to appear on the map for the next two hours.
+            </p>
+            {onOpenSetIntent && (
+              <button type="button" className="g-btn g-btn--primary w-full" onClick={() => { hapticLight(); onOpenSetIntent(); }}>
+                <Plus className="w-4 h-4" />
+                Create your intent
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* Attributes */}
+      {currentUser.interests.length > 0 && (
+        <section className="mb-5">
+          <span className="g-label">About you</span>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {currentUser.interests.map((interest) => (
+              <span key={interest} className="g-tag">{interest}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Safety & privacy */}
+      <section className="g-panel overflow-hidden mb-5">
+        <div className="px-4 pt-3.5 pb-1">
+          <span className="g-label">Safety & privacy</span>
+        </div>
+        {rows.map((row, index) => (
+          <React.Fragment key={row.key}>
+            {index > 0 && <hr className="g-divider" />}
+            <button type="button" className="g-row" onClick={() => { hapticLight(); row.onClick(); }}>
+              <span className={`flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 ${toneClass(row.tone)}`}>
+                {row.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-bold text-white">{row.label}</span>
+                {row.meta && <span className="block text-[11px] text-zinc-500 truncate">{row.meta}</span>}
+              </span>
+              <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
+            </button>
+          </React.Fragment>
+        ))}
+      </section>
+
+      {/* Footer */}
+      <footer className="flex items-center justify-between px-1 pb-2 opacity-70">
+        <div className="flex items-center gap-2 text-zinc-500">
+          <Radio className="w-3.5 h-3.5 text-[#6F3CC3]" />
+          <span className="text-[11px] font-bold tracking-[0.18em] uppercase">Gayze</span>
+          <span className="text-[11px] text-zinc-600">Real Intent. Real Time.</span>
+        </div>
+        {onOpenDiscover && (
+          <button type="button" className="g-btn g-btn--ghost !min-h-[32px] text-[11.5px]" onClick={() => { hapticLight(); onOpenDiscover(); }}>
+            <Compass className="w-3.5 h-3.5" /> Discover
+          </button>
+        )}
+      </footer>
+    </div>
+  );
+};

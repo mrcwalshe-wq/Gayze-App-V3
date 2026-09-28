@@ -101,14 +101,14 @@ export const LaterView: React.FC<LaterViewProps> = ({
           <div className="flex items-center gap-3">
             <span className="h-7 w-[2px] bg-gradient-to-b from-[#C9A24D] to-[#6F3CC3]" />
             <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#C9A24D] mb-1">PLANNED CONNECTIONS</div>
+            <div className="g-label text-[#C9A24D] mb-1">Later</div>
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
-              Planned Circles & Meetups
+              Planned gatherings
             </h1>
             </div>
           </div>
-          <p className="text-[11px] sm:text-xs text-zinc-400 sm:max-w-md leading-relaxed">
-            Curated group sessions and social circles with encrypted attendee groups
+          <p className="text-[11px] sm:text-xs text-zinc-500 sm:max-w-md leading-relaxed">
+            Meet later, not now — planned gatherings with an encrypted chat for attendees
           </p>
         </div>
 

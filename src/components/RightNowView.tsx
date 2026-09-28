@@ -37,7 +37,6 @@ const spreadOverlappingCoordinate = (
   ];
 };
 
-import { SetIntentSheet } from './SetIntentSheet';
 import { CountdownPill } from './CountdownPill';
 import { CompatibilitySnapshot } from './CompatibilitySnapshot';
 import {
@@ -63,7 +62,9 @@ import {
   Share2,
   Compass,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  List,
+  Radio
 } from 'lucide-react';
 import { MAP_PROVIDERS, tileLayerOptions } from '../config/mapProviders';
 import { FALLBACK_MAP_CENTER, FALLBACK_MAP_ZOOM, LOCATED_MAP_ZOOM, resolveAreaLabel } from '../config/mapDefaults';
@@ -145,7 +146,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
   };
 
-  const [isSetIntentOpen, setIsSetIntentOpen] = useState<boolean>(false);
   const [isUserIntentDrawerOpen, setIsUserIntentDrawerOpen] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const statusTimeoutRef = useRef<number | null>(null);
@@ -194,6 +194,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
   // 3. Filtering States
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
+  const [isNearbyOpen, setIsNearbyOpen] = useState<boolean>(false);
   const [activeCategory, setActiveCategory] = useState<'all' | 'people' | 'coffee' | 'drinks' | 'active' | 'havens'>('all');
   const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social' | 'Private'>('All');
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
@@ -242,64 +243,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   }, [activeUserIntent, onUpdateActiveUserIntent]);
 
   // Handle saving newly created or edited Right Now intent
-  const handleSaveIntent = (intentData: UserActiveIntent) => {
-    setActiveUserIntent(intentData);
-    try {
-      localStorage.setItem('gayze_active_user_intent', JSON.stringify(intentData));
-    } catch { }
-
-    const categoryMap: Record<string, Pulse['activityCategory']> = {
-      Meet: 'coffee',
-      Drinks: 'drinks',
-      Date: 'walk',
-      Chat: 'culture',
-      Group: 'active',
-      Hookup: 'chill',
-      'Hookup · Host': 'chill',
-      'Hookup · Travel': 'chill',
-      'Hookup · Outdoor': 'chill',
-      'Hookup · Car': 'chill',
-      Other: 'chill',
-    };
-
-    const durationNum = intentData.duration === '1 hr' ? 1 : 2;
-    const jitterRadiusMeters = privacySetting === 'neighborhood' ? 800 : privacySetting === 'ghost' ? 0 : 500;
-    const jitterBearing = Math.random() * Math.PI * 2;
-    const jitterDistanceMeters = Math.sqrt(Math.random()) * jitterRadiusMeters;
-    const centerLat = userLocation?.lat ?? fallbackMapCenter[0];
-    const centerLng = userLocation?.lng ?? fallbackMapCenter[1];
-    const latJitter = centerLat + (jitterDistanceMeters * Math.cos(jitterBearing)) / 111_320;
-    const lngJitter = centerLng + (jitterDistanceMeters * Math.sin(jitterBearing)) / (111_320 * Math.cos(centerLat * Math.PI / 180));
-
-    // Publish to the map as a live pulse
-    onCreatePulse({
-      peerId: 'peer_me',
-      peerName: 'Julian K.',
-      peerShortKey: 'pk_7e3f...6e80',
-      peerAvatar: 'julian',
-      peerAge: 30,
-      title: `${intentData.mode.toUpperCase()} · ${intentData.intent}`,
-      description: intentData.description || `Available for ${intentData.intent.toLowerCase()} near ${intentData.area}.`,
-      activityCategory: categoryMap[intentData.intent] || 'drinks',
-      intentMode: intentData.mode,
-      intent: intentData.intent,
-      travelDistance: intentData.travelDistance,
-      canHost: intentData.canHost,
-      travelWillingness: intentData.travelWillingness,
-      venueName: intentData.area,
-      neighborhood: userNeighborhood,
-      approxDistanceKm: 0.1,
-      jitterMeters: jitterRadiusMeters,
-      lat: latJitter,
-      lng: lngJitter,
-      durationHours: durationNum,
-      tags: [intentData.intent, intentData.mode, intentData.when],
-      safeHavenVenue: Boolean(intentData.isNearSafeHaven),
-    });
-
-    showStatusMessage(`● Intent Broadcasted: ${intentData.mode.toUpperCase()} · ${intentData.intent}`, 3500);
-  };
-
   // Pause / Resume user intent
   const handleTogglePause = () => {
     if (!activeUserIntent) return;
@@ -468,6 +411,38 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (maxDistanceKm < 5) num += 1;
     return num;
   }, [activeCategory, activeIntentMode, showJitterCircles, maxDistanceKm]);
+
+  // Nearby rows for the discovery drawer — same filter set as the map, sorted by distance
+  const nearbyItems = useMemo<MapDiscoveryItem[]>(() => {
+    const collected: { item: MapDiscoveryItem; km: number }[] = [];
+    if ((activeCategory === 'all' || activeCategory === 'people') && userLocation) {
+      datingProfiles.forEach((profile) => {
+        if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
+        const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
+        if (activeIntentMode === 'Social' && isPrivate) return;
+        if (activeIntentMode === 'Private' && !isPrivate) return;
+        collected.push({ item: { type: 'profile', item: profile }, km: profile.approxDistanceKm ?? 99 });
+      });
+    }
+    if (activeCategory !== 'people' && activeCategory !== 'havens') {
+      pulses.forEach((pulse) => {
+        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
+        if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
+        if (activeCategory !== 'all' && pulse.activityCategory !== activeCategory) return;
+        const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
+        if (activeIntentMode === 'Social' && isPrivate) return;
+        if (activeIntentMode === 'Private' && !isPrivate) return;
+        collected.push({ item: { type: 'pulse', item: pulse }, km: pulse.approxDistanceKm ?? 99 });
+      });
+    }
+    if (activeCategory === 'all' || activeCategory === 'havens') {
+      safeHavens.forEach((haven) => {
+        if (typeof haven.approxDistanceKm === 'number' && haven.approxDistanceKm > maxDistanceKm) return;
+        collected.push({ item: { type: 'haven', item: haven }, km: haven.approxDistanceKm ?? 99 });
+      });
+    }
+    return collected.sort((a, b) => a.km - b.km).map((entry) => entry.item);
+  }, [datingProfiles, pulses, safeHavens, activeCategory, activeIntentMode, maxDistanceKm, privacySetting, userLocation]);
 
   // Helpers for discovery item rendering
   const getDisplayName = (item: MapDiscoveryItem) => {
@@ -731,6 +706,56 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
     layerGroup.clearLayers();
 
+    // 0. Purple activity haze — subtle energy over live intent areas
+    const hazeTargets: { lat: number; lng: number }[] = [];
+    if (activeCategory !== 'people') {
+      pulses.forEach((pulse, idx) => {
+        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
+        if (pulse.peerId === 'peer_me' && activeUserIntent?.isPaused) return;
+        if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
+        if (activeCategory !== 'all' && pulse.activityCategory !== activeCategory) return;
+        const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
+        if (activeIntentMode === 'Social' && isPrivate) return;
+        if (activeIntentMode === 'Private' && !isPrivate) return;
+        const hasCoords = Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng);
+        if (!hasCoords && !userLocation) return;
+        hazeTargets.push(
+          hasCoords
+            ? { lat: pulse.lat, lng: pulse.lng }
+            : { lat: userLocation!.lat + ((idx - 2) * 0.004), lng: userLocation!.lng + ((idx % 3 - 1) * 0.005) },
+        );
+      });
+    }
+    if ((activeCategory === 'all' || activeCategory === 'people') && userLocation) {
+      datingProfiles.forEach((profile, idx) => {
+        if (!profile.hasRightNowIntent) return;
+        if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
+        const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
+        if (activeIntentMode === 'Social' && isPrivate) return;
+        if (activeIntentMode === 'Private' && !isPrivate) return;
+        hazeTargets.push({
+          lat: userLocation.lat + ((idx % 3 - 1) * 0.0035),
+          lng: userLocation.lng + (((idx + 1) % 3 - 1) * 0.004),
+        });
+      });
+    }
+    hazeTargets.slice(0, 60).forEach((target) => {
+      L.circle([target.lat, target.lng], {
+        radius: 470,
+        stroke: false,
+        fillColor: '#6F3CC3',
+        fillOpacity: 0.10,
+        className: 'gayze-haze',
+      }).addTo(layerGroup);
+      L.circle([target.lat, target.lng], {
+        radius: 215,
+        stroke: false,
+        fillColor: '#8452db',
+        fillOpacity: 0.13,
+        className: 'gayze-haze',
+      }).addTo(layerGroup);
+    });
+
     // 1. User Location and Privacy Jitter Circle
     if (privacySetting !== 'ghost' && userLocation) {
       const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 500;
@@ -746,7 +771,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       }
       const userIcon = L.divIcon({
         className: 'custom-user-marker',
-        html: '<div class="relative flex items-center justify-center"><div class="w-4 h-4 rounded-full bg-cyan-400 border-2 border-[#090a0f] shadow-lg ring-4 ring-cyan-400/20"></div></div>',
+        html: '<div class="gm-user"></div>',
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       });
@@ -768,12 +793,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'haven' && selectedItem.item.id === haven.id;
         const icon = L.divIcon({
           className: 'custom-haven-marker',
-          html: `<div class="w-8 h-8 rounded-xl ${selected
-            ? 'bg-emerald-500 text-black scale-125 ring-4 ring-emerald-400/40 shadow-xl'
-            : 'bg-[#10121a] border border-emerald-500/80 text-emerald-400 shadow-lg'
-            } flex items-center justify-center">✓</div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
+          html: `<div class="gm-haven ${selected ? 'gm-haven--sel' : ''}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
         });
         const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
@@ -800,10 +822,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'profile' && selectedItem.item.id === profile.id;
         const icon = L.divIcon({
           className: 'custom-person-marker',
-          html: `<div class="w-9 h-9 rounded-full border-2 ${selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-[#6F3CC3]' : 'border-[#C9A24D]'
-            } overflow-hidden bg-[#141620]"><img src="${profile.photoUrl}" alt="" class="w-full h-full object-cover" /></div>`,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
+          html: `<div class="gm-profile ${isPrivate ? 'gm-profile--private' : ''} ${selected ? 'gm-profile--sel' : ''}"><img src="${profile.photoUrl}" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'" /></div>`,
+          iconSize: [38, 38],
+          iconAnchor: [19, 19],
         });
         const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
@@ -819,6 +840,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (activeCategory !== 'havens' && activeCategory !== 'people') {
       pulses.forEach((pulse, idx) => {
         if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
+        if (pulse.peerId === 'peer_me' && activeUserIntent?.isPaused) return;
         if (typeof pulse.approxDistanceKm === 'number' && pulse.approxDistanceKm > maxDistanceKm) return;
         if (activeCategory !== 'all' && pulse.activityCategory !== activeCategory) return;
         const isPrivate = pulse.intentMode === 'private' || pulse.intent?.includes('Hookup');
@@ -843,10 +865,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'pulse' && selectedItem.item.id === pulse.id;
         const icon = L.divIcon({
           className: 'custom-pulse-marker',
-          html: `<div class="w-8 h-8 rounded-full bg-[#11131a] border-2 ${selected ? 'border-[#C9A24D] ring-4 ring-[#C9A24D]/40' : isPrivate ? 'border-purple-400' : 'border-[#C9A24D]'
-            } flex items-center justify-center text-xs text-white font-bold">${pulse.peerName ? pulse.peerName.charAt(0) : 'P'}</div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
+          html: `<div class="gm-pulse ${isPrivate ? 'gm-pulse--private' : ''} ${selected ? 'gm-pulse--sel' : ''}">${pulse.peerName ? pulse.peerName.charAt(0) : 'P'}</div>`,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
         });
         const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
@@ -869,6 +890,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     userNeighborhood,
     selectedItem,
     userLocation,
+    activeUserIntent,
   ]);
 
   return (
@@ -897,114 +919,85 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          1. RESTRAINED RIGHT NOW INTENT & DISCOVERY BAR
-          Dominant element after the map is the user's current intent.
-          Subtle purple atmospheric aura (#6F3CC3) when active.
+          1. TOP FLOATING ROW — current mode / your live signal + filter.
+          The map stays clear; state reads at a glance.
          ========================================================================= */}
-      <div className="gayze-right-now-topbar absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-20 pointer-events-none">
-        <div className="max-w-xl mx-auto flex items-center justify-between gap-2.5">
-
-          {/* User's Right Now Intent (Secondary visual element after map) */}
-          <div className="pointer-events-auto min-w-0 flex-1">
-            {activeUserIntent ? (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  setIsUserIntentDrawerOpen(true);
-                }}
-                className="w-full text-left bg-[#101019]/92 hover:bg-[#141420]/96 backdrop-blur-xl border border-white/[0.14] hover:border-[#6F3CC3]/55 rounded-xl px-3.5 py-2.5 transition-colors shadow-[0_18px_42px_rgba(0,0,0,0.28)] flex items-center justify-between gap-2.5 cursor-pointer group"
-                aria-label="Manage your Right Now intent"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="relative flex h-2 w-2 shrink-0">
-                    {!activeUserIntent.isPaused && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6F3CC3] opacity-75" />
-                    )}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3]'
-                      }`} />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-white tracking-tight truncate">
-                        {activeUserIntent.intent}
-                      </span>
-                      <span className="text-[10px] font-mono text-purple-300/80 shrink-0">
-                        · {formatRemainingTime(remainingMinutes)}
-                      </span>
-                    </div>
-                    <span className="block text-[10px] text-zinc-400 font-mono truncate">
-                      {activeUserIntent.isPaused ? 'Broadcast paused' : `Broadcasting in ${resolveAreaLabel(activeUserIntent.area || userNeighborhood)}`}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-purple-300 group-hover:text-white transition-colors">
-                  <span>Manage</span>
-                </div>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  setIsSetIntentOpen(true);
-                  onOpenSetIntent?.();
-                }}
-                className="bg-[#0e1017]/90 hover:bg-[#161822]/95 backdrop-blur-xl border border-white/[0.12] hover:border-white/25 rounded-xl px-3.5 py-2.5 transition-colors shadow-[0_18px_42px_rgba(0,0,0,0.24)] flex items-center gap-2.5 cursor-pointer"
-                aria-label="Set your Right Now intent"
-              >
-                <span className="w-2 h-2 rounded-full bg-zinc-500 shrink-0" />
-                <div className="text-left min-w-0 flex-1">
-                  <span className="block text-xs font-semibold text-zinc-200">
-                    Set Right Now Intent
-                  </span>
-                  <span className="block text-[10px] text-zinc-400 font-mono">
-                    {filteredActiveCount} nearby near you
-                  </span>
-                </div>
-                <Plus className="w-4 h-4 text-[#6F3CC3] ml-auto shrink-0" />
-              </button>
-            )}
-          </div>
-
-          {/* Refine Discovery (Unified Filter Button) */}
-          <div className="pointer-events-auto shrink-0 flex items-center gap-1.5">
+      <div className="absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-30 flex items-start justify-between gap-2 pointer-events-none">
+        <div className="pointer-events-auto min-w-0 flex-1 max-w-[78vw] sm:max-w-[360px]">
+          {activeUserIntent ? (
             <button
               type="button"
               onClick={() => {
                 hapticLight();
-                setIsFilterDrawerOpen(true);
+                setIsUserIntentDrawerOpen(true);
               }}
-              className={`h-11 min-h-[44px] px-3 rounded-xl backdrop-blur-xl border shadow-[0_14px_32px_rgba(0,0,0,0.2)] flex items-center gap-2 text-xs font-medium transition-colors cursor-pointer ${activeFilterCount > 0
-                ? 'bg-[#181424]/92 text-white border-[#6F3CC3]/60 shadow-[0_0_12px_rgba(111,60,195,0.25)]'
-                : 'bg-[#0e1017]/90 hover:bg-[#161822] text-zinc-300 border-white/[0.12] hover:border-white/25'
-                }`}
-              aria-label="Open discovery filters"
+              className="g-float g-map-state w-full"
+              aria-label="Manage your Right Now signal"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="hidden sm:inline">Filter</span>
-              {activeFilterCount > 0 && (
-                <span className="min-w-4 h-4 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-mono font-bold flex items-center justify-center">
-                  {activeFilterCount}
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  activeUserIntent.isPaused
+                    ? 'bg-zinc-500'
+                    : 'bg-[#6F3CC3] shadow-[0_0_10px_rgba(111,60,195,0.9)] animate-pulse'
+                }`}
+              />
+              <span className="min-w-0 text-left">
+                <span className="flex items-baseline gap-1.5 min-w-0">
+                  <span className="truncate">{activeUserIntent.intent.replace(' · ', ' ')}</span>
+                  <span className="g-map-state__meta shrink-0">{formatRemainingTime(remainingMinutes)}</span>
                 </span>
-              )}
+                <span className="block g-map-state__meta truncate font-normal">
+                  {activeUserIntent.isPaused
+                    ? 'Paused'
+                    : `Live · ${resolveAreaLabel(activeUserIntent.area || userNeighborhood).replace(/\s*\([^)]*\)$/, '')}`}
+                </span>
+              </span>
             </button>
-          </div>
+          ) : (
+            <div className="g-float g-map-state !cursor-default">
+              <span className="w-2 h-2 rounded-full shrink-0 bg-[#6F3CC3] shadow-[0_0_10px_rgba(111,60,195,0.9)]" />
+              <span className="min-w-0 text-left">
+                <span className="flex items-baseline gap-1.5">
+                  <span>Right Now</span>
+                  <span className="g-map-state__meta">{liveMembersCount} live</span>
+                </span>
+                <span className="block g-map-state__meta font-normal">
+                  Tap Set intent to go live
+                </span>
+              </span>
+            </div>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            hapticLight();
+            setIsFilterDrawerOpen(true);
+          }}
+          className={`g-float g-icon-btn shrink-0 relative ${
+            activeFilterCount > 0 ? '!border-[#6F3CC3]/70 !text-white' : ''
+          }`}
+          aria-label="Open discovery filters"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          {activeFilterCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0b0c11]">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
       </div>
 
-      {/* Subtle Toast / Status Notification */}
+      {/* Status toast */}
       {statusMessage && (
-        <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-4 z-50 bg-[#12141f]/95 backdrop-blur-md border border-[#C9A24D]/50 text-white text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between shadow-2xl animate-in fade-in duration-200">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#C9A24D] animate-ping" />
-            <span className="font-semibold">{statusMessage}</span>
-          </div>
+        <div className="g-toast">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] shrink-0" />
+          <span className="flex-1 font-semibold">{statusMessage}</span>
           <button
             type="button"
             onClick={dismissStatusMessage}
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-lg text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer"
+            className="g-icon-btn g-icon-btn--bare !w-8 !h-8 shrink-0 text-[13px]"
             aria-label="Dismiss message"
           >
             ✕
@@ -1018,7 +1011,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           Maintains an explicit height and handles ResizeObserver container layout changes.
          ========================================================================= */}
       <div className="w-full h-full absolute inset-0 z-0" style={{ height: '100%', minHeight: '100%', width: '100%' }}>
-        <style>{'.leaflet-control-attribution{margin-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px) + 6px)!important;margin-right:.5rem!important;padding:2px 5px!important;border-radius:5px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}.leaflet-control-zoom{display:none!important}.leaflet-touch .leaflet-control-zoom{display:none!important}'}</style>
+        <style>{'.leaflet-control-attribution{margin-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px) + 76px)!important;margin-right:.5rem!important;padding:2px 5px!important;border-radius:5px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}.leaflet-control-zoom{display:none!important}.leaflet-touch .leaflet-control-zoom{display:none!important}'}</style>
         <div
           ref={mapContainerRef}
           className="w-full h-full min-h-full overflow-hidden z-0 bg-[#07080b] rounded-none"
@@ -1030,103 +1023,63 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           }}
         />
       </div>
-      {!userLocation && onRequestLocation && (
+      {/* Right micro-rail — locate · zoom only (privacy radius lives in filters) */}
+      <div className="g-map-rail absolute top-[calc(env(safe-area-inset-top,0px)+66px)] right-3 z-30 pointer-events-auto">
         <button
           type="button"
-          onClick={onRequestLocation}
-          className="absolute top-[calc(env(safe-area-inset-top,0px)+88px)] left-3 z-30 flex min-h-[44px] items-center gap-2 rounded-xl border border-[#6F3CC3]/45 bg-[#11131a]/95 px-3 text-xs font-semibold text-white shadow-xl backdrop-blur-md"
-          aria-label="Use my location"
+          onClick={() => {
+            hapticLight();
+            mapControlsRef.current?.recenter();
+          }}
+          title="Locate me"
+          aria-label="Locate me"
+          className="g-icon-btn"
         >
-          <MapPin className="h-4 w-4 text-[#C9A24D]" />
-          <span>Use my location</span>
+          <Navigation className="w-4 h-4" />
         </button>
-      )}
+        <button
+          type="button"
+          onClick={() => {
+            hapticLight();
+            mapControlsRef.current?.zoomIn();
+          }}
+          title="Zoom in"
+          aria-label="Zoom in"
+          className="g-icon-btn"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            hapticLight();
+            mapControlsRef.current?.zoomOut();
+          }}
+          title="Zoom out"
+          aria-label="Zoom out"
+          className="g-icon-btn"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+      </div>
 
       {/* =========================================================================
-          4. CLEAN FLOATING VERTICAL MAP CONTROLS
-          Independent vertical group on top-right edge:
-          - Zoom In (+)
-          - Zoom Out (-)
-          - Recenter / Location compass
-          - Toggle ±300m privacy circles
-         ========================================================================= */}
-      {(
-        <div className="absolute top-[calc(env(safe-area-inset-top,0px)+88px)] right-3 z-20 flex flex-col gap-1.5 pointer-events-auto">
-          {/* Zoom In */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticLight();
-              mapControlsRef.current?.zoomIn();
-            }}
-            title="Zoom In"
-            aria-label="Zoom In"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-
-          {/* Zoom Out */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticLight();
-              mapControlsRef.current?.zoomOut();
-            }}
-            title="Zoom Out"
-            aria-label="Zoom Out"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-white/30 text-zinc-300 hover:text-white shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-
-          {/* Recenter / Compass */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticLight();
-              mapControlsRef.current?.recenter();
-            }}
-            title="Recenter to your location"
-            aria-label="Recenter to your location"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0e1017]/85 hover:bg-[#181a26] backdrop-blur-xl border border-white/[0.12] hover:border-[#C9A24D]/50 text-zinc-300 hover:text-[#C9A24D] shadow-[0_14px_30px_rgba(0,0,0,0.28)] flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-          >
-            <Compass className="w-4 h-4 text-[#C9A24D]" />
-          </button>
-
-        </div>
-      )}
-
-      {/* =========================================================================
-          4.5. ELEGANT EMPTY MAP STATE
-          Shown when no live members have active intents nearby in current radius.
-          Offers clear actions: expand radius, set intent, or switch to Later.
+          4.5. EMPTY STATE — honest, compact, map stays visible
          ========================================================================= */}
       {liveMembersCount === 0 && !selectedItem && (
-        <div className="absolute top-[calc(env(safe-area-inset-top,0px)+74px)] left-3 right-3 sm:left-auto sm:right-4 sm:w-88 z-30 pointer-events-auto bg-[#0d0f16]/95 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-4 shadow-2xl space-y-3 animate-in fade-in duration-200">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#6F3CC3]/20 border border-[#6F3CC3]/40 flex items-center justify-center text-[#6F3CC3] shrink-0">
-              <Compass className="w-5 h-5" />
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-30 w-[min(92vw,330px)] pointer-events-auto"
+          style={{ bottom: 'calc(var(--g-tabbar-h) + env(safe-area-inset-bottom,0px) + 82px)' }}
+        >
+          <div className="g-empty">
+            <div className="g-empty__icon">
+              <Radio className="w-5 h-5" />
             </div>
-            <div className="min-w-0">
-              <h4 className="text-xs font-bold text-white tracking-wide">Nothing live nearby right now</h4>
-              <p className="text-[10px] text-zinc-400 font-mono">Radius: {maxDistanceKm}km</p>
-            </div>
-          </div>
-          <p className="text-[11px] text-zinc-300 leading-relaxed">
-            No members currently have an active Right Now intent in this area. Expand your radius or broadcast your own live intent.
-          </p>
-          <div className="flex flex-col gap-1.5 pt-1 font-sans">
-            <button
-              type="button"
-              onClick={() => {
-                hapticLight();
-                setMaxDistanceKm((prev) => (prev <= 5 ? 10 : prev <= 10 ? 25 : 5));
-              }}
-              className="w-full h-8 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-semibold text-zinc-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
-            >
-              <span>Expand Radius to {maxDistanceKm <= 5 ? '10km' : maxDistanceKm <= 10 ? '25km' : '5km'}</span>
-            </button>
+            <h3>No active intent nearby</h3>
+            <p>
+              Nothing is live within {maxDistanceKm} km right now. Set your intent and the map
+              lights up around you.
+            </p>
             {onOpenSetIntent && (
               <button
                 type="button"
@@ -1134,246 +1087,295 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   hapticLight();
                   onOpenSetIntent();
                 }}
-                className="w-full h-8 rounded-xl bg-[#6F3CC3] hover:bg-[#5e32a6] text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow active:scale-98"
+                className="g-btn g-btn--primary w-full mt-1"
               >
-                <span>Broadcast Your Live Intent</span>
+                <Plus className="w-4 h-4" />
+                Create your intent
               </button>
             )}
-            {onSwitchToLater && (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  onSwitchToLater();
-                }}
-                className="w-full h-7 rounded-xl bg-transparent hover:bg-white/[0.04] text-[11px] font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
-              >
-                <span>Explore Later Gatherings →</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setMaxDistanceKm((prev) => (prev <= 5 ? 10 : prev <= 10 ? 25 : 5));
+              }}
+              className="g-btn g-btn--ghost w-full !min-h-[34px] text-[12px]"
+            >
+              Widen radius to {maxDistanceKm <= 5 ? '10 km' : maxDistanceKm <= 10 ? '25 km' : '5 km'}
+            </button>
           </div>
         </div>
       )}
 
       {/* =========================================================================
-          5. COMPACT FLOATING BOTTOM DISCOVERY CARD (PREVIEW)
-          Sits comfortably above the mobile bottom navigation bar without overlapping.
-          Has clear visual hierarchy:
-          - avatar/name
-          - distance + availability
-          - short intent description
-          - location/time
-          - actions (Interested, Safe Meet, Message)
+          4.6. BOTTOM ACTION BAR — discovery drawer + the one primary action
+         ========================================================================= */}
+      {!selectedItem && !isCardExpanded && (
+        <div className="g-map-bar">
+          {!userLocation && onRequestLocation ? (
+            <button
+              type="button"
+              onClick={onRequestLocation}
+              className="g-float g-nearby-btn !text-white"
+              aria-label="Use my location"
+            >
+              <MapPin className="w-4 h-4 text-[#C9A24D]" />
+              <span>Use my location</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setIsNearbyOpen(true);
+              }}
+              className="g-float g-nearby-btn"
+            >
+              <List className="w-4 h-4" />
+              <span>{liveMembersCount} nearby</span>
+            </button>
+          )}
+          <div className="flex-1" />
+          {onOpenSetIntent &&
+            (activeUserIntent ? (
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setIsUserIntentDrawerOpen(true);
+                }}
+                className="g-live-cta"
+                aria-label="Your signal is live — manage it"
+              >
+                {!activeUserIntent.isPaused && (
+                  <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse" />
+                )}
+                <span>{activeUserIntent.isPaused ? 'Paused' : 'Live'}</span>
+                <span className="font-mono text-[12px] font-semibold opacity-90">
+                  {formatRemainingTime(remainingMinutes)}
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  onOpenSetIntent();
+                }}
+                className="g-live-cta g-live-cta--idle"
+              >
+                <Plus className="w-4 h-4 text-[#b796f0]" />
+                <span>Set intent</span>
+              </button>
+            ))}
+        </div>
+      )}
+
+      {/* =========================================================================
+          5. INTENT PREVIEW CARD — identity, intent, one primary action
          ========================================================================= */}
       {selectedItem && !isCardExpanded && (
-        <div className="gayze-discovery-card fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:bottom-6 left-3 right-3 max-w-lg mx-auto z-40 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-auto">
-          <div className="relative bg-[#0d0f16]/97 backdrop-blur-xl border border-white/[0.14] rounded-2xl p-3.5 shadow-[0_20px_52px_rgba(0,0,0,0.48)]">
-            <div className="relative space-y-2.5">
-              {/* Row 1: Header (Avatar, Name, Age, Intent Badge, Expand & Close triggers) */}
-              <div className="flex items-start justify-between gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsCardExpanded(true)}
-                  className="flex items-center gap-3 text-left cursor-pointer group/card flex-1 min-w-0"
-                >
-                  {/* Avatar / Icon */}
-                  {selectedItem.type === 'profile' ? (
-                    <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-white/15 bg-[#161822] shrink-0">
-                      <img
-                        src={selectedItem.item.photoUrl}
-                        alt={selectedItem.item.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg';
-                        }}
-                      />
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0e1017]" />
-                    </div>
-                  ) : selectedItem.type === 'haven' ? (
-                    <div className="w-11 h-11 rounded-xl bg-[#0f1f1a] border border-emerald-500/50 text-emerald-400 flex items-center justify-center shrink-0">
-                      <ShieldCheck className="w-5 h-5" />
-                    </div>
-                  ) : (
-                    <div className="w-11 h-11 rounded-xl border border-white/15 bg-[#161822] text-zinc-200 flex items-center justify-center font-bold text-sm shrink-0">
-                      {selectedItem.item.peerName.charAt(0)}
-                    </div>
-                  )}
-
-                  {/* Name + Title + Intent Mode */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="text-sm font-bold text-white tracking-tight truncate">
-                        {getDisplayName(selectedItem)}
-                      </h3>
-
-                      {/* Clean Unboxed Mode Tag */}
-                      <span className="text-[11px] font-mono text-zinc-400">
-                        {selectedItem.type === 'haven'
-                          ? `★ ${selectedItem.item.safetyScore}`
-                          : selectedItem.type === 'pulse'
-                            ? `· ${(selectedItem.item.intentMode || 'social').toUpperCase()}`
-                            : `· ${(selectedItem.item.intentMode || 'social').toUpperCase()}`}
-                      </span>
-
-                      {/* Live Intent Countdown */}
-                      {selectedItem.type === 'pulse' && selectedItem.item.expiresAt && (
-                        <CountdownPill expiresAt={selectedItem.item.expiresAt} />
-                      )}
-                      {selectedItem.type === 'profile' && selectedItem.item.intentExpiresAt && (
-                        <CountdownPill expiresAt={selectedItem.item.intentExpiresAt} />
-                      )}
-
-                      {/* Compatibility Badge if matched */}
-                      {selectedItem.type === 'profile' && activeUserIntent && (
-                        <CompatibilitySnapshot profile={selectedItem.item} userIntent={activeUserIntent} variant="badge" />
-                      )}
-                    </div>
-
-                    {/* Unboxed Distance & Context */}
-                    <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-mono mt-0.5">
-                      <span className="flex items-center gap-1 text-[#C9A24D]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" />
-                        Available now
-                      </span>
-                      <span>·</span>
-                      <span>
-                        ~{selectedItem.type === 'haven' ? '0.2' : (selectedItem.item as any).approxDistanceKm || '0.3'} km
-                      </span>
-                      <span>·</span>
-                      <span className="text-zinc-400 truncate">
-                        {selectedItem.type === 'haven' ? selectedItem.item.neighborhood : (selectedItem.item as any).venueName || userNeighborhood}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Top Right Controls (Expand & Dismiss) */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      hapticLight();
-                      setSelectedItem(null);
+        <div className="g-preview">
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setIsCardExpanded(true);
+              }}
+              className="flex items-start gap-3 flex-1 min-w-0 text-left cursor-pointer"
+            >
+              {selectedItem.type === 'profile' ? (
+                <div className="relative w-11 h-11 rounded-[14px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
+                  <img
+                    src={selectedItem.item.photoUrl}
+                    alt={selectedItem.item.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
-                    className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center justify-center cursor-pointer"
-                    title="Close preview"
-                    aria-label="Close preview"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  />
+                  {selectedItem.item.safetyVerified && (
+                    <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#12131b]" />
+                  )}
+                </div>
+              ) : selectedItem.type === 'haven' ? (
+                <div className="w-11 h-11 rounded-[14px] bg-[#0f1f1a] border border-emerald-500/50 text-emerald-400 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+              ) : (
+                <div
+                  className={`w-11 h-11 rounded-[14px] border flex items-center justify-center font-bold text-sm shrink-0 ${
+                    selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
+                      ? 'bg-[#191226] border-[#6F3CC3]/70 text-purple-200'
+                      : 'bg-[#1c1810] border-[#C9A24D]/60 text-[#e7c98a]'
+                  }`}
+                >
+                  {selectedItem.item.peerName.charAt(0)}
+                </div>
+              )}
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h3 className="text-[14.5px] font-extrabold text-white tracking-tight truncate">
+                    {getDisplayName(selectedItem)}
+                  </h3>
+                  {selectedItem.type === 'haven' ? (
+                    <span className="g-badge g-badge--verify">★ {selectedItem.item.safetyScore}</span>
+                  ) : (
+                    <span
+                      className={`g-chip ${
+                        (selectedItem.type === 'pulse'
+                          ? selectedItem.item.intentMode
+                          : selectedItem.item.intentMode) === 'private'
+                          ? 'g-chip--private'
+                          : 'g-chip--social'
+                      }`}
+                    >
+                      {(selectedItem.type === 'pulse'
+                        ? selectedItem.item.intent?.replace(' · ', ' ')
+                        : selectedItem.item.intent?.replace(' · ', ' ')) ||
+                        ((selectedItem.type === 'pulse'
+                          ? selectedItem.item.intentMode
+                          : selectedItem.item.intentMode) === 'private'
+                          ? 'Private'
+                          : 'Social')}
+                    </span>
+                  )}
+                  {selectedItem.type === 'pulse' && selectedItem.item.expiresAt > 0 && (
+                    <CountdownPill expiresAt={selectedItem.item.expiresAt} />
+                  )}
+                  {selectedItem.type === 'profile' && selectedItem.item.intentExpiresAt && (
+                    <CountdownPill expiresAt={selectedItem.item.intentExpiresAt} />
+                  )}
+                </div>
+
+                <div className="text-[11.5px] text-zinc-400 flex items-center gap-1.5 mt-1 min-w-0">
+                  <span className="flex items-center gap-1 text-[#C9A24D] font-semibold shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" />
+                    {selectedItem.type === 'haven' ? 'Safe haven' : 'Available now'}
+                  </span>
+                  <span className="font-mono shrink-0">
+                    · ~{selectedItem.type === 'haven' ? '0.2' : (selectedItem.item as any).approxDistanceKm || '0.3'} km
+                  </span>
+                  <span className="truncate">
+                    · {selectedItem.type === 'haven'
+                      ? selectedItem.item.neighborhood
+                      : (selectedItem.item as any).venueName || userNeighborhood}
+                  </span>
                 </div>
               </div>
+            </button>
 
-              {/* Short Intent Description (Intelligently truncated) */}
-              <p
-                onClick={() => setIsCardExpanded(true)}
-                className="text-xs text-zinc-300 italic line-clamp-1 cursor-pointer hover:text-white transition-colors"
-              >
-                "{getDisplayDescription(selectedItem)}"
-              </p>
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setSelectedItem(null);
+              }}
+              className="g-icon-btn g-icon-btn--bare !w-9 !h-9 shrink-0"
+              title="Close preview"
+              aria-label="Close preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-              {/* Actions Row */}
-              <div className="grid grid-cols-3 gap-2 pt-0.5">
-                {selectedItem.type === 'haven' ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => onSelectHaven(selectedItem.item)}
-                      className="col-span-2 h-11 min-h-[44px] px-2 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow active:scale-98 font-sans uppercase tracking-wide"
-                    >
-                      <MapPin className="w-3.5 h-3.5 fill-black" />
-                      <span>Explore Safe Haven</span>
-                    </button>
+          <p className="text-[12.5px] text-zinc-300 leading-snug mt-2.5 line-clamp-2">
+            {getDisplayDescription(selectedItem)}
+          </p>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hapticLight();
-                        if (onOpenScheduleMeeting) {
-                          onOpenScheduleMeeting(selectedItem.item.name);
-                        }
-                      }}
-                      className="h-11 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] bg-[#1a1c27] hover:bg-[#222534] border border-[#C9A24D]/40 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98 font-mono"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>Meet Here</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {/* Action 1: Interested / Gaze */}
-                    {selectedItem.type === 'pulse' ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
-                        disabled={interestPendingIds.has(selectedItem.item.id)}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${interestedIds.has(selectedItem.item.id)
-                          ? 'bg-[#20182c] text-[#C9A24D] border-[#C9A24D]/60 shadow-[0_0_8px_rgba(201,162,77,0.3)]'
-                          : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
-                          }`}
-                      >
-                        {interestedIds.has(selectedItem.item.id) ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-[#C9A24D]" />
-                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Zap className="w-3.5 h-3.5 text-[#C9A24D]" />
-                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
-                          </>
-                        )}
-                      </button>
+          {/* Actions — one primary, two quiet */}
+          <div className="flex items-center gap-2 mt-3">
+            {selectedItem.type === 'haven' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onSelectHaven(selectedItem.item)}
+                  className="g-btn g-btn--amber flex-1"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Safe haven details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    onOpenScheduleMeeting?.(selectedItem.item.name);
+                  }}
+                  className="g-btn g-btn--quiet"
+                >
+                  <Calendar className="w-4 h-4" />
+                  Meet here
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    if (selectedItem.type === 'pulse') {
+                      onOpenDirectChat(selectedItem.item);
+                    } else if (onOpenDirectChatWithProfile) {
+                      onOpenDirectChatWithProfile(selectedItem.item);
+                    }
+                  }}
+                  className="g-btn g-btn--amber flex-1"
+                >
+                  <Lock className="w-4 h-4" />
+                  Message
+                </button>
+                {selectedItem.type === 'pulse' ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
+                    disabled={interestPendingIds.has(selectedItem.item.id)}
+                    className={`g-btn !px-3 text-[12px] ${
+                      interestedIds.has(selectedItem.item.id)
+                        ? 'g-btn--primary'
+                        : 'g-btn--quiet'
+                    }`}
+                  >
+                    {interestedIds.has(selectedItem.item.id) ? (
+                      <Check className="w-3.5 h-3.5" />
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${gazedPeerNames.has(selectedItem.item.name)
-                          ? 'bg-[#231535] text-purple-300 border-purple-500/60'
-                          : 'bg-[#181a24] hover:bg-[#202332] text-zinc-200 border-white/10'
-                          }`}
-                      >
-                        <Eye className="w-3.5 h-3.5 text-[#C9A24D]" />
-                        <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze 👀'}</span>
-                      </button>
+                      <Zap className="w-3.5 h-3.5" />
                     )}
-
-                    {/* Action 2: Safe Meet */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hapticLight();
-                        const peerName = selectedItem.type === 'pulse' ? selectedItem.item.peerName : selectedItem.item.name;
-                        if (onOpenScheduleMeeting) {
-                          onOpenScheduleMeeting(peerName);
-                        }
-                      }}
-                      className="h-11 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#181a24] hover:bg-[#202332] border border-[#C9A24D]/35 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1 active:scale-98 font-mono"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>Safe Meet</span>
-                    </button>
-
-                    {/* Action 3: Message (Direct Encrypted Chat) */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hapticLight();
-                        if (selectedItem.type === 'pulse') {
-                          onOpenDirectChat(selectedItem.item);
-                        } else if (onOpenDirectChatWithProfile) {
-                          onOpenDirectChatWithProfile(selectedItem.item);
-                        }
-                      }}
-                      className="h-11 min-h-[44px] px-2 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow active:scale-98 uppercase tracking-wide font-sans"
-                    >
-                      <Lock className="w-3.5 h-3.5 fill-black" />
-                      <span>Message</span>
-                    </button>
-                  </>
+                    {interestPendingIds.has(selectedItem.item.id)
+                      ? 'Sending…'
+                      : interestedIds.has(selectedItem.item.id)
+                        ? 'Interested'
+                        : 'Interest'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
+                    className={`g-btn !px-3 text-[12px] ${
+                      gazedPeerNames.has(selectedItem.item.name) ? 'g-btn--primary' : 'g-btn--quiet'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    {gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze'}
+                  </button>
                 )}
-              </div>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    onOpenScheduleMeeting?.(
+                      selectedItem.type === 'pulse' ? selectedItem.item.peerName : selectedItem.item.name,
+                    );
+                  }}
+                  className="g-btn g-btn--quiet !px-3 text-[12px]"
+                  aria-label="Safe meet"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  Meet
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1386,23 +1388,23 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {selectedItem && isCardExpanded && (
         <div
-          className="gayze-discovery-overlay fixed inset-0 z-40 flex flex-col justify-end bg-black/48 backdrop-blur-[2px] animate-in fade-in duration-200 px-3"
+          className="g-overlay flex flex-col justify-end"
           onClick={() => setIsCardExpanded(false)}
         >
           <div
-            className="gayze-discovery-sheet w-full max-w-lg mx-auto bg-[#0d0f16] border border-white/[0.18] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300 pointer-events-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+12px)] md:mb-6 max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-3.5rem-env(safe-area-inset-bottom,0px)-32px)] md:max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-48px)]"
+            className="g-sheet mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+14px)] md:mb-24 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag Handle */}
             <div
               onClick={() => setIsCardExpanded(false)}
-              className="py-3 flex flex-col items-center justify-center cursor-pointer group"
+              className="flex flex-col items-center cursor-pointer"
             >
-              <div className="w-12 h-1.5 bg-zinc-600 group-hover:bg-zinc-400 rounded-full transition-colors" />
+              <div className="g-sheet__grip" />
             </div>
 
             {/* Scrollable Sheet Content */}
-            <div className="px-5 pb-6 overflow-y-auto space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-6 space-y-4">
 
               {/* Header Profile / Haven Presentation */}
               <div className="flex items-start justify-between gap-3">
@@ -1479,7 +1481,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   </span>
                 </div>
 
-                <p className="text-sm text-zinc-200 leading-relaxed italic">
+                <p className="text-sm text-zinc-200 leading-relaxed">
                   "{getDisplayDescription(selectedItem)}"
                 </p>
 
@@ -1550,12 +1552,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
                 <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1 col-span-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 text-[10px] uppercase font-bold">Safety & Cryptographic Trust</span>
-                    <span className="text-emerald-400 font-bold">P2P Verified</span>
+                    <span className="text-zinc-500 text-[10px] uppercase font-bold">Privacy</span>
+                    <span className="g-badge g-badge--verify">
+                      <ShieldCheck className="w-3 h-3" /> Encrypted chat
+                    </span>
                   </div>
                   <div className="text-[11px] text-zinc-300 flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Approximate location only · No GPS breadcrumbs stored</span>
+                    <span>Approximate location only · nothing precise is stored</span>
                   </div>
                 </div>
               </div>
@@ -1626,7 +1630,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
-                        <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze 👀'}</span>
+                        <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze'}</span>
                       </button>
                     )}
 
@@ -1673,192 +1677,157 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          7. ANIMATED FILTER DRAWER (BOTTOM SHEET)
-          Triggered from "Filters · X".
-          Replaces the heavy static "All / People / Coffee / Drinks / Havens" bar.
-          Organised into clean progressive disclosure sections:
-          - Discovery Target (All / People / Coffee / Drinks / Safe Havens)
-          - Intent Mode (All / Social / Private)
-          - Distance / Cloaking options
-          - Dynamic contextual CTA ("Show 6 active nearby")
+          7. FILTER SHEET — one entry point, same anatomy as the intent composer
          ========================================================================= */}
       {isFilterDrawerOpen && (
         <div
-          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="g-overlay flex items-end sm:items-center justify-center sm:p-4"
           onClick={() => setIsFilterDrawerOpen(false)}
         >
-          <div
-            className="w-full max-w-lg mx-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:mb-0 bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-3.5rem-env(safe-area-inset-bottom,0px))] md:max-h-[calc(100dvh-env(safe-area-inset-top,0px))] animate-in slide-in-from-bottom duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drawer Drag Handle */}
-            <div className="py-3 flex flex-col items-center justify-center">
-              <div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
-            </div>
-
-            {/* Header: Title + Clear all */}
-            <div className="px-5 pb-3 flex items-center justify-between border-b border-white/[0.08]">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-[#C9A24D]" />
-                <h2 className="text-sm font-black uppercase tracking-wider text-white font-sans">
-                  FILTER RIGHT NOW
-                </h2>
+          <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="g-sheet__grip" />
+            <div className="g-sheet__head">
+              <div>
+                <span className="g-label">Right Now</span>
+                <h2 className="text-[15px] font-extrabold text-white mt-0.5">Filter the map</h2>
               </div>
-
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearFilters}
-                  className="text-xs font-mono text-[#C9A24D] hover:underline cursor-pointer"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-
-            {/* Scrollable Filters Body */}
-            <div className="px-5 py-4 overflow-y-auto space-y-5">
-
-              {/* SECTION 1: WHAT ARE YOU LOOKING FOR? */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                  WHAT
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'all', label: 'All Nearby' },
-                    { id: 'people', label: 'People' },
-                    { id: 'coffee', label: 'Coffee / Meet' },
-                    { id: 'drinks', label: 'Drinks / Bars' },
-                    { id: 'havens', label: 'Safe Havens' },
-                    { id: 'active', label: 'Active / Walks' },
-                  ].map((cat) => {
-                    const isSelected = activeCategory === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          hapticLight();
-                          setActiveCategory(cat.id as any);
-                        }}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center text-center active:scale-98 ${isSelected
-                          ? 'bg-[#1c182c] text-white border-[#6F3CC3]'
-                          : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
-                          }`}
-                      >
-                        {cat.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* SECTION 2: INTENT MODE */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                  INTENT
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['All', 'Social', 'Private'] as const).map((mode) => {
-                    const isSelected = activeIntentMode === mode;
-                    return (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => {
-                          hapticLight();
-                          setActiveIntentMode(mode);
-                        }}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center active:scale-98 uppercase font-mono ${isSelected
-                          ? mode === 'Private'
-                            ? 'bg-purple-950/80 text-purple-200 border-purple-500'
-                            : 'bg-[#1c182c] text-white border-[#6F3CC3]'
-                          : 'bg-[#12141e] text-zinc-300 border-white/[0.08] hover:border-white/20'
-                          }`}
-                      >
-                        {mode}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* SECTION 3: PRIVACY & DISTANCE */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                  DISTANCE & PRIVACY
-                </span>
-
-                <div className="p-3 bg-[#12141e] border border-white/[0.08] rounded-xl flex items-center justify-between gap-3">
-                  <div>
-                    <span className="text-xs font-bold text-white block">Approximate location radius</span>
-                    <span className="text-[11px] text-zinc-400 block">Display a radius around the map marker</span>
-                  </div>
+              <div className="flex items-center gap-1.5">
+                {activeFilterCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => {
-                      hapticLight();
-                      setShowJitterCircles(!showJitterCircles);
-                    }}
-                    role="switch"
-                    aria-checked={showJitterCircles}
-                    aria-label="Show approximate location radius"
-                    className="w-12 min-w-[44px] h-11 min-h-[44px] flex items-center justify-center cursor-pointer shrink-0"
+                    onClick={handleClearFilters}
+                    className="g-btn g-btn--ghost !min-h-[36px] px-3 text-[12px]"
                   >
-                    <span className={`w-12 h-6 rounded-full transition-colors p-0.5 flex items-center ${showJitterCircles ? 'bg-[#6F3CC3]' : 'bg-zinc-700'}`}>
-                      <span className={`w-5 h-5 rounded-full bg-white transition-transform ${showJitterCircles ? 'translate-x-6' : 'translate-x-0'}`} />
-                    </span>
+                    Reset
                   </button>
-                </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsFilterDrawerOpen(false)}
+                  className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                  aria-label="Close filters"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
-                <div className="grid grid-cols-3 gap-2 pt-1">
+            <div className="g-sheet__body space-y-5">
+              {/* Category */}
+              <div>
+                <span className="g-label">Show me</span>
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  {[
+                    { id: 'all', label: 'Everything' },
+                    { id: 'people', label: 'People' },
+                    { id: 'coffee', label: 'Coffee' },
+                    { id: 'drinks', label: 'Drinks' },
+                    { id: 'active', label: 'Active' },
+                    { id: 'havens', label: 'Safe Havens' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className="g-optpill"
+                      data-tone="amber"
+                      data-active={activeCategory === (cat.id as typeof activeCategory)}
+                      onClick={() => {
+                        hapticLight();
+                        setActiveCategory(cat.id as typeof activeCategory);
+                      }}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Intent mode */}
+              <div>
+                <span className="g-label">Intent</span>
+                <div className="g-seg mt-2.5">
+                  {(['All', 'Social', 'Private'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className="g-seg__btn"
+                      data-tone="purple"
+                      data-active={activeIntentMode === mode}
+                      onClick={() => {
+                        hapticLight();
+                        setActiveIntentMode(mode);
+                      }}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Distance */}
+              <div>
+                <span className="g-label">Distance</span>
+                <div className="flex flex-wrap gap-2 mt-2.5">
                   {[
                     { km: 1, label: '< 1 km' },
                     { km: 3, label: '< 3 km' },
                     { km: 5, label: 'All nearby' },
-                  ].map((dist) => {
-                    const isSelected = maxDistanceKm === dist.km;
-                    return (
-                      <button
-                        key={dist.km}
-                        type="button"
-                        onClick={() => {
-                          hapticLight();
-                          setMaxDistanceKm(dist.km);
-                        }}
-                        className={`h-11 min-h-[44px] px-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center font-mono ${isSelected
-                          ? 'bg-[#1e2230] text-[#C9A24D] border-[#C9A24D]/60'
-                          : 'bg-[#12141e] text-zinc-400 border-white/[0.08]'
-                          }`}
-                      >
-                        {dist.label}
-                      </button>
-                    );
-                  })}
+                  ].map((dist) => (
+                    <button
+                      key={dist.km}
+                      type="button"
+                      className="g-optpill"
+                      data-active={maxDistanceKm === dist.km}
+                      onClick={() => {
+                        hapticLight();
+                        setMaxDistanceKm(dist.km);
+                      }}
+                    >
+                      {dist.label}
+                    </button>
+                  ))}
                 </div>
               </div>
+
+              {/* Privacy radius */}
+              <div className="flex items-center justify-between gap-3 py-3 px-3.5 rounded-[14px] bg-white/[0.03] border border-white/[0.07]">
+                <div className="min-w-0">
+                  <span className="text-[13px] font-bold text-white block">Approximate radius</span>
+                  <span className="text-[11px] text-zinc-500 block">
+                    Show the privacy circle around markers
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showJitterCircles}
+                  aria-label="Show approximate location radius"
+                  className="g-toggle"
+                  onClick={() => {
+                    hapticLight();
+                    setShowJitterCircles(!showJitterCircles);
+                  }}
+                />
+              </div>
+
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                Markers show approximate areas (±300 m). Precise positions are never displayed.
+              </p>
             </div>
 
-            {/* Sticky Dynamic Apply CTA */}
-            <div className="p-4 border-t border-white/[0.08] bg-[#0c0e15] flex items-center gap-2 pb-safe">
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="h-12 min-h-[44px] px-4 text-xs font-bold text-zinc-400 hover:text-white bg-[#141620] border border-white/10 rounded-xl cursor-pointer"
-              >
+            <div className="g-sheet__foot">
+              <button type="button" className="g-btn g-btn--quiet" onClick={handleClearFilters}>
                 Reset
               </button>
-
               <button
                 type="button"
+                className="g-btn g-btn--primary flex-1"
                 onClick={() => {
                   hapticLight();
                   setIsFilterDrawerOpen(false);
                 }}
-                className="flex-1 h-12 min-h-[44px] px-4 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[0_12px_24px_rgba(201,162,77,0.22)] uppercase tracking-wide font-sans active:scale-98"
               >
-                <span>Show {filteredActiveCount} Active Nearby</span>
+                Show {filteredActiveCount} nearby
               </button>
             </div>
           </div>
@@ -1866,105 +1835,274 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       )}
 
       {/* =========================================================================
-          8. USER'S ACTIVE INTENT BOTTOM SHEET / DRAWER
-          Triggered from the top status pill when user has a broadcast live.
+          7.5 NEARBY DISCOVERY DRAWER — list view of live intents, map stays behind
+         ========================================================================= */}
+      {isNearbyOpen && (
+        <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setIsNearbyOpen(false)}>
+          <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="g-sheet__grip" />
+            <div className="g-sheet__head">
+              <div>
+                <span className="g-label">Right Now</span>
+                <h2 className="text-[15px] font-extrabold text-white mt-0.5">
+                  {liveMembersCount} live nearby
+                </h2>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    setIsNearbyOpen(false);
+                    setIsFilterDrawerOpen(true);
+                  }}
+                  className="g-btn g-btn--quiet !min-h-[36px] px-3 text-[12px]"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  Filter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsNearbyOpen(false)}
+                  className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                  aria-label="Close nearby list"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="g-sheet__body pb-2">
+              {nearbyItems.length === 0 ? (
+                <div className="py-6">
+                  <div className="g-empty !shadow-none">
+                    <div className="g-empty__icon">
+                      <Radio className="w-5 h-5" />
+                    </div>
+                    <h3>No active intent nearby</h3>
+                    <p>Nothing matches this filter set right now.</p>
+                    {onOpenSetIntent && (
+                      <button
+                        type="button"
+                        className="g-btn g-btn--primary w-full mt-1"
+                        onClick={() => {
+                          hapticLight();
+                          setIsNearbyOpen(false);
+                          onOpenSetIntent();
+                        }}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Create your intent
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                nearbyItems.map((item) => {
+                  const key = item.type === 'haven' ? item.item.id : item.type === 'pulse' ? item.item.id : item.item.id;
+                  const name =
+                    item.type === 'haven'
+                      ? item.item.name
+                      : item.type === 'pulse'
+                        ? `${item.item.peerName}${item.item.peerAge ? ` · ${item.item.peerAge}` : ''}`
+                        : `${item.item.name} · ${item.item.age}`;
+                  const isPrivate =
+                    item.type === 'pulse'
+                      ? item.item.intentMode === 'private' || item.item.intent?.includes('Hookup')
+                      : item.type === 'profile'
+                        ? item.item.intentMode === 'private'
+                        : false;
+                  const intentLabel =
+                    item.type === 'haven'
+                      ? 'Safe haven'
+                      : item.type === 'pulse'
+                        ? item.item.intent?.replace(' · ', ' ') || (isPrivate ? 'Private' : 'Social')
+                        : item.item.intent || item.item.lookingForLabel;
+                  const km = (item.type === 'haven' ? item.item.approxDistanceKm : (item.item as any).approxDistanceKm) ?? 0.3;
+                  const expires =
+                    item.type === 'pulse' ? item.item.expiresAt : item.type === 'profile' ? item.item.intentExpiresAt : undefined;
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className="g-intent-row"
+                      onClick={() => {
+                        hapticLight();
+                        setSelectedItem(item);
+                        setIsCardExpanded(false);
+                        setIsNearbyOpen(false);
+                      }}
+                    >
+                      <div
+                        className={`g-avatar w-10 h-10 text-[13px] ${
+                          item.type === 'haven'
+                            ? '!bg-[#0f1f1a] !text-emerald-400'
+                            : isPrivate
+                              ? 'g-avatar--ring-private'
+                              : 'g-avatar--ring-social'
+                        }`}
+                      >
+                        {item.type === 'profile' ? (
+                          <img
+                            src={item.item.photoUrl}
+                            alt=""
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : item.type === 'haven' ? (
+                          <ShieldCheck className="w-4 h-4" />
+                        ) : (
+                          <span>{item.item.peerName.charAt(0)}</span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[13.5px] font-bold text-white truncate">{name}</span>
+                          {item.type !== 'haven' && (
+                            <span className={`g-chip ${isPrivate ? 'g-chip--private' : 'g-chip--social'}`}>
+                              {intentLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5 min-w-0">
+                          <span className="font-mono shrink-0">~{typeof km === 'number' ? km.toFixed(1) : '0.3'} km</span>
+                          <span className="truncate">
+                            · {item.type === 'haven' ? item.item.neighborhood : item.type === 'pulse' ? item.item.neighborhood : item.item.neighborhood}
+                          </span>
+                        </div>
+                      </div>
+
+                      {expires ? (
+                        <CountdownPill expiresAt={expires} />
+                      ) : item.type === 'profile' && item.item.safetyVerified ? (
+                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      ) : null}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {!activeUserIntent && onOpenSetIntent && nearbyItems.length > 0 && (
+              <div className="g-sheet__foot">
+                <button
+                  type="button"
+                  className="g-btn g-btn--primary w-full"
+                  onClick={() => {
+                    hapticLight();
+                    setIsNearbyOpen(false);
+                    onOpenSetIntent();
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  Create your intent
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          8. YOUR LIVE SIGNAL — manage sheet (edit · pause · end)
          ========================================================================= */}
       {isUserIntentDrawerOpen && activeUserIntent && (
         <div
-          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="g-overlay flex items-end sm:items-center justify-center sm:p-4"
           onClick={() => setIsUserIntentDrawerOpen(false)}
         >
-          <div
-            className="w-full max-w-lg mx-auto bg-[#0d0f16] border-t border-x border-white/[0.15] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col p-5 space-y-4 animate-in slide-in-from-bottom duration-300 pb-safe"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drag Handle */}
-            <div className="py-1 flex flex-col items-center justify-center">
-              <div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
+          <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="g-sheet__grip" />
+            <div className="g-sheet__head">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    activeUserIntent.isPaused
+                      ? 'bg-zinc-500'
+                      : 'bg-[#6F3CC3] shadow-[0_0_10px_rgba(111,60,195,0.9)] animate-pulse'
+                  }`}
+                />
+                <div className="min-w-0">
+                  <h2 className="text-[15px] font-extrabold text-white leading-tight">
+                    {activeUserIntent.isPaused ? 'Signal paused' : 'Your live signal'}
+                  </h2>
+                  <span className="g-map-state__meta">
+                    {formatRemainingTime(remainingMinutes)} left ·{' '}
+                    {activeUserIntent.isPaused ? 'not visible' : 'visible on the map'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUserIntentDrawerOpen(false)}
+                className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  {!activeUserIntent.isPaused && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6F3CC3] opacity-75" />
-                  )}
-                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3]'
-                    }`} />
-                </span>
-                <h3 className="text-sm font-black uppercase tracking-wider text-white font-sans">
-                  {activeUserIntent.isPaused ? 'INTENT PAUSED ON MAP' : 'YOUR LIVE BROADCAST'}
-                </h3>
+            <div className="g-sheet__body space-y-4">
+              <div className="p-4 rounded-[14px] bg-white/[0.03] border border-white/[0.07] space-y-2.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`g-chip ${activeUserIntent.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
+                    {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
+                  </span>
+                  <span className="text-[15px] font-extrabold text-white tracking-tight">
+                    {activeUserIntent.intent.replace(' · ', ' ')}
+                  </span>
+                </div>
+                <p className="text-[13px] text-zinc-300 leading-relaxed">{activeUserIntent.description}</p>
+                <div className="pt-1 flex items-center justify-between gap-3 text-[11px] font-mono text-zinc-500">
+                  <span className="truncate">
+                    {activeUserIntent.when} · {activeUserIntent.duration} · {activeUserIntent.travelDistance}
+                  </span>
+                  <span className="text-[#C9A24D] shrink-0">±300 m</span>
+                </div>
               </div>
 
-              <span className="text-xs font-mono font-bold text-zinc-300 bg-white/[0.06] px-2.5 py-0.5 rounded-md border border-white/10">
-                {formatRemainingTime(remainingMinutes)} left
-              </span>
-            </div>
-
-            <div className="p-3.5 bg-[#12141e] border border-white/[0.08] rounded-2xl space-y-2">
-              <div className="flex items-baseline gap-2">
-                <span className={`text-xs font-black font-mono uppercase px-2 py-0.5 rounded border ${activeUserIntent.mode === 'private'
-                  ? 'bg-purple-950/80 text-purple-300 border-purple-500/40'
-                  : 'bg-[#C9A24D]/20 text-[#C9A24D] border-[#C9A24D]/40'
-                  }`}>
-                  {activeUserIntent.mode}
-                </span>
-                <h4 className="text-base font-black text-white uppercase tracking-wide truncate">
-                  {activeUserIntent.intent}
-                </h4>
-              </div>
-
-              <p className="text-xs text-zinc-300 italic leading-relaxed">
-                "{activeUserIntent.description}"
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                Your signal disappears the moment it expires or you end it. Nothing is added to
+                your profile.
               </p>
-
-              <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-zinc-400">
-                <span>{activeUserIntent.when} · {activeUserIntent.travelDistance}</span>
-                <span className="text-[#C9A24D]">±300m cloaked in {activeUserIntent.area}</span>
-              </div>
             </div>
 
-            {/* Actions: Edit, Pause/Resume, End */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
+            <div className="g-sheet__foot">
+              <button
+                type="button"
+                onClick={handleEndIntent}
+                className="g-btn g-btn--danger-quiet !px-4"
+              >
+                End
+              </button>
+              <button
+                type="button"
+                onClick={handleTogglePause}
+                className="g-btn g-btn--quiet flex-1"
+              >
+                {activeUserIntent.isPaused ? (
+                  <>
+                    <Play className="w-4 h-4" /> Resume
+                  </>
+                ) : (
+                  <>
+                    <Pause className="w-4 h-4" /> Pause
+                  </>
+                )}
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   hapticLight();
                   setIsUserIntentDrawerOpen(false);
-                  setIsSetIntentOpen(true);
+                  onOpenSetIntent?.();
                 }}
-                className="h-11 min-h-[44px] px-2 text-xs font-bold text-zinc-200 hover:text-white bg-[#151722] hover:bg-[#1c1f2e] border border-white/10 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase font-mono active:scale-98 shadow-sm"
+                className="g-btn g-btn--primary flex-1"
               >
-                <Edit3 className="w-3.5 h-3.5 text-[#C9A24D]" />
-                <span>Edit</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleTogglePause}
-                className="h-11 min-h-[44px] px-2 text-xs font-bold text-zinc-200 hover:text-white bg-[#151722] hover:bg-[#1c1f2e] border border-white/10 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase font-mono active:scale-98 shadow-sm"
-              >
-                {activeUserIntent.isPaused ? (
-                  <>
-                    <Play className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Resume</span>
-                  </>
-                ) : (
-                  <>
-                    <Pause className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Pause</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleEndIntent}
-                className="h-11 min-h-[44px] px-2 text-xs font-bold text-purple-300 hover:text-white bg-[#221528] hover:bg-[#2c1836] border border-purple-500/40 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase font-mono active:scale-98 shadow-sm"
-              >
-                <X className="w-3.5 h-3.5 text-purple-400" />
-                <span>End</span>
+                <Edit3 className="w-4 h-4" /> Edit
               </button>
             </div>
           </div>
@@ -1975,48 +2113,43 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           9. MUTUAL MATCH / INTEREST NOTIFICATION BANNER
          ========================================================================= */}
       {mutualMatchPulse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm p-4 bg-[#141620] border border-[#C9A24D] rounded-2xl shadow-[0_0_36px_rgba(111,60,195,0.45)] space-y-3 animate-in zoom-in-95 duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black tracking-widest text-[#C9A24D] uppercase font-mono">
-                    MUTUAL INTEREST
-                  </span>
-                  <span className="text-zinc-500">·</span>
-                  <span className="text-xs text-zinc-300 font-medium">Both active now</span>
-                </div>
-                <h3 className="text-base font-black text-white tracking-wide uppercase mt-0.5 font-sans">
-                  {mutualMatchPulse.intent || mutualMatchPulse.title} · NOW
+        <div className="g-overlay flex items-center justify-center p-4" onClick={() => setMutualMatchPulse(null)}>
+          <div
+            className="w-full max-w-sm p-5 g-panel !rounded-[20px] shadow-[0_0_50px_rgba(111,60,195,0.35)] space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span className="g-label text-[#C9A24D]">Mutual interest</span>
+                <h3 className="text-[17px] font-extrabold text-white tracking-tight mt-1">
+                  {(mutualMatchPulse.intent || mutualMatchPulse.title).replace(' · ', ' ')} · now
                 </h3>
-                <p className="text-xs text-zinc-300 mt-1">
-                  You and {mutualMatchPulse.peerName} both expressed mutual availability.
+                <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed">
+                  You and {mutualMatchPulse.peerName} both want this right now. The chat is open.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setMutualMatchPulse(null)}
-                className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-lg text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer"
-                aria-label="Dismiss banner"
+                className="g-icon-btn g-icon-btn--bare !w-9 !h-9 shrink-0"
+                aria-label="Dismiss"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-2.5 bg-[#0a0b10] rounded-xl border border-white/[0.06] text-[11px] text-zinc-400 space-y-1.5 font-mono">
-              <div className="flex items-center gap-2 text-[#C9A24D]">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Identity verified · Approximate location protected (±300m)</span>
-              </div>
+            <div className="flex items-center gap-2 text-[11.5px] text-zinc-500 px-3 py-2 rounded-[10px] bg-white/[0.03] border border-white/[0.06]">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>Approximate locations only · chat is end-to-end encrypted</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="flex items-center gap-2 pt-0.5">
               <button
                 type="button"
                 onClick={() => setMutualMatchPulse(null)}
-                className="h-11 min-h-[44px] px-3 text-xs font-semibold text-zinc-400 hover:text-white bg-[#101118] border border-white/10 rounded-xl cursor-pointer flex items-center justify-center"
+                className="g-btn g-btn--quiet flex-1"
               >
-                Keep Browsing
+                Keep browsing
               </button>
               <button
                 type="button"
@@ -2024,28 +2157,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   onOpenDirectChat(mutualMatchPulse);
                   setMutualMatchPulse(null);
                 }}
-                className="h-11 min-h-[44px] px-3 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 uppercase tracking-wider font-sans"
+                className="g-btn g-btn--amber flex-1"
               >
-                <MessageSquare className="w-3.5 h-3.5 fill-black" />
-                <span>Message</span>
+                <MessageSquare className="w-4 h-4" />
+                Message
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* =========================================================================
-          10. SET INTENT BOTTOM SHEET / MODAL
-         ========================================================================= */}
-      <SetIntentSheet
-        isOpen={isSetIntentOpen}
-        onClose={() => setIsSetIntentOpen(false)}
-        onSaveIntent={handleSaveIntent}
-        existingIntent={activeUserIntent}
-        safeHavens={safeHavens}
-        userNeighborhood={userNeighborhood}
-        defaultWhen="Now"
-      />
     </div>
   );
 };
