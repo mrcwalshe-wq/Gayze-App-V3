@@ -1571,9 +1571,27 @@ export default function App() {
 
   // Calling & Gaze Handlers
   const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string) => {
-    setCallPeerName(peerName);
-    setCallType(type);
-    setCallTargetUserId(targetUserId);
+    // Live calls must belong to a real mutual conversation. A synthetic room
+    // cannot provide a valid signaling context and would leave the call UI stuck.
+    if (IS_LIVE_BACKEND) {
+      const room = roomsRef.current.find((candidate) =>
+        candidate.type === 'direct'
+        && candidate.peerUserId === targetUserId
+        && /^[0-9a-f-]{36}$/i.test(candidate.id)
+      );
+      if (!room || !targetUserId) {
+        showToast('Calls are available after a mutual conversation is established.');
+        return;
+      }
+      setCallPeerName(peerName);
+      setCallType(type);
+      setCallTargetUserId(targetUserId);
+      setActiveRoomId(room.id);
+    } else {
+      setCallPeerName(peerName);
+      setCallType(type);
+      setCallTargetUserId(targetUserId);
+    }
     setIsIncomingCallActive(false);
     setIsCallModalOpen(true);
   };
