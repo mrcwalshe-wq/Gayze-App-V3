@@ -878,3 +878,80 @@ export async function preparePhotoAttachment(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+
+export async function loadStories(): Promise<import('../types').SocialStory[]> {
+  if (!supabase) return [];
+  const user = await ensureSupabaseSession();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('stories')
+    .select('id,user_id,photo_url,caption,location_name,intent,category,created_at,expires_at')
+    .gt('expires_at', new Date().toISOString())
+    .neq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.warn('[GAYZE] Story load failed:', error.message);
+    return [];
+  }
+
+  const userIds = [...new Set((data ?? []).map((row) => row.user_id))];
+  if (!userIds.length) return [];
+
+  const { data: profiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('id,display_name,avatar_path')
+    .in('id', userIds);
+
+  if (profileError) {
+    console.warn('[GAYZE] Story profile load failed:', profileError.message);
+  }
+
+  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+
+  return (data ?? []).map((row) => {
+    const profile = profileMap.get(row.user_id);
+    return {
+      id: row.id,
+      peerId: row.user_id,
+      peerName: profile?.display_name || 'Gayze member',
+      avatarUrl: profile?.avatar_path || '',
+      photoUrl: row.photo_url || '',
+      caption: row.caption || '',
+      locationName: row.location_name || 'Nearby',
+      timestamp: new Date(row.created_at).getTime(),
+      intent: row.intent as import('../types').EncounterIntent,
+      category: row.category as 'social' | 'private' | 'spicy',
+    };
+  });
+}
+
+export async function createStoryFromIntent(intent: UserActiveIntent, photoUrl?: string): Promise<string | null> {
+  if (!supabase) return null;
+  const user = await ensureSupabaseSession();
+  if (!user) return null;
+
+  const category = intent.mode === 'private' ? 'private' : 'social';
+  const { data, error } = await supabase
+    .from('stories')
+    .insert({
+      user_id: user.id,
+      photo_url: photoUrl || null,
+      caption: intent.description || \`Available for ${intent.intent.toLowerCase()} nearby.\`,
+      location_name: intent.area || 'Nearby',
+      intent: intent.intent,
+      category,
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Math.min(intent.expiresAt, Date.now() + 24 * 60 * 60 * 1000)).toISOString(),
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.warn('[GAYZE] Story creation failed:', error.message);
+    return null;
+  }
+  return data?.id ?? null;
+}
