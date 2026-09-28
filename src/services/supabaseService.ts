@@ -675,7 +675,9 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
     handle: data.handle || undefined,
     bio: data.bio || '',
     privacySetting: data.privacy_setting || undefined,
-    reliabilityScore: Number(data.reliability_score) || 94,
+    // Trust signals are shown exactly as stored. A profile with no history reads
+    // as 0, never as a fabricated score.
+    reliabilityScore: Number(data.reliability_score) || 0,
     verifiedPeersCount: Number(data.verified_peers_count) || 0,
     safetyVerified: Boolean(data.safety_verified),
     neighborhood: data.neighborhood || 'Near you',
@@ -697,11 +699,10 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
       handle: uniqueHandle,
       display_name: sourceUser.displayName || 'Gayze User',
       bio: sourceUser.bio || null,
-      age: null,
       privacy_setting: sourceUser.privacySetting || 'fuzzy_500m',
-      reliability_score: sourceUser.reliabilityScore || 94,
-      verified_peers_count: sourceUser.verifiedPeersCount || 0,
-      safety_verified: Boolean(sourceUser.safetyVerified),
+      // Reliability and verification counters are never written from the client:
+      // they are computed by the backend. Sending 0 (or a default) here would
+      // wipe a real score, so the columns are left untouched on conflict.
       neighborhood: sourceUser.neighborhood || null,
       identity_public_key: identityPublicKey ?? null,
     }, { onConflict: 'id' }).select('*').single();
@@ -731,7 +732,9 @@ export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserI
       id: `supabase_${row.intent_id}`,
       peerId: row.user_id,
       peerName: row.display_name || 'Gayze member',
-      peerShortKey: row.user_id.slice(0, 8) + '...',
+      // A short member reference for display only. This is NOT key material and
+      // must never be used to derive a safety code or a conversation key.
+      peerShortKey: `${row.user_id.slice(0, 8)}…`,
       peerAvatar: row.avatar_path || 'user',
       peerAge: row.age ?? undefined,
       title: `${row.mode.toUpperCase()} · ${row.intent}`,

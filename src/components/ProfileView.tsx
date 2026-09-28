@@ -147,7 +147,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             {areaLabel || currentUser.neighborhood} · approximate area
           </div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className="g-badge g-badge--trust">Reliability {currentUser.reliabilityScore}</span>
+            <span className="g-badge g-badge--trust">
+              {currentUser.reliabilityScore > 0
+                ? `Reliability ${currentUser.reliabilityScore}`
+                : 'No reliability history yet'}
+            </span>
             <span className="g-badge g-badge--quiet font-mono">{currentUser.shortKey}</span>
           </div>
         </div>

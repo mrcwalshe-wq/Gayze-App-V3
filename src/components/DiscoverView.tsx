@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Map as MapIcon,
   MessageSquare,
@@ -30,6 +30,13 @@ interface DiscoverViewProps {
   onOpenSetIntent?: () => void;
   onOpenMap?: () => void;
 }
+
+/** Distances are approximate by design; unknown distances are never guessed. */
+const formatDistance = (km?: number): string => {
+  if (typeof km !== 'number' || !isFinite(km) || km <= 0) return 'distance unavailable';
+  if (km < 0.1) return 'under 100 m';
+  return km < 10 ? `~${km.toFixed(1)} km` : `~${Math.round(km)} km`;
+};
 
 type ModeFilter = 'All' | 'Social' | 'Private';
 
@@ -88,10 +95,22 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   const [selected, setSelected] = useState<DiscoverRow | null>(null);
   const [gazedNames, setGazedNames] = useState<Set<string>>(new Set());
 
+  // Expired intents leave the list without waiting for a discovery refresh.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowTick(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const rows = useMemo<DiscoverRow[]>(() => {
     const collected: DiscoverRow[] = [];
+    // A person is either a live intent row or a local demo profile — never both.
+    const pulsePeerIds = new Set(
+      pulses.filter((pulse) => pulse.expiresAt > nowTick).map((pulse) => pulse.peerId),
+    );
 
     profiles.forEach((profile) => {
+      if (pulsePeerIds.has(profile.id)) return;
       const mode: 'social' | 'private' =
         profile.intentMode === 'private' || profile.lookingFor === 'casual' ? 'private' : 'social';
       if (modeFilter !== 'All' && mode !== modeFilter.toLowerCase()) return;
@@ -116,10 +135,11 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
 
     pulses.forEach((pulse) => {
       if (pulse.peerId === 'peer_me') return;
+      if (pulse.expiresAt <= nowTick) return;
       const mode: 'social' | 'private' =
         pulse.intentMode === 'private' || pulse.intent?.includes('Hookup') ? 'private' : 'social';
       if (modeFilter !== 'All' && mode !== modeFilter.toLowerCase()) return;
-      const live = pulse.expiresAt > Date.now();
+      const live = pulse.expiresAt > nowTick;
       collected.push({
         kind: 'pulse',
         id: pulse.id,
@@ -143,7 +163,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       if (a.live !== b.live) return a.live ? -1 : 1;
       return a.km - b.km;
     });
-  }, [profiles, pulses, modeFilter, userNeighborhood]);
+  }, [profiles, pulses, modeFilter, userNeighborhood, nowTick]);
 
   const liveCount = rows.filter((r) => r.live).length;
 
@@ -276,7 +296,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                 </div>
                 <div className="text-[11.5px] text-zinc-500 truncate mt-0.5">{row.description}</div>
                 <div className="flex items-center gap-2 mt-1 text-[10.5px] font-mono text-zinc-600">
-                  <span>~{row.km.toFixed(1)} km</span>
+                  <span>{formatDistance(row.km)}</span>
                   <span>· {row.area}</span>
                   {row.verified && (
                     <span className="flex items-center gap-1 text-emerald-400/90 not-italic">
@@ -327,7 +347,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                     </span>
                   </div>
                   <div className="g-map-state__meta mt-0.5">
-                    {selected.live ? 'Live right now' : 'Available later'} · ~{selected.km.toFixed(1)} km · {selected.area}
+                    {selected.live ? 'Live right now' : 'Availability unknown'} · {formatDistance(selected.km)} · {selected.area}
                   </div>
                 </div>
               </div>
@@ -350,7 +370,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   <span className="g-badge g-badge--trust">Reliability {selected.reliability}</span>
                 )}
                 <span className="g-badge g-badge--quiet">
-                  <Lock className="w-3 h-3" /> Encrypted chat
+                  <Lock className="w-3 h-3" /> Encrypted on your device
                 </span>
               </div>
 

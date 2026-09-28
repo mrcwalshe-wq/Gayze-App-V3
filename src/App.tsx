@@ -83,6 +83,7 @@ import {
   initPresence,
   createStoryFromIntent,
   loadMyConversations,
+  loadConversationPeerKey,
   jitterLocation,
   privacyRadiusMeters,
 } from './services/supabaseService';
@@ -268,8 +269,8 @@ export default function App() {
       return {
         ...INITIAL_USER,
         ...parsed,
-        reliabilityScore: parsed.reliabilityScore || 94,
-        verifiedPeersCount: parsed.verifiedPeersCount || 14,
+        reliabilityScore: parsed.reliabilityScore || 0,
+        verifiedPeersCount: parsed.verifiedPeersCount || 0,
       };
     } catch {
       return INITIAL_USER;
@@ -527,6 +528,9 @@ export default function App() {
   const supabaseUserIdRef = useRef<string | null>(null);
   const currentUserRef = useRef(currentUser);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+
+  const roomsRef = useRef<SwarmRoom[]>(rooms);
+  useEffect(() => { roomsRef.current = rooms; }, [rooms]);
 
   const activeUserIntentRef = useRef<UserActiveIntent | null>(activeUserIntent);
   useEffect(() => { activeUserIntentRef.current = activeUserIntent; }, [activeUserIntent]);
@@ -826,43 +830,57 @@ export default function App() {
       return;
     }
 
-    // Create new direct encrypted room with peer
+    // Create new direct encrypted room with peer. The safety code is derived
+    // later from the real device keys (see the conversation hydrate effect) —
+    // never from a display handle. Demo rooms derive theirs from the local room
+    // secret so it is at least deterministic within the demo.
     const roomId = conversationId || `room_${pulse.peerId}_${Date.now()}`;
-    const safetyNumber = await generateSafetyFingerprint(currentUser.publicKey, pulse.peerShortKey);
+    const demoRoomSecret = isSupabaseConversation ? '' : `seed_swarm_${Math.random().toString(36).substring(2)}`;
+    const demoSafetyNumber = isSupabaseConversation
+      ? ''
+      : await generateSafetyFingerprint(demoRoomSecret, pulse.peerId);
     const newRoom: SwarmRoom = {
       id: roomId,
       name: pulse.peerName,
       type: 'direct',
-      peerKey: isSupabaseConversation ? undefined : pulse.peerShortKey + '_full_public_key_verified',
+      // Demo rooms carry a local room secret; live rooms resolve their peer key
+      // (and safety code) from the backend.
+      peerKey: isSupabaseConversation ? undefined : `demo_peer_${pulse.peerId}`,
       peerUserId: pulse.peerId,
       peerName: pulse.peerName,
       peerNeighborhood: pulse.neighborhood,
       peerAvatar: pulse.peerAvatar,
-      safetyNumber,
-      swarmSecretKeyHex: isSupabaseConversation ? '' : 'seed_swarm_' + Math.random().toString(36).substring(2),
+      safetyNumber: demoSafetyNumber,
+      swarmSecretKeyHex: demoRoomSecret,
       connectionContext: `Connected via ${pulse.intentMode || 'social'} intent: ${pulse.title}`,
       lastMessage: `Connected via pulse: "${pulse.title}"`,
       lastTimestamp: Date.now(),
       ephemeralTtlSeconds: 3600, // default 1 hr burner
     };
 
-    const initialMsg: EncryptedMessage = {
-      id: 'msg_init_' + Date.now(),
-      roomId,
-      senderKey: currentUser.publicKey,
-      senderName: currentUser.displayName,
-      timestamp: Date.now(),
-      cipherText: '9a01f8...encrypted',
-      nonceHex: '190284719203847102938471',
-      plainText: `Hey ${pulse.peerName}, saw your pulse for ${pulse.title}!`,
-    };
-
     setRooms((prev) => [newRoom, ...prev]);
     if (!isSupabaseConversation) {
-      setMessages((prev) => ({
-        ...prev,
-        [roomId]: [initialMsg],
-      }));
+      // Demo mode only: the opening line is encrypted with the room secret
+      // rather than stored as a hand-written placeholder ciphertext.
+      const opening = `Hey ${pulse.peerName}, saw your pulse for ${pulse.title}!`;
+      try {
+        const encrypted = await encryptPayload(opening, newRoom.swarmSecretKeyHex);
+        setMessages((prev) => ({
+          ...prev,
+          [roomId]: [{
+            id: 'msg_init_' + Date.now(),
+            roomId,
+            senderKey: currentUser.publicKey,
+            senderName: currentUser.displayName,
+            timestamp: Date.now(),
+            cipherText: encrypted.cipherHex,
+            nonceHex: encrypted.nonceHex,
+            plainText: opening,
+          }],
+        }));
+      } catch (error) {
+        console.warn('[GAYZE] Could not encrypt demo opening message', error);
+      }
     }
 
     setActiveRoomId(roomId);
@@ -1144,7 +1162,7 @@ export default function App() {
     let disposed = false;
 
     let conversationKey: CryptoKey | null = null;
-    const room = rooms.find((candidate) => candidate.id === activeRoomId);
+    const room = roomsRef.current.find((candidate) => candidate.id === activeRoomId);
 
     const applyRow = async (row: {
       id: string;
@@ -1157,7 +1175,7 @@ export default function App() {
       burned_at: string | null;
     }) => {
       if (disposed) return;
-      const targetRoom = rooms.find((candidate) => candidate.id === activeRoomId);
+      const targetRoom = roomsRef.current.find((candidate) => candidate.id === activeRoomId);
       if (!targetRoom) return;
 
       let plainText = '[Encrypted message]';
@@ -1235,6 +1253,35 @@ export default function App() {
         });
       }
 
+      // Direct conversations get a real safety code, derived from both device
+      // keys. It is only set when the peer's key is actually available; until
+      // then the verification screen says the code is unavailable.
+      if (!disposed && room.type === 'direct' && !room.safetyNumber) {
+        try {
+          const peer = await loadConversationPeerKey(room.id);
+          if (peer?.peer_public_key) {
+            const peerJwk = JSON.parse(peer.peer_public_key) as JsonWebKey;
+            const identity = await getOrCreateDeviceIdentity();
+            const coords = (jwk: JsonWebKey) => `${jwk.x ?? ''}.${jwk.y ?? ''}`;
+            if (coords(identity.publicKeyJwk) !== '.') {
+              const safetyNumber = await generateSafetyFingerprint(
+                coords(identity.publicKeyJwk),
+                coords(peerJwk),
+              );
+              if (!disposed) {
+                setRooms((prev) => prev.map((candidate) => (
+                  candidate.id === room.id
+                    ? { ...candidate, peerKey: peer.peer_public_key ?? undefined, safetyNumber }
+                    : candidate
+                )));
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('[GAYZE] Safety code unavailable for this conversation', error);
+        }
+      }
+
       const rows = await loadConversationMessages(activeRoomId);
       for (const row of rows) await applyRow(row);
     };
@@ -1246,7 +1293,7 @@ export default function App() {
       disposed = true;
       unsubscribe();
     };
-  }, [activeRoomId, rooms, supabaseUserId]);
+  }, [activeRoomId, supabaseUserId]);
 
   // Chat message sending with real WebCrypto AES-GCM
   const handleSendMessage = async (
@@ -1931,7 +1978,7 @@ export default function App() {
         onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
         isSafetyTimerActive={checkinState.isActive}
         onOpenQR={() => handleOpenQRModal()}
-        reliabilityScore={currentUser.reliabilityScore || 94}
+        reliabilityScore={currentUser.reliabilityScore}
         userNeighborhood={currentUser.neighborhood}
       />
 
@@ -2046,6 +2093,12 @@ export default function App() {
               onAcceptMeeting={handleAcceptMeeting}
               onReturnToDiscovery={() => setActiveTab('right_now')}
               onlineUserIds={onlineUserIds}
+              conversationKeyUnavailable={
+                Boolean(activeRoomId)
+                && conversationKeyState.roomId === activeRoomId
+                && conversationKeyState.status === 'unavailable'
+              }
+              conversationKeyReason={conversationKeyState.reason}
             />
           )}
 
@@ -2175,9 +2228,23 @@ export default function App() {
             console.warn('[GAYZE] Could not clear browser auth storage:', error);
           }
 
-          // Clear local application state synchronously.
-          localStorage.removeItem('gayze_messages');
-          localStorage.removeItem('gayze_active_user_intent');
+          // Clear local application state synchronously. Device identity keys are
+          // deliberately kept (they belong to the device, not the account) but
+          // every account-derived cache is removed.
+          for (const key of [
+            'gayze_messages',
+            'gayze_active_user_intent',
+            'gayze_user',
+            'gayze_rooms',
+            'gayze_pulses',
+            'gayze_gatherings',
+            'gayze_stories',
+            'gayze_intent_posts',
+            'gayze_checkin',
+            'gayze_verified_rooms',
+          ]) {
+            localStorage.removeItem(key);
+          }
           setActiveUserIntent(null);
           setSupabaseRightNowPulses([]);
           setSupabaseReady(false);

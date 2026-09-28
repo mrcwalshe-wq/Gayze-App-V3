@@ -1453,7 +1453,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         alt={selectedItem.item.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/mrcwalshe-wq/Gayze-App-V3/main/src/assets/images/dating_profile_marcus_1790154961749.jpg';
+                          // No stand-in portrait is substituted: a missing photo
+                          // shows the person's initial instead.
+                          (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
                     </div>

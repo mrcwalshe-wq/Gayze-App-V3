@@ -194,7 +194,10 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
             </div>
             <div>
               <div className="text-xs font-semibold text-white">
-                Reliability Score: <span className="text-[#C9A24D] font-mono">{user.reliabilityScore || 94}/100</span>
+                Reliability Score:{' '}
+                <span className="text-[#C9A24D] font-mono">
+                  {user.reliabilityScore > 0 ? `${user.reliabilityScore}/100` : 'no history yet'}
+                </span>
               </div>
               <div className="text-[11px] text-zinc-400">
                 {user.verifiedPeersCount || 14} in-person Group verifications
