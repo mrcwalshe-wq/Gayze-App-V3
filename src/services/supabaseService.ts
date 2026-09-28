@@ -10,6 +10,33 @@ export interface RightNowDiscoveryRow {
   travel_distance_label: string | null; can_host: string | null; travel_willingness: string | null;
 }
 
+export async function loadSafeHavens(): Promise<SafeHaven[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('safe_havens')
+    .select('id,name,type,address,neighborhood,safety_score,features,open_hours,emergency_phone,staff_trained')
+    .order('name');
+  if (error) {
+    console.warn('[GAYZE] Safe haven load failed:', error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    address: row.address || '',
+    neighborhood: row.neighborhood || '',
+    safetyScore: Number(row.safety_score) || 0,
+    features: Array.isArray(row.features) ? row.features : [],
+    lat: 0,
+    lng: 0,
+    openHours: row.open_hours || '',
+    approxDistanceKm: 0,
+    emergencyPhone: row.emergency_phone || '',
+    staffTrained: Boolean(row.staff_trained),
+  }));
+}
+
 export async function discoverRightNow(options?: { radiusMeters?: number; mode?: 'social' | 'private'; intent?: string }): Promise<RightNowDiscoveryRow[]> {
   if (!supabase) return [];
   try {
