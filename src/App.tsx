@@ -1560,6 +1560,7 @@ export default function App() {
         isSafetyTimerActive={checkinState.isActive}
         onOpenQR={() => handleOpenQRModal()}
         reliabilityScore={currentUser.reliabilityScore || 94}
+        userNeighborhood={currentUser.neighborhood}
       />
 
       {/* Main Content Viewport Container */}
