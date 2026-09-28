@@ -209,7 +209,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 key={room.id}
                 onClick={() => handleSelectRoom(room.id)}
                 className={`w-full text-left p-3.5 transition-colors flex items-start gap-3 cursor-pointer min-h-[56px] ${isSelected
-                  ? 'bg-[#171922] border-l-2 border-[#C9A24D]'
+                  ? 'bg-[#15131f] border-l-2 border-[#7b48d1]'
                   : 'hover:bg-white/[0.03]'
                   }`}
               >
@@ -227,7 +227,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     <span className="text-xs font-semibold text-white truncate">
                       {room.name}
                     </span>
-                    <span className="text-[10px] text-zinc-500 shrink-0 font-mono">
+                    <span className="text-[11px] text-zinc-500 shrink-0 font-mono">
                       {new Date(room.lastTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
@@ -242,7 +242,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       {isGathering ? 'Group' : 'Direct'}
                     </span>
                     {room.ephemeralTtlSeconds > 0 && (
-                      <span className="flex items-center gap-0.5 text-[#C9A24D] font-mono">
+                      <span className="flex items-center gap-0.5 text-[#c4a9f7] font-mono">
                         <Flame className="w-2.5 h-2.5" />
                         {getTtlLabel(room.ephemeralTtlSeconds)}
                       </span>
@@ -334,7 +334,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   title="Encrypted Video Call (P2P WebRTC)"
                   aria-label="Start video call"
                 >
-                  <Video className="w-3.5 h-3.5 text-[#C9A24D]" />
+                  <Video className="w-3.5 h-3.5 text-emerald-400" />
                 </button>
               )}
 
@@ -342,7 +342,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
                 <button
                   onClick={() => onOpenScheduleMeeting(currentRoom.peerName || currentRoom.name)}
-                  className="h-9 px-2 sm:px-2.5 rounded-xl bg-[#C9A24D]/10 hover:bg-[#C9A24D]/20 border border-[#C9A24D]/30 text-[#C9A24D] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="h-9 px-2 sm:px-2.5 rounded-xl bg-[#C9A24D]/10 hover:bg-[#C9A24D]/18 border border-[#C9A24D]/25 text-[#C9A24D] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Plan safe meetup at verified Safe Haven"
                 >
                   <Calendar className="w-3.5 h-3.5 text-[#C9A24D]" />
@@ -355,11 +355,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 onClick={cycleTtl}
                 title="Disappearing messages timer (auto-deletes messages after set time)"
                 className={`h-9 px-2 sm:px-2.5 text-[11px] rounded-xl border transition-colors cursor-pointer flex items-center gap-1.5 ${currentRoom.ephemeralTtlSeconds > 0
-                  ? 'bg-[#C9A24D]/15 text-[#C9A24D] border-[#C9A24D]/30'
+                  ? 'bg-[#6F3CC3]/18 text-[#c4a9f7] border-[#6F3CC3]/35'
                   : 'bg-[#171922] text-zinc-400 border-white/10 hover:text-white'
                   }`}
               >
-                <Clock className="w-3.5 h-3.5 text-[#C9A24D]" />
+                <Clock className="w-3.5 h-3.5" />
                 <span className="font-mono">{getTtlLabel(currentRoom.ephemeralTtlSeconds)}</span>
               </button>
 
@@ -422,15 +422,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   key={msg.id}
                   className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                 >
-                  <div className="flex items-center gap-2 mb-1 px-1 text-[10px] text-zinc-500 font-mono">
+                  <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-zinc-500">
                     <span>{msg.senderName}</span>
                     <span>·</span>
                     <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
 
                   <div
-                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed shadow-sm ${isMe
-                      ? 'bg-[#C9A24D] text-black font-medium rounded-tr-sm'
+                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed ${isMe
+                      ? 'g-bubble--mine rounded-tr-sm'
                       : 'bg-[#141620] text-zinc-100 border border-white/[0.08] rounded-tl-sm'
                       }`}
                   >
@@ -452,20 +452,20 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     {msg.meetingData && (
                       <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/15 text-left text-xs space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 font-semibold text-white text-[11px]">
+                          <div className="flex items-center gap-1.5 font-medium text-white text-[12px]">
                             <Calendar className="w-3.5 h-3.5 text-[#C9A24D]" />
                             <span>Safe Meetup Invitation</span>
                           </div>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${msg.meetingData.status === 'accepted'
-                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
-                            : 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                          <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${msg.meetingData.status === 'accepted'
+                            ? 'bg-emerald-500/12 text-emerald-300 border border-emerald-500/25'
+                            : 'bg-[#C9A24D]/12 text-[#C9A24D] border border-[#C9A24D]/25'
                             }`}>
-                            {msg.meetingData.status.toUpperCase()}
+                            {msg.meetingData.status}
                           </span>
                         </div>
 
                         <div className="space-y-0.5 text-zinc-200">
-                          <div className="font-bold flex items-center gap-1">
+                          <div className="font-medium flex items-center gap-1">
                             <Coffee className="w-3.5 h-3.5 text-[#C9A24D]" />
                             <span>{msg.meetingData.venueName}</span>
                           </div>
@@ -473,7 +473,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                             <MapPin className="w-3 h-3 text-zinc-400" />
                             <span>{msg.meetingData.address}</span>
                           </div>
-                          <div className="text-[11px] text-[#C9A24D] font-mono flex items-center gap-1">
+                          <div className="text-[11px] text-[#C9A24D] flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             <span>{msg.meetingData.timeStr}</span>
                           </div>
@@ -483,7 +483,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                           <button
                             type="button"
                             onClick={() => onAcceptMeeting(msg.meetingData!)}
-                            className="w-full mt-1.5 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow"
+                            className="g-btn g-btn--amber w-full mt-1.5 !min-h-[40px] !text-[12px]"
                           >
                             <ShieldCheck className="w-3.5 h-3.5" />
                             <span>Accept & Start Local Check-in</span>
@@ -492,7 +492,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       </div>
                     )}
 
-                    <div className="mt-1 flex items-center justify-end gap-1.5 pt-0.5 text-[10px] opacity-75">
+                    <div className="mt-1 flex items-center justify-end gap-1.5 pt-0.5 text-[11px] opacity-70">
                       <Lock className="w-2.5 h-2.5" />
                       <button
                         type="button"
@@ -503,7 +503,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                             hapticMessageDecrypted();
                           }
                         }}
-                        className="underline hover:opacity-100 cursor-pointer font-sans text-[10px]"
+                        className="underline hover:opacity-100 cursor-pointer text-[11px]"
                       >
                         {isInspecting ? 'Hide Details' : 'Details'}
                       </button>
@@ -512,8 +512,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
                   {/* Cryptographic Inspector Drawer */}
                   {isInspecting && (
-                    <div className="mt-1.5 p-2.5 bg-[#141620] border border-white/10 rounded-xl text-[10px] text-zinc-300 max-w-md space-y-1">
-                      <div className="text-[#C9A24D] font-semibold flex items-center gap-1.5">
+                    <div className="mt-1.5 p-2.5 bg-[#141620] border border-white/10 rounded-xl text-[11px] text-zinc-300 max-w-md space-y-1">
+                      <div className="text-[#C9A24D] font-medium flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                         <span>Message Encryption Details</span>
                       </div>
@@ -553,13 +553,13 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2 bg-[#141620] border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-[#C9A24D] transition-colors">
+            <div className="flex items-center gap-2 bg-[#141620] border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-[#6F3CC3]/60 transition-colors">
               {/* Photo Upload Action */}
               <label
                 className="w-8 h-8 rounded-lg bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 text-zinc-400 hover:text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                 title="Attach encrypted photo (Max 5MB)"
               >
-                <ImageIcon className="w-3.5 h-3.5 text-zinc-400 hover:text-[#C9A24D]" />
+                <ImageIcon className="w-3.5 h-3.5" />
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -586,7 +586,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   type="button"
                   onClick={() => onOpenScheduleMeeting(currentRoom.peerName || currentRoom.name)}
                   className="w-8 h-8 rounded-lg bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 text-[#C9A24D] flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                  title="Plan safe meetup at verified Safe Haven"
+                  title="Plan a safe meetup at a verified Safe Haven"
                   aria-label="Plan meetup"
                 >
                   <Calendar className="w-3.5 h-3.5" />
@@ -596,7 +596,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <button
                 type="submit"
                 disabled={(!inputText.trim() && !attachedMedia) || isSending}
-                className="w-8 h-8 rounded-lg bg-[#C9A24D] hover:bg-[#b58f3b] disabled:opacity-30 disabled:hover:bg-[#C9A24D] text-black flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                className="g-icon-btn g-icon-btn--send shrink-0"
                 aria-label="Send message"
               >
                 <Send className="w-3.5 h-3.5" />
@@ -702,7 +702,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     setIsSafetyModalOpen(false);
                     onOpenQR(currentRoom.peerName || currentRoom.name);
                   }}
-                  className="w-full sm:flex-1 py-2.5 text-xs font-semibold text-[#C9A24D] bg-[#C9A24D]/10 hover:bg-[#C9A24D]/20 border border-[#C9A24D]/30 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  className="g-btn g-btn--quiet w-full sm:flex-1 !min-h-[42px] !text-[12px] text-[#C9A24D]"
                 >
                   <QrCode className="w-4 h-4 text-[#C9A24D]" />
                   <span>Scan QR Key</span>
@@ -716,7 +716,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 }}
                 disabled={!safetyBlocks}
                 title={safetyBlocks ? 'I compared this code in person' : 'No safety code available to compare yet'}
-                className="w-full sm:flex-1 py-2.5 text-xs font-semibold text-black bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="g-btn g-btn--amber w-full sm:flex-1 !min-h-[42px] !text-[12px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="w-4 h-4" />
                 <span>Mark Verified</span>
