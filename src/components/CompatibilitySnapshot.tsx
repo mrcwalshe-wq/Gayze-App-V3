@@ -215,13 +215,13 @@ export const CompatibilitySnapshot: React.FC<CompatibilitySnapshotProps> = ({
 
     return (
       <div
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono text-[9px] font-bold uppercase tracking-wider ${
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${
           hasIntentMatch
-            ? 'bg-amber-400/12 border border-amber-400/30 text-amber-300'
-            : 'bg-purple-500/15 border border-purple-500/35 text-purple-200'
+            ? 'bg-[#C9A24D]/12 border border-[#C9A24D]/25 text-[#C9A24D]'
+            : 'bg-[#6F3CC3]/16 border border-[#6F3CC3]/30 text-[#c4a9f7]'
         } ${className}`}
       >
-        <Sparkles className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+        <Sparkles className={`w-3 h-3 shrink-0 ${hasIntentMatch ? 'text-[#C9A24D]' : 'text-[#b796f0]'}`} />
         <span>{matchTitle}</span>
       </div>
     );

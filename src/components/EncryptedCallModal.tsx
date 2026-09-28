@@ -302,7 +302,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
               muted
               className="w-full h-full object-cover mirror"
             />
-            <span className="absolute bottom-1 left-2 text-[9px] font-mono text-white/80 bg-black/60 px-1 rounded">
+            <span className="absolute bottom-1.5 left-2 text-[10px] font-medium text-white/85 bg-black/55 backdrop-blur-sm px-1.5 py-0.5 rounded-md">
               You
             </span>
           </div>
