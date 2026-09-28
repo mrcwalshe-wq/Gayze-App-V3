@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { UserActiveIntent, Pulse } from '../types';
+import type { UserActiveIntent, Pulse, SafeHaven, UserProfile } from '../types';
 import { INITIAL_USER } from './storageService';
 
 export interface RightNowDiscoveryRow {
