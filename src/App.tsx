@@ -53,7 +53,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, endActiveIntents, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, verifyPeerIdentity, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, loadGatherings, createGathering, toggleGatheringRsvp, loadActiveSafetyCheckin, startSafetyCheckin, updateSafetyCheckin, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, endActiveIntents, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, verifyPeerIdentity, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -364,8 +364,24 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated) return;
     let disposed = false;
-    void loadSafeHavens().then((havens) => {
-      if (!disposed) setSafeHavens(havens);
+    void Promise.all([loadSafeHavens(), loadGatherings(), loadActiveSafetyCheckin()]).then(([havens, liveGatherings, activeCheckin]) => {
+      if (disposed) return;
+      setSafeHavens(havens);
+      setGatherings(liveGatherings);
+      if (activeCheckin) {
+        const remaining = Math.max(0, Math.ceil((activeCheckin.expiresAt - Date.now()) / 1000));
+        setCheckinState({
+          isActive: remaining > 0,
+          meetupPartnerName: activeCheckin.partnerName,
+          venueName: activeCheckin.venueName,
+          startedAt: activeCheckin.startedAt,
+          durationMinutes: Math.max(1, Math.ceil((activeCheckin.expiresAt - activeCheckin.startedAt) / 60000)),
+          notes: activeCheckin.notes,
+        });
+        setRemainingSeconds(remaining);
+      } else {
+        setCheckinState((prev) => ({ ...prev, isActive: false }));
+      }
     });
     return () => { disposed = true; };
   }, [isAuthenticated]);
@@ -1535,36 +1551,64 @@ export default function App() {
     setIsSetIntentOpen(true);
   };
 
-  // Safety Timer Handlers
-  const handleStartSafetyTimer = (data: { partnerName: string; venueName: string; durationMinutes: number; notes: string }) => {
+  // Safety Check-in Handlers — persisted in Supabase when the live backend is enabled.
+  const handleStartSafetyTimer = async (data: { partnerName: string; venueName: string; durationMinutes: number; notes: string }) => {
     hapticSensitiveAction();
     const totalSecs = data.durationMinutes * 60;
-    setCheckinState({
-      isActive: true,
-      meetupPartnerName: data.partnerName,
-      venueName: data.venueName,
-      startedAt: Date.now(),
-      durationMinutes: data.durationMinutes,
-      notes: data.notes,
-    });
+    if (isSupabaseConfigured && isAuthenticated) {
+      const saved = await startSafetyCheckin(data);
+      if (!saved) {
+        showToast('Unable to save safety check-in. Please try again.');
+        return;
+      }
+      setCheckinState({
+        isActive: true,
+        meetupPartnerName: data.partnerName,
+        venueName: data.venueName,
+        startedAt: Date.now(),
+        durationMinutes: data.durationMinutes,
+        notes: data.notes,
+      });
+    } else {
+      setCheckinState({
+        isActive: true,
+        meetupPartnerName: data.partnerName,
+        venueName: data.venueName,
+        startedAt: Date.now(),
+        durationMinutes: data.durationMinutes,
+        notes: data.notes,
+      });
+    }
     lastRemainingSecondsRef.current = totalSecs;
     expiredCheckinStartedAtRef.current = null;
     setRemainingSeconds(totalSecs);
     setIsSafetyTimerOpen(false);
-    showToast(`Local check-in timer started for ${data.durationMinutes} minutes at ${data.venueName}`);
+    showToast(`✓ Safety check-in started for ${data.durationMinutes} minutes at ${data.venueName}`);
   };
 
-  const handleExtendTimer = (extraMinutes: number) => {
+  const handleExtendTimer = async (extraMinutes: number) => {
     hapticSensitiveAction();
+    const nextExpiry = Date.now() + extraMinutes * 60 * 1000;
+    if (isSupabaseConfigured && isAuthenticated) {
+      const active = await loadActiveSafetyCheckin();
+      if (!active || !(await updateSafetyCheckin(active.id, { expiresAt: nextExpiry }))) {
+        showToast('Unable to extend the safety check-in.');
+        return;
+      }
+    }
     setCheckinState((prev) => ({ ...prev, durationMinutes: prev.durationMinutes + extraMinutes }));
     setRemainingSeconds((prev) => prev + extraMinutes * 60);
     showToast(`✓ Safety check-in extended by ${extraMinutes} minutes.`);
   };
 
-  const handleEndCheckin = () => {
+  const handleEndCheckin = async () => {
     hapticSensitiveAction();
+    if (isSupabaseConfigured && isAuthenticated) {
+      const active = await loadActiveSafetyCheckin();
+      if (active) await updateSafetyCheckin(active.id, { status: 'ended' });
+    }
     setCheckinState((prev) => ({ ...prev, isActive: false }));
-    showToast('✓ Meetup checked in safely. Local timer ended.');
+    showToast('✓ Meetup checked in safely. Safety check-in ended.');
   };
 
   const handleRevokeDevice = async (deviceId: string) => {
