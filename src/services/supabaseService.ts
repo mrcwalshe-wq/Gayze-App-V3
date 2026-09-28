@@ -927,7 +927,7 @@ export async function createStoryFromIntent(intent: UserActiveIntent, photoUrl?:
       photo_url: photoUrl || null,
       author_display_name: profile?.displayName || 'Gayze member',
       author_avatar_path: null,
-      caption: intent.description || \`Available for ${intent.intent.toLowerCase()} nearby.\`,
+      caption: intent.description || ('Available for ' + intent.intent.toLowerCase() + ' nearby.'),
       location_name: intent.area || 'Nearby',
       intent: intent.intent,
       category,
