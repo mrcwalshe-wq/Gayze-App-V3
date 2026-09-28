@@ -253,8 +253,8 @@ export default function App() {
         const initial = INITIAL_PULSES.find((ip) => ip.id === p.id) || INITIAL_PULSES[idx % INITIAL_PULSES.length];
         return {
           ...p,
-          lat: typeof p.lat === 'number' && !isNaN(p.lat) ? p.lat : (initial?.lat ?? 51.5132),
-          lng: typeof p.lng === 'number' && !isNaN(p.lng) ? p.lng : (initial?.lng ?? -0.1300),
+          lat: typeof p.lat === 'number' && !isNaN(p.lat) ? p.lat : (initial?.lat ?? FALLBACK_MAP_CENTER.lat),
+          lng: typeof p.lng === 'number' && !isNaN(p.lng) ? p.lng : (initial?.lng ?? FALLBACK_MAP_CENTER.lng),
           jitterMeters: p.jitterMeters || 300,
         };
       });
@@ -272,8 +272,8 @@ export default function App() {
         const initial = INITIAL_GATHERINGS.find((ig) => ig.id === g.id) || INITIAL_GATHERINGS[idx % INITIAL_GATHERINGS.length];
         return {
           ...g,
-          lat: typeof g.lat === 'number' && !isNaN(g.lat) ? g.lat : (initial?.lat ?? 51.5255),
-          lng: typeof g.lng === 'number' && !isNaN(g.lng) ? g.lng : (initial?.lng ?? -0.1248),
+          lat: typeof g.lat === 'number' && !isNaN(g.lat) ? g.lat : (initial?.lat ?? FALLBACK_MAP_CENTER.lat),
+          lng: typeof g.lng === 'number' && !isNaN(g.lng) ? g.lng : (initial?.lng ?? FALLBACK_MAP_CENTER.lng),
         };
       });
     } catch {
@@ -290,8 +290,8 @@ export default function App() {
         const initial = INITIAL_SAFE_HAVENS.find((is) => is.id === s.id) || INITIAL_SAFE_HAVENS[idx % INITIAL_SAFE_HAVENS.length];
         return {
           ...s,
-          lat: typeof s.lat === 'number' && !isNaN(s.lat) ? s.lat : (initial?.lat ?? 51.5126),
-          lng: typeof s.lng === 'number' && !isNaN(s.lng) ? s.lng : (initial?.lng ?? -0.1268),
+          lat: typeof s.lat === 'number' && !isNaN(s.lat) ? s.lat : (initial?.lat ?? FALLBACK_MAP_CENTER.lat),
+          lng: typeof s.lng === 'number' && !isNaN(s.lng) ? s.lng : (initial?.lng ?? FALLBACK_MAP_CENTER.lng),
         };
       });
     } catch {
