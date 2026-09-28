@@ -79,6 +79,7 @@ export default function App() {
   const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
   const [pendingAuthEmail, setPendingAuthEmail] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const isSigningOutRef = useRef(false);
   const authGenerationRef = useRef(0);
   const recoverySessionRef = useRef(false);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
@@ -155,7 +156,7 @@ export default function App() {
       // A local-first sign-out invalidates the current auth generation before
       // calling Supabase. Ignore any late auth event from the old session so
       // it cannot immediately re-authenticate the UI.
-      if (isSigningOut) return;
+      if (isSigningOutRef.current) return;
 
       if (event === 'PASSWORD_RECOVERY') {
         recoverySessionRef.current = true;
@@ -1882,6 +1883,7 @@ export default function App() {
         onSignOut={async () => {
           if (isSigningOut) return;
           setIsSigningOut(true);
+          isSigningOutRef.current = true;
 
           // Invalidate every in-flight auth/bootstrap operation immediately.
           // The UI must never wait for a network round-trip to show the signed-out state.
