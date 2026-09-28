@@ -1456,6 +1456,41 @@ button, input, select, textarea, [role="button"] {
   box-shadow: inset 0 0 0 1px var(--g-violet-line), var(--g-edge-violet);
 }
 
+/* Your own live signal, presented as a lit violet strip rather than a card. */
+.g-signal-strip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--g-r-lg);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  background:
+    radial-gradient(120% 160% at 0% 0%, var(--g-violet-18), transparent 62%),
+    rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--g-violet-line);
+  box-shadow: var(--g-edge-violet);
+  transition: border-color var(--g-dur-fast) ease, background-color var(--g-dur-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.g-signal-strip:hover { border-color: rgba(170, 132, 245, 0.42); }
+.g-signal-strip:active { transform: scale(0.995); }
+
+/* A panel that holds your own live signal: violet from the inside, still obsidian. */
+.g-panel--live {
+  background:
+    var(--g-bloom-live),
+    linear-gradient(180deg, rgba(21, 19, 32, 0.94), rgba(12, 12, 19, 0.96));
+  border-color: var(--g-violet-line);
+  box-shadow: var(--g-lift-1), var(--g-edge-violet);
+}
+
+/* Live intent emphasis: a quiet violet ring, not a glow. */
+.g-avatar--live { box-shadow: 0 0 0 1px var(--g-violet-45), 0 0 0 3px var(--g-violet-12); }
+
 /* ---------- Detail tile ------------------------------------------------------
    Small factual block used inside sheets (availability, area, hosting, travel).
    Flat by design: no gradient, no glow, one hairline.
