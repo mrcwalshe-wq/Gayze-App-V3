@@ -424,8 +424,13 @@ class WebRTCCallService {
           this.setState('connected');
           break;
         case 'disconnected':
+          this.setState('failed', 'The peer connection was interrupted. Check your network and try again.');
+          break;
         case 'failed':
-          this.setState('failed', 'WebRTC connection interrupted');
+          this.setState(
+            'failed',
+            'A direct peer connection could not be established. This network may require a TURN relay.',
+          );
           break;
         case 'closed':
           if (this.state !== 'ended' && this.state !== 'declined') {
@@ -571,10 +576,24 @@ class WebRTCCallService {
       }
     });
 
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const timer = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error('Secure call signaling could not connect. Check your network connection and try again.'));
+      }, 10000);
+
       channel.subscribe((status) => {
+        if (settled) return;
         if (status === 'SUBSCRIBED') {
+          settled = true;
+          window.clearTimeout(timer);
           resolve();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          settled = true;
+          window.clearTimeout(timer);
+          reject(new Error('Secure call signaling is unavailable right now. Please try again.'));
         }
       });
     });
