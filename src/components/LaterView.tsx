@@ -19,6 +19,7 @@ interface LaterViewProps {
   onOpenGatheringChat: (gathering: Gathering) => void;
   onCreateGathering: (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => void;
   currentUser: UserProfile;
+  currentUserId: string | null;
   userLocation: { lat: number; lng: number } | null;
 }
 
@@ -28,6 +29,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   onOpenGatheringChat,
   onCreateGathering,
   currentUser,
+  currentUserId,
   userLocation,
 }) => {
   const [timeFilter, setTimeFilter] = useState<'all' | 'tonight' | 'tomorrow' | 'weekend'>('all');
@@ -62,7 +64,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
     if (!formLocation.trim()) return;
 
     onCreateGathering({
-      hostId: currentUser.publicKey,
+      hostId: currentUserId || 'local-user',
       hostName: currentUser.displayName,
       hostShortKey: currentUser.shortKey,
       hostAvatar: currentUser.avatarSeed,
