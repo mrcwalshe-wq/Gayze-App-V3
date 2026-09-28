@@ -140,6 +140,29 @@ export async function endActiveIntents(): Promise<boolean> {
   return true;
 }
 
+export async function verifyPeerIdentity(
+  peerPublicKey: string,
+  peerFingerprint: string,
+  deviceId?: string | null,
+): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.rpc('verify_peer_identity', {
+      p_peer_public_key: peerPublicKey,
+      p_peer_fingerprint: peerFingerprint,
+      p_device_id: deviceId ?? null,
+    });
+    if (error) {
+      console.warn('[GAYZE] Peer identity verification failed:', error.message);
+      return false;
+    }
+    return data === true;
+  } catch (err: any) {
+    console.warn('[GAYZE] Peer identity verification exception:', err?.message || err);
+    return false;
+  }
+}
+
 export async function submitInterest(toUserId: string, intentId?: string): Promise<SubmitInterestResult> {
   if (!supabase) return { sent: false, mutual: false, conversation_id: null };
   try {
