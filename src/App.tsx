@@ -2025,12 +2025,12 @@ export default function App() {
           // the authenticated shell while Supabase finishes its own session cleanup.
           setIsIdentityOpen(false);
 
-          // Best-effort server-side/session cleanup. Bound the wait so a network
+          // Server-side session invalidation. Bound the wait so a network
           // failure can never trap the user in the authenticated shell.
           if (supabase) {
             try {
               await Promise.race([
-                supabase.auth.signOut({ scope: 'local' }),
+                supabase.auth.signOut({ scope: 'global' }),
                 new Promise((resolve) => window.setTimeout(resolve, 1500)),
               ]);
             } catch (error) {
