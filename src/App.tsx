@@ -53,7 +53,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, endActiveIntents, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -1617,7 +1617,12 @@ export default function App() {
               onGazeAtPeer={handleGazeAtPeer}
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
               onOpenSetIntent={handleOpenIntentSheet}
-              onUpdateActiveUserIntent={setActiveUserIntent}
+              onUpdateActiveUserIntent={(intent) => {
+                setActiveUserIntent(intent);
+                if (!intent && isSupabaseConfigured) {
+                  void endActiveIntents();
+                }
+              }}
               onOpenMap={() => setActiveTab('right_now')}
             />
           )}
@@ -1805,6 +1810,9 @@ export default function App() {
             }
 
             localStorage.removeItem('gayze_messages');
+            localStorage.removeItem('gayze_active_user_intent');
+            setActiveUserIntent(null);
+            setSupabaseRightNowPulses([]);
             setIsAuthenticated(false);
             setSupabaseUserId(null);
             setIsIdentityOpen(false);
