@@ -29,12 +29,12 @@ export const GayzeLogo: React.FC<GayzeLogoProps> = ({
       />
       {showWordmark && (
         <>
-          <div className="mt-1 text-[clamp(2rem,7vw,3.3rem)] font-black tracking-[0.18em] text-[#f7f2df] leading-none">
+          <div className="mt-2 text-[clamp(1.75rem,6vw,2.75rem)] font-semibold tracking-[0.16em] text-[#f4f1ea] leading-none">
             GAYZE
           </div>
-          <div className="mt-2 text-xs sm:text-sm font-medium tracking-wide">
-            <span className="text-[#9B6BFF]">Real Intent.</span>{' '}
-            <span className="text-[#C9A24D]">Real Time.</span>
+          <div className="mt-2.5 text-[13px] font-normal tracking-[0.01em]">
+            <span className="text-[#b796f0]">Real Intent.</span>{' '}
+            <span className="text-[#C9A24D]/90">Real Time.</span>
           </div>
         </>
       )}

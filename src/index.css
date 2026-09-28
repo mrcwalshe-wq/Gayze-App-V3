@@ -1235,6 +1235,27 @@ button, input, select, textarea, [role="button"] {
   .g-haze--outer, .g-haze--mid, .g-haze--core { animation: none; }
 }
 
+/* A single halo of light used by the transitional screens. */
+.g-signal-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(139, 92, 246, 0.16) 0%,
+    rgba(111, 60, 195, 0.10) 38%,
+    rgba(111, 60, 195, 0) 70%
+  );
+  animation: g-halo-breathe 6s ease-in-out infinite;
+}
+@keyframes g-halo-breathe {
+  0%, 100% { transform: scale(0.96); opacity: 0.8; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-signal-halo { animation: none; }
+}
+
 /* ---------- Activity haze (leaflet circle paths) ---------- */
 .gayze-haze {
   animation: g-breathe 7s ease-in-out infinite;

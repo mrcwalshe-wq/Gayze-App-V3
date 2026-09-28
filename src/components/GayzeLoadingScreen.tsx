@@ -16,23 +16,21 @@ export const GayzeLoadingScreen: React.FC<GayzeLoadingScreenProps> = ({ mode = '
       ) : (
         <div className="relative flex flex-col items-center">
           <div className="relative w-56 h-56 flex items-center justify-center">
-            {/* Animated container glow and rings around the authentic artwork */}
-            <div className="absolute inset-4 rounded-full border border-[#6F3CC3]/30 animate-[spin_7s_linear_infinite]" />
-            <div className="absolute inset-8 rounded-full border border-[#C9A24D]/35 border-dashed animate-[spin_4s_linear_infinite_reverse]" />
-            <div className="absolute w-36 h-36 rounded-full bg-[#6F3CC3]/15 blur-2xl animate-pulse" />
+            {/* One slow halo of violet light behind the mark: it breathes rather
+                than spins, so the wait reads as atmosphere, not as a loading widget. */}
+            <div className="g-signal-halo" aria-hidden="true" />
             <div className="relative w-40 aspect-[768/437] flex items-center justify-center">
               <img
                 src={GAYZE_LOGO_PATH}
                 alt="GAYZE"
-                className="w-full h-full object-contain drop-shadow-[0_0_28px_rgba(111,60,195,0.28)]"
+                className="w-full h-full object-contain drop-shadow-[0_0_24px_rgba(111,60,195,0.3)]"
                 draggable={false}
               />
             </div>
           </div>
-          <div className="mt-5 text-sm font-black tracking-[0.35em] text-white">
-            GAYZING<span className="animate-pulse">...</span>
+          <div className="mt-5 text-[12px] font-medium tracking-[0.24em] text-zinc-300">
+            FINDING REAL PEOPLE, RIGHT NOW
           </div>
-          <div className="mt-1 text-xs text-zinc-500">Finding real people, right now.</div>
         </div>
       )}
     </div>

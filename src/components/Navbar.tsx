@@ -69,11 +69,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-2.5 group cursor-pointer"
             aria-label="GAYZE home"
           >
-            <GayzeLogo size={34} showWordmark={false} />
-            <span className="text-[15px] font-extrabold tracking-[0.14em] text-white uppercase">
+            <GayzeLogo size={30} showWordmark={false} />
+            <span className="text-[14.5px] font-semibold tracking-[0.12em] text-white">
               GAYZE
             </span>
-            <span className="hidden lg:inline text-[11px] text-zinc-500 font-medium pl-2.5 ml-1 border-l border-white/10">
+            <span className="hidden lg:inline text-[11px] text-zinc-500 font-normal pl-2.5 ml-1 border-l border-white/10">
               {userNeighborhood || 'Near you'}
             </span>
           </button>
@@ -100,10 +100,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenSafetyTimer}
               title="Safety check-in"
               aria-label="Safety check-in"
-              className={`flex items-center gap-2 h-9 px-3 rounded-xl border text-[11.5px] font-semibold transition-colors cursor-pointer ${
-                isSafetyTimerActive
-                  ? 'bg-rose-500/10 text-rose-300 border-rose-500/40'
-                  : 'bg-white/[0.03] text-zinc-400 border-white/10 hover:text-white hover:border-white/20'
+              className={`g-btn !min-h-[36px] !px-3 !text-[11.5px] ${
+                isSafetyTimerActive ? 'g-btn--danger-quiet' : 'g-btn--ghost'
               }`}
             >
               <Shield className={`w-3.5 h-3.5 ${isSafetyTimerActive ? 'text-rose-400' : 'text-emerald-400'}`} />
@@ -114,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenMask}
               title="Discreet mask (Esc)"
               aria-label="Toggle discreet mask"
-              className="flex items-center gap-2 h-9 px-3 rounded-xl border bg-white/[0.03] text-zinc-400 border-white/10 hover:text-white hover:border-white/20 text-[11.5px] font-semibold transition-colors cursor-pointer"
+              className="g-btn g-btn--ghost !min-h-[36px] !px-3 !text-[11.5px]"
             >
               <EyeOff className="w-3.5 h-3.5" />
               <span className="hidden lg:inline">Mask</span>
@@ -124,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => onTabChange('profile')}
               aria-label="Open profile"
               title="Profile"
-              className="w-9 h-9 rounded-xl bg-[#16182a] border border-white/10 hover:border-[#6F3CC3]/60 flex items-center justify-center text-zinc-200 transition-colors cursor-pointer font-bold text-[11px]"
+              className="w-9 h-9 rounded-[12px] bg-[#16182a] border border-white/10 hover:border-[#6F3CC3]/60 flex items-center justify-center text-zinc-200 transition-colors cursor-pointer"
             >
               <UserRound className="w-4 h-4 text-[#b796f0]" />
             </button>
