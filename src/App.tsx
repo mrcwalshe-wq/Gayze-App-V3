@@ -1938,11 +1938,11 @@ export default function App() {
             });
           }
 
-          // Give React a tick to render AuthView, then hard-navigate so all
-          // auth/bootstrap effects are torn down.
-          window.setTimeout(() => {
-            window.location.replace(window.location.origin);
-          }, 50);
+          // Do not reload the document here. React now owns the auth boundary:
+          // setIsAuthenticated(false) above immediately renders AuthView. A hard
+          // navigation can race Supabase session restoration and put the user back
+          // into the authenticated shell.
+          setIsSigningOut(false);
         }}
       />
 
