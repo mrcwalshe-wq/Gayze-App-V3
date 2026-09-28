@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Gathering } from '../types';
-import { FALLBACK_MAP_CENTER } from '../config/mapDefaults';
+import { Gathering, UserProfile } from '../types';
 import { 
   Calendar, 
   MapPin, 
@@ -19,6 +18,8 @@ interface LaterViewProps {
   onToggleRsvp: (gatheringId: string) => void;
   onOpenGatheringChat: (gathering: Gathering) => void;
   onCreateGathering: (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => void;
+  currentUser: UserProfile;
+  userLocation: { lat: number; lng: number } | null;
 }
 
 export const LaterView: React.FC<LaterViewProps> = ({
@@ -26,6 +27,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
   onToggleRsvp,
   onOpenGatheringChat,
   onCreateGathering,
+  currentUser,
+  userLocation,
 }) => {
   const [timeFilter, setTimeFilter] = useState<'all' | 'tonight' | 'tomorrow' | 'weekend'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -35,12 +38,12 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formCategory, setFormCategory] = useState<Gathering['category']>('social');
-  const [formDate, setFormDate] = useState('Saturday, 19:00');
-  const [formLocation, setFormLocation] = useState('Queer Britain Lounge');
-  const [formAddress, setFormAddress] = useState('2 Granary Square, King’s Cross');
-  const [formNeighborhood, setFormNeighborhood] = useState('King’s Cross');
+  const [formDate, setFormDate] = useState('');
+  const [formLocation, setFormLocation] = useState('');
+  const [formAddress, setFormAddress] = useState('');
+  const [formNeighborhood, setFormNeighborhood] = useState('');
   const [formCapacity, setFormCapacity] = useState(16);
-  const [formTags, setFormTags] = useState('Social, Casual, Safe Space');
+  const [formTags, setFormTags] = useState('');
 
   const filteredGatherings = gatherings.filter((g) => {
     if (categoryFilter !== 'all' && g.category !== categoryFilter) return false;
@@ -54,22 +57,26 @@ export const LaterView: React.FC<LaterViewProps> = ({
     e.preventDefault();
     if (!formTitle.trim()) return;
 
+    const timestamp = new Date(formDate).getTime();
+    if (!Number.isFinite(timestamp) || timestamp <= Date.now()) return;
+    if (!formLocation.trim()) return;
+
     onCreateGathering({
-      hostId: 'peer_me',
-      hostName: 'Julian K.',
-      hostShortKey: 'pk_7e3f...6e80',
-      hostAvatar: 'julian',
+      hostId: currentUser.publicKey,
+      hostName: currentUser.displayName,
+      hostShortKey: currentUser.shortKey,
+      hostAvatar: currentUser.avatarSeed,
       title: formTitle,
       description: formDesc || 'A community gathering for connection and shared interests.',
       category: formCategory,
-      dateStr: formDate,
-      timestamp: Date.now() + 24 * 3600 * 1000,
+      dateStr: new Date(timestamp).toLocaleString([], { weekday: 'long', hour: '2-digit', minute: '2-digit' }),
+      timestamp,
       locationName: formLocation,
       address: formAddress,
       neighborhood: formNeighborhood,
-      isSafeHavenVenue: formLocation.includes('Haven') || formLocation.includes('Britain') || formLocation.includes('Word'),
-      lat: FALLBACK_MAP_CENTER.lat,
-      lng: FALLBACK_MAP_CENTER.lng,
+      isSafeHavenVenue: false,
+      lat: userLocation?.lat ?? null,
+      lng: userLocation?.lng ?? null,
       capacity: formCapacity,
       tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
       safetyGuidelines: 'Safe Haven principles. Consent-first communication and respectful space conduct.',
@@ -78,6 +85,10 @@ export const LaterView: React.FC<LaterViewProps> = ({
     setIsHostModalOpen(false);
     setFormTitle('');
     setFormDesc('');
+    setFormDate('');
+    setFormLocation('');
+    setFormAddress('');
+    setFormNeighborhood('');
   };
 
   return (
