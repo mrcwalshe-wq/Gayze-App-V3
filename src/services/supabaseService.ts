@@ -231,9 +231,15 @@ export async function ensureSupabaseSession() {
 export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL_USER, identityPublicKey?: string) {
   if (!supabase) return null;
   try {
+    const baseHandle = (sourceUser.handle || 'gayze-user')
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]/g, '')
+      .slice(0, 32) || 'gayze-user';
+    const uniqueHandle = baseHandle + '-' + userId.slice(0, 8);
+
     const { data, error } = await supabase.from('profiles').upsert({
       id: userId,
-      handle: sourceUser.handle || 'gayze-user',
+      handle: uniqueHandle,
       display_name: sourceUser.displayName || 'Gayze User',
       bio: sourceUser.bio || null,
       age: null,
