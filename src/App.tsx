@@ -53,7 +53,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, endActiveIntents, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, endActiveIntents, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, verifyPeerIdentity, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -805,17 +805,26 @@ export default function App() {
   };
 
   const handleVerifyPeer = async (payload: SwarmQRPayload) => {
-    // Verification is local to this device and requires the user to compare fingerprints in person.
+    // The QR flow is only complete after the fingerprint has been compared
+    // in person and the verification is persisted against the authenticated account.
     hapticQRHandshake();
 
-    // Count the verified peer without awarding a trust-score bonus on the client.
-    setCurrentUser((prev) => {
-      const newCount = (prev.verifiedPeersCount || 14) + 1;
-      return {
-        ...prev,
-        verifiedPeersCount: newCount,
-      };
-    });
+    if (isSupabaseConfigured && isAuthenticated) {
+      const verified = await verifyPeerIdentity(
+        payload.publicKey,
+        payload.fingerprint || payload.publicKey,
+        currentDeviceFingerprint,
+      );
+      if (!verified) {
+        showToast('Verification was not saved. The peer identity is not registered.');
+        return;
+      }
+    }
+
+    setCurrentUser((prev) => ({
+      ...prev,
+      verifiedPeersCount: (prev.verifiedPeersCount || 0) + 1,
+    }));
 
     // Associate verification only with an exact public-key match.
     setDatingProfiles((prev) =>
