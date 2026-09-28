@@ -22,7 +22,7 @@ export async function loadSafeHavens(): Promise<SafeHaven[]> {
   }
   return (data ?? []).map((row) => {
     const locationText = typeof row.location === 'string' ? row.location : '';
-    const match = locationText.match(/POINT\\s*\\(\\s*([-0-9.]+)\\s+([-0-9.]+)\\s*\\)/i);
+    const match = locationText.match(/POINT\s*\(\s*([-0-9.]+)\s+([-0-9.]+)\s*\)/i);
     const lng = match ? Number(match[1]) : 0;
     const lat = match ? Number(match[2]) : 0;
     return {
