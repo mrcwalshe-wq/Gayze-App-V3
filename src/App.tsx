@@ -53,7 +53,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -225,6 +225,7 @@ export default function App() {
   }, [isAuthenticated, currentUser.privacySetting]);
 
   const [datingProfiles, setDatingProfiles] = useState<DatingProfile[]>(() => {
+    if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_dating_profiles');
     if (!saved) return INITIAL_DATING_PROFILES;
     try {
@@ -245,6 +246,7 @@ export default function App() {
   });
 
   const [pulses, setPulses] = useState<Pulse[]>(() => {
+    if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_pulses');
     if (!saved) return INITIAL_PULSES;
     try {
@@ -401,6 +403,15 @@ export default function App() {
           setCurrentUser((prev) => ({ ...prev, publicKey: identityUser.publicKey, shortKey: identityUser.shortKey }));
         }
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
+        const savedProfile = await loadSupabaseProfile(user.id);
+        if (!disposed && savedProfile) {
+          setCurrentUser((prev) => ({
+            ...prev,
+            ...Object.fromEntries(Object.entries(savedProfile).filter(([, value]) => value !== undefined)),
+            publicKey: identity.fingerprint,
+            shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+          }));
+        }
         try {
           await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48), identity.signingPublicKeyJwkString, identity.deviceId);
           await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
