@@ -1,6 +1,5 @@
 import { supabase } from './supabaseClient';
 import type { UserActiveIntent, Pulse, SafeHaven, UserProfile } from '../types';
-import { INITIAL_USER } from './storageService';
 
 export interface RightNowDiscoveryRow {
   intent_id: string; user_id: string; display_name: string; age: number | null; bio: string | null;
@@ -102,8 +101,8 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     address: row.address,
     neighborhood: row.neighborhood,
     isSafeHavenVenue: row.is_safe_haven_venue,
-    lat: row.lat ?? 0,
-    lng: row.lng ?? 0,
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
     capacity: row.capacity,
     rsvpCount: counts.get(row.id) ?? 0,
     isAttending: attending.has(row.id),
@@ -510,7 +509,7 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
   };
 }
 
-export async function ensureSupabaseProfile(userId: string, sourceUser = INITIAL_USER, identityPublicKey?: string) {
+export async function ensureSupabaseProfile(userId: string, sourceUser: UserProfile, identityPublicKey?: string) {
   if (!supabase) return null;
   try {
     const baseHandle = (sourceUser.handle || 'gayze-user')
