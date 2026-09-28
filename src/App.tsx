@@ -1941,6 +1941,14 @@ export default function App() {
     showToast('Decrypted message cache cleared on this device.');
   };
 
+  // The room lights up with a violet breath when real activity exists — either
+  // your own live signal or genuine intents nearby. Demo fixtures only count
+  // when Supabase is not configured (they are the local prototype's data).
+  const liveNearbyCount = isSupabaseConfigured && isAuthenticated
+    ? supabaseRightNowPulses.length
+    : pulses.length;
+  const hasLiveAtmosphere = Boolean(activeUserIntent && !activeUserIntent.isPaused) || liveNearbyCount > 0;
+
   if (showStartup) return <GayzeLoadingScreen mode="startup" />;
 
   // If Discreet Mask is triggered, render pure camouflage
@@ -1955,6 +1963,12 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#090a0f] text-[#f1f3f7] flex flex-col font-sans selection:bg-[#C9A24D]/25 selection:text-[#C9A24D]">
+      {/* Atmosphere: one obsidian room lit by violet, above which all chrome sits. */}
+      <div
+        className={`g-atmos${hasLiveAtmosphere ? ' g-atmos--live' : ''}`}
+        aria-hidden="true"
+      />
+
       {/* Toast Notification */}
       {notificationToast && (
         <div className="g-toast">
@@ -1970,6 +1984,8 @@ export default function App() {
         </div>
       )}
 
+      {/* Shell: navigation + views, above the atmosphere layer */}
+      <div className="g-shell flex flex-1 min-h-0 flex-col">
       {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
         activeTab={activeTab}
@@ -2283,6 +2299,7 @@ export default function App() {
           window.location.replace(window.location.origin + '/?signed_out=1');
         }}
       />
+      </div>{/* /g-shell */}
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
       <Suspense fallback={null}>

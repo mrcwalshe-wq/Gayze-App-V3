@@ -217,12 +217,14 @@ button, input, select, textarea, [role="button"] {
    Use restraint: depth, typography and spacing carry the visual hierarchy.
    ========================================================================== */
 
+/* Legacy premium tokens now alias the single v2 token set below, so there is
+   one source of truth for surfaces, lines and depth. */
 :root {
-  --gayze-panel: rgba(15, 16, 23, 0.92);
-  --gayze-panel-strong: rgba(17, 18, 26, 0.97);
-  --gayze-line: rgba(255, 255, 255, 0.09);
-  --gayze-line-strong: rgba(255, 255, 255, 0.15);
-  --gayze-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+  --gayze-panel: var(--g-glass);
+  --gayze-panel-strong: var(--g-glass-strong);
+  --gayze-line: var(--g-line);
+  --gayze-line-strong: var(--g-line-strong);
+  --gayze-shadow: var(--g-lift-2);
 }
 
 .gayze-premium-page {
@@ -235,10 +237,7 @@ button, input, select, textarea, [role="button"] {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background:
-    radial-gradient(circle at 18% 0%, rgba(111, 60, 195, 0.075), transparent 34%),
-    radial-gradient(circle at 82% 12%, rgba(201, 162, 77, 0.045), transparent 28%),
-    linear-gradient(180deg, rgba(255,255,255,0.015), transparent 24%);
+  background: var(--g-atmos-page);
 }
 
 .gayze-page-intro {
@@ -257,11 +256,13 @@ button, input, select, textarea, [role="button"] {
 }
 
 .gayze-premium-panel {
-  background: linear-gradient(180deg, rgba(20, 21, 29, 0.94), rgba(13, 14, 20, 0.96));
-  border: 1px solid var(--gayze-line);
-  box-shadow: var(--gayze-shadow);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background:
+    var(--g-bloom),
+    linear-gradient(180deg, rgba(19, 20, 28, 0.94), rgba(12, 13, 19, 0.96));
+  border: 1px solid var(--g-line);
+  box-shadow: var(--g-lift-1), var(--g-edge);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
 }
 
 .gayze-intent-panel {
@@ -306,7 +307,7 @@ button, input, select, textarea, [role="button"] {
 }
 
 .gayze-premium-control {
-  background: linear-gradient(180deg, rgba(24,25,34,0.96), rgba(14,15,21,0.96)) !important;
+  background: linear-gradient(180deg, rgba(23,24,33,0.96), rgba(14,15,21,0.96)) !important;
   border-color: rgba(255,255,255,0.11) !important;
   box-shadow: 0 8px 22px rgba(0,0,0,0.14);
 }
@@ -405,6 +406,50 @@ button, input, select, textarea, [role="button"] {
 
   /* Chrome metrics */
   --g-tabbar-h: 56px;
+
+  /* ------------------------------------------------------------------
+     GAYZE ATMOSPHERE
+     Purple is environmental, not decorative: it lights surfaces from the
+     edges and sits behind glass, always at low alpha. 90/10 obsidian.
+     ------------------------------------------------------------------ */
+  --g-violet: #6F3CC3;
+  --g-violet-live: #8B5CF6;
+  --g-violet-ink: #b796f0;
+  --g-violet-ink-soft: #c9b0f5;
+
+  --g-violet-04: rgba(111, 60, 195, 0.04);
+  --g-violet-06: rgba(111, 60, 195, 0.06);
+  --g-violet-08: rgba(111, 60, 195, 0.08);
+  --g-violet-12: rgba(111, 60, 195, 0.12);
+  --g-violet-18: rgba(111, 60, 195, 0.18);
+  --g-violet-28: rgba(111, 60, 195, 0.28);
+  --g-violet-45: rgba(111, 60, 195, 0.45);
+
+  --g-violet-line: rgba(111, 60, 195, 0.26);
+  --g-violet-line-soft: rgba(111, 60, 195, 0.16);
+
+  /* Amber is rare: trust, confirmation, meaningful connection. */
+  --g-amber-line: rgba(201, 162, 77, 0.3);
+  --g-amber-line-soft: rgba(201, 162, 77, 0.18);
+
+  /* Depth: a light edge, a violet breath, then shadow. Never glow alone. */
+  --g-edge: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  --g-edge-violet: inset 0 1px 0 rgba(170, 132, 245, 0.14);
+  --g-lift-1: 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 26px rgba(0, 0, 0, 0.32);
+  --g-lift-2: 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 44px rgba(0, 0, 0, 0.42);
+  --g-lift-3: 0 -1px 0 rgba(255, 255, 255, 0.05), 0 -20px 52px rgba(0, 0, 0, 0.5);
+
+  /* Violet bloom that sits inside glass surfaces. */
+  --g-bloom: radial-gradient(130% 130% at 12% -10%, var(--g-violet-08), transparent 62%);
+  --g-bloom-live: radial-gradient(130% 130% at 12% -10%, var(--g-violet-18), transparent 66%);
+
+  /* Page atmosphere: an obsidian room lit by one violet source, with the
+     faintest amber warmth on the opposite side. Never an obvious purple wash. */
+  --g-atmos-page:
+    radial-gradient(120% 70% at 16% -12%, var(--g-violet-12), transparent 58%),
+    radial-gradient(90% 55% at 92% 4%, rgba(201, 162, 77, 0.045), transparent 60%),
+    radial-gradient(140% 90% at 50% 118%, var(--g-violet-06), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.014), transparent 22%);
 }
 
 /* ---------- Buttons ---------- */
@@ -433,7 +478,7 @@ button, input, select, textarea, [role="button"] {
 .g-btn--primary {
   background: linear-gradient(180deg, #7b48d1, var(--brand-purple));
   color: #fff;
-  box-shadow: 0 10px 26px rgba(111, 60, 195, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 24px rgba(84, 44, 152, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 .g-btn--primary:hover { background: linear-gradient(180deg, #8452db, #6a36bc); }
 
@@ -502,6 +547,7 @@ button, input, select, textarea, [role="button"] {
   background: rgba(111, 60, 195, 0.16);
 }
 .g-chip--quiet { color: var(--text-secondary); border-color: var(--g-line); background: rgba(255, 255, 255, 0.05); }
+.g-chip--haven { color: #6ee7b7; border-color: rgba(16, 185, 129, 0.32); background: rgba(16, 185, 129, 0.10); }
 .g-chip--live .g-dot { box-shadow: 0 0 0 0 rgba(111, 60, 195, 0.7); animation: g-live-ring 2.4s var(--g-spring) infinite; }
 
 .g-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-purple); flex: none; }
@@ -545,21 +591,28 @@ button, input, select, textarea, [role="button"] {
 }
 
 /* ---------- Section labels & surfaces ---------- */
+/* Section eyebrow. Quiet by design: sentence case, no tracking games, no
+   decorative monospace. Monospace is reserved for real technical values. */
 .g-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--text-muted);
 }
 
 .g-panel {
-  background: linear-gradient(180deg, rgba(19, 20, 28, 0.92), rgba(12, 13, 19, 0.95));
+  position: relative;
+  background:
+    var(--g-bloom),
+    linear-gradient(180deg, rgba(18, 19, 27, 0.92), rgba(11, 12, 18, 0.95));
   border: 1px solid var(--g-line);
   border-radius: var(--g-r-lg);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  box-shadow: var(--g-lift-1), var(--g-edge);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
 }
 
 .g-row {
@@ -597,6 +650,28 @@ button, input, select, textarea, [role="button"] {
 .g-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .g-avatar--ring-social { box-shadow: 0 0 0 2px rgba(201, 162, 77, 0.75); }
 .g-avatar--ring-private { box-shadow: 0 0 0 2px rgba(111, 60, 195, 0.85); }
+
+/* Avatar tones: violet for private intent, amber for social — same pairing as
+   the intents themselves, at low saturation so they read as materials, not badges. */
+.g-avatar--private {
+  background: linear-gradient(180deg, rgba(45, 32, 74, 0.9), rgba(24, 18, 40, 0.95));
+  border-color: rgba(150, 108, 232, 0.45);
+  color: var(--g-violet-ink-soft);
+}
+.g-avatar--social {
+  background: linear-gradient(180deg, rgba(48, 41, 26, 0.85), rgba(26, 22, 15, 0.95));
+  border-color: var(--g-amber-line);
+  color: #e7c98a;
+}
+
+/* Selected/active secondary action (e.g. Interested, Gazed). */
+.g-btn--selected {
+  color: var(--g-violet-ink-soft);
+  background: var(--g-violet-12);
+  border-color: var(--g-violet-line);
+  box-shadow: var(--g-edge-violet);
+}
+.g-btn--selected:hover { background: var(--g-violet-18); color: #fff; }
 
 /* ---------- Segmented control ---------- */
 .g-seg {
@@ -697,15 +772,27 @@ button, input, select, textarea, [role="button"] {
   max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px);
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, rgba(17, 18, 26, 0.985), rgba(11, 12, 17, 0.99));
+  background:
+    var(--g-bloom),
+    linear-gradient(180deg, rgba(17, 18, 26, 0.985), rgba(11, 12, 17, 0.99));
   border: 1px solid var(--g-line-strong);
   border-bottom: none;
   border-radius: var(--g-r-xl) var(--g-r-xl) 0 0;
-  box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--g-lift-3), var(--g-edge-violet);
   backdrop-filter: blur(28px) saturate(1.3);
   -webkit-backdrop-filter: blur(28px) saturate(1.3);
   animation: g-sheet-up var(--g-dur-slow) var(--g-spring) both;
   overflow: hidden;
+}
+
+/* Violet edge lighting along the top of a sheet — the recurring GAYZE signature. */
+.g-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(170, 132, 245, 0.5) 22%, rgba(170, 132, 245, 0.32) 60%, transparent);
+  pointer-events: none;
 }
 @keyframes g-sheet-up {
   from { transform: translateY(48px); opacity: 0.4; }
@@ -744,17 +831,17 @@ button, input, select, textarea, [role="button"] {
   gap: 10px;
   padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--g-line);
-  background: rgba(8, 9, 13, 0.6);
+  background: rgba(8, 9, 13, 0.55);
   flex: none;
 }
 
 /* ---------- Floating map controls ---------- */
 .g-float {
-  background: var(--g-glass);
+  background: var(--g-bloom), var(--g-glass);
   border: 1px solid var(--g-line);
-  backdrop-filter: blur(20px) saturate(1.35);
-  -webkit-backdrop-filter: blur(20px) saturate(1.35);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  box-shadow: var(--g-lift-2), var(--g-edge-violet);
 }
 
 .g-map-state {
@@ -766,7 +853,7 @@ button, input, select, textarea, [role="button"] {
   padding: 0 14px;
   border-radius: var(--g-r-lg);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: #fff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -805,13 +892,13 @@ button, input, select, textarea, [role="button"] {
   min-height: 48px;
   padding: 0 22px;
   border-radius: 999px;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0;
   color: #fff;
   background: linear-gradient(180deg, #7b48d1, var(--brand-purple));
-  border: 1px solid rgba(160, 120, 240, 0.55);
-  box-shadow: 0 14px 34px rgba(111, 60, 195, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(160, 120, 240, 0.5);
+  box-shadow: 0 12px 30px rgba(84, 44, 152, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.16);
   cursor: pointer;
   transition: transform var(--g-dur-fast) var(--g-spring), box-shadow var(--g-dur-med) ease;
   -webkit-tap-highlight-color: transparent;
@@ -853,7 +940,9 @@ button, input, select, textarea, [role="button"] {
   margin: 0 auto;
   padding: 16px;
   border-radius: var(--g-r-lg);
-  background: linear-gradient(180deg, rgba(18, 19, 27, 0.97), rgba(12, 13, 18, 0.98));
+  background:
+    var(--g-bloom-live),
+    linear-gradient(180deg, rgba(18, 19, 27, 0.97), rgba(12, 13, 18, 0.98));
   border: 1px solid var(--g-line-strong);
   box-shadow: 0 26px 64px rgba(0, 0, 0, 0.62);
   backdrop-filter: blur(26px) saturate(1.3);
@@ -875,8 +964,10 @@ button, input, select, textarea, [role="button"] {
   bottom: 0;
   z-index: 55;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(9, 10, 14, 0.88);
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    radial-gradient(120% 140% at 50% 120%, var(--g-violet-12), transparent 70%),
+    rgba(9, 10, 14, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(26px) saturate(1.4);
   -webkit-backdrop-filter: blur(26px) saturate(1.4);
 }
@@ -905,23 +996,38 @@ button, input, select, textarea, [role="button"] {
   transition: color var(--g-dur-fast) ease;
   -webkit-tap-highlight-color: transparent;
 }
-.g-tab svg { width: 20px; height: 20px; transition: transform var(--g-dur-fast) var(--g-spring); }
-.g-tab:active svg { transform: scale(0.9); }
+.g-tab svg { width: 20px; height: 20px; transition: transform var(--g-dur-med) var(--g-spring); }
+.g-tab:active svg { transform: scale(0.92); }
 .g-tab[data-active='true'] { color: #fff; }
-.g-tab[data-active='true'] svg { color: #9a6ff0; filter: drop-shadow(0 0 8px rgba(111, 60, 195, 0.55)); }
+.g-tab[data-active='true'] svg {
+  color: var(--g-violet-ink);
+  filter: drop-shadow(0 0 6px rgba(111, 60, 195, 0.4));
+}
+/* A lift of violet light behind the active destination, not a neon button. */
 .g-tab__ind {
   position: absolute;
-  top: 0;
-  width: 26px;
+  top: -1px;
+  left: 50%;
+  width: 44px;
   height: 2px;
   border-radius: 0 0 3px 3px;
-  background: var(--brand-purple);
-  box-shadow: 0 0 10px rgba(111, 60, 195, 0.8);
+  background: linear-gradient(90deg, transparent, rgba(170, 132, 245, 0.85), transparent);
   opacity: 0;
-  transform: scaleX(0.4);
+  transform: translateX(-50%) scaleX(0.5);
   transition: opacity var(--g-dur-med) ease, transform var(--g-dur-med) var(--g-spring);
 }
-.g-tab[data-active='true'] .g-tab__ind { opacity: 1; transform: scaleX(1); }
+.g-tab[data-active='true'] .g-tab__ind { opacity: 1; transform: translateX(-50%) scaleX(1); }
+.g-tab[data-active='true']::after {
+  content: "";
+  position: absolute;
+  inset: auto 12% -6px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--g-violet-18), transparent 78%);
+  opacity: 0.75;
+  pointer-events: none;
+  transition: opacity var(--g-dur-med) ease;
+}
 .g-tab__badge {
   position: absolute;
   top: 6px;
@@ -961,6 +1067,35 @@ button, input, select, textarea, [role="button"] {
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* Live presence dot: a small violet light with a slow halo, used wherever the
+   UI states "this is live". It replaces indefinite Tailwind pulses. */
+.g-live-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--g-violet-ink);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.55);
+  flex: none;
+}
+.g-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid rgba(150, 108, 232, 0.45);
+  animation: g-live-halo 3.6s ease-in-out infinite;
+}
+.g-live-dot--paused { background: #6b7280; box-shadow: none; }
+.g-live-dot--paused::after { animation: none; opacity: 0.3; }
+@keyframes g-live-halo {
+  0%, 100% { transform: scale(0.85); opacity: 0.5; }
+  50% { transform: scale(1.12); opacity: 0.12; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-live-dot::after { animation: none; opacity: 0.4; }
+}
+
 /* ---------- Empty & loading states ---------- */
 .g-empty {
   display: flex;
@@ -968,13 +1103,15 @@ button, input, select, textarea, [role="button"] {
   align-items: center;
   text-align: center;
   gap: 8px;
-  padding: 28px 22px;
+  padding: 26px 22px;
   border-radius: var(--g-r-lg);
-  background: var(--g-glass);
-  border: 1px solid var(--g-line);
-  backdrop-filter: blur(22px) saturate(1.25);
-  -webkit-backdrop-filter: blur(22px) saturate(1.25);
-  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.45);
+  background:
+    radial-gradient(120% 150% at 50% 0%, var(--g-violet-12), transparent 62%),
+    var(--g-glass);
+  border: 1px solid var(--g-violet-line-soft);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  box-shadow: var(--g-lift-2), var(--g-edge-violet);
 }
 .g-empty__icon {
   display: flex;
@@ -982,12 +1119,13 @@ button, input, select, textarea, [role="button"] {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 14px;
-  color: #b796f0;
-  background: rgba(111, 60, 195, 0.16);
-  border: 1px solid rgba(111, 60, 195, 0.4);
+  border-radius: 50%;
+  color: var(--g-violet-ink);
+  background: radial-gradient(circle at 50% 45%, var(--g-violet-18), var(--g-violet-06) 70%);
+  border: 1px solid var(--g-violet-line);
+  box-shadow: 0 0 0 8px var(--g-violet-04);
 }
-.g-empty h3 { margin: 4px 0 0; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+.g-empty h3 { margin: 6px 0 0; font-size: 15px; font-weight: 650; letter-spacing: -0.012em; color: #fff; }
 .g-empty p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-muted); max-width: 300px; }
 
 .g-skel {
@@ -997,6 +1135,105 @@ button, input, select, textarea, [role="button"] {
   animation: g-shimmer 1.6s linear infinite;
 }
 @keyframes g-shimmer { from { background-position: 130% 0; } to { background-position: -130% 0; } }
+
+/* ---------- Atmosphere layer -------------------------------------------------
+   One fixed layer behind all chrome. It reads as light in the room rather than
+   as a coloured overlay: violet from the top-left, the faintest amber warmth
+   opposite, and a deeper violet floor. It intensifies while a live signal
+   exists and settles back when it does not.
+   --------------------------------------------------------------------------- */
+.g-atmos {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--g-atmos-page);
+  opacity: 0.85;
+  transition: opacity 700ms var(--g-spring);
+}
+.g-atmos--live {
+  opacity: 1;
+  background:
+    radial-gradient(110% 62% at 18% -10%, var(--g-violet-18), transparent 60%),
+    radial-gradient(80% 50% at 92% 6%, rgba(201, 162, 77, 0.05), transparent 58%),
+    radial-gradient(150% 95% at 50% 120%, var(--g-violet-12), transparent 64%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.016), transparent 24%);
+}
+/* Slow, barely-perceptible drift so the room never looks like a static fill. */
+.g-atmos::after {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  background: radial-gradient(42% 32% at 68% 22%, var(--g-violet-08), transparent 68%);
+  animation: g-atmos-drift 26s ease-in-out infinite;
+}
+@keyframes g-atmos-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-3%, 2%, 0) scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-atmos::after { animation: none; }
+}
+
+/* Content sits above the atmosphere layer. */
+.g-shell {
+  position: relative;
+  z-index: 1;
+}
+
+/* Map edge transitions: the map dissolves into glass chrome instead of
+   stopping at a hard boundary. */
+.g-map-edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.g-map-edge--top {
+  top: 0;
+  height: 132px;
+  background: linear-gradient(180deg, rgba(8, 9, 13, 0.9), rgba(8, 9, 13, 0.45) 46%, transparent);
+}
+.g-map-edge--bottom {
+  bottom: 0;
+  height: 190px;
+  background: linear-gradient(0deg, rgba(8, 9, 13, 0.92), rgba(8, 9, 13, 0.4) 52%, transparent);
+}
+/* Violet bleed where map meets chrome — the GAYZE spatial signature. */
+.g-map-edge--violet {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 46% at 50% 116%, var(--g-violet-18), transparent 70%),
+    radial-gradient(90% 34% at 50% -10%, var(--g-violet-08), transparent 72%);
+}
+
+/* ---------- Right Now atmospheric haze --------------------------------------
+   Rendered in a dedicated Leaflet pane below the markers. Each hotspot is
+   drawn as four low-alpha concentric fills that resolve as one soft spatial
+   gradient; only the outer shell breathes, and slowly. No hard rings, no
+   pulsing, no heatmap widget — this is light in the air.
+   --------------------------------------------------------------------------- */
+.g-haze {
+  stroke: none;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.g-haze--outer { animation: g-haze-breathe 11s ease-in-out infinite; }
+.g-haze--mid { animation: g-haze-breathe 11s ease-in-out -1.8s infinite; }
+.g-haze--core { animation: g-haze-breathe 11s ease-in-out -3.6s infinite; }
+.g-haze--dense { mix-blend-mode: screen; }
+@keyframes g-haze-breathe {
+  0%, 100% { fill-opacity: 0.045; }
+  50% { fill-opacity: 0.075; }
+}
+.g-haze-pane { z-index: 350 !important; }
+@media (prefers-reduced-motion: reduce) {
+  .g-haze--outer, .g-haze--mid, .g-haze--core { animation: none; }
+}
 
 /* ---------- Activity haze (leaflet circle paths) ---------- */
 .gayze-haze {
@@ -1011,9 +1248,61 @@ button, input, select, textarea, [role="button"] {
   .gayze-haze { animation: none; }
 }
 
-/* ---------- Map markers ---------- */
+/* ---------- Map markers ------------------------------------------------------
+   One spatial vocabulary, five states:
+     your signal  · white-hot violet core with a breathing halo
+     social       · violet signal, open ring
+     private      · deeper violet, sealed double ring
+     safe haven   · restrained emerald outline (safety, not decoration)
+     selected     · amber emphasis, reserved for the one you are looking at
+   No pins, no badges, no letters beyond a single initial.
+   --------------------------------------------------------------------------- */
 .gm-pin { display: flex; align-items: center; justify-content: center; }
+
+/* Live social intent */
 .gm-pulse {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 34%, rgba(38, 30, 58, 0.96), rgba(14, 15, 22, 0.96));
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #f2ecfd;
+  border: 1.5px solid rgba(150, 108, 232, 0.82);
+  box-shadow: 0 0 0 6px var(--g-violet-08), 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+/* Live private intent: deeper violet, tighter halo — quieter on the map */
+.gm-pulse--private {
+  border-color: rgba(111, 60, 195, 0.9);
+  box-shadow: 0 0 0 4px var(--g-violet-06), inset 0 0 0 1px rgba(111, 60, 195, 0.5), 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+/* Selected: amber emphasis, thin and refined */
+.gm-pulse--sel {
+  transform: scale(1.14);
+  border-color: rgba(201, 162, 77, 0.9);
+  box-shadow: 0 0 0 5px var(--g-amber-line-soft), 0 10px 26px rgba(0, 0, 0, 0.55);
+}
+.gm-pulse--private.gm-pulse--sel {
+  border-color: rgba(201, 162, 77, 0.85);
+  box-shadow: 0 0 0 5px var(--g-amber-line-soft), 0 10px 26px rgba(0, 0, 0, 0.55);
+}
+.gm-pulse__live {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--g-violet-ink);
+  border: 2px solid #0e0f16;
+}
+
+/* ── Your own live signal ─────────────────────────────────────────────────── */
+.gm-self {
   position: relative;
   display: flex;
   align-items: center;
@@ -1021,63 +1310,77 @@ button, input, select, textarea, [role="button"] {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(14, 15, 22, 0.92);
-  font-size: 12px;
-  font-weight: 800;
-  color: #fff;
-  border: 2px solid var(--brand-amber);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  background: radial-gradient(circle at 50% 38%, #fdfbff 0%, #cbb0f7 46%, #8b5cf6 100%);
+  border: 1.5px solid rgba(226, 214, 255, 0.9);
+  box-shadow: 0 0 0 8px var(--g-violet-18), 0 0 22px rgba(139, 92, 246, 0.5), 0 10px 24px rgba(0, 0, 0, 0.55);
 }
-.gm-pulse--private { border-color: #8b5cf6; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 14px rgba(111, 60, 195, 0.45); }
-.gm-pulse--sel {
-  transform: scale(1.18);
-  border-color: var(--brand-amber);
-  box-shadow: 0 0 0 5px rgba(201, 162, 77, 0.28), 0 8px 22px rgba(0, 0, 0, 0.55);
-}
-.gm-pulse--private.gm-pulse--sel { border-color: #a78bfa; box-shadow: 0 0 0 5px rgba(139, 92, 246, 0.3), 0 8px 22px rgba(0,0,0,0.55); }
-.gm-pulse__live {
+.gm-self::after {
+  content: "";
   position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 9px;
-  height: 9px;
+  inset: -14px;
   border-radius: 50%;
-  background: #34d399;
-  border: 2px solid #0e0f16;
+  border: 1px solid rgba(170, 132, 245, 0.34);
+  animation: g-self-breathe 5.5s ease-in-out infinite;
 }
+.gm-self--paused { filter: saturate(0.25) brightness(0.8); }
+.gm-self--paused::after { animation: none; opacity: 0.4; }
+@keyframes g-self-breathe {
+  0%, 100% { transform: scale(0.94); opacity: 0.55; }
+  50% { transform: scale(1.1); opacity: 0.16; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm-self::after { animation: none; opacity: 0.4; }
+}
+
+/* Device position: a quiet violet point, never a bright blue dot */
+.gm-user {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e9defc;
+  border: 3px solid rgba(111, 60, 195, 0.9);
+  box-shadow: 0 0 0 6px var(--g-violet-12), 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+/* Demo profile marker (Supabase not configured) */
 .gm-profile {
-  width: 38px;
-  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   overflow: hidden;
   background: #141620;
-  border: 2px solid var(--brand-amber);
+  font-size: 13px;
+  font-weight: 650;
+  color: #f2ecfd;
+  border: 1.5px solid rgba(150, 108, 232, 0.7);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
 }
-.gm-profile--private { border-color: #8b5cf6; }
-.gm-profile--sel { transform: scale(1.15); box-shadow: 0 0 0 5px rgba(201, 162, 77, 0.3), 0 8px 22px rgba(0,0,0,0.55); }
+.gm-profile--private { border-color: rgba(111, 60, 195, 0.85); }
+.gm-profile--sel { transform: scale(1.12); box-shadow: 0 0 0 5px var(--g-amber-line-soft), 0 8px 22px rgba(0, 0, 0, 0.55); }
 .gm-profile img { width: 100%; height: 100%; object-fit: cover; }
-.gm-user {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #38bdf8;
-  border: 3px solid #07080b;
-  box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.18), 0 4px 14px rgba(0, 0, 0, 0.5);
-}
+
+/* Safe Haven: safety reads as a restrained emerald outline, not a filled tile */
 .gm-haven {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  background: rgba(14, 16, 23, 0.94);
-  border: 1px solid rgba(16, 185, 129, 0.75);
-  color: #34d399;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(11, 20, 17, 0.9);
+  border: 1.5px solid rgba(52, 211, 153, 0.62);
+  color: #6ee7b7;
+  box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.07), 0 6px 16px rgba(0, 0, 0, 0.45);
 }
-.gm-haven--sel { background: #34d399; color: #06281d; transform: scale(1.15); }
+.gm-haven--sel {
+  background: rgba(16, 185, 129, 0.9);
+  color: #04231a;
+  border-color: rgba(110, 231, 183, 0.9);
+  transform: scale(1.12);
+}
 
 /* ---------- Desktop header ---------- */
 .g-desktop-header {
@@ -1127,10 +1430,35 @@ button, input, select, textarea, [role="button"] {
 }
 .g-navpill__btn:hover { color: #fff; }
 .g-navpill__btn[data-active='true'] {
-  background: rgba(111, 60, 195, 0.22);
+  background: linear-gradient(180deg, var(--g-violet-18), var(--g-violet-08));
   color: #fff;
-  box-shadow: inset 0 0 0 1px rgba(111, 60, 195, 0.5);
+  box-shadow: inset 0 0 0 1px var(--g-violet-line), var(--g-edge-violet);
 }
+
+/* ---------- Detail tile ------------------------------------------------------
+   Small factual block used inside sheets (availability, area, hosting, travel).
+   Flat by design: no gradient, no glow, one hairline.
+   --------------------------------------------------------------------------- */
+.g-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 11px 12px;
+  border-radius: var(--g-r-md);
+  background: rgba(255, 255, 255, 0.022);
+  border: 1px solid var(--g-line);
+}
+.g-tile__v {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #eef0f5;
+}
+.g-tile__n { font-size: 11px; color: var(--text-muted); }
 
 /* ---------- Sheet list rows (discover / nearby) ---------- */
 .g-intent-row {
@@ -1173,7 +1501,7 @@ button, input, select, textarea, [role="button"] {
 }
 .g-opt:active { transform: scale(0.98); }
 .g-opt:hover { border-color: var(--g-line-strong); }
-.g-opt__t { font-size: 14px; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+.g-opt__t { font-size: 14px; font-weight: 650; color: #fff; letter-spacing: -0.012em; }
 .g-opt__d { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 .g-opt[data-active='true'] { background: rgba(255, 255, 255, 0.055); }
 .g-opt[data-active='true'][data-tone='social'] {
