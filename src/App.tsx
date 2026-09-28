@@ -1609,14 +1609,14 @@ export default function App() {
               // Keep the MVP useful on a fresh/empty Supabase project.
               // Live Supabase intents take precedence once they exist; otherwise
               // the privacy-safe local demo dataset keeps the map populated.
-              pulses={isSupabaseConfigured && isAuthenticated && supabaseRightNowPulses.length > 0
+              pulses={isSupabaseConfigured && isAuthenticated
                 ? supabaseRightNowPulses
                 : pulses}
               safeHavens={safeHavens}
               userNeighborhood={currentUser.neighborhood}
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
-              datingProfiles={isSupabaseConfigured && isAuthenticated && supabaseRightNowPulses.length > 0
+              datingProfiles={isSupabaseConfigured && isAuthenticated
                 ? []
                 : datingProfiles}
               stories={stories}
@@ -1741,7 +1741,16 @@ export default function App() {
         isOpen={isIdentityOpen}
         onClose={() => setIsIdentityOpen(false)}
         user={currentUser}
-        onUpdateUser={(updated) => setCurrentUser((prev) => ({ ...prev, ...updated }))}
+        onUpdateUser={(updated) => {
+          setCurrentUser((prev) => ({ ...prev, ...updated }));
+          if (isSupabaseConfigured && supabaseUserId) {
+            void ensureSupabaseProfile(
+              supabaseUserId,
+              { ...currentUser, ...updated },
+              updated.publicKey || currentUser.publicKey,
+            );
+          }
+        }}
         onPurgeLocalCache={handlePurgeLocalCache}
         onOpenQR={() => handleOpenQRModal()}
         onCreateRecovery={handleCreateRecovery}
