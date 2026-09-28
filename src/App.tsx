@@ -607,6 +607,38 @@ export default function App() {
     if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
   }, []);
 
+  const liveDatingProfiles: DatingProfile[] = isSupabaseConfigured && isAuthenticated
+    ? supabaseRightNowPulses.map((pulse) => ({
+        id: pulse.peerId,
+        name: pulse.peerName,
+        age: pulse.peerAge ?? 0,
+        photoUrl: '',
+        neighborhood: pulse.neighborhood || 'Nearby',
+        approxDistanceKm: pulse.approxDistanceKm ?? 0,
+        headline: pulse.title,
+        bio: pulse.bio || pulse.description,
+        lookingFor: pulse.intentMode === 'private' ? 'casual' : 'friends',
+        lookingForLabel: pulse.intent || 'Meet',
+        heightCm: 0,
+        interests: pulse.tags || [],
+        tribes: [],
+        isOnline: true,
+        lastActive: 'now',
+        safetyVerified: Boolean(pulse.safetyVerified),
+        peerPublicKey: '',
+        reliabilityScore: pulse.peerReliabilityScore || 0,
+        verifiedPeersCount: pulse.verifiedPeersCount || 0,
+        intentMode: pulse.intentMode,
+        intent: pulse.intent,
+        hasRightNowIntent: true,
+        rightNowDetail: pulse.description,
+        intentExpiresAt: pulse.expiresAt,
+        activityCategory: pulse.activityCategory,
+        canHost: pulse.canHost,
+        travelWillingness: pulse.travelWillingness,
+      }))
+    : [];
+
   // Handlers for "Right Now"
   const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {
     const isSupabaseConversation = Boolean(
@@ -685,6 +717,28 @@ export default function App() {
   };
 
   const handleOpenDirectChatWithProfile = async (profile: DatingProfile) => {
+    // In live mode, Discover profiles are derived from real active intents.
+    // Opening the profile must follow the same mutual-interest path as the map;
+    // never create a synthetic conversation before a match exists.
+    if (isSupabaseConfigured && isAuthenticated) {
+      const pulse = supabaseRightNowPulses.find((item) => item.peerId === profile.id);
+      if (pulse?.id.startsWith('supabase_')) {
+        const result = await submitInterest(
+          pulse.peerId,
+          pulse.id.slice('supabase_'.length),
+        );
+        if (result.mutual) {
+          await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
+          showToast(`⚡ Mutual interest with ${profile.name} — chat opened`);
+        } else if (result.sent) {
+          showToast(`✓ Interest sent to ${profile.name}`);
+        } else {
+          showToast('Could not send interest. Try again.');
+        }
+        return;
+      }
+    }
+
     const existingRoom = rooms.find(
       (r) => r.peerKey?.includes(profile.peerPublicKey.slice(0, 16)) || r.name.startsWith(profile.name)
     );
@@ -1635,7 +1689,7 @@ export default function App() {
         <Suspense fallback={<div className="flex h-full min-h-[40vh] items-center justify-center text-xs text-zinc-400">Loading view…</div>}>
           {activeTab === 'dating' && (
             <DatingGridView
-              profiles={datingProfiles}
+              profiles={isSupabaseConfigured && isAuthenticated ? liveDatingProfiles : datingProfiles}
               safeHavens={safeHavens}
               userNeighborhood={currentUser.neighborhood}
               stories={stories}
@@ -1673,7 +1727,7 @@ export default function App() {
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
               datingProfiles={isSupabaseConfigured && isAuthenticated
-                ? []
+                ? liveDatingProfiles
                 : datingProfiles}
               stories={stories}
               activeUserIntent={activeUserIntent}
