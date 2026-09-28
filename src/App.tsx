@@ -634,8 +634,8 @@ export default function App() {
         rightNowDetail: pulse.description,
         intentExpiresAt: pulse.expiresAt,
         activityCategory: pulse.activityCategory,
-        canHost: pulse.canHost,
-        travelWillingness: pulse.travelWillingness,
+        canHost: (pulse.canHost === 'Can host' || pulse.canHost === 'Cannot host' || pulse.canHost === 'Depends') ? pulse.canHost : undefined,
+        travelWillingness: (pulse.travelWillingness === 'Yes' || pulse.travelWillingness === 'Within reason' || pulse.travelWillingness === 'Car required') ? pulse.travelWillingness : undefined,
       }))
     : [];
 
@@ -1719,7 +1719,6 @@ export default function App() {
                 }
               }}
               onOpenMap={() => setActiveTab('right_now')}
-              onRequestLocation={requestUserLocation}
             />
           )}
 
