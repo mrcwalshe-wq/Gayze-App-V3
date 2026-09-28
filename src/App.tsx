@@ -1678,6 +1678,7 @@ export default function App() {
               onSubmitInterest={handleSubmitInterest}
               onSubmitGaze={handleSubmitGaze}
               onSwitchToLater={() => setActiveTab('later')}
+              onRequestLocation={requestUserLocation}
             />
           )}
 
