@@ -919,9 +919,9 @@ export default function App() {
         );
         if (result.mutual) {
           await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
-          showToast(`⚡ Mutual interest with ${profile.name} — chat opened`);
+          showToast(`Mutual interest with ${profile.name} — chat opened`);
         } else if (result.sent) {
-          showToast(`✓ Interest sent to ${profile.name}`);
+          showToast(`Interest sent to ${profile.name}`);
         } else {
           showToast('Could not send interest. Try again.');
         }
@@ -1091,14 +1091,14 @@ export default function App() {
         : g
       ));
       const gathering = gatherings.find((g) => g.id === gatheringId);
-      showToast(changedToAttending ? `✓ RSVP confirmed for ${gathering?.title || 'gathering'}` : `RSVP cancelled for ${gathering?.title || 'gathering'}`);
+      showToast(changedToAttending ? `RSVP confirmed for ${gathering?.title || 'gathering'}` : `RSVP cancelled for ${gathering?.title || 'gathering'}`);
       return;
     }
     setGatherings((prev) =>
       prev.map((g) => {
         if (g.id === gatheringId) {
           const nextState = !g.isAttending;
-          showToast(nextState ? `✓ RSVP confirmed for ${g.title}` : `RSVP cancelled for ${g.title}`);
+          showToast(nextState ? `RSVP confirmed for ${g.title}` : `RSVP cancelled for ${g.title}`);
           return { ...g, isAttending: nextState, rsvpCount: nextState ? g.rsvpCount + 1 : Math.max(0, g.rsvpCount - 1) };
         }
         return g;
@@ -1147,12 +1147,12 @@ export default function App() {
       setGatherings((prev) => [created, ...prev]);
       const attending = await toggleGatheringRsvp(id);
       setGatherings((prev) => prev.map((g) => g.id === id ? { ...g, isAttending: attending, rsvpCount: attending ? 1 : 0 } : g));
-      showToast('✓ Gathering created and RSVP recorded.');
+      showToast('Gathering created and RSVP recorded.');
       return;
     }
     const gathering: Gathering = { ...newGathering, id: 'gath_' + Date.now(), rsvpCount: 1, isAttending: true };
     setGatherings((prev) => [gathering, ...prev]);
-    showToast('✓ Gathering created.');
+    showToast('Gathering created.');
   };
 
   // Hydrate and subscribe to real Supabase conversation messages.
@@ -1505,14 +1505,14 @@ export default function App() {
 
     await handleSendMessage(
       targetRoom.id,
-      `📅 Safe Meetup Invitation: Let's meet at ${proposal.venueName} (${proposal.timeStr}).`,
+      `Safe meetup invitation: let's meet at ${proposal.venueName}, ${proposal.timeStr}.`,
       targetRoom.ephemeralTtlSeconds,
       meetingData
     );
 
     setActiveRoomId(targetRoom.id);
     setActiveTab('swarms');
-    showToast(`✓ Meetup proposal sent to ${scheduleMeetingPeerName} at ${proposal.venueName}`);
+    showToast(`Meetup proposal sent to ${scheduleMeetingPeerName} at ${proposal.venueName}`);
   };
 
   const handleAcceptMeeting = async (meeting: MeetingProposal) => {
@@ -1545,7 +1545,7 @@ export default function App() {
     // Send confirmation in room
     await handleSendMessage(
       activeRoomId,
-      `✓ Accepted! I'll see you at ${meeting.venueName} (${meeting.timeStr}). Local check-in timer started.`
+      `Accepted — see you at ${meeting.venueName}, ${meeting.timeStr}. Local check-in timer started.`
     );
     showToast(`Local check-in timer started for ${meeting.venueName}.`);
   };
@@ -1595,7 +1595,7 @@ export default function App() {
       }
       void submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length)).then((result) => {
         if (result.sent) {
-          showToast(`👁️ Gaze sent to ${peerName}`);
+          showToast(`Gaze sent to ${peerName}`);
         } else {
           showToast('Gaze could not be sent. Try again.');
         }
@@ -1603,7 +1603,7 @@ export default function App() {
       return;
     }
 
-    showToast(`👁️ You gave a Gaze to ${peerName}.`);
+    showToast(`You gave a Gaze to ${peerName}.`);
   };
 
   const handleSubmitInterest = async (pulse: Pulse) => {
@@ -1626,9 +1626,9 @@ export default function App() {
     if (result.mutual) {
       analytics.logEvent('mutual_interest', { intent_mode: pulse.intentMode || 'social' });
       await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
-      showToast(`⚡ Mutual interest with ${pulse.peerName} — chat opened`);
+      showToast(`Mutual interest with ${pulse.peerName} — chat opened`);
     } else {
-      showToast(`✓ Interest sent to ${pulse.peerName}`);
+      showToast(`Interest sent to ${pulse.peerName}`);
     }
 
     return result;
@@ -1662,7 +1662,7 @@ export default function App() {
     if (!IS_LIVE_BACKEND) {
       setActiveUserIntent(intent);
       setIsSetIntentOpen(false);
-      showToast(`✓ Status updated: ${intent.intent} (${intent.when})`);
+      showToast(`Status updated: ${intent.intent} (${intent.when})`);
       return;
     }
 
@@ -1713,7 +1713,7 @@ export default function App() {
             console.warn('[GAYZE] Story creation failed', error);
           });
         }
-        showToast(isFirstPublish ? '✓ You are live on the map' : '✓ Intent updated');
+        showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
       } catch (error) {
         console.error('[GAYZE] Failed to persist Right Now intent', error);
         setActiveUserIntent(previous);
@@ -1829,7 +1829,7 @@ export default function App() {
     expiredCheckinStartedAtRef.current = null;
     setRemainingSeconds(totalSecs);
     setIsSafetyTimerOpen(false);
-    showToast(`✓ Safety check-in started for ${data.durationMinutes} minutes at ${data.venueName}`);
+    showToast(`Safety check-in started for ${data.durationMinutes} minutes at ${data.venueName}`);
   };
 
   const handleExtendTimer = async (extraMinutes: number) => {
@@ -1844,7 +1844,7 @@ export default function App() {
     }
     setCheckinState((prev) => ({ ...prev, durationMinutes: prev.durationMinutes + extraMinutes }));
     setRemainingSeconds((prev) => prev + extraMinutes * 60);
-    showToast(`✓ Safety check-in extended by ${extraMinutes} minutes.`);
+    showToast(`Safety check-in extended by ${extraMinutes} minutes.`);
   };
 
   const handleEndCheckin = async () => {
@@ -1854,7 +1854,7 @@ export default function App() {
       if (active) await updateSafetyCheckin(active.id, { status: 'ended' });
     }
     setCheckinState((prev) => ({ ...prev, isActive: false }));
-    showToast('✓ Meetup checked in safely. Safety check-in ended.');
+    showToast('Meetup checked in safely. Safety check-in ended.');
   };
 
   const handleRevokeDevice = async (deviceId: string) => {
@@ -1865,7 +1865,7 @@ export default function App() {
         ? { ...device, status: 'revoked', revoked_at: new Date().toISOString() }
         : device
       ));
-      showToast('✓ Device revoked');
+      showToast('Device revoked');
     } catch (error) {
       console.error('[GAYZE] Device revocation failed', error);
       showToast('Unable to revoke device');
@@ -1891,7 +1891,7 @@ export default function App() {
       anchor.download = 'gayze-identity-recovery.json';
       anchor.click();
       URL.revokeObjectURL(url);
-      showToast('✓ Encrypted identity backup created — keep it somewhere safe');
+      showToast('Encrypted identity backup created — keep it somewhere safe');
     } catch (error) {
       console.error('[GAYZE] Recovery backup failed', error);
       showToast('This device identity cannot be exported. A new recovery-ready identity is required.');
@@ -1926,7 +1926,7 @@ export default function App() {
             shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
           }, identity.publicKeyJwkString);
         }
-        showToast('✓ Identity restored on this device');
+        showToast('Identity restored on this device');
       } catch (error) {
         console.error('[GAYZE] Identity restore failed', error);
         showToast('Recovery failed — check the backup and passphrase');

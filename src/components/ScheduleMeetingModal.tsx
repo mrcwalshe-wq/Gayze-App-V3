@@ -113,7 +113,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
           {/* Step 1: Venue Selection */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+            <label className="text-[12.5px] font-medium text-zinc-300 flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>Choose Verified Safe Haven</span>
             </label>
@@ -134,7 +134,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
                       <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
                         <span>{haven.name}</span>
                         <span className="text-[10px] text-emerald-400 font-mono">
-                          ★ {haven.safetyScore}
+                          {haven.safetyScore} safety
                         </span>
                       </div>
                       <div className="text-[11px] text-zinc-400 truncate mt-0.5">
@@ -223,7 +223,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full h-12 min-h-[48px] rounded-xl bg-[#C9A24D] hover:bg-[#b58f3b] text-black font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 cursor-pointer"
+              className="g-btn g-btn--amber w-full !min-h-[46px]"
             >
               <span>Send Meeting Proposal</span>
               <ArrowRight className="w-4 h-4" />

@@ -129,7 +129,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
         {/* Public Key Display */}
         <div className="p-3 bg-[#141620] border border-white/[0.07] rounded-xl space-y-1.5">
           <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span className="font-mono text-[10px] tracking-wider text-zinc-400 uppercase font-semibold">PUBLIC DEVICE KEY</span>
+            <span className="g-label">Public device key</span>
             <button
               onClick={handleCopy}
               className="flex items-center gap-1 text-[#C9A24D] hover:text-[#e0b85a] font-mono text-[11px] cursor-pointer"
@@ -397,7 +397,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
               <span>Clear Message Cache</span>
             </button>
             {purgedMessage && (
-              <span className="text-[11px] text-emerald-400 font-mono">Message cache cleared ✓</span>
+              <span className="text-[11px] text-emerald-400">Message cache cleared</span>
             )}
           </div>
 

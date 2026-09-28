@@ -332,11 +332,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       if (result.mutual) {
         triggerVibration([40, 60, 100]);
         setMutualMatchPulse(pulseObj);
-        showStatusMessage('⚡ Mutual interest — opening your chat', 2500);
+        showStatusMessage('Mutual interest — opening your chat', 2500);
         setSelectedItem(null);
         setIsCardExpanded(false);
       } else {
-        showStatusMessage('✓ Interest sent — they can now respond', 2500);
+        showStatusMessage('Interest sent — they can now respond', 2500);
       }
     } catch (error) {
       console.error('[GAYZE] Interest submission failed', error);
@@ -357,7 +357,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (pulseObj && onSubmitGaze) {
       try {
         await onSubmitGaze(pulseObj);
-        showStatusMessage(`👁️ Gaze sent to ${name}`, 2200);
+        showStatusMessage(`Gaze sent to ${name}`, 2200);
       } catch (error) {
         console.error('[GAYZE] Gaze submission failed', error);
         showStatusMessage('Gaze could not be sent — try again');
@@ -1115,7 +1115,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             className="g-icon-btn g-icon-btn--bare !w-8 !h-8 shrink-0 text-[13px]"
             aria-label="Dismiss message"
           >
-            ✕
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -1337,7 +1337,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {getDisplayName(selectedItem)}
                   </h3>
                   {selectedItem.type === 'haven' ? (
-                    <span className="g-badge g-badge--verify">★ {selectedItem.item.safetyScore}</span>
+                    <span className="g-badge g-badge--verify">{selectedItem.item.safetyScore} safety</span>
                   ) : (
                     <span
                       className={`g-chip ${
@@ -1550,7 +1550,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-black text-white tracking-tight">
+                      <h2 className="text-[17px] font-semibold text-white tracking-[-0.015em]">
                         {getDisplayName(selectedItem)}
                       </h2>
                     </div>
@@ -2233,13 +2233,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {mutualMatchPulse && (
         <div className="g-overlay flex items-center justify-center p-4" onClick={() => setMutualMatchPulse(null)}>
           <div
-            className="w-full max-w-sm p-5 g-panel !rounded-[20px] shadow-[0_0_50px_rgba(111,60,195,0.35)] space-y-4"
+            className="w-full max-w-sm p-5 g-panel !rounded-[20px] space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <span className="g-label text-[#C9A24D]">Mutual interest</span>
-                <h3 className="text-[17px] font-extrabold text-white tracking-tight mt-1">
+                <h3 className="text-[17px] font-semibold text-white tracking-[-0.015em] mt-1">
                   {(mutualMatchPulse.intent || mutualMatchPulse.title).replace(' · ', ' ')} · now
                 </h3>
                 <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed">

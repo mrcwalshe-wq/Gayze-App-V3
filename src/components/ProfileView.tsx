@@ -267,7 +267,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <footer className="flex items-center justify-between px-1 pb-2 opacity-70">
         <div className="flex items-center gap-2 text-zinc-500">
           <Radio className="w-3.5 h-3.5 text-[#6F3CC3]" />
-          <span className="text-[11px] font-bold tracking-[0.18em] uppercase">Gayze</span>
+          <span className="text-[11px] font-medium tracking-[0.1em] text-zinc-400">Gayze</span>
           <span className="text-[11px] text-zinc-600">Real Intent. Real Time.</span>
         </div>
         {onOpenDiscover && (

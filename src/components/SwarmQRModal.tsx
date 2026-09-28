@@ -373,7 +373,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 font-semibold">
+                  <span className="g-badge g-badge--verify !text-[11px]">
                     Verified
                   </span>
                 </div>
@@ -447,7 +447,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
 
                   {/* Verification Code */}
                   <div className="p-2.5 rounded-xl bg-[#090a0e] border border-white/10 text-[11px] space-y-1">
-                    <div className="text-zinc-400 text-[10px] uppercase font-mono tracking-wider font-semibold">Safety Match Code</div>
+                    <div className="g-label">Safety match code</div>
                     <div className="font-mono text-[#C9A24D] font-bold tracking-wider">
                       {scannedPeerPayload.fingerprint?.toUpperCase()}
                     </div>

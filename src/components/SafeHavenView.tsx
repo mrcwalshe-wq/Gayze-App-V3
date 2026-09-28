@@ -39,7 +39,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
           <div className="flex items-center gap-3">
             <span className="h-7 w-[2px] bg-gradient-to-b from-emerald-400 to-[#C9A24D]" />
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-emerald-400 mb-1">TRUSTED PLACES</div>
+              <div className="g-label">Trusted places</div>
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
                 Verified Queer Safe Havens
               </h1>
@@ -119,7 +119,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
 
                 <div className="flex flex-col items-end">
                   <div className="flex items-center gap-1 text-xs text-emerald-300 bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-500/30 font-mono font-semibold">
-                    <span>★ {haven.safetyScore}</span>
+                    <span>{haven.safetyScore} safety</span>
                   </div>
                   <span className="text-[10px] text-zinc-500 font-mono mt-0.5">~{haven.approxDistanceKm} km</span>
                 </div>

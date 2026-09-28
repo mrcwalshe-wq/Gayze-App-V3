@@ -136,7 +136,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     e.preventDefault();
     if ((!inputText.trim() && !attachedMedia) || isSending || !currentRoom) return;
 
-    const textToSend = inputText.trim() || (attachedMedia ? '📷 Shared an encrypted photo' : '');
+    const textToSend = inputText.trim() || (attachedMedia ? 'Shared a photo' : '');
     const mediaToSend = attachedMedia || undefined;
 
     setInputText('');
@@ -452,7 +452,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     {msg.meetingData && (
                       <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/15 text-left text-xs space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 font-bold text-white uppercase text-[10px] tracking-wider">
+                          <div className="flex items-center gap-1.5 font-semibold text-white text-[11px]">
                             <Calendar className="w-3.5 h-3.5 text-[#C9A24D]" />
                             <span>Safe Meetup Invitation</span>
                           </div>
@@ -519,7 +519,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       </div>
                       <div className="text-zinc-400">Encryption standard: AES-256 (end-to-end)</div>
                       <div className="text-zinc-400 truncate font-mono">Nonce: 0x{msg.nonceHex}</div>
-                      <div className="text-emerald-400 font-medium">✓ Scrambled and decrypted locally on your device</div>
+                      <div className="text-emerald-400 font-medium">Decrypted locally on your device</div>
                     </div>
                   )}
                 </div>
@@ -677,9 +677,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             {/* Real safety code derived from both device keys — never a placeholder. */}
             {safetyBlocks ? (
               <div className="p-4 bg-[#141620] border border-white/[0.07] rounded-xl space-y-2">
-                <div className="text-[10px] uppercase font-mono tracking-wider text-zinc-400 font-semibold">
-                  Verification Blocks
-                </div>
+                <div className="g-label">Safety code</div>
                 <div className="grid grid-cols-3 gap-2 font-mono text-center text-sm font-bold text-emerald-400">
                   {safetyBlocks.slice(0, 6).map((block, index) => (
                     <span key={`${block}-${index}`} className="p-2 bg-[#090a0e] rounded-lg border border-white/10">
