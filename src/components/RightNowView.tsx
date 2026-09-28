@@ -519,10 +519,19 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
 
     let map: L.Map;
+    const firstVisiblePulse = pulses.find(
+      (pulse) => Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng),
+    );
     const initialCenter: [number, number] = userLocationRef.current
       ? [userLocationRef.current.lat, userLocationRef.current.lng]
-      : fallbackMapCenter;
-    const initialZoom = userLocationRef.current ? LOCATED_MAP_ZOOM : FALLBACK_MAP_ZOOM;
+      : firstVisiblePulse
+        ? [firstVisiblePulse.lat, firstVisiblePulse.lng]
+        : fallbackMapCenter;
+    const initialZoom = userLocationRef.current
+      ? LOCATED_MAP_ZOOM
+      : firstVisiblePulse
+        ? 13
+        : FALLBACK_MAP_ZOOM;
     try {
       map = L.map(container, {
         center: initialCenter,
@@ -627,6 +636,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const location = userLocationRef.current;
         if (location) {
           map.flyTo([location.lat, location.lng], LOCATED_MAP_ZOOM, { duration: 0.8 });
+          return;
+        }
+        const firstPulse = pulses.find(
+          (pulse) => Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng),
+        );
+        if (firstPulse) {
+          map.flyTo([firstPulse.lat, firstPulse.lng], 13, { duration: 0.8 });
         } else {
           map.flyTo(fallbackMapCenter, FALLBACK_MAP_ZOOM, { duration: 0.8 });
         }
