@@ -91,6 +91,14 @@ export async function saveActiveIntent(intent: UserActiveIntent, location?: { la
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) return null;
     const point = location ? 'SRID=4326;POINT(' + location.lng + ' ' + location.lat + ')' : null;
+    // GAYZE keeps one live broadcast per user. Retire any previous active intents first.
+    await supabase
+      .from('intents')
+      .update({ is_paused: true })
+      .eq('user_id', userData.user.id)
+      .eq('is_paused', false)
+      .gt('expires_at', new Date().toISOString());
+
     const { data, error } = await supabase.from('intents').insert({
       user_id: userData.user.id, mode: intent.mode, intent: intent.intent, description: intent.description,
       starts_at: new Date(intent.activatedAt).toISOString(), expires_at: new Date(intent.expiresAt).toISOString(),
@@ -113,6 +121,23 @@ export interface SubmitInterestResult {
   sent: boolean;
   mutual: boolean;
   conversation_id: string | null;
+}
+
+export async function endActiveIntents(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return false;
+  const result = await supabase
+    .from('intents')
+    .update({ is_paused: true })
+    .eq('user_id', data.user.id)
+    .eq('is_paused', false)
+    .gt('expires_at', new Date().toISOString());
+  if (result.error) {
+    console.warn('[GAYZE] Failed to end active intents:', result.error.message);
+    return false;
+  }
+  return true;
 }
 
 export async function submitInterest(toUserId: string, intentId?: string): Promise<SubmitInterestResult> {
