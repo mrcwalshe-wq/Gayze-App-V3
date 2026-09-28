@@ -1594,12 +1594,19 @@ export default function App() {
 
           {activeTab === 'right_now' && (
             <RightNowView
-              pulses={isSupabaseConfigured && isAuthenticated ? supabaseRightNowPulses : pulses}
+              // Keep the MVP useful on a fresh/empty Supabase project.
+              // Live Supabase intents take precedence once they exist; otherwise
+              // the privacy-safe local demo dataset keeps the map populated.
+              pulses={isSupabaseConfigured && isAuthenticated && supabaseRightNowPulses.length > 0
+                ? supabaseRightNowPulses
+                : pulses}
               safeHavens={safeHavens}
               userNeighborhood={currentUser.neighborhood}
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
-              datingProfiles={isSupabaseConfigured && isAuthenticated ? [] : datingProfiles}
+              datingProfiles={isSupabaseConfigured && isAuthenticated && supabaseRightNowPulses.length > 0
+                ? []
+                : datingProfiles}
               stories={stories}
               activeUserIntent={activeUserIntent}
               onOpenDirectChat={handleOpenDirectChatFromPulse}
