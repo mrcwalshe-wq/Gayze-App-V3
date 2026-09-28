@@ -15,7 +15,7 @@ import { IncomingCallModal } from './components/IncomingCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY } from './services/supabaseClient';
-import { watchCurrentLocation, type GeoLocation } from './services/locationService';
+import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
 import { FALLBACK_MAP_CENTER, NEUTRAL_AREA_LABEL, resolveAreaLabel } from './config/mapDefaults';
@@ -82,6 +82,27 @@ export default function App() {
   const recoverySessionRef = useRef(false);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const requestUserLocation = async () => {
+    try {
+      setLocationError(null);
+      const location = await getCurrentLocation();
+      setUserLocation(location);
+      locationPermissionStatusRef.current = 'granted';
+      if (isSupabaseConfigured && currentUser.privacySetting !== 'ghost') {
+        lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
+        await updateProfileLocation(location);
+      }
+    } catch (error) {
+      const message = error instanceof GeolocationPositionError
+        ? error.code === error.PERMISSION_DENIED
+          ? 'Location access is blocked. Enable Location Services for GAYZE in iPhone Settings.'
+          : 'GAYZE could not get your location. Try again.'
+        : error instanceof Error ? error.message : 'GAYZE could not get your location.';
+      setLocationError(message);
+    }
+  };
+
+
   const locationPermissionStatusRef = useRef<'granted' | 'denied' | null>(null);
   const lastTrackedTabRef = useRef<string | null>(null);
 
@@ -1624,6 +1645,7 @@ export default function App() {
                 }
               }}
               onOpenMap={() => setActiveTab('right_now')}
+              onRequestLocation={requestUserLocation}
             />
           )}
 
