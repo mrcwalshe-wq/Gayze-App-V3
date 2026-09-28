@@ -53,7 +53,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -266,6 +266,7 @@ export default function App() {
   });
 
   const [gatherings, setGatherings] = useState<Gathering[]>(() => {
+    if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_gatherings');
     if (!saved) return INITIAL_GATHERINGS;
     try {
@@ -284,6 +285,7 @@ export default function App() {
   });
 
   const [safeHavens, setSafeHavens] = useState<SafeHaven[]>(() => {
+    if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_safe_havens');
     if (!saved) return INITIAL_SAFE_HAVENS;
     try {
@@ -302,24 +304,37 @@ export default function App() {
   });
 
   const [rooms, setRooms] = useState<SwarmRoom[]>(() => {
+    if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_rooms');
     return saved ? JSON.parse(saved) : INITIAL_ROOMS;
   });
 
   const [messages, setMessages] = useState<Record<string, EncryptedMessage[]>>(() => {
+    if (isSupabaseConfigured) return {};
     const saved = localStorage.getItem('gayze_messages');
     return saved ? JSON.parse(saved) : INITIAL_MESSAGES;
   });
 
   const [stories, setStories] = useState<SocialStory[]>(() => {
+    if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_stories');
     return saved ? JSON.parse(saved) : INITIAL_STORIES;
   });
 
   const [intentPosts, setIntentPosts] = useState<IntentActivityPost[]>(() => {
+    if (isSupabaseConfigured) return [];
     const saved = localStorage.getItem('gayze_intent_posts');
     return saved ? JSON.parse(saved) : INITIAL_INTENT_POSTS;
   });
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated) return;
+    let disposed = false;
+    void loadSafeHavens().then((havens) => {
+      if (!disposed) setSafeHavens(havens);
+    });
+    return () => { disposed = true; };
+  }, [isAuthenticated]);
 
   const [activeRoomId, setActiveRoomId] = useState<string>('room_marcus');
 
