@@ -362,12 +362,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </button>
         )}
       </footer>
-    </div>
       {viewerPhoto && (
         <div className="fixed inset-0 z-[70] bg-black/95 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setViewerPhoto(null)}>
           <img src={viewerPhoto.url} alt="" className="max-h-[85vh] max-w-full object-contain rounded-2xl" />
           <button type="button" onClick={() => setViewerPhoto(null)} className="absolute top-5 right-5 g-icon-btn" aria-label="Close photo"><X className="w-4 h-4" /></button>
         </div>
       )}
+    </div>
   );
 };
