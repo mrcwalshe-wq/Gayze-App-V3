@@ -150,6 +150,12 @@ export type PrivateIntent = typeof PRIVATE_INTENTS[number];
 export type EncounterIntent = SocialIntent | PrivateIntent;
 
 export interface UserActiveIntent {
+  /**
+   * Row id of this intent in Supabase (`intents.id`).
+   * Present whenever the intent is backed by the live backend; absent in
+   * local/demo mode. Pause/resume/end operate on this id.
+   */
+  remoteId?: string;
   mode: TopLevelIntentMode;
   intent: EncounterIntent;
   description: string;
@@ -204,6 +210,10 @@ export interface SwarmRoom {
   id: string;
   name: string;
   type: 'direct' | 'gathering';
+  /** Member user ids for backend-backed conversations (empty for local/demo rooms). */
+  memberIds?: string[];
+  /** Display names keyed by user id, used to label messages in group conversations. */
+  memberNames?: Record<string, string>;
   peerKey?: string;
   peerUserId?: string;
   connectionContext?: string;
