@@ -1469,7 +1469,7 @@ export default function App() {
           const location = userLocation
             ? { lat: userLocation.lat, lng: userLocation.lng }
             : undefined;
-          const savedIntent = await saveActiveIntentWithSession(intent, location, currentUser, currentUser.publicKey);
+          const savedIntent = await saveActiveIntentWithSession(intent, currentUser, location, currentUser.publicKey);
           if (!savedIntent) {
             showToast('Intent saved on this device; secure sync is unavailable.');
             return;
