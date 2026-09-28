@@ -598,6 +598,11 @@ export default function App() {
         expiredCheckinStartedAtRef.current = checkinState.startedAt;
         hapticTimerExpired();
         setCheckinState((prev) => prev.startedAt === checkinState.startedAt ? { ...prev, isActive: false } : prev);
+        if (isSupabaseConfigured && isAuthenticated) {
+          void loadActiveSafetyCheckin().then((active) => {
+            if (active) void updateSafetyCheckin(active.id, { status: 'expired' });
+          });
+        }
         showToast('Safety check-in timer expired. No alert was sent.');
       }
     }, 1000);
