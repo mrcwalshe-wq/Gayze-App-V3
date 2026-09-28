@@ -14,13 +14,18 @@ export async function loadSafeHavens(): Promise<SafeHaven[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('safe_havens')
-    .select('id,name,type,address,neighborhood,safety_score,features,open_hours,emergency_phone,staff_trained')
+    .select('id,name,type,address,neighborhood,safety_score,features,location,open_hours,emergency_phone,staff_trained')
     .order('name');
   if (error) {
     console.warn('[GAYZE] Safe haven load failed:', error.message);
     return [];
   }
-  return (data ?? []).map((row) => ({
+  return (data ?? []).map((row) => {
+    const locationText = typeof row.location === 'string' ? row.location : '';
+    const match = locationText.match(/POINT\\s*\\(\\s*([-0-9.]+)\\s+([-0-9.]+)\\s*\\)/i);
+    const lng = match ? Number(match[1]) : 0;
+    const lat = match ? Number(match[2]) : 0;
+    return {
     id: row.id,
     name: row.name,
     type: row.type,
@@ -28,13 +33,14 @@ export async function loadSafeHavens(): Promise<SafeHaven[]> {
     neighborhood: row.neighborhood || '',
     safetyScore: Number(row.safety_score) || 0,
     features: Array.isArray(row.features) ? row.features : [],
-    lat: 0,
-    lng: 0,
+    lat,
+    lng,
     openHours: row.open_hours || '',
     approxDistanceKm: 0,
     emergencyPhone: row.emergency_phone || '',
     staffTrained: Boolean(row.staff_trained),
-  }));
+    };
+  });
 }
 
 export async function discoverRightNow(options?: { radiusMeters?: number; mode?: 'social' | 'private'; intent?: string }): Promise<RightNowDiscoveryRow[]> {
