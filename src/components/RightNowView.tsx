@@ -712,6 +712,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     };
   }, []);
 
+  // Once the real device location arrives, move the live map to it.
+  // This replaces the previous behaviour where the map could remain centred
+  // on a fallback location after permission was granted.
+  useEffect(() => {
+    if (!userLocation) return;
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    map.flyTo([userLocation.lat, userLocation.lng], LOCATED_MAP_ZOOM, { duration: 0.7 });
+  }, [userLocation]);
+
   // Update map layers on pulses, havens, profiles, or filter changes
   useEffect(() => {
     if (!isMapReady) return;

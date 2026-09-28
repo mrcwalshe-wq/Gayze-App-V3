@@ -91,6 +91,10 @@ export default function App() {
       if (isSupabaseConfigured && currentUser.privacySetting !== 'ghost') {
         lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
         await updateProfileLocation(location);
+        // Discovery is calculated from the authenticated user's real PostGIS
+        // location. Refresh immediately after permission is granted.
+        const rows = await discoverRightNow({ radiusMeters: 5000 });
+        setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
       }
     } catch (error) {
       const message = error instanceof GeolocationPositionError
