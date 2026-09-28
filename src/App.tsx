@@ -224,45 +224,6 @@ export default function App() {
     };
   }, [isAuthenticated, currentUser.privacySetting]);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setUserLocation(null);
-      lastSyncedLocationRef.current = null;
-      return;
-    }
-
-    const stop = watchCurrentLocation(
-      (location) => {
-        setUserLocation(location);
-        setLocationError(null);
-        if (locationPermissionStatusRef.current !== 'granted') {
-          locationPermissionStatusRef.current = 'granted';
-          analytics.logEvent('location_permission_granted');
-        }
-
-        if (isSupabaseConfigured && supabase && currentUser.privacySetting !== 'ghost') {
-          const previous = lastSyncedLocationRef.current;
-          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
-          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
-          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
-            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-            void updateProfileLocation({ lat: location.lat, lng: location.lng });
-          }
-        }
-      },
-      (error) => {
-        setLocationError(error?.message || 'Location permission is unavailable.');
-        if (error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED
-          && locationPermissionStatusRef.current !== 'denied') {
-          locationPermissionStatusRef.current = 'denied';
-          analytics.logEvent('location_permission_denied');
-        }
-      },
-    );
-
-    return stop;
-  }, [isAuthenticated, currentUser.privacySetting]);
-
   const [datingProfiles, setDatingProfiles] = useState<DatingProfile[]>(() => {
     const saved = localStorage.getItem('gayze_dating_profiles');
     if (!saved) return INITIAL_DATING_PROFILES;
