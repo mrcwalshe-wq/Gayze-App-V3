@@ -911,17 +911,27 @@ export default function App() {
   };
 
   // Handlers for "Later"
-  const handleToggleRsvp = (gatheringId: string) => {
+  const handleToggleRsvp = async (gatheringId: string) => {
+    if (isSupabaseConfigured && isAuthenticated) {
+      const changedToAttending = await toggleGatheringRsvp(gatheringId);
+      setGatherings((prev) => prev.map((g) => g.id === gatheringId
+        ? {
+            ...g,
+            isAttending: changedToAttending,
+            rsvpCount: Math.max(0, g.rsvpCount + (changedToAttending ? 1 : -1)),
+          }
+        : g
+      ));
+      const gathering = gatherings.find((g) => g.id === gatheringId);
+      showToast(changedToAttending ? `✓ RSVP confirmed for ${gathering?.title || 'gathering'}` : `RSVP cancelled for ${gathering?.title || 'gathering'}`);
+      return;
+    }
     setGatherings((prev) =>
       prev.map((g) => {
         if (g.id === gatheringId) {
           const nextState = !g.isAttending;
           showToast(nextState ? `✓ RSVP confirmed for ${g.title}` : `RSVP cancelled for ${g.title}`);
-          return {
-            ...g,
-            isAttending: nextState,
-            rsvpCount: nextState ? g.rsvpCount + 1 : Math.max(0, g.rsvpCount - 1),
-          };
+          return { ...g, isAttending: nextState, rsvpCount: nextState ? g.rsvpCount + 1 : Math.max(0, g.rsvpCount - 1) };
         }
         return g;
       })
@@ -964,15 +974,23 @@ export default function App() {
     showToast('✓ Pulse posted with an approximate location.');
   };
 
-  const handleCreateGathering = (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => {
-    const gathering: Gathering = {
-      ...newGathering,
-      id: 'gath_' + Date.now(),
-      rsvpCount: 1,
-      isAttending: true,
-    };
+  const handleCreateGathering = async (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => {
+    if (isSupabaseConfigured && isAuthenticated) {
+      const id = await createGathering(newGathering);
+      if (!id) {
+        showToast('Unable to create gathering. Please try again.');
+        return;
+      }
+      const created: Gathering = { ...newGathering, id, rsvpCount: 0, isAttending: false };
+      setGatherings((prev) => [created, ...prev]);
+      const attending = await toggleGatheringRsvp(id);
+      setGatherings((prev) => prev.map((g) => g.id === id ? { ...g, isAttending: attending, rsvpCount: attending ? 1 : 0 } : g));
+      showToast('✓ Gathering created and RSVP recorded.');
+      return;
+    }
+    const gathering: Gathering = { ...newGathering, id: 'gath_' + Date.now(), rsvpCount: 1, isAttending: true };
     setGatherings((prev) => [gathering, ...prev]);
-    showToast('✓ Gathering created! Group chat room is ready.');
+    showToast('✓ Gathering created.');
   };
 
   // Hydrate and subscribe to real Supabase conversation messages.
