@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { supabase } from '../services/supabaseClient';
+import { getProfilePhotoUrl } from '../services/profilePhotoService';
 import L from 'leaflet';
 import {
   Pulse,
@@ -249,6 +251,47 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
   // 6. Countdown timer for active user intent
   const [remainingMinutes, setRemainingMinutes] = useState<number>(0);
+  const [resolvedUserAvatarUrl, setResolvedUserAvatarUrl] = useState<string | null>(userAvatarUrl || null);
+
+  // Resolve the current user's latest primary profile photo for the live map marker.
+  // The profile photo bucket is private, so avatar_path must be converted to a
+  // short-lived signed URL before it can be rendered inside Leaflet's HTML icon.
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveCurrentAvatar = async () => {
+      if (!supabase) {
+        if (!cancelled) setResolvedUserAvatarUrl(userAvatarUrl || null);
+        return;
+      }
+
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData.user?.id;
+        if (!userId) {
+          if (!cancelled) setResolvedUserAvatarUrl(userAvatarUrl || null);
+          return;
+        }
+
+        const { data } = await supabase
+          .from('profiles')
+          .select('avatar_path')
+          .eq('id', userId)
+          .maybeSingle();
+
+        const signedUrl = await getProfilePhotoUrl((data?.avatar_path as string | null) || null);
+        if (!cancelled) setResolvedUserAvatarUrl(signedUrl || userAvatarUrl || null);
+      } catch (error) {
+        console.warn('[GAYZE] Could not resolve current map avatar:', error);
+        if (!cancelled) setResolvedUserAvatarUrl(userAvatarUrl || null);
+      }
+    };
+
+    void resolveCurrentAvatar();
+    return () => {
+      cancelled = true;
+    };
+  }, [userAvatarUrl]);
 
   useEffect(() => {
     if (!activeUserIntent) {
@@ -885,8 +928,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         className: 'custom-user-marker',
         html: isLive
           ? `<div class="gm-self${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
-              userAvatarUrl
-                ? `<img class="gm-self__photo" src="${userAvatarUrl.replace(/"/g, '&quot;')}" alt="" />`
+              resolvedUserAvatarUrl
+                ? `<img class="gm-self__photo" src="${resolvedUserAvatarUrl.replace(/"/g, '&quot;')}" alt="" />`
                 : ''
             }</div>`
           : '<div class="gm-user"></div>',
