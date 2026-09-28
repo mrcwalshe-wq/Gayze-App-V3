@@ -53,7 +53,7 @@ import {
   INITIAL_INTENT_POSTS
 } from './services/storageService';
 import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey, deriveConversationKey, generateSafetyFingerprint, generateRandomKey, getOrCreateDeviceIdentity, signDeviceChallenge, createRecoveryBundle, recoveryBundleToText, parseRecoveryBundle, restoreRecoveryBundle } from './services/cryptoService';
-import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, loadGatherings, createGathering, toggleGatheringRsvp, loadActiveSafetyCheckin, startSafetyCheckin, updateSafetyCheckin, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, endActiveIntents, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, verifyPeerIdentity, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence } from './services/supabaseService';
+import { discoverRightNow, discoveryRowsToPulses, ensureSupabaseSession, ensureSupabaseProfile, loadSupabaseProfile, loadSafeHavens, loadGatherings, createGathering, toggleGatheringRsvp, loadActiveSafetyCheckin, startSafetyCheckin, updateSafetyCheckin, updateProfileLocation, clearProfileLocation, saveActiveIntentWithSession, endActiveIntents, subscribeToRightNow, submitInterest, submitGaze, loadConversationMessages, persistConversationMessage, subscribeToConversationMessages, loadConversationPeerKey, verifyPeerIdentity, registerIdentityDevice, listIdentityDevices, revokeIdentityDevice, verifyCurrentDevice, initPresence, loadStories, createStoryFromIntent } from './services/supabaseService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -364,10 +364,11 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated) return;
     let disposed = false;
-    void Promise.all([loadSafeHavens(), loadGatherings(), loadActiveSafetyCheckin()]).then(([havens, liveGatherings, activeCheckin]) => {
+    void Promise.all([loadSafeHavens(), loadGatherings(), loadActiveSafetyCheckin(), loadStories()]).then(([havens, liveGatherings, activeCheckin, liveStories]) => {
       if (disposed) return;
       setSafeHavens(havens);
       setGatherings(liveGatherings);
+      setStories(liveStories);
       if (activeCheckin) {
         const remaining = Math.max(0, Math.ceil((activeCheckin.expiresAt - Date.now()) / 1000));
         setCheckinState({
@@ -1390,15 +1391,24 @@ export default function App() {
 
   const handleGazeAtPeer = (peerName: string) => {
     triggerVibration([40, 70]);
-    showToast(`👁️ You gave a Gaze to ${peerName}! Mutual gazes alert immediately.`);
 
-    // If gazing at an active peer, simulate mutual gaze response
-    if (peerName === 'Marcus' || peerName === 'Soren' || peerName === 'Liam') {
-      setTimeout(() => {
-        triggerVibration([50, 40, 90]);
-        showToast(`⚡ Mutual Gaze! ${peerName} noticed you too.`);
-      }, 1600);
+    if (isSupabaseConfigured && isAuthenticated) {
+      const pulse = supabaseRightNowPulses.find((item) => item.peerName.toLowerCase() === peerName.toLowerCase());
+      if (!pulse || !pulse.id.startsWith('supabase_')) {
+        showToast('That Gaze could not be linked to a live profile.');
+        return;
+      }
+      void submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length)).then((result) => {
+        if (result.sent) {
+          showToast(`👁️ Gaze sent to ${peerName}`);
+        } else {
+          showToast('Gaze could not be sent. Try again.');
+        }
+      });
+      return;
     }
+
+    showToast(`👁️ You gave a Gaze to ${peerName}.`);
   };
 
   const handleSubmitInterest = async (pulse: Pulse) => {
@@ -1458,6 +1468,11 @@ export default function App() {
           if (!savedIntent) {
             showToast('Intent saved on this device; secure sync is unavailable.');
             return;
+          }
+          const storyId = await createStoryFromIntent(intent);
+          if (storyId) {
+            const refreshedStories = await loadStories();
+            setStories(refreshedStories);
           }
           const rows = await discoverRightNow({ radiusMeters: 5000 });
           setSupabaseRightNowPulses(discoveryRowsToPulses(rows));
@@ -1831,6 +1846,9 @@ export default function App() {
               onToggleRsvp={handleToggleRsvp}
               onOpenGatheringChat={handleOpenGatheringChat}
               onCreateGathering={handleCreateGathering}
+              currentUser={currentUser}
+              currentUserId={supabaseUserId}
+              userLocation={userLocation}
             />
           )}
 
