@@ -590,7 +590,7 @@ export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserI
 export async function saveActiveIntentWithSession(
   intent: UserActiveIntent,
   location?: { lat: number; lng: number },
-  sourceUser = INITIAL_USER,
+  sourceUser: UserProfile,
   identityPublicKey?: string,
 ) {
   const user = await ensureSupabaseSession();
