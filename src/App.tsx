@@ -945,10 +945,15 @@ export default function App() {
   };
 
   const handleOpenGatheringChat = (gathering: Gathering) => {
-    const existing = rooms.find((r) => r.id === 'room_' + gathering.id || r.name.includes(gathering.title.substring(0, 15)));
+    const existing = rooms.find((r) => r.id === 'room_' + gathering.id);
     if (existing) {
       setActiveRoomId(existing.id);
       setActiveTab('swarms');
+      return;
+    }
+
+    if (isSupabaseConfigured && isAuthenticated) {
+      showToast('Gathering chat is not available until a real group conversation is created.');
       return;
     }
 
@@ -957,9 +962,9 @@ export default function App() {
       id: roomId,
       name: gathering.title + ' Group',
       type: 'gathering',
-      safetyNumber: '88201 94819 20491 58190 29481 02938',
-      swarmSecretKeyHex: 'seed_gathering_' + gathering.id,
-      lastMessage: `Joined encrypted coordination room for ${gathering.locationName}`,
+      safetyNumber: 'local',
+      swarmSecretKeyHex: 'local_gathering_' + gathering.id,
+      lastMessage: `Joined local coordination room for ${gathering.locationName}`,
       lastTimestamp: Date.now(),
       ephemeralTtlSeconds: 0,
     };
