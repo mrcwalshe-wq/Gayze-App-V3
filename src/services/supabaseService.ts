@@ -43,6 +43,182 @@ export async function loadSafeHavens(): Promise<SafeHaven[]> {
   });
 }
 
+export interface SupabaseGatheringRow {
+  id: string;
+  host_id: string;
+  title: string;
+  description: string;
+  category: 'social' | 'arts' | 'active' | 'games' | 'discussions' | 'nightlife';
+  scheduled_at: string;
+  location_name: string;
+  address: string;
+  neighborhood: string;
+  is_safe_haven_venue: boolean;
+  lat: number | null;
+  lng: number | null;
+  capacity: number;
+  tags: unknown;
+  safety_guidelines: string;
+}
+
+export async function loadGatherings(): Promise<import('../types').Gathering[]> {
+  if (!supabase) return [];
+  const user = await ensureSupabaseSession();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from('gatherings')
+    .select('id,host_id,title,description,category,scheduled_at,location_name,address,neighborhood,is_safe_haven_venue,lat,lng,capacity,tags,safety_guidelines')
+    .gte('scheduled_at', new Date().toISOString())
+    .order('scheduled_at', { ascending: true });
+  if (error) {
+    console.warn('[GAYZE] Gathering load failed:', error.message);
+    return [];
+  }
+  const ids = (data ?? []).map((row) => row.id);
+  let attending = new Set<string>();
+  let counts = new Map<string, number>();
+  if (ids.length) {
+    const { data: rsvps } = await supabase
+      .from('gathering_rsvps')
+      .select('gathering_id,user_id,status')
+      .in('gathering_id', ids)
+      .eq('status', 'attending');
+    attending = new Set((rsvps ?? []).filter((row) => row.user_id === user.id).map((row) => row.gathering_id));
+    counts = new Map<string, number>();
+    for (const row of rsvps ?? []) counts.set(row.gathering_id, (counts.get(row.gathering_id) ?? 0) + 1);
+  }
+  return (data ?? []).map((row: SupabaseGatheringRow) => ({
+    id: row.id,
+    hostId: row.host_id,
+    hostName: row.host_id === user.id ? 'You' : 'Gayze member',
+    hostShortKey: row.host_id.slice(0, 8) + '...',
+    hostAvatar: 'user',
+    title: row.title,
+    description: row.description,
+    category: row.category,
+    dateStr: new Date(row.scheduled_at).toLocaleString([], { weekday: 'long', hour: '2-digit', minute: '2-digit' }),
+    timestamp: new Date(row.scheduled_at).getTime(),
+    locationName: row.location_name,
+    address: row.address,
+    neighborhood: row.neighborhood,
+    isSafeHavenVenue: row.is_safe_haven_venue,
+    lat: row.lat ?? 0,
+    lng: row.lng ?? 0,
+    capacity: row.capacity,
+    rsvpCount: counts.get(row.id) ?? 0,
+    isAttending: attending.has(row.id),
+    tags: Array.isArray(row.tags) ? row.tags as string[] : [],
+    safetyGuidelines: row.safety_guidelines,
+  }));
+}
+
+export async function createGathering(input: Omit<import('../types').Gathering, 'id' | 'rsvpCount' | 'isAttending'>) {
+  if (!supabase) return null;
+  const user = await ensureSupabaseSession();
+  if (!user) return null;
+  const { data, error } = await supabase.from('gatherings').insert({
+    host_id: user.id,
+    title: input.title,
+    description: input.description,
+    category: input.category,
+    scheduled_at: new Date(input.timestamp).toISOString(),
+    location_name: input.locationName,
+    address: input.address,
+    neighborhood: input.neighborhood,
+    is_safe_haven_venue: input.isSafeHavenVenue,
+    lat: input.lat,
+    lng: input.lng,
+    capacity: input.capacity,
+    tags: input.tags,
+    safety_guidelines: input.safetyGuidelines,
+  }).select('id').single();
+  if (error) {
+    console.warn('[GAYZE] Gathering create failed:', error.message);
+    return null;
+  }
+  return data?.id ?? null;
+}
+
+export async function toggleGatheringRsvp(gatheringId: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('toggle_gathering_rsvp', { p_gathering_id: gatheringId });
+  if (error) {
+    console.warn('[GAYZE] Gathering RSVP failed:', error.message);
+    return false;
+  }
+  return Boolean(data);
+}
+
+export interface SafetyCheckinRecord {
+  id: string;
+  partnerName: string;
+  venueName: string;
+  startedAt: number;
+  expiresAt: number;
+  endedAt: number | null;
+  notes: string;
+  status: 'active' | 'ended' | 'expired';
+}
+
+export async function loadActiveSafetyCheckin(): Promise<SafetyCheckinRecord | null> {
+  if (!supabase) return null;
+  const user = await ensureSupabaseSession();
+  if (!user) return null;
+  const { data, error } = await supabase.from('safety_checkins')
+    .select('id,partner_name,venue_name,started_at,expires_at,ended_at,notes,status')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    partnerName: data.partner_name,
+    venueName: data.venue_name,
+    startedAt: new Date(data.started_at).getTime(),
+    expiresAt: new Date(data.expires_at).getTime(),
+    endedAt: data.ended_at ? new Date(data.ended_at).getTime() : null,
+    notes: data.notes || '',
+    status: data.status,
+  };
+}
+
+export async function startSafetyCheckin(input: { partnerName: string; venueName: string; durationMinutes: number; notes: string }) {
+  if (!supabase) return null;
+  const user = await ensureSupabaseSession();
+  if (!user) return null;
+  await supabase.from('safety_checkins').update({ status: 'ended', ended_at: new Date().toISOString() })
+    .eq('user_id', user.id).eq('status', 'active');
+  const expiresAt = new Date(Date.now() + input.durationMinutes * 60 * 1000).toISOString();
+  const { data, error } = await supabase.from('safety_checkins').insert({
+    user_id: user.id,
+    partner_name: input.partnerName,
+    venue_name: input.venueName,
+    started_at: new Date().toISOString(),
+    expires_at: expiresAt,
+    notes: input.notes,
+    status: 'active',
+  }).select('id').single();
+  if (error) {
+    console.warn('[GAYZE] Safety check-in start failed:', error.message);
+    return null;
+  }
+  return { id: data.id, expiresAt: new Date(expiresAt).getTime() };
+}
+
+export async function updateSafetyCheckin(id: string, patch: { expiresAt?: number; status?: 'active' | 'ended' | 'expired' }) {
+  if (!supabase) return false;
+  const values: Record<string, string> = {};
+  if (patch.expiresAt !== undefined) values.expires_at = new Date(patch.expiresAt).toISOString();
+  if (patch.status) {
+    values.status = patch.status;
+    if (patch.status !== 'active') values.ended_at = new Date().toISOString();
+  }
+  const { error } = await supabase.from('safety_checkins').update(values).eq('id', id);
+  return !error;
+}
+
 export async function discoverRightNow(options?: { radiusMeters?: number; mode?: 'social' | 'private'; intent?: string }): Promise<RightNowDiscoveryRow[]> {
   if (!supabase) return [];
   try {
