@@ -495,7 +495,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
     if (activeCategory !== 'people' && activeCategory !== 'havens') {
       livePulses.forEach((pulse) => {
-        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
+        if (pulse.peerId === 'peer_me') return;
         const km = distanceKmForPulse(pulse);
         if (!matchesFilters({
           category: 'pulse',
@@ -822,8 +822,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (activeCategory !== 'people' && activeCategory !== 'havens') {
       const hazePoints: { lat: number; lng: number }[] = [];
       livePulses.forEach((pulse) => {
-        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
-        if (pulse.peerId === 'peer_me' && activeUserIntent?.isPaused) return;
+        // Your own signal is drawn from your live intent at your device
+        // position (see the self marker below) — never as a nearby row.
+        if (pulse.peerId === 'peer_me') return;
         if (!Number.isFinite(pulse.lat) || !Number.isFinite(pulse.lng)) return;
         if (!matchesFilters({
           category: 'pulse',
@@ -954,8 +955,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     // 4. Pulses
     if (activeCategory !== 'havens' && activeCategory !== 'people') {
       livePulses.forEach((pulse) => {
-        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
-        if (pulse.peerId === 'peer_me' && activeUserIntent?.isPaused) return;
+        if (pulse.peerId === 'peer_me') return;
         const isPrivate = pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup'));
         // Only real, published coordinates are ever mapped.
         const hasCoords = Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng);

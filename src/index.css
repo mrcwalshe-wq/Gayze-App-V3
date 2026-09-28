@@ -77,9 +77,11 @@ button, input, select, textarea, [role="button"] {
   width: 100% !important;
   height: 100% !important;
   min-height: 100% !important;
-  filter: saturate(1.1) contrast(1.08) brightness(0.93) !important;
-  background-image: radial-gradient(circle at center, rgba(111, 60, 195, 0.18), transparent 52%),
-    linear-gradient(180deg, #090b12 0%, #07080b 100%) !important;
+  filter: saturate(1.04) contrast(1.05) brightness(0.95) !important;
+  /* Fallback backdrop while tiles load, and the room's light behind the map. */
+  background-image:
+    radial-gradient(120% 80% at 50% 34%, rgba(111, 60, 195, 0.14), transparent 58%),
+    linear-gradient(180deg, #0a0b11 0%, #07080b 100%) !important;
 }
 
 .gayze-leaflet-map {
@@ -94,7 +96,11 @@ button, input, select, textarea, [role="button"] {
 /* GAYZE Obsidian Dark filter for standard OpenStreetMap tiles */
 .gayze-osm-dark-tiles .leaflet-tile,
 .leaflet-tile-pane.gayze-osm-dark-tiles .leaflet-tile {
-  filter: invert(100%) hue-rotate(180deg) brightness(87%) contrast(96%) saturate(32%) !important;
+  /* Obsidian base, then a faint violet cast (sepia followed by a hue rotation)
+     so the map shares the room's light instead of reading as a grey widget.
+     Contrast is untouched, so roads and labels stay legible. */
+  filter: invert(100%) hue-rotate(180deg) brightness(87%) contrast(98%) saturate(28%)
+    sepia(0.20) hue-rotate(212deg) saturate(1.12) !important;
 }
 
 .leaflet-control-zoom {
@@ -184,10 +190,10 @@ button, input, select, textarea, [role="button"] {
 }
 
 .leaflet-control-attribution {
-  background-color: rgba(9, 10, 14, 0.85) !important;
+  background-color: rgba(9, 10, 14, 0.62) !important;
   color: #6b7280 !important;
   font-size: 9px !important;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
 }
 
 .leaflet-control-attribution a {
