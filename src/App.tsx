@@ -53,6 +53,7 @@ import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey,
 import {
   discoverRightNow,
   discoveryRowsToPulses,
+  resolvePulsesWithAvatars,
   ensureSupabaseSession,
   ensureSupabaseProfile,
   loadSupabaseProfile,
@@ -548,7 +549,9 @@ export default function App() {
       const rows = await discoverRightNow({ radiusMeters: 5000 });
       if (generation !== authGenerationRef.current || isSigningOutRef.current) return;
       // The authenticated user is never part of their own nearby list.
-      setSupabaseRightNowPulses(discoveryRowsToPulses(rows, viewerId));
+      const pulsesWithAvatars = await resolvePulsesWithAvatars(discoveryRowsToPulses(rows, viewerId));
+      if (generation !== authGenerationRef.current || isSigningOutRef.current) return;
+      setSupabaseRightNowPulses(pulsesWithAvatars);
       setSupabaseReady(true);
     } catch (error) {
       console.warn('[GAYZE] Discovery refresh failed:', error);
