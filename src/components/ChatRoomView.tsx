@@ -295,7 +295,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1.5">
                   {currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block g-breathe" />
                       <span className="text-emerald-400 font-semibold font-mono">Online</span>
                     </>
                   ) : (

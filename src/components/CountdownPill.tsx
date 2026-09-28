@@ -79,7 +79,7 @@ export const CountdownPill: React.FC<CountdownPillProps> = ({
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold tracking-tight text-amber-300 bg-amber-950/40 border border-amber-500/30 ${className}`}
       title={`Active intent expires at ${new Date(expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
     >
-      {showIcon && <Clock className="w-2.5 h-2.5 text-amber-400 shrink-0 animate-pulse" />}
+      {showIcon && <Clock className="w-2.5 h-2.5 text-amber-400/80 shrink-0" />}
       <span>
         {prefix ? `${prefix} ` : ''}
         {timeLeftStr}

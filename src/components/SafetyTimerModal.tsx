@@ -80,7 +80,7 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
           /* Active local timer */
           <div className="space-y-4">
             <div className={`p-4 rounded-xl border text-center space-y-1.5 transition-colors ${isExpiringSoon
-              ? 'bg-rose-950/40 border-rose-500/60 animate-pulse'
+              ? 'bg-rose-950/35 border-rose-500/45'
               : 'bg-[#141620] border-white/[0.08]'
               }`}>
               <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium">

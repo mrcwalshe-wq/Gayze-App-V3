@@ -1270,6 +1270,56 @@ button, input, select, textarea, [role="button"] {
   .g-signal-halo { animation: none; }
 }
 
+/* Amber presence dot: the connection/trust tone, breathing slowly. Used where a
+   live person-state needs marking without an equaliser or a ping. */
+.g-live-amber {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #C9A24D;
+  flex: none;
+}
+.g-live-amber::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(201, 162, 77, 0.35);
+  animation: g-halo-breathe 5.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-live-amber::after { animation: none; opacity: 0.4; }
+}
+
+/* Slow opacity breathe for live state markers — deliberately slower and lower
+   amplitude than Tailwind's animate-pulse. */
+.g-breathe { animation: g-breathe-soft 3.8s ease-in-out infinite; }
+@keyframes g-breathe-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-breathe { animation: none; }
+}
+
+/* Incoming-call ring: a warm ring that breathes, so an alert is felt rather
+   than flashed. */
+.g-ring-breathe {
+  border: 1px solid rgba(201, 162, 77, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(201, 162, 77, 0.14),
+    0 0 0 6px rgba(201, 162, 77, 0.05);
+  animation: g-ring-breathe 4.2s ease-in-out infinite;
+}
+@keyframes g-ring-breathe {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(201, 162, 77, 0.14), 0 0 0 6px rgba(201, 162, 77, 0.05); }
+  50% { box-shadow: inset 0 1px 0 rgba(201, 162, 77, 0.22), 0 0 0 14px rgba(201, 162, 77, 0.09); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-ring-breathe { animation: none; }
+}
+
 /* ---------- Activity haze (leaflet circle paths) ---------- */
 .gayze-haze {
   animation: g-breathe 7s ease-in-out infinite;

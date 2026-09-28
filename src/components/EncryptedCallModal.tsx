@@ -204,11 +204,11 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
             {callState === 'connected' ? (
               <span className="text-white font-bold tracking-wider">{formatDuration(durationSeconds)}</span>
             ) : callState === 'calling' ? (
-              <span className="text-[#C9A24D] animate-pulse">Calling...</span>
+              <span className="text-[#C9A24D]">Calling…</span>
             ) : callState === 'ringing' ? (
-              <span className="text-[#C9A24D] animate-pulse">Ringing...</span>
+              <span className="text-[#C9A24D]">Ringing…</span>
             ) : callState === 'connecting' ? (
-              <span className="text-amber-300 animate-pulse">Securing peer connection...</span>
+              <span className="text-amber-300">Securing peer connection…</span>
             ) : callState === 'declined' ? (
               <span className="text-rose-400 font-semibold">Call Declined</span>
             ) : callState === 'missed' ? (
@@ -279,14 +279,11 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
                 </div>
               )}
 
-              {/* Animated audio wave pulses when connected */}
+              {/* Live audio indicator — one line that breathes, not an equaliser */}
               {callState === 'connected' && (
-                <div className="flex items-center gap-1.5 h-8 pt-2">
-                  <div className="w-1 bg-[#C9A24D] h-4 rounded-full animate-pulse" />
-                  <div className="w-1 bg-[#C9A24D] h-7 rounded-full animate-pulse delay-75" />
-                  <div className="w-1 bg-[#C9A24D] h-3 rounded-full animate-pulse delay-150" />
-                  <div className="w-1 bg-[#C9A24D] h-6 rounded-full animate-pulse delay-200" />
-                  <div className="w-1 bg-[#C9A24D] h-5 rounded-full animate-pulse delay-100" />
+                <div className="flex items-center gap-2 h-8 pt-2">
+                  <span className="g-live-amber" aria-hidden="true" />
+                  <span className="text-[11.5px] text-zinc-400">Connected</span>
                 </div>
               )}
             </div>

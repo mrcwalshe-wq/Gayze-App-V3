@@ -354,7 +354,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                 <div className="flex items-center justify-between text-[11px] text-zinc-400">
                   <span>Test Haptic Patterns:</span>
                   {hapticTestedLabel && (
-                    <span className="text-[#C9A24D] font-mono text-[10px] animate-pulse">
+                    <span className="text-[#C9A24D] text-[11px] g-breathe">
                       {hapticTestedLabel}
                     </span>
                   )}

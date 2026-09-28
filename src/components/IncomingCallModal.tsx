@@ -34,24 +34,24 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
       <div className="g-panel relative w-full max-w-sm p-6 !rounded-[22px] space-y-6 text-center">
         {/* Security Badge */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-mono">
-          <Lock className="w-3 h-3 text-emerald-400" />
-          <span>INCOMING ENCRYPTED CALL</span>
+        <div className="g-badge g-badge--verify">
+          <Lock className="w-3 h-3" />
+          <span>Encrypted call</span>
         </div>
 
         {/* Caller Avatar */}
         <div className="relative mx-auto w-24 h-24">
-          <div className="w-24 h-24 rounded-full bg-[#181a24] border-2 border-[#C9A24D] flex items-center justify-center text-3xl font-bold text-[#C9A24D] shadow-xl animate-pulse">
+          <div className="g-ring-breathe w-24 h-24 rounded-full bg-[#151720] flex items-center justify-center text-[30px] font-semibold text-[#C9A24D]">
             {incomingCall.callerName.charAt(0).toUpperCase()}
           </div>
-          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 border-2 border-[#0e1017] flex items-center justify-center text-white">
+          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500/90 border-2 border-[#0e1017] flex items-center justify-center text-white">
             {isVideo ? <Video className="w-3.5 h-3.5" /> : <Phone className="w-3.5 h-3.5" />}
           </div>
         </div>
 
         {/* Caller Name & Type */}
         <div className="space-y-1">
-          <h2 className="text-xl font-bold text-white tracking-wide">{incomingCall.callerName}</h2>
+          <h2 className="text-[19px] font-semibold text-white tracking-[-0.015em]">{incomingCall.callerName}</h2>
           <p className="text-xs text-zinc-400">
             {isVideo ? 'Encrypted Video Call' : 'Encrypted Audio Call'}
           </p>
@@ -80,7 +80,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
                 hapticSensitiveAction();
                 onAccept(incomingCall);
               }}
-              className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center shadow-lg shadow-emerald-950/60 transition-transform active:scale-95 cursor-pointer animate-bounce"
+              className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
               aria-label="Accept call"
             >
               {isVideo ? <Video className="w-7 h-7" /> : <Phone className="w-7 h-7" />}
