@@ -1063,6 +1063,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     selectedItem,
     userLocation,
     activeUserIntent,
+    resolvedUserAvatarUrl,
   ]);
 
   return (
