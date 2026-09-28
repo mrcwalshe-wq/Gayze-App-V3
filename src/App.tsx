@@ -1970,6 +1970,7 @@ export default function App() {
         devices={identityDevices}
         currentDeviceFingerprint={currentDeviceFingerprint}
         onRevokeDevice={handleRevokeDevice}
+        signingOut={isSigningOut}
         onSignOut={async () => {
           if (isSigningOut) return;
           setIsSigningOut(true);
