@@ -147,6 +147,8 @@ interface RightNowViewProps {
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
   onSwitchToLater?: () => void;
   onRequestLocation?: () => void;
+  /** Signed/public URL for the current user's primary profile photo. */
+  userAvatarUrl?: string;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -169,6 +171,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onSubmitGaze,
   onSwitchToLater,
   onRequestLocation,
+  userAvatarUrl,
 }) => {
   // 1. The active Right Now signal is owned by App (Supabase in live mode).
   //    Right Now renders it and routes every change through
@@ -880,9 +883,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
       const selfIcon = L.divIcon({
         className: 'custom-user-marker',
-        html: `<div class="${isLive ? 'gm-self' : 'gm-user'}${
-          activeUserIntent?.isPaused ? ' gm-self--paused' : ''
-        }"></div>`,
+        html: isLive
+          ? `<div class="gm-self${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
+              userAvatarUrl
+                ? `<img class="gm-self__photo" src="${userAvatarUrl.replace(/"/g, '&quot;')}" alt="" />`
+                : ''
+            }</div>`
+          : '<div class="gm-user"></div>',
         iconSize: isLive ? [34, 34] : [14, 14],
         iconAnchor: isLive ? [17, 17] : [7, 7],
       });
@@ -983,7 +990,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'pulse' && selectedItem.item.id === pulse.id;
         const icon = L.divIcon({
           className: 'custom-pulse-marker',
-          html: `<div class="gm-pulse ${isPrivate ? 'gm-pulse--private' : ''} ${selected ? 'gm-pulse--sel' : ''}">${pulse.peerName ? pulse.peerName.charAt(0) : 'P'}</div>`,
+          html: `<div class="gm-pulse ${isPrivate ? 'gm-pulse--private' : ''} ${selected ? 'gm-pulse--sel' : ''}">${
+            pulse.peerAvatar && /^https?:\/\//i.test(pulse.peerAvatar)
+              ? `<img class="gm-pulse__photo" src="${pulse.peerAvatar.replace(/"/g, '&quot;')}" alt="" />`
+              : (pulse.peerName ? pulse.peerName.charAt(0) : 'P')
+          }</div>`,
           iconSize: [34, 34],
           iconAnchor: [17, 17],
         });
@@ -1188,7 +1199,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {/* =========================================================================
           4.5. EMPTY STATE — honest, compact, map stays visible
          ========================================================================= */}
-      {liveMembersCount === 0 && !selectedItem && (
+      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && (
         <div
           className="absolute left-1/2 -translate-x-1/2 z-30 w-[min(92vw,330px)] pointer-events-auto"
           style={{ bottom: 'calc(var(--g-tabbar-h) + env(safe-area-inset-bottom,0px) + 82px)' }}
