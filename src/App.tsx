@@ -1724,9 +1724,6 @@ export default function App() {
 
           {activeTab === 'right_now' && (
             <RightNowView
-              // Keep the MVP useful on a fresh/empty Supabase project.
-              // Live Supabase intents take precedence once they exist; otherwise
-              // the privacy-safe local demo dataset keeps the map populated.
               pulses={isSupabaseConfigured && isAuthenticated
                 ? supabaseRightNowPulses
                 : pulses}
