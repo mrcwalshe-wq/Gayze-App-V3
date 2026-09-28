@@ -2057,6 +2057,7 @@ export default function App() {
               userNeighborhood={currentUser.neighborhood}
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
+              userAvatarUrl={currentUser.avatarUrl}
               // Live discovery rows already carry the person's real
               // (privacy-jittered) coordinates. Derived photo-grid profiles are
               // demo-only data and are never mixed into the live map.
