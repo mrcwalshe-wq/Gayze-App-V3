@@ -1236,7 +1236,7 @@ export default function App() {
         return;
       }
       try {
-        const result = await resolveConversationKey(room);
+        const result = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
         if (disposed) return;
         conversationKey = result.key;
         setConversationKeyState({
@@ -1314,7 +1314,7 @@ export default function App() {
       : plainText;
 
     if (isSupabaseRoom) {
-      const resolved = await resolveConversationKey(room);
+      const resolved = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
       if (!resolved.key) {
         showToast(resolved.reason || 'This conversation cannot be encrypted on this device yet');
         return;
