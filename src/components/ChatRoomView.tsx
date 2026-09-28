@@ -25,7 +25,8 @@ import {
   Calendar,
   MapPin,
   Coffee,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MoreHorizontal
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
 
@@ -71,6 +72,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [inspectedMessageId, setInspectedMessageId] = useState<string | null>(null);
   const [attachedMedia, setAttachedMedia] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
+  const [showChatActions, setShowChatActions] = useState(false);
   // Local trust decisions only: a room is marked verified when the user
   // compares the real safety code out-of-band. Nothing is pre-verified and
   // nothing is asserted about a peer the user has not confirmed.
@@ -312,85 +314,48 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </div>
             </div>
 
-            {/* Header Actions */}
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              {/* Audio Call */}
+            {/* Header Actions — keep the direct actions quiet; secondary controls live in one menu on mobile. */}
+            <div className="flex items-center gap-1 shrink-0">
               {currentRoom.type === 'direct' && onStartCall && (
-                <button
-                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'audio', currentRoom.peerUserId)}
-                  className="w-9 h-9 min-h-[36px] min-w-[36px] rounded-xl bg-[#171922] hover:bg-[#202330] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                  title="Encrypted Audio Call (P2P WebRTC)"
-                  aria-label="Start audio call"
-                >
-                  <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                <button onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId)}
+                  className="g-icon-btn" title="Video call" aria-label="Start video call">
+                  <Video className="w-4 h-4 text-[#c4a9f7]" />
                 </button>
               )}
-
-              {/* Video Call */}
-              {currentRoom.type === 'direct' && onStartCall && (
-                <button
-                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId)}
-                  className="w-9 h-9 min-h-[36px] min-w-[36px] rounded-xl bg-[#171922] hover:bg-[#202330] border border-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                  title="Encrypted Video Call (P2P WebRTC)"
-                  aria-label="Start video call"
-                >
-                  <Video className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="relative">
+                <button type="button" onClick={() => setShowChatActions((value) => !value)}
+                  className="g-icon-btn" aria-label="Conversation actions" aria-expanded={showChatActions}>
+                  <MoreHorizontal className="w-4 h-4" />
                 </button>
-              )}
-
-              {/* Plan Meeting Button */}
-              {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
-                <button
-                  onClick={() => onOpenScheduleMeeting(currentRoom.peerName || currentRoom.name)}
-                  className="h-9 px-2 sm:px-2.5 rounded-xl bg-[#C9A24D]/10 hover:bg-[#C9A24D]/18 border border-[#C9A24D]/25 text-[#C9A24D] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Plan safe meetup at verified Safe Haven"
-                >
-                  <Calendar className="w-3.5 h-3.5 text-[#C9A24D]" />
-                  <span className="hidden md:inline">Meet</span>
-                </button>
-              )}
-
-              {/* Ephemeral Auto-Delete Timer Toggle */}
-              <button
-                onClick={cycleTtl}
-                title="Disappearing messages timer (auto-deletes messages after set time)"
-                className={`h-9 px-2 sm:px-2.5 text-[11px] rounded-xl border transition-colors cursor-pointer flex items-center gap-1.5 ${currentRoom.ephemeralTtlSeconds > 0
-                  ? 'bg-[#6F3CC3]/18 text-[#c4a9f7] border-[#6F3CC3]/35'
-                  : 'bg-[#171922] text-zinc-400 border-white/10 hover:text-white'
-                  }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span className="font-mono">{getTtlLabel(currentRoom.ephemeralTtlSeconds)}</span>
-              </button>
-
-              {/* Safety Number Button */}
-              <button
-                onClick={() => setIsSafetyModalOpen(true)}
-                title="Verify Safety Code"
-                className="w-9 h-9 min-h-[36px] min-w-[36px] flex items-center justify-center text-zinc-300 bg-[#171922] hover:bg-[#202330] border border-white/10 rounded-xl transition-colors cursor-pointer"
-                aria-label="Safety code"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              </button>
-            </div>
-          </div>
+                {showChatActions && (
+                  <div className="absolute right-0 top-11 z-40 w-52 g-panel p-1.5 shadow-2xl">
+                    {currentRoom.type === 'direct' && onStartCall && (
+                      <button type="button" className="g-row !min-h-[42px] !rounded-xl" onClick={() => { setShowChatActions(false); onStartCall(currentRoom.peerName || currentRoom.name, 'audio', currentRoom.peerUserId); }}>
+                        <Phone className="w-4 h-4 text-[#c4a9f7]" /><span className="text-[12px]">Audio call</span>
+                      </button>
+                    )}
+                    {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
+                      <button type="button" className="g-row !min-h-[42px] !rounded-xl" onClick={() => { setShowChatActions(false); onOpenScheduleMeeting(currentRoom.peerName || currentRoom.name); }}>
+                        <Calendar className="w-4 h-4 text-[#C9A24D]" /><span className="text-[12px]">Plan a safe meetup</span>
+                      </button>
+                    )}
+                    <button type="button" className="g-row !min-h-[42px] !rounded-xl" onClick={() => { setShowChatActions(false); cycleTtl(); }}>
+                      <Clock className="w-4 h-4 text-[#c4a9f7]" /><span className="text-[12px]">Disappearing messages</span>
+                      <span className="ml-auto text-[10px] text-zinc-500">{getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}</span>
+                    </button>
+                    <button type="button" className="g-row !min-h-[42px] !rounded-xl" onClick={() => { setShowChatActions(false); setIsSafetyModalOpen(true); }}>
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" /><span className="text-[12px]">Verify safety code</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>          </div>
 
           {conversationKeyUnavailable && (
             <div className="px-3 sm:px-4 py-2 bg-amber-500/10 border-b border-amber-500/25 text-[11px] text-amber-200">
               {conversationKeyReason || 'This conversation cannot be decrypted on this device yet.'}
             </div>
           )}
-
-          {/* Privacy & E2EE Info Strip */}
-          <div className="px-3 sm:px-4 py-2 bg-[#0c0d12] border-b border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-400">
-            <div className="flex items-center gap-2">
-              <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="truncate">Encrypted on your device · stored only as ciphertext</span>
-            </div>
-            <span className="text-[10px] font-mono text-zinc-500 shrink-0 hidden md:inline">
-              Decrypted in browser
-            </span>
-          </div>
 
           {currentRoom.connectionContext && (
             <div className="px-3 sm:px-4 py-2 border-b border-white/[0.06] flex items-center justify-between gap-2 text-[11px]">
@@ -573,11 +538,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 value={inputText}
                 disabled={conversationKeyUnavailable}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={
-                  currentRoom.ephemeralTtlSeconds > 0
-                    ? `Encrypted message (${getTtlLabel(currentRoom.ephemeralTtlSeconds)} active)...`
-                    : 'Encrypted message...'
-                }
+                placeholder={currentRoom.ephemeralTtlSeconds > 0 ? `Message · ${getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}` : 'Message…'}
                 className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none py-1"
               />
 
@@ -603,12 +564,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </button>
             </div>
 
-            <div className="mt-1.5 flex items-center justify-between text-[10px] text-zinc-500 px-1 font-mono">
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                Message content encrypted before sending
-              </span>
-              <span>Keys stay on your device</span>
+            <div className="mt-1.5 flex items-center gap-1 text-[10px] text-zinc-600 px-1">
+              <Lock className="w-3 h-3 text-emerald-400/80" />
+              <span>End-to-end encrypted · keys stay on your device</span>
             </div>
           </form>
         </div>

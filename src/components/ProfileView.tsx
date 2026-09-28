@@ -13,9 +13,13 @@ import {
   X,
   Edit3,
   Compass,
+  Camera,
+  Trash2,
+  Star,
 } from 'lucide-react';
 import { UserActiveIntent, UserProfile } from '../types';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
+import { deleteProfilePhoto, loadProfilePhotos, setPrimaryProfilePhoto, uploadProfilePhoto, type ProfilePhoto } from '../services/profilePhotoService';
 
 interface ProfileViewProps {
   currentUser: UserProfile;
@@ -68,6 +72,41 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenDiscover,
 }) => {
   const [now, setNow] = useState(Date.now());
+  const [photos, setPhotos] = useState<ProfilePhoto[]>([]);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  const [viewerPhoto, setViewerPhoto] = useState<ProfilePhoto | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadProfilePhotos()
+      .then((items) => { if (!cancelled) setPhotos(items); })
+      .catch(() => { if (!cancelled) setPhotoMessage('Profile photos are unavailable right now.'); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleUploadPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setPhotoBusy(true);
+    setPhotoMessage(null);
+    try { setPhotos(await uploadProfilePhoto(file)); }
+    catch (error) { setPhotoMessage(error instanceof Error ? error.message : 'Could not add that photo.'); }
+    finally { setPhotoBusy(false); }
+  };
+
+  const handleDeletePhoto = async (photo: ProfilePhoto) => {
+    setPhotoBusy(true); setPhotoMessage(null);
+    try { setPhotos(await deleteProfilePhoto(photo)); }
+    catch (error) { setPhotoMessage(error instanceof Error ? error.message : 'Could not remove that photo.'); }
+    finally { setPhotoBusy(false); }
+  };
+
+  const handleSetPrimaryPhoto = async (photo: ProfilePhoto) => {
+    setPhotoBusy(true); setPhotoMessage(null);
+    try { setPhotos(await setPrimaryProfilePhoto(photo.id)); }
+    catch (error) { setPhotoMessage(error instanceof Error ? error.message : 'Could not set the profile photo.'); }
+    finally { setPhotoBusy(false); }
+  };
 
   useEffect(() => {
     if (!activeUserIntent || activeUserIntent.isPaused) return;
@@ -163,6 +202,53 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         >
           <Edit3 className="w-4 h-4" />
         </button>
+      </section>
+
+      {/* Profile photos — deliberately visible, personal, and separate from Stories */}
+      <section className="g-panel p-4 mb-5">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <span className="g-label">Profile photos</span>
+            <p className="text-[12px] text-zinc-500 mt-1">Your first photo is your profile picture. Add up to 6.</p>
+          </div>
+          <label className="g-btn g-btn--quiet !min-h-[36px] !px-3 cursor-pointer shrink-0">
+            <Camera className="w-3.5 h-3.5" />
+            {photoBusy ? 'Saving…' : 'Add photo'}
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={photoBusy || photos.length >= 6}
+              onChange={(event) => { void handleUploadPhoto(event.target.files?.[0]); event.currentTarget.value = ''; }} />
+          </label>
+        </div>
+        {photos.length === 0 ? (
+          <label className="block rounded-[18px] border border-dashed border-white/12 bg-white/[0.025] p-5 text-center cursor-pointer hover:bg-white/[0.04] transition-colors">
+            <Camera className="w-5 h-5 mx-auto text-[#b796f0] mb-2" />
+            <div className="text-[13px] font-semibold text-white">Add your profile picture</div>
+            <div className="text-[11px] text-zinc-500 mt-1">JPG, PNG or WebP · up to 5 MB</div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={photoBusy}
+              onChange={(event) => { void handleUploadPhoto(event.target.files?.[0]); event.currentTarget.value = ''; }} />
+          </label>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {photos.map((photo, index) => (
+              <div key={photo.id} className="relative aspect-square rounded-[16px] overflow-hidden bg-[#11131a] border border-white/10 group">
+                <button type="button" className="absolute inset-0 w-full h-full" onClick={() => setViewerPhoto(photo)} aria-label={`View profile photo ${index + 1}`}>
+                  <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                </button>
+                {photo.isPrimary && <span className="absolute top-2 left-2 g-badge g-badge--verify !text-[10px] !px-1.5"><Star className="w-2.5 h-2.5" /> Profile</span>}
+                {!photo.isPrimary && (
+                  <button type="button" onClick={() => void handleSetPrimaryPhoto(photo)} disabled={photoBusy}
+                    className="absolute bottom-2 left-2 h-8 px-2 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-[10px] text-white">
+                    Make profile
+                  </button>
+                )}
+                <button type="button" onClick={() => void handleDeletePhoto(photo)} disabled={photoBusy}
+                  className="absolute bottom-2 right-2 w-8 h-8 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white" aria-label="Delete photo">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {photoMessage && <p className="text-[11px] text-amber-200 mt-2">{photoMessage}</p>}
       </section>
 
       {/* Current signal */}
@@ -276,6 +362,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </button>
         )}
       </footer>
+      {viewerPhoto && (
+        <div className="fixed inset-0 z-[70] bg-black/95 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setViewerPhoto(null)}>
+          <img src={viewerPhoto.url} alt="" className="max-h-[85vh] max-w-full object-contain rounded-2xl" />
+          <button type="button" onClick={() => setViewerPhoto(null)} className="absolute top-5 right-5 g-icon-btn" aria-label="Close photo"><X className="w-4 h-4" /></button>
+        </div>
+      )}
     </div>
   );
 };
