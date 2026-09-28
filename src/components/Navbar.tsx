@@ -2,26 +2,19 @@ import React from 'react';
 import { GayzeLogo } from './GayzeLogo';
 import {
   Shield,
-  Eye,
   EyeOff,
-  Radio,
-  Calendar,
-  Lock,
-  MessageSquare,
-  MapPin,
   Compass,
-  CheckCircle2,
-  AlertTriangle,
-  Heart,
-  Users,
-  QrCode,
-  Flame,
-  Map as MapIcon
+  Radio,
+  Clock,
+  MessageSquare,
+  UserRound,
 } from 'lucide-react';
 
+export type NavTab = 'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens' | 'profile';
+
 interface NavbarProps {
-  activeTab: 'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens';
-  onTabChange: (tab: 'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens') => void;
+  activeTab: NavTab;
+  onTabChange: (tab: NavTab) => void;
   unreadCount: number;
   onOpenMask: () => void;
   onOpenIdentity: () => void;
@@ -32,253 +25,137 @@ interface NavbarProps {
   userNeighborhood?: string;
 }
 
+interface TabDef {
+  id: NavTab;
+  label: string;
+  icon: React.ReactNode;
+  /** Nav item that lights up for sub-views (e.g. Safe Havens lives under Profile). */
+  group: NavTab;
+}
+
+const TABS: TabDef[] = [
+  { id: 'dating', label: 'Discover', icon: <Compass />, group: 'dating' },
+  { id: 'right_now', label: 'Right Now', icon: <Radio />, group: 'right_now' },
+  { id: 'later', label: 'Later', icon: <Clock />, group: 'later' },
+  { id: 'swarms', label: 'Messages', icon: <MessageSquare />, group: 'swarms' },
+  { id: 'profile', label: 'Profile', icon: <UserRound />, group: 'profile' },
+];
+
+/**
+ * GAYZE navigation — five destinations, nothing more.
+ * Mobile: bottom tab bar only (map stays full-bleed; views own their headers).
+ * Desktop: one translucent top bar.
+ */
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   unreadCount,
   onOpenMask,
-  onOpenIdentity,
   onOpenSafetyTimer,
   isSafetyTimerActive,
-  onOpenQR,
-  reliabilityScore,
   userNeighborhood,
 }) => {
+  // Safe Havens is a Profile/safety sub-view — highlight Profile while inside it.
+  const activeGroup =
+    activeTab === 'safe_havens' ? 'profile' : (activeTab as NavTab);
+
   return (
     <>
-      {/* Top App Header — Fixed / Stationary Viewport Layer */}
-      <header
-        className={`gayze-top-header fixed top-0 left-0 right-0 z-50 w-full transition-colors pt-[env(safe-area-inset-top,0px)] ${activeTab === 'right_now'
-          ? 'bg-[#090a0e]/85 backdrop-blur-xl border-b border-white/[0.06]'
-          : 'bg-[#090a0e]/95 backdrop-blur-md border-b border-white/[0.07]'
-          }`}
-      >
-        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 flex items-center justify-between gap-1.5 sm:gap-4 min-w-0">
+      {/* ---------------- Desktop top bar ---------------- */}
+      <header className="g-desktop-header hidden md:block">
+        <div className="g-desktop-header__inner">
+          <button
+            onClick={() => onTabChange('dating')}
+            className="flex items-center gap-2.5 group cursor-pointer"
+            aria-label="GAYZE home"
+          >
+            <GayzeLogo size={34} showWordmark={false} />
+            <span className="text-[15px] font-extrabold tracking-[0.14em] text-white uppercase">
+              GAYZE
+            </span>
+            <span className="hidden lg:inline text-[11px] text-zinc-500 font-medium pl-2.5 ml-1 border-l border-white/10">
+              {userNeighborhood || 'Near you'}
+            </span>
+          </button>
 
-          {/* Brand Wordmark & Neighborhood Tag */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <button
-              onClick={() => onTabChange('dating')}
-              className="flex items-center gap-2.5 group text-left cursor-pointer focus:outline-none"
-              aria-label="GAYZE Home"
-            >
-              <div className="w-14 h-9 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <GayzeLogo size={56} showWordmark={false} />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-base sm:text-lg font-bold tracking-wider text-white uppercase font-sans">
-                  GAYZE
-                </span>
-                <span className="hidden xs:inline text-[11px] font-medium text-zinc-400">
-                  · {userNeighborhood || 'Near you'}
-                </span>
-              </div>
-            </button>
-
-            {/* Subtle E2EE Security Tag (Desktop) */}
-            <div className="hidden lg:flex items-center gap-1.5 pl-3 border-l border-white/[0.08] text-[11px] text-zinc-400 font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span>P2P ENCRYPTED</span>
-            </div>
-          </div>
-
-          {/* Desktop Navigation Tabs (Hidden on Mobile) */}
-          <nav className="gayze-top-nav hidden md:flex items-center gap-0.5 p-0.5 rounded-xl border border-white/[0.07]">
-            <button
-              onClick={() => onTabChange('dating')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'dating'
-                ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-            >
-              <Heart className={`w-3.5 h-3.5 ${activeTab === 'dating' ? 'text-[#C9A24D] fill-[#C9A24D]' : 'text-zinc-400'}`} />
-              <span>Discover</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange('right_now')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'right_now'
-                ? 'text-white bg-[#221634] border border-[#6F3CC3]/60 shadow-[0_0_14px_rgba(111,60,195,0.4)]'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-              title="Live Proximity Map"
-              aria-label="Map"
-            >
-              <MapIcon className={`w-3.5 h-3.5 ${activeTab === 'right_now' ? 'text-[#C9A24D]' : 'text-zinc-400'}`} />
-              <span className={activeTab === 'right_now' ? 'text-white font-bold' : ''}>Map</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
-            </button>
-
-            <button
-              onClick={() => onTabChange('later')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'later'
-                ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-            >
-              <Calendar className={`w-3.5 h-3.5 ${activeTab === 'later' ? 'text-[#C9A24D]' : 'text-zinc-400'}`} />
-              <span>Later</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange('swarms')}
-              className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'swarms'
-                ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-            >
-              <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Groups</span>
-              {unreadCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-[#C9A24D] inline-block ml-0.5" />
-              )}
-            </button>
-
-            <button
-              onClick={() => onTabChange('safe_havens')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${activeTab === 'safe_havens'
-                ? 'text-white bg-[#1c1f2b] border border-white/10 shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-            >
-              <Shield className={`w-3.5 h-3.5 ${activeTab === 'safe_havens' ? 'text-emerald-400' : 'text-zinc-400'}`} />
-              <span>Safe Havens</span>
-            </button>
+          <nav className="g-navpill" aria-label="Primary">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                data-active={activeGroup === tab.group}
+                className="g-navpill__btn"
+              >
+                <span className="[&>svg]:w-[15px] [&>svg]:h-[15px]">{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.id === 'swarms' && unreadCount > 0 && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" />
+                )}
+              </button>
+            ))}
           </nav>
 
-          {/* Action Utilities (Both Mobile & Desktop) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Local Safety Check-in Timer */}
+          <div className="flex items-center gap-2">
             <button
               onClick={onOpenSafetyTimer}
-              title="Local Safety Check-in Timer"
-              aria-label="Safety Check-in Timer"
-              className={`h-11 w-11 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${isSafetyTimerActive
-                ? 'bg-rose-950/50 text-rose-300 border-rose-500/60 shadow-sm shadow-rose-950 animate-pulse'
-                : 'bg-[#11131a] text-zinc-300 border-white/[0.08] hover:border-white/20 hover:text-white'
-                }`}
+              title="Safety check-in"
+              aria-label="Safety check-in"
+              className={`flex items-center gap-2 h-9 px-3 rounded-xl border text-[11.5px] font-semibold transition-colors cursor-pointer ${
+                isSafetyTimerActive
+                  ? 'bg-rose-500/10 text-rose-300 border-rose-500/40'
+                  : 'bg-white/[0.03] text-zinc-400 border-white/10 hover:text-white hover:border-white/20'
+              }`}
             >
               <Shield className={`w-3.5 h-3.5 ${isSafetyTimerActive ? 'text-rose-400' : 'text-emerald-400'}`} />
-              <span className="hidden sm:inline text-[11px] sm:text-xs font-medium">
-                {isSafetyTimerActive ? 'Timer Active' : 'Safety'}
-              </span>
+              <span className="hidden lg:inline">{isSafetyTimerActive ? 'Check-in active' : 'Safety'}</span>
             </button>
 
-            {/* QR Group Key Exchanger */}
-            <button
-              onClick={onOpenQR}
-              title="Group QR Code & Key Exchange"
-              aria-label="QR Code Key Exchange"
-              className="h-11 w-11 sm:w-auto sm:px-3 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] hover:border-[#C9A24D]/40 text-zinc-300 hover:text-white rounded-xl transition-all cursor-pointer"
-            >
-              <QrCode className="w-3.5 h-3.5 text-[#C9A24D]" />
-              <span className="hidden sm:inline text-xs">Verify</span>
-              {reliabilityScore && (
-                <span className="hidden sm:inline text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-700/40">
-                  {reliabilityScore}
-                </span>
-              )}
-            </button>
-
-            {/* Discreet Mask / Panic Disguise */}
             <button
               onClick={onOpenMask}
-              title="Discreet Disguise (Esc)"
-              aria-label="Toggle Discreet Mask"
-              className="h-11 w-11 sm:w-auto sm:px-2.5 flex items-center justify-center sm:justify-start gap-1.5 text-xs font-medium text-zinc-400 bg-[#11131a] hover:bg-[#171922] border border-white/[0.08] rounded-xl hover:text-white transition-all cursor-pointer"
+              title="Discreet mask (Esc)"
+              aria-label="Toggle discreet mask"
+              className="flex items-center gap-2 h-9 px-3 rounded-xl border bg-white/[0.03] text-zinc-400 border-white/10 hover:text-white hover:border-white/20 text-[11.5px] font-semibold transition-colors cursor-pointer"
             >
               <EyeOff className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-xs">Mask</span>
+              <span className="hidden lg:inline">Mask</span>
             </button>
 
-            {/* User Identity Key Avatar */}
             <button
-              onClick={onOpenIdentity}
-              title="Your Identity Key"
-              aria-label="Open Identity Settings"
-              className="h-11 w-11 rounded-xl bg-[#141620] border border-white/[0.10] hover:border-white/25 flex items-center justify-center text-zinc-200 transition-all cursor-pointer font-mono text-xs font-semibold"
+              onClick={() => onTabChange('profile')}
+              aria-label="Open profile"
+              title="Profile"
+              className="w-9 h-9 rounded-xl bg-[#16182a] border border-white/10 hover:border-[#6F3CC3]/60 flex items-center justify-center text-zinc-200 transition-colors cursor-pointer font-bold text-[11px]"
             >
-              JK
+              <UserRound className="w-4 h-4 text-[#b796f0]" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Fixed Bottom Tab Bar (Thumb Zone) */}
-      <nav
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-50 transition-colors pb-[env(safe-area-inset-bottom,0px)] shadow-2xl ${activeTab === 'right_now'
-          ? 'bg-[#090a0e]/90 backdrop-blur-xl border-t border-white/[0.07]'
-          : 'bg-[#090a0e]/95 backdrop-blur-xl border-t border-white/[0.08]'
-          }`}
-        aria-label="Mobile Navigation"
-      >
-        <div className="grid grid-cols-5 h-14 items-center px-1">
-          {/* Tab 1: Discover / Dating */}
-          <button
-            onClick={() => onTabChange('dating')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${activeTab === 'dating' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-          >
-            <Heart className={`w-4 h-4 mb-0.5 ${activeTab === 'dating' ? 'fill-[#C9A24D] text-[#C9A24D]' : ''}`} />
-            <span className="text-[10px] tracking-tight">Discover</span>
-          </button>
-
-          {/* Tab 2: Map */}
-          <button
-            onClick={() => onTabChange('right_now')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer relative ${activeTab === 'right_now' ? 'text-[#C9A24D] font-bold' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            title="Live Map"
-            aria-label="Map"
-          >
-            <div className="relative flex items-center justify-center">
-              <MapIcon className={`w-4 h-4 mb-0.5 ${activeTab === 'right_now' ? 'text-[#C9A24D]' : ''}`} />
-              <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-            </div>
-            <span className="text-[10px] tracking-tight font-medium">Map</span>
-            {activeTab === 'right_now' && (
-              <span className="absolute bottom-0.5 w-4 h-0.5 rounded-full bg-[#C9A24D] shadow-[0_0_6px_#C9A24D]" />
-            )}
-          </button>
-
-          {/* Tab 3: Later */}
-          <button
-            onClick={() => onTabChange('later')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${activeTab === 'later' ? 'text-[#C9A24D] font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-          >
-            <Calendar className="w-4 h-4 mb-0.5" />
-            <span className="text-[10px] tracking-tight">Later</span>
-          </button>
-
-          {/* Tab 4: Groups */}
-          <button
-            onClick={() => onTabChange('swarms')}
-            className={`relative min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${activeTab === 'swarms' ? 'text-white font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-          >
-            <div className="relative">
-              <MessageSquare className="w-4 h-4 mb-0.5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-[#C9A24D]" />
-              )}
-            </div>
-            <span className="text-[10px] tracking-tight">Groups</span>
-          </button>
-
-          {/* Tab 5: Safe Havens */}
-          <button
-            onClick={() => onTabChange('safe_havens')}
-            className={`min-h-[44px] flex flex-col items-center justify-center py-1 transition-colors cursor-pointer ${activeTab === 'safe_havens' ? 'text-emerald-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-          >
-            <Shield className="w-4 h-4 mb-0.5" />
-            <span className="text-[10px] tracking-tight">Havens</span>
-          </button>
+      {/* ---------------- Mobile bottom tab bar ---------------- */}
+      <nav className="g-tabbar md:hidden" aria-label="Primary">
+        <div className="g-tabbar__inner">
+          {TABS.map((tab) => {
+            const isActive = activeGroup === tab.group;
+            return (
+              <button
+                key={tab.id}
+                className="g-tab"
+                data-active={isActive}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => onTabChange(tab.id)}
+              >
+                <span className="g-tab__ind" />
+                <span className="[&>svg]:w-5 [&>svg]:h-5">{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.id === 'swarms' && unreadCount > 0 && (
+                  <span className="g-tab__badge" aria-label={`${unreadCount} unread`} />
+                )}
+              </button>
+            );
+          })}
         </div>
       </nav>
     </>
   );
 };
-
-

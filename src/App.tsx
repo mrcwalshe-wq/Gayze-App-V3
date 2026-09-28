@@ -24,7 +24,8 @@ const RightNowView = lazy(() => import('./components/RightNowView').then((module
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
 const SafeHavenView = lazy(() => import('./components/SafeHavenView').then((module) => ({ default: module.SafeHavenView })));
 const ChatRoomView = lazy(() => import('./components/ChatRoomView').then((module) => ({ default: module.ChatRoomView })));
-const DatingGridView = lazy(() => import('./components/DatingGridView').then((module) => ({ default: module.DatingGridView })));
+const DiscoverView = lazy(() => import('./components/DiscoverView').then((module) => ({ default: module.DiscoverView })));
+const ProfileView = lazy(() => import('./components/ProfileView').then((module) => ({ default: module.ProfileView })));
 const SwarmQRModal = lazy(() => import('./components/SwarmQRModal').then((module) => ({ default: module.SwarmQRModal })));
 import {
   Pulse,
@@ -66,7 +67,7 @@ import {
 import { Shield, Lock, Radio, Calendar, HeartHandshake, Eye, AlertCircle } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens'>('right_now');
+  const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens' | 'profile'>('right_now');
   const [showStartup, setShowStartup] = useState(true);
 
   useEffect(() => {
@@ -981,8 +982,11 @@ export default function App() {
       createdAt: Date.now(),
       expiresAt: Date.now() + newPulse.durationHours * 3600 * 1000,
     };
-    setPulses((prev) => [pulse, ...prev]);
-    showToast('✓ Pulse posted with an approximate location.');
+    setPulses((prev) => [
+      pulse,
+      // One live signal per person — replacing keeps the map honest on edit.
+      ...prev.filter((existing) => existing.peerId !== newPulse.peerId || existing.id === pulse.id),
+    ]);
   };
 
   const handleCreateGathering = async (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => {
@@ -1754,19 +1758,20 @@ export default function App() {
     <div className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#090a0f] text-[#f1f3f7] flex flex-col font-sans selection:bg-[#C9A24D]/25 selection:text-[#C9A24D]">
       {/* Toast Notification */}
       {notificationToast && (
-        <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-4 z-50 bg-[#11131a]/95 backdrop-blur-md border border-white/10 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2">
+        <div className="g-toast">
           <Shield className="w-4 h-4 text-[#C9A24D] shrink-0" />
-          <span className="truncate font-medium">{notificationToast}</span>
+          <span className="flex-1 truncate font-semibold">{notificationToast}</span>
         </div>
       )}
 
       {locationError && (
-        <div className="fixed top-[calc(4.5rem+env(safe-area-inset-top,0px))] left-3 right-3 z-40 sm:left-auto sm:right-4 sm:max-w-sm rounded-xl border border-amber-400/20 bg-[#11131a]/95 backdrop-blur-md px-3 py-2.5 text-[11px] text-zinc-300 shadow-xl">
-          <span className="text-amber-300 font-semibold">Live location unavailable.</span> Enable location permission to centre the map and appear correctly in proximity discovery.
+        <div className="g-float fixed top-[calc(env(safe-area-inset-top,0px)+62px)] md:top-[calc(env(safe-area-inset-top,0px)+124px)] left-3 right-[66px] md:right-auto md:w-80 z-40 rounded-[14px] px-3.5 py-2.5 text-[11.5px] text-zinc-300 leading-snug">
+          <span className="text-amber-300 font-semibold">Live location unavailable.</span>{' '}
+          {locationError}
         </div>
       )}
 
-      {/* Keet-Inspired Top Bar */}
+      {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab)}
@@ -1784,34 +1789,64 @@ export default function App() {
       <main
         className={
           activeTab === 'right_now'
-            ? 'fixed top-[calc(3.5rem+env(safe-area-inset-top,0px))] bottom-0 left-0 right-0 overflow-hidden overscroll-none p-0'
-            : 'flex-1 min-h-0 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 overflow-y-auto overscroll-contain scroll-pt-[calc(3.5rem+env(safe-area-inset-top,0px))]'
+            ? 'fixed inset-0 md:top-[calc(3.5rem+env(safe-area-inset-top,0px))] overflow-hidden overscroll-none p-0'
+            : 'flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-10 overflow-y-auto overscroll-contain'
         }
       >
         <Suspense fallback={<div className="flex h-full min-h-[40vh] items-center justify-center text-xs text-zinc-400">Loading view…</div>}>
           {activeTab === 'dating' && (
-            <DatingGridView
+            <DiscoverView
               profiles={isSupabaseConfigured && isAuthenticated ? liveDatingProfiles : datingProfiles}
+              pulses={isSupabaseConfigured && isAuthenticated ? supabaseRightNowPulses : pulses}
               safeHavens={safeHavens}
               userNeighborhood={currentUser.neighborhood}
-              stories={stories}
-              intentPosts={intentPosts}
               activeUserIntent={activeUserIntent}
               currentUser={currentUser}
+              onOpenDirectChat={handleOpenDirectChatFromPulse}
               onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
-              onProposeHavenDate={handleProposeHavenDate}
-              onToggleFavorite={handleToggleFavoriteProfile}
-              onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
               onGazeAtPeer={handleGazeAtPeer}
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
+              onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
+              onOpenSetIntent={handleOpenIntentSheet}
+              onOpenMap={() => setActiveTab('right_now')}
+            />
+          )}
+
+          {activeTab === 'profile' && (
+            <ProfileView
+              currentUser={currentUser}
+              activeUserIntent={activeUserIntent}
+              areaLabel={resolveAreaLabel(currentUser.neighborhood)}
               onOpenSetIntent={handleOpenIntentSheet}
               onUpdateActiveUserIntent={(intent) => {
                 setActiveUserIntent(intent);
+                // Keep the local map pulse in step with the signal.
+                setPulses((prev) => {
+                  const others = prev.filter((pulse) => pulse.peerId !== 'peer_me');
+                  if (!intent || intent.isPaused) return others;
+                  const existing = prev.find((pulse) => pulse.peerId === 'peer_me');
+                  if (!existing) return others;
+                  return [
+                    ...others,
+                    {
+                      ...existing,
+                      intent: intent.intent,
+                      description: intent.description,
+                      expiresAt: intent.expiresAt,
+                    },
+                  ];
+                });
                 if (!intent && isSupabaseConfigured) {
                   void endActiveIntents();
                 }
               }}
-              onOpenMap={() => setActiveTab('right_now')}
+              onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
+              isSafetyTimerActive={checkinState.isActive}
+              onOpenMask={() => setIsMaskActive(true)}
+              onOpenIdentity={() => setIsIdentityOpen(true)}
+              onOpenQR={() => handleOpenQRModal()}
+              onOpenSafeHavens={() => setActiveTab('safe_havens')}
+              onOpenDiscover={() => setActiveTab('dating')}
             />
           )}
 
@@ -1842,6 +1877,27 @@ export default function App() {
               onSubmitGaze={handleSubmitGaze}
               onSwitchToLater={() => setActiveTab('later')}
               onRequestLocation={requestUserLocation}
+              onUpdateActiveUserIntent={(intent) => {
+                setActiveUserIntent(intent);
+                setPulses((prev) => {
+                  const others = prev.filter((pulse) => pulse.peerId !== 'peer_me');
+                  if (!intent || intent.isPaused) return others;
+                  const existing = prev.find((pulse) => pulse.peerId === 'peer_me');
+                  if (!existing) return others;
+                  return [
+                    ...others,
+                    {
+                      ...existing,
+                      intent: intent.intent,
+                      description: intent.description,
+                      expiresAt: intent.expiresAt,
+                    },
+                  ];
+                });
+                if (!intent && isSupabaseConfigured) {
+                  void endActiveIntents();
+                }
+              }}
             />
           )}
 
@@ -1883,6 +1939,7 @@ export default function App() {
           {activeTab === 'safe_havens' && (
             <SafeHavenView
               safeHavens={safeHavens}
+              onBack={() => setActiveTab('profile')}
               onSelectVenueForPulse={(haven) => {
                 setActiveTab('right_now');
                 showToast(`Broadcasting pulse at ${haven.name}`);

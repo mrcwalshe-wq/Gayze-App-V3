@@ -147,17 +147,29 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs font-semibold text-zinc-200 tracking-wide uppercase font-sans">
-              Encrypted Groups ({rooms.length})
+            <span className="text-[15px] font-extrabold text-white tracking-tight">
+              Messages
             </span>
+            {rooms.length > 0 && (
+              <span className="text-[11px] text-zinc-500 font-mono">{rooms.length}</span>
+            )}
           </div>
-          <span className="text-[10px] text-zinc-400 bg-[#171922] px-2 py-0.5 rounded-md border border-white/10 font-mono">
-            E2EE
+          <span className="flex items-center gap-1.5 text-[10.5px] text-zinc-500 font-medium">
+            <Lock className="w-3 h-3 text-emerald-400" />
+            Encrypted
           </span>
         </div>
 
         {/* Room List */}
         <div className="flex-1 overflow-y-auto divide-y divide-white/[0.04]">
+          {rooms.length === 0 && (
+            <div className="p-6 text-center">
+              <p className="text-[13px] font-bold text-white">No messages yet</p>
+              <p className="text-[11.5px] text-zinc-500 mt-1 leading-relaxed">
+                Conversations open automatically when interest is mutual on an intent.
+              </p>
+            </div>
+          )}
           {rooms.map((room) => {
             const isSelected = room.id === currentRoom?.id;
             const isGathering = room.type === 'gathering';
@@ -213,9 +225,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         </div>
 
         {/* Footnote */}
-        <div className="p-3 bg-[#090a0e] border-t border-white/[0.08] text-[11px] text-zinc-500 flex items-center justify-between font-mono">
-          <span>AES-256-GCM</span>
-          <span className="text-zinc-400">Device storage only</span>
+        <div className="p-3 bg-[#090a0e] border-t border-white/[0.08] text-[11px] text-zinc-600 flex items-center gap-1.5">
+          <Lock className="w-3 h-3 text-emerald-400/80" />
+          <span>End-to-end encrypted · auto-delete per chat</span>
         </div>
       </div>
 
@@ -490,7 +502,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 />
                 <div className="text-[11px] pr-2">
                   <span className="text-zinc-200 font-semibold block">Photo attached</span>
-                  <span className="text-emerald-400 font-mono text-[10px]">E2EE encrypted on send</span>
+                  <span className="text-emerald-400/90 text-[10.5px]">Encrypted on send</span>
                 </div>
                 <button
                   type="button"
@@ -562,8 +574,14 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           </form>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center p-8 text-center text-zinc-500 text-xs sm:text-sm">
-          Select a group room to view encrypted communications
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="g-empty max-w-sm !bg-transparent !border-0 !shadow-none">
+            <div className="g-empty__icon">
+              <Lock className="w-5 h-5" />
+            </div>
+            <h3>No conversation open</h3>
+            <p>Pick a chat — or message someone from an intent to start an encrypted thread.</p>
+          </div>
         </div>
       )}
 

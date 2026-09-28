@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { SafeHaven } from '../types';
-import { Shield, ShieldCheck, MapPin, Phone, Clock, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Shield, ShieldCheck, MapPin, Phone, Clock, Sparkles, CheckCircle2, ArrowRight, ChevronLeft } from 'lucide-react';
 
 interface SafeHavenViewProps {
   safeHavens: SafeHaven[];
   onSelectVenueForPulse: (haven: SafeHaven) => void;
   onStartSafeCheckinWithVenue: (haven: SafeHaven) => void;
+  onBack?: () => void;
 }
 
 export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
   safeHavens,
   onSelectVenueForPulse,
   onStartSafeCheckinWithVenue,
+  onBack,
 }) => {
   const [filterType, setFilterType] = useState<string>('all');
 
@@ -25,6 +27,15 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
       {/* Header */}
       <div className="gayze-page-intro flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="g-btn g-btn--quiet !min-h-[36px] px-3 text-[12px] mb-3"
+            >
+              <ChevronLeft className="w-4 h-4" /> Profile
+            </button>
+          )}
           <div className="flex items-center gap-3">
             <span className="h-7 w-[2px] bg-gradient-to-b from-emerald-400 to-[#C9A24D]" />
             <div>
