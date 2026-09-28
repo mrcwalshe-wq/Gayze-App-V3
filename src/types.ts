@@ -64,8 +64,8 @@ export interface Gathering {
   address: string;
   neighborhood: string;
   isSafeHavenVenue: boolean;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   capacity: number;
   rsvpCount: number;
   isAttending: boolean;
