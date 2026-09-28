@@ -152,6 +152,11 @@ export default function App() {
     const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       if (disposed) return;
 
+      // A local-first sign-out invalidates the current auth generation before
+      // calling Supabase. Ignore any late auth event from the old session so
+      // it cannot immediately re-authenticate the UI.
+      if (isSigningOut) return;
+
       if (event === 'PASSWORD_RECOVERY') {
         recoverySessionRef.current = true;
         setForcedAuthMode('reset');
@@ -1877,47 +1882,65 @@ export default function App() {
         onSignOut={async () => {
           if (isSigningOut) return;
           setIsSigningOut(true);
-          // Invalidate every in-flight auth/bootstrap operation before touching
-          // storage so a late getSession/discovery response cannot sign the UI
-          // back in after the user has explicitly signed out.
+
+          // Invalidate every in-flight auth/bootstrap operation immediately.
+          // The UI must never wait for a network round-trip to show the signed-out state.
           authGenerationRef.current += 1;
           locationWatchStopRef.current?.();
           locationWatchStopRef.current = null;
+          recoverySessionRef.current = false;
 
+          // Remove the persisted browser session first. This is the authoritative
+          // local logout path and also works when Supabase's network sign-out is
+          // unavailable or slow.
           try {
-            if (supabase) {
-              const { error } = await supabase.auth.signOut({ scope: 'local' });
-              if (error) {
-                console.warn('[GAYZE] Supabase local sign-out returned an error:', error.message);
+            window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+            window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+            for (const storage of [window.localStorage, window.sessionStorage]) {
+              for (let index = storage.length - 1; index >= 0; index -= 1) {
+                const key = storage.key(index);
+                if (key && (
+                  key.startsWith('sb-') ||
+                  key.includes('supabase.auth') ||
+                  key.includes('supabase-auth-token')
+                )) {
+                  storage.removeItem(key);
+                }
               }
             }
           } catch (error) {
-            console.warn('[GAYZE] Supabase sign-out exception:', error);
-          } finally {
-            window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-            window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-            localStorage.removeItem('gayze_messages');
-            localStorage.removeItem('gayze_active_user_intent');
-
-            setActiveUserIntent(null);
-            setSupabaseRightNowPulses([]);
-            setSupabaseReady(false);
-            setSupabaseUserId(null);
-            setIdentityDevices([]);
-            setCurrentDeviceFingerprint(null);
-            setOnlineUserIds(new Set());
-            setUserLocation(null);
-            setLocationError(null);
-            setIsIdentityOpen(false);
-            setIsAuthenticated(false);
-            setAuthReady(true);
-            recoverySessionRef.current = false;
-
-            // Let React render the signed-out state before the navigation.
-            window.setTimeout(() => {
-              window.location.replace(window.location.origin);
-            }, 0);
+            console.warn('[GAYZE] Could not clear browser auth storage:', error);
           }
+
+          // Clear local application state synchronously.
+          localStorage.removeItem('gayze_messages');
+          localStorage.removeItem('gayze_active_user_intent');
+          setActiveUserIntent(null);
+          setSupabaseRightNowPulses([]);
+          setSupabaseReady(false);
+          setSupabaseUserId(null);
+          setIdentityDevices([]);
+          setCurrentDeviceFingerprint(null);
+          setOnlineUserIds(new Set());
+          setUserLocation(null);
+          setLocationError(null);
+          setIsIdentityOpen(false);
+          setIsAuthenticated(false);
+          setAuthReady(true);
+
+          // Best-effort server-side/session cleanup. Do not block the logout UI
+          // on this request; a failed request cannot restore the local session.
+          if (supabase) {
+            void supabase.auth.signOut({ scope: 'local' }).catch((error) => {
+              console.warn('[GAYZE] Supabase local sign-out failed after local logout:', error);
+            });
+          }
+
+          // Give React a tick to render AuthView, then hard-navigate so all
+          // auth/bootstrap effects are torn down.
+          window.setTimeout(() => {
+            window.location.replace(window.location.origin);
+          }, 50);
         }}
       />
 
