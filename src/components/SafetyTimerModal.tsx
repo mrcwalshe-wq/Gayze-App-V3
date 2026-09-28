@@ -80,10 +80,10 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
           /* Active local timer */
           <div className="space-y-4">
             <div className={`p-4 rounded-xl border text-center space-y-1.5 transition-colors ${isExpiringSoon
-              ? 'bg-rose-950/40 border-rose-500/60 animate-pulse'
+              ? 'bg-rose-950/35 border-rose-500/45'
               : 'bg-[#141620] border-white/[0.08]'
               }`}>
-              <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase font-mono tracking-wider font-semibold">
+              <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium">
                 {isExpiringSoon ? (
                   <span className="text-rose-400 flex items-center gap-1">
                     <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
@@ -107,7 +107,7 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
 
             {checkinState.notes && (
               <div className="p-3 bg-[#141620] rounded-xl border border-white/[0.07] text-xs text-zinc-300">
-                <span className="text-zinc-400 font-mono text-[10px] uppercase tracking-wider block mb-0.5">PRIVATE CHECK-IN NOTE:</span>
+                <span className="g-label mb-0.5">Private check-in note</span>
                 {checkinState.notes}
               </div>
             )}

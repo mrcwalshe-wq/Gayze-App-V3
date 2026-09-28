@@ -19,6 +19,38 @@ const fallbackMapCenter: [number, number] = [FALLBACK_MAP_CENTER.lat, FALLBACK_M
 const PRIVACY_RADIUS_METERS = 300;
 
 /** Great-circle distance in km — computed on the device, never invented. */
+/**
+ * Group live intents into atmospheric hotspots.
+ *
+ * Nearby intents merge into one softer, warmer pool of light; isolated intents
+ * stay as small quiet pools. This is what keeps the haze reading as *light in
+ * the room* rather than as one circle per person.
+ */
+const clusterIntents = (
+  points: { lat: number; lng: number }[],
+  radiusKm: number,
+): { lat: number; lng: number; count: number }[] => {
+  const clusters: { lat: number; lng: number; count: number; sumLat: number; sumLng: number }[] = [];
+  for (const point of points) {
+    const match = clusters.find(
+      (cluster) => haversineKm(cluster.lat, cluster.lng, point.lat, point.lng) <= radiusKm,
+    );
+    if (!match) {
+      clusters.push({ lat: point.lat, lng: point.lng, count: 1, sumLat: point.lat, sumLng: point.lng });
+      continue;
+    }
+    match.sumLat += point.lat;
+    match.sumLng += point.lng;
+    match.count += 1;
+    match.lat = match.sumLat / match.count;
+    match.lng = match.sumLng / match.count;
+  }
+  return clusters.map(({ lat, lng, count }) => ({ lat, lng, count }));
+};
+
+/** Haze pool footprint in metres: one intent is small, a crowd spreads. */
+const hazeRadiusFor = (count: number): number => 240 + Math.min(count, 12) * 46;
+
 const haversineKm = (aLat: number, aLng: number, bLat: number, bLng: number): number => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(bLat - aLat);
@@ -203,10 +235,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // explicitly selects a person, pulse, or Safe Haven.
   const [selectedItem, setSelectedItem] = useState<MapDiscoveryItem | null>(null);
 
-  const glowPulseBg = useMemo(() => ({
-    background: 'radial-gradient(circle at 50% 20%, rgba(111, 60, 195, 0.18), transparent 36%), linear-gradient(180deg, rgba(14,16,23,0.96), rgba(8,9,14,0.98))',
-  }), []);
-
   const [isCardExpanded, setIsCardExpanded] = useState<boolean>(false);
 
   // 5. "I'm Interested" & Gaze States
@@ -300,11 +328,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       if (result.mutual) {
         triggerVibration([40, 60, 100]);
         setMutualMatchPulse(pulseObj);
-        showStatusMessage('⚡ Mutual interest — opening your chat', 2500);
+        showStatusMessage('Mutual interest — opening your chat', 2500);
         setSelectedItem(null);
         setIsCardExpanded(false);
       } else {
-        showStatusMessage('✓ Interest sent — they can now respond', 2500);
+        showStatusMessage('Interest sent — they can now respond', 2500);
       }
     } catch (error) {
       console.error('[GAYZE] Interest submission failed', error);
@@ -325,7 +353,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (pulseObj && onSubmitGaze) {
       try {
         await onSubmitGaze(pulseObj);
-        showStatusMessage(`👁️ Gaze sent to ${name}`, 2200);
+        showStatusMessage(`Gaze sent to ${name}`, 2200);
       } catch (error) {
         console.error('[GAYZE] Gaze submission failed', error);
         showStatusMessage('Gaze could not be sent — try again');
@@ -463,7 +491,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
     if (activeCategory !== 'people' && activeCategory !== 'havens') {
       livePulses.forEach((pulse) => {
-        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
+        if (pulse.peerId === 'peer_me') return;
         const km = distanceKmForPulse(pulse);
         if (!matchesFilters({
           category: 'pulse',
@@ -491,6 +519,25 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (item.type === 'haven') return distanceKmForHaven(item.item);
     return distanceKmForProfile(item.item);
   };
+
+  /** Whether the item on screen is genuinely live right now (never assumed). */
+  const isItemLive = (item: MapDiscoveryItem): boolean => {
+    if (item.type === 'haven') return true;
+    const expiresAt = item.type === 'pulse' ? item.item.expiresAt : item.item.intentExpiresAt;
+    if (!expiresAt) return false;
+    return expiresAt > nowTick;
+  };
+
+  const isItemPrivate = (item: MapDiscoveryItem): boolean => {
+    if (item.type === 'haven') return false;
+    if (item.type === 'pulse') {
+      return item.item.intentMode === 'private' || Boolean(item.item.intent?.includes('Hookup'));
+    }
+    return item.item.intentMode === 'private' || item.item.lookingFor === 'casual';
+  };
+
+  const isSelectedLive = selectedItem ? isItemLive(selectedItem) : false;
+  const selectedItemIsPrivate = selectedItem ? isItemPrivate(selectedItem) : false;
 
   // Helpers for discovery item rendering
   const getDisplayName = (item: MapDiscoveryItem) => {
@@ -654,6 +701,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
     attachProviderLayer(0);
 
+    // GAYZE haze pane: sits under the markers so atmosphere never obscures
+    // something the user is trying to read.
+    map.createPane('gayzeHaze');
+    const hazePane = map.getPane('gayzeHaze');
+    if (hazePane) hazePane.classList.add('g-haze-pane');
+
     const layerGroup = L.layerGroup().addTo(map);
     layerGroupRef.current = layerGroup;
     mapInstanceRef.current = map;
@@ -754,14 +807,20 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
     layerGroup.clearLayers();
 
-    // 0. Purple activity haze — one breathing marker per real live intent.
-    //    Nothing is drawn when there is no live intent (no synthetic heat, no
-    //    invented coordinates).
-    const hazeTargets: { lat: number; lng: number }[] = [];
+    // 0. Purple atmosphere — soft spatial pools of light around live intent.
+    //
+    //    Each pool is drawn as four concentric, very low-alpha fills inside a
+    //    dedicated pane beneath the markers. Together they resolve as one soft
+    //    spatial gradient (light through smoke) at a fraction of the cost of a
+    //    blurred layer, so panning stays smooth on mobile. Concentrations merge
+    //    into a single denser pool — the haze is a property of the area, not a
+    //    ring around a person, and it never encodes anyone's exact position.
     if (activeCategory !== 'people' && activeCategory !== 'havens') {
+      const hazePoints: { lat: number; lng: number }[] = [];
       livePulses.forEach((pulse) => {
-        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
-        if (pulse.peerId === 'peer_me' && activeUserIntent?.isPaused) return;
+        // Your own signal is drawn from your live intent at your device
+        // position (see the self marker below) — never as a nearby row.
+        if (pulse.peerId === 'peer_me') return;
         if (!Number.isFinite(pulse.lat) || !Number.isFinite(pulse.lng)) return;
         if (!matchesFilters({
           category: 'pulse',
@@ -769,49 +828,69 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           km: distanceKmForPulse(pulse),
           activityCategory: pulse.activityCategory,
         })) return;
-        hazeTargets.push({ lat: pulse.lat, lng: pulse.lng });
+        hazePoints.push({ lat: pulse.lat, lng: pulse.lng });
       });
-    }
-    hazeTargets.slice(0, 60).forEach((target) => {
-      const isPrivate = false;
-      L.circle([target.lat, target.lng], {
-        radius: 470,
-        stroke: false,
-        fillColor: isPrivate ? '#6F3CC3' : '#6F3CC3',
-        fillOpacity: 0.10,
-        className: 'gayze-haze',
-      }).addTo(layerGroup);
-      L.circle([target.lat, target.lng], {
-        radius: 215,
-        stroke: false,
-        fillColor: '#8452db',
-        fillOpacity: 0.13,
-        className: 'gayze-haze',
-      }).addTo(layerGroup);
-    });
 
-    // 1. User Location and Privacy Jitter Circle
+      clusterIntents(hazePoints, 1.1)
+        .slice(0, 20)
+        .forEach((cluster) => {
+          const radius = hazeRadiusFor(cluster.count);
+          const dense = cluster.count > 3;
+          // Three bands of very low alpha resolve as one soft gradient. Only the
+          // outer shell animates, so a busy map costs three fills per hotspot and
+          // a single animated property.
+          [
+            { scale: 1, opacity: 0.05, layer: 'outer' },
+            { scale: 0.62, opacity: 0.052, layer: 'mid' },
+            { scale: 0.3, opacity: 0.058, layer: 'core' },
+          ].forEach((band) => {
+            L.circle([cluster.lat, cluster.lng], {
+              pane: 'gayzeHaze',
+              radius: radius * band.scale,
+              stroke: false,
+              fillColor: dense ? '#9d74ec' : '#6F3CC3',
+              fillOpacity: band.opacity,
+              interactive: false,
+              bubblingMouseEvents: false,
+              className: `g-haze g-haze--${band.layer}${dense ? ' g-haze--dense' : ''}`,
+            }).addTo(layerGroup);
+          });
+        });
+    }
+
+    // 1. Your own position, and — when you are live — your own signal.
     if (privacySetting !== 'ghost' && userLocation) {
       const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 500;
+      const isLive = Boolean(activeUserIntent && !activeUserIntent.isPaused);
       if (showJitterCircles) {
+        // Your own privacy area, drawn in the brand's violet rather than a
+        // generic blue so the whole map stays inside one palette.
         L.circle([userLocation.lat, userLocation.lng], {
           radius: userJitterRadius,
-          color: '#38bdf8',
+          color: 'rgba(170, 132, 245, 0.55)',
           weight: 1,
-          dashArray: '4, 4',
-          fillColor: '#0284c7',
-          fillOpacity: 0.07,
+          dashArray: '3, 5',
+          fillColor: '#6F3CC3',
+          fillOpacity: 0.05,
         }).addTo(layerGroup);
       }
-      const userIcon = L.divIcon({
+
+      const selfIcon = L.divIcon({
         className: 'custom-user-marker',
-        html: '<div class="gm-user"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
+        html: `<div class="${isLive ? 'gm-self' : 'gm-user'}${
+          activeUserIntent?.isPaused ? ' gm-self--paused' : ''
+        }"></div>`,
+        iconSize: isLive ? [34, 34] : [14, 14],
+        iconAnchor: isLive ? [17, 17] : [7, 7],
       });
-      L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+      L.marker([userLocation.lat, userLocation.lng], { icon: selfIcon, zIndexOffset: 400 })
         .addTo(layerGroup)
-        .bindTooltip(`Approximate area · ${resolveAreaLabel(userNeighborhood)}`, { direction: 'top', offset: [0, -6] });
+        .bindTooltip(
+          isLive
+            ? `Your live signal · ${resolveAreaLabel(userNeighborhood)}`
+            : `Approximate area · ${resolveAreaLabel(userNeighborhood)}`,
+          { direction: 'top', offset: [0, -10] },
+        );
     }
 
     const occupiedMarkerCoordinates = new Map<string, number>();
@@ -873,8 +952,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     // 4. Pulses
     if (activeCategory !== 'havens' && activeCategory !== 'people') {
       livePulses.forEach((pulse) => {
-        if (privacySetting === 'ghost' && pulse.peerId === 'peer_me') return;
-        if (pulse.peerId === 'peer_me' && activeUserIntent?.isPaused) return;
+        if (pulse.peerId === 'peer_me') return;
         const isPrivate = pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup'));
         // Only real, published coordinates are ever mapped.
         const hasCoords = Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng);
@@ -931,10 +1009,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   ]);
 
   return (
-    <div className="gayze-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none bg-[#07080b]" style={glowPulseBg}>
+    <div className="g-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none">
       {/* Subtle Map Tile Failure Fallback State */}
       {mapTilesUnavailable && (
-        <div className="absolute top-16 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm mx-auto bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 shadow-2xl animate-in fade-in duration-200 pointer-events-auto">
+        <div className="absolute top-16 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm mx-auto g-panel p-3.5 !rounded-[18px] pointer-events-auto">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-zinc-200 text-xs font-semibold">
               <Compass className="w-4 h-4 text-[#C9A24D] shrink-0" />
@@ -972,11 +1050,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               aria-label="Manage your Right Now signal"
             >
               <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  activeUserIntent.isPaused
-                    ? 'bg-zinc-500'
-                    : 'bg-[#6F3CC3] shadow-[0_0_10px_rgba(111,60,195,0.9)] animate-pulse'
-                }`}
+                className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
+                aria-hidden="true"
               />
               <span className="min-w-0 text-left">
                 <span className="flex items-baseline gap-1.5 min-w-0">
@@ -992,7 +1067,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </button>
           ) : (
             <div className="g-float g-map-state !cursor-default">
-              <span className="w-2 h-2 rounded-full shrink-0 bg-[#6F3CC3] shadow-[0_0_10px_rgba(111,60,195,0.9)]" />
+              <span className="w-2 h-2 rounded-full shrink-0 bg-[#6F3CC3]/70" aria-hidden="true" />
               <span className="min-w-0 text-left">
                 <span className="flex items-baseline gap-1.5">
                   <span>Right Now</span>
@@ -1037,7 +1112,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             className="g-icon-btn g-icon-btn--bare !w-8 !h-8 shrink-0 text-[13px]"
             aria-label="Dismiss message"
           >
-            ✕
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -1048,6 +1123,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           Maintains an explicit height and handles ResizeObserver container layout changes.
          ========================================================================= */}
       <div className="w-full h-full absolute inset-0 z-0" style={{ height: '100%', minHeight: '100%', width: '100%' }}>
+        {/* Spatial violet bleed: situates the map inside the brand's light
+            instead of sitting on top of it as a separate widget. */}
+        <div className="g-map-edge--violet" aria-hidden="true" />
         <style>{'.leaflet-control-attribution{margin-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px) + 76px)!important;margin-right:.5rem!important;padding:2px 5px!important;border-radius:5px!important;background:rgba(7,8,11,.78)!important;color:rgba(255,255,255,.65)!important;font-size:9px!important;line-height:14px!important}.leaflet-control-attribution a{color:rgba(255,255,255,.78)!important}.leaflet-control-zoom{display:none!important}.leaflet-touch .leaflet-control-zoom{display:none!important}'}</style>
         <div
           ref={mapContainerRef}
@@ -1056,9 +1134,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             height: '100%',
             minHeight: '100%',
             width: '100%',
-            backgroundImage: 'radial-gradient(circle at 50% 42%, rgba(111, 60, 195, 0.16), transparent 44%), radial-gradient(circle at 15% 10%, rgba(201, 162, 77, 0.08), transparent 30%)'
+            backgroundImage:
+              'radial-gradient(circle at 50% 42%, rgba(111, 60, 195, 0.13), transparent 46%), radial-gradient(circle at 14% 8%, rgba(201, 162, 77, 0.05), transparent 30%)'
           }}
         />
+        {/* The map dissolves into glass chrome at both edges. */}
+        <div className="g-map-edge g-map-edge--top" aria-hidden="true" />
+        <div className="g-map-edge g-map-edge--bottom" aria-hidden="true" />
       </div>
       {/* Right micro-rail — locate · zoom only (privacy radius lives in filters) */}
       <div className="g-map-rail absolute top-[calc(env(safe-area-inset-top,0px)+66px)] right-3 z-30 pointer-events-auto">
@@ -1185,7 +1267,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 aria-label="Your signal is live — manage it"
               >
                 {!activeUserIntent.isPaused && (
-                  <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/90" aria-hidden="true" />
                 )}
                 <span>{activeUserIntent.isPaused ? 'Paused' : 'Live'}</span>
                 <span className="font-mono text-[12px] font-semibold opacity-90">
@@ -1241,13 +1323,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <ShieldCheck className="w-5 h-5" />
                 </div>
               ) : (
-                <div
-                  className={`w-11 h-11 rounded-[14px] border flex items-center justify-center font-bold text-sm shrink-0 ${
-                    selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
-                      ? 'bg-[#191226] border-[#6F3CC3]/70 text-purple-200'
-                      : 'bg-[#1c1810] border-[#C9A24D]/60 text-[#e7c98a]'
-                  }`}
-                >
+                <div className={`g-avatar w-11 h-11 text-[14px] ${selectedItemIsPrivate ? 'g-avatar--private' : 'g-avatar--social'}`}>
                   {selectedItem.item.peerName.charAt(0)}
                 </div>
               )}
@@ -1258,7 +1334,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {getDisplayName(selectedItem)}
                   </h3>
                   {selectedItem.type === 'haven' ? (
-                    <span className="g-badge g-badge--verify">★ {selectedItem.item.safetyScore}</span>
+                    <span className="g-badge g-badge--verify">{selectedItem.item.safetyScore} safety</span>
                   ) : (
                     <span
                       className={`g-chip ${
@@ -1460,29 +1536,30 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       />
                     </div>
                   ) : selectedItem.type === 'haven' ? (
-                    <div className="w-14 h-14 rounded-2xl bg-[#10221c] border-2 border-emerald-500/70 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_12px_24px_rgba(16,185,129,0.18)]">
-                      <ShieldCheck className="w-7 h-7" />
+                    <div className="g-avatar w-14 h-14 !rounded-[16px] !bg-[#0f1f1a] !border-[#34d399]/45 text-emerald-400">
+                      <ShieldCheck className="w-6 h-6" />
                     </div>
                   ) : (
-                    <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center font-black text-xl shrink-0 shadow-[0_12px_24px_rgba(111,60,195,0.2)] ${selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup')
-                      ? 'bg-[#251538] border-purple-500 text-purple-200'
-                      : 'bg-[#251e12] border-[#C9A24D] text-[#C9A24D]'
-                      }`}>
+                    <div className={`g-avatar w-14 h-14 text-[20px] ${selectedItemIsPrivate ? 'g-avatar--private' : 'g-avatar--social'}`}>
                       {selectedItem.item.peerName.charAt(0)}
                     </div>
                   )}
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-black text-white tracking-tight">
+                      <h2 className="text-[17px] font-semibold text-white tracking-[-0.015em]">
                         {getDisplayName(selectedItem)}
                       </h2>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 mt-0.5">
-                      <span className="text-[#C9A24D] font-semibold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] animate-pulse" />
-                        Active Right Now
+                    <div className="g-map-state__meta flex items-center gap-2 mt-0.5">
+                      {isSelectedLive ? (
+                        <span className="g-live-dot" aria-hidden="true" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" aria-hidden="true" />
+                      )}
+                      <span className="text-zinc-300">
+                        {isSelectedLive ? 'Live right now' : 'Not live'}
                       </span>
                       <span>·</span>
                       <span>{formatDistanceKm(itemDistanceKm(selectedItem))} away</span>
@@ -1500,21 +1577,21 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 </button>
               </div>
 
-              {/* Intent Mode & Category Highlight Box */}
-              <div className="p-3.5 bg-[#12141e] border border-white/[0.08] rounded-2xl space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-zinc-400 uppercase font-semibold">Broadcast Intent</span>
-                  <span className={`px-2 py-0.5 rounded-md font-bold uppercase ${selectedItem.type === 'haven'
-                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
-                    : selectedItem.type === 'pulse' && (selectedItem.item.intentMode === 'private' || selectedItem.item.intent?.includes('Hookup'))
-                      ? 'bg-purple-950 text-purple-300 border border-purple-500/40'
-                      : 'bg-[#C9A24D]/20 text-[#C9A24D] border border-[#C9A24D]/40'
+              {/* Intent summary — one line, quiet, no shouting */}
+              <div className="g-panel p-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="g-label">Intent</span>
+                  <span className={`g-chip ${selectedItem.type === 'haven'
+                    ? 'g-chip--haven'
+                    : selectedItemIsPrivate
+                      ? 'g-chip--private'
+                      : 'g-chip--social'
                     }`}>
                     {selectedItem.type === 'haven'
-                      ? `SAFE HAVEN · ★ ${selectedItem.item.safetyScore}`
+                      ? `Safe Haven · ${selectedItem.item.safetyScore}`
                       : selectedItem.type === 'pulse'
-                        ? `${selectedItem.item.intentMode?.toUpperCase() || 'SOCIAL'} · ${selectedItem.item.intent || selectedItem.item.title}`
-                        : `${selectedItem.item.intentMode?.toUpperCase() || 'SOCIAL'} · ${selectedItem.item.lookingForLabel || 'Connect'}`}
+                        ? `${selectedItem.item.intent || selectedItem.item.title}`
+                        : `${selectedItem.item.lookingForLabel || 'Connect'}`}
                   </span>
                 </div>
 
@@ -1548,53 +1625,53 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               )}
 
               {/* Context Details Grid (Hosting, Window, Neighborhood, Security) */}
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
-                  <span className="text-zinc-500 text-[10px] uppercase font-bold block">Availability Window</span>
-                  <div className="flex items-center gap-1.5 text-zinc-200 font-semibold">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="g-tile">
+                  <span className="g-label">Availability</span>
+                  <span className="g-tile__v">
                     <Clock className="w-3.5 h-3.5 text-[#C9A24D]" />
-                    <span>Available now</span>
-                  </div>
-                  <span className="text-[10px] text-zinc-400 block">
-                    {selectedItem.type === 'pulse' ? `~${selectedItem.item.durationHours} hrs window` : 'Immediate meet'}
+                    {isSelectedLive ? 'Available now' : 'Not currently live'}
+                  </span>
+                  <span className="g-tile__n">
+                    {selectedItem.type === 'pulse' ? `${selectedItem.item.durationHours} hr window` : 'Immediate meet'}
                   </span>
                 </div>
 
-                <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
-                  <span className="text-zinc-500 text-[10px] uppercase font-bold block">Neighborhood</span>
-                  <div className="flex items-center gap-1.5 text-zinc-200 font-semibold truncate">
+                <div className="g-tile">
+                  <span className="g-label">Area</span>
+                  <span className="g-tile__v">
                     <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
                     <span className="truncate">
                       {selectedItem.type === 'haven' ? selectedItem.item.neighborhood : (selectedItem.item as any).venueName || userNeighborhood}
                     </span>
-                  </div>
-                  <span className="text-[10px] text-zinc-400 block">±{PRIVACY_RADIUS_METERS}m privacy area</span>
+                  </span>
+                  <span className="g-tile__n">Approximate · ±{PRIVACY_RADIUS_METERS} m</span>
                 </div>
 
                 {selectedItem.type === 'pulse' && selectedItem.item.canHost && (
-                  <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
-                    <span className="text-zinc-500 text-[10px] uppercase font-bold block">Host Status</span>
-                    <span className="text-purple-300 font-bold block">{selectedItem.item.canHost}</span>
-                    <span className="text-[10px] text-zinc-400 block">Area verified nearby</span>
+                  <div className="g-tile">
+                    <span className="g-label">Hosting</span>
+                    <span className="g-tile__v">{selectedItem.item.canHost}</span>
+                    <span className="g-tile__n">As stated on their intent</span>
                   </div>
                 )}
 
                 {selectedItem.type === 'pulse' && selectedItem.item.travelWillingness && !selectedItem.item.canHost && (
-                  <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1">
-                    <span className="text-zinc-500 text-[10px] uppercase font-bold block">Travel Range</span>
-                    <span className="text-purple-300 font-bold block">{selectedItem.item.travelWillingness}</span>
-                    <span className="text-[10px] text-zinc-400 block">Walking distance</span>
+                  <div className="g-tile">
+                    <span className="g-label">Travel</span>
+                    <span className="g-tile__v">{selectedItem.item.travelWillingness}</span>
+                    <span className="g-tile__n">As stated on their intent</span>
                   </div>
                 )}
 
-                <div className="p-3 bg-[#10121a] border border-white/[0.06] rounded-xl space-y-1 col-span-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 text-[10px] uppercase font-bold">Privacy</span>
+                <div className="g-tile col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="g-label">Privacy</span>
                     <span className="g-badge g-badge--verify">
-                      <ShieldCheck className="w-3 h-3" /> Encrypted chat
+                      <ShieldCheck className="w-3 h-3" /> Encrypted on your device
                     </span>
                   </div>
-                  <div className="text-[11px] text-zinc-300 flex items-center gap-2">
+                  <div className="text-[11.5px] text-zinc-300 flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span>Approximate location only · exact GPS stays on the device</span>
                   </div>
@@ -1611,9 +1688,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         onSelectHaven(selectedItem.item);
                         setIsCardExpanded(false);
                       }}
-                      className="h-12 min-h-[44px] px-3 text-xs font-bold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wide font-sans shadow-[0_12px_24px_rgba(201,162,77,0.22)]"
+                      className="g-btn g-btn--amber flex-1 !min-h-[46px]"
                     >
-                      <MapPin className="w-4 h-4 fill-black" />
+                      <MapPin className="w-4 h-4" />
                       <span>View Safe Haven</span>
                     </button>
 
@@ -1640,9 +1717,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         type="button"
                         onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                         disabled={interestPendingIds.has(selectedItem.item.id)}
-                        className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${interestedIds.has(selectedItem.item.id)
-                          ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
-                          : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
+                        className={`g-btn !min-h-[46px] !px-2 flex-1 ${interestedIds.has(selectedItem.item.id)
+                          ? 'g-btn--selected'
+                          : 'g-btn--quiet'
                           }`}
                       >
                         {interestedIds.has(selectedItem.item.id) ? (
@@ -1661,9 +1738,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       <button
                         type="button"
                         onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
-                        className={`h-12 min-h-[44px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border active:scale-98 ${gazedPeerNames.has(selectedItem.item.name)
-                          ? 'bg-[#201530] text-purple-300 border-[#6F3CC3]/60'
-                          : 'bg-[#141620] text-zinc-200 border-white/10 hover:border-white/20'
+                        className={`g-btn !min-h-[46px] !px-2 flex-1 ${gazedPeerNames.has(selectedItem.item.name)
+                          ? 'g-btn--selected'
+                          : 'g-btn--quiet'
                           }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
@@ -1700,9 +1777,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenDirectChatWithProfile(selectedItem.item);
                         }
                       }}
-                      className="h-12 min-h-[44px] px-2 text-xs font-black text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[0_12px_24px_rgba(201,162,77,0.22)] active:scale-98 uppercase tracking-wider font-sans"
+                      className="g-btn g-btn--amber flex-1 !min-h-[46px]"
                     >
-                      <Lock className="w-4 h-4 fill-black" />
+                      <Lock className="w-4 h-4" />
                       <span>Message</span>
                     </button>
                   </div>
@@ -2057,11 +2134,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <div className="g-sheet__head">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span
-                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                    activeUserIntent.isPaused
-                      ? 'bg-zinc-500'
-                      : 'bg-[#6F3CC3] shadow-[0_0_10px_rgba(111,60,195,0.9)] animate-pulse'
-                  }`}
+                  className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
+                  aria-hidden="true"
                 />
                 <div className="min-w-0">
                   <h2 className="text-[15px] font-extrabold text-white leading-tight">
@@ -2156,13 +2230,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {mutualMatchPulse && (
         <div className="g-overlay flex items-center justify-center p-4" onClick={() => setMutualMatchPulse(null)}>
           <div
-            className="w-full max-w-sm p-5 g-panel !rounded-[20px] shadow-[0_0_50px_rgba(111,60,195,0.35)] space-y-4"
+            className="w-full max-w-sm p-5 g-panel !rounded-[20px] space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <span className="g-label text-[#C9A24D]">Mutual interest</span>
-                <h3 className="text-[17px] font-extrabold text-white tracking-tight mt-1">
+                <h3 className="text-[17px] font-semibold text-white tracking-[-0.015em] mt-1">
                   {(mutualMatchPulse.intent || mutualMatchPulse.title).replace(' · ', ' ')} · now
                 </h3>
                 <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed">

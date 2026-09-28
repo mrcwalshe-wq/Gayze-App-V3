@@ -192,7 +192,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-xl animate-in fade-in">
-      <div className="relative w-full max-w-sm sm:max-w-md h-[560px] sm:h-[600px] bg-[#0c0d14] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between p-5 sm:p-6">
+      <div className="relative w-full max-w-sm sm:max-w-md h-[560px] sm:h-[600px] g-panel !rounded-[22px] overflow-hidden flex flex-col justify-between p-5 sm:p-6">
         {/* Top Header: Encryption & Call Security */}
         <div className="flex items-center justify-between text-xs z-20">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-mono">
@@ -204,11 +204,11 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
             {callState === 'connected' ? (
               <span className="text-white font-bold tracking-wider">{formatDuration(durationSeconds)}</span>
             ) : callState === 'calling' ? (
-              <span className="text-[#C9A24D] animate-pulse">Calling...</span>
+              <span className="text-[#C9A24D]">Calling…</span>
             ) : callState === 'ringing' ? (
-              <span className="text-[#C9A24D] animate-pulse">Ringing...</span>
+              <span className="text-[#C9A24D]">Ringing…</span>
             ) : callState === 'connecting' ? (
-              <span className="text-amber-300 animate-pulse">Securing peer connection...</span>
+              <span className="text-amber-300">Securing peer connection…</span>
             ) : callState === 'declined' ? (
               <span className="text-rose-400 font-semibold">Call Declined</span>
             ) : callState === 'missed' ? (
@@ -279,14 +279,11 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
                 </div>
               )}
 
-              {/* Animated audio wave pulses when connected */}
+              {/* Live audio indicator — one line that breathes, not an equaliser */}
               {callState === 'connected' && (
-                <div className="flex items-center gap-1.5 h-8 pt-2">
-                  <div className="w-1 bg-[#C9A24D] h-4 rounded-full animate-pulse" />
-                  <div className="w-1 bg-[#C9A24D] h-7 rounded-full animate-pulse delay-75" />
-                  <div className="w-1 bg-[#C9A24D] h-3 rounded-full animate-pulse delay-150" />
-                  <div className="w-1 bg-[#C9A24D] h-6 rounded-full animate-pulse delay-200" />
-                  <div className="w-1 bg-[#C9A24D] h-5 rounded-full animate-pulse delay-100" />
+                <div className="flex items-center gap-2 h-8 pt-2">
+                  <span className="g-live-amber" aria-hidden="true" />
+                  <span className="text-[11.5px] text-zinc-400">Connected</span>
                 </div>
               )}
             </div>
@@ -305,7 +302,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
               muted
               className="w-full h-full object-cover mirror"
             />
-            <span className="absolute bottom-1 left-2 text-[9px] font-mono text-white/80 bg-black/60 px-1 rounded">
+            <span className="absolute bottom-1.5 left-2 text-[10px] font-medium text-white/85 bg-black/55 backdrop-blur-sm px-1.5 py-0.5 rounded-md">
               You
             </span>
           </div>

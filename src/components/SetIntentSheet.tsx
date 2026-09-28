@@ -213,13 +213,15 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
         {/* Header */}
         <div className="g-sheet__head">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className={`flex items-center justify-center w-8 h-8 rounded-[10px] shrink-0 ${
-              isEditing ? 'bg-[#6F3CC3]/20 border border-[#6F3CC3]/50 text-[#b796f0]' : 'bg-white/[0.05] border border-white/10 text-zinc-400'
+            <span className={`flex items-center justify-center w-8 h-8 rounded-[11px] shrink-0 ${
+              isEditing
+                ? 'bg-[#6F3CC3]/18 border border-[#6F3CC3]/45 text-[#b796f0] shadow-[inset_0_1px_0_rgba(170,132,245,0.16)]'
+                : 'bg-white/[0.04] border border-white/[0.09] text-zinc-400'
             }`}>
               <Radio className="w-4 h-4" />
             </span>
             <div className="min-w-0">
-              <h2 id="set-intent-title" className="text-[15px] font-extrabold tracking-tight text-white leading-tight">
+              <h2 id="set-intent-title" className="text-[15.5px] font-semibold tracking-[-0.015em] text-white leading-tight">
                 {isEditing ? 'Your live signal' : 'Set a live signal'}
               </h2>
               <p className="text-[11px] text-zinc-500 leading-tight mt-0.5">
@@ -425,7 +427,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 {safeHavens.length > 0 && (
                   <div className="flex items-center justify-between gap-3 py-3 px-3.5 rounded-[14px] bg-white/[0.03] border border-white/[0.07]">
                     <div className="min-w-0">
-                      <span className="text-[13px] font-bold text-white block">Near a Safe Haven</span>
+                      <span className="text-[13px] font-medium text-white block">Near a Safe Haven</span>
                       <span className="text-[11px] text-zinc-500 block truncate">
                         Show my signal around a vetted public venue
                       </span>
@@ -458,7 +460,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 )}
 
                 <p className="text-[11px] text-zinc-500 leading-relaxed">
-                  Your position stays approximate (±300&nbsp;m). The signal disappears when it expires — nothing is kept on your profile.
+                  Your position stays approximate (±300 m). The signal disappears when it expires. Precise GPS never leaves this device.
                 </p>
               </div>
             )}
@@ -467,7 +469,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
           {/* Sticky footer: summary + go live */}
           <div className="g-sheet__foot">
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-bold text-white truncate">
+              <div className="text-[13px] font-medium text-white truncate">
                 {intent ? optionLabel(intent) : 'Choose what you’re up for'}
               </div>
               <div className="text-[10.5px] font-mono text-zinc-500 truncate">

@@ -122,19 +122,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     : 'text-zinc-400 bg-white/[0.05] border-white/10';
 
   return (
-    <div className="max-w-xl mx-auto pb-6">
-      <header className="pt-4 pb-1">
+    <div className="gayze-premium-page max-w-xl mx-auto pb-6">
+      <header className="pt-5 pb-1">
         <span className="g-label">Profile</span>
       </header>
 
-      {/* Identity */}
+      {/* Identity — quiet, personal, not a dashboard header */}
       <section className="flex items-center gap-4 py-4">
-        <div className="g-avatar w-16 h-16 !rounded-[20px] text-[19px] !bg-[#191430] !text-[#c9b0f5] !border-[#6F3CC3]/50">
+        <div className="g-avatar g-avatar--private w-16 h-16 !rounded-[22px] text-[19px]">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-[21px] font-extrabold tracking-[-0.01em] text-white truncate">
+            <h1 className="text-[20px] font-semibold tracking-[-0.018em] text-white truncate">
               {currentUser.displayName}
             </h1>
             {currentUser.safetyVerified && (
@@ -166,12 +166,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </section>
 
       {/* Current signal */}
-      <section className="g-panel p-4 mb-5">
+      <section className={`g-panel p-4 mb-5 ${activeUserIntent && !activeUserIntent.isPaused ? 'g-panel--live' : ''}`}>
         <div className="flex items-center justify-between gap-3 mb-3">
           <span className="g-label">Your signal</span>
           {activeUserIntent && (
             <span className={`g-chip ${activeUserIntent.isPaused ? 'g-chip--quiet' : 'g-chip--live'}`}>
-              <span className={`g-dot ${activeUserIntent.isPaused ? 'g-dot--muted' : ''}`} />
+              {activeUserIntent.isPaused
+                ? <span className="g-dot g-dot--muted" />
+                : <span className="g-live-dot" aria-hidden="true" />}
               {activeUserIntent.isPaused ? 'Paused' : 'Live'}
             </span>
           )}
@@ -183,16 +185,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className={`g-chip ${activeUserIntent.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
                 {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
               </span>
-              <span className="text-[16px] font-extrabold text-white tracking-tight">
+              <span className="text-[16px] font-semibold text-white tracking-[-0.015em]">
                 {activeUserIntent.intent.replace(' · ', ' ')}
               </span>
             </div>
             <p className="text-[13px] text-zinc-400 leading-relaxed mt-2">{activeUserIntent.description}</p>
-            <div className="flex items-center justify-between gap-3 mt-3 text-[11px] font-mono text-zinc-500">
+            <div className="flex items-center justify-between gap-3 mt-3 text-[11.5px] text-zinc-500">
               <span className="truncate">
                 {activeUserIntent.when} · {activeUserIntent.duration} · {activeUserIntent.travelDistance}
               </span>
-              <span className="text-[#C9A24D] shrink-0">
+              <span className="text-zinc-400 shrink-0">
                 {activeUserIntent.isPaused
                   ? 'paused'
                   : `expires in ${formatRemaining(Math.max(0, activeUserIntent.expiresAt - now))}`}
@@ -214,7 +216,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </>
         ) : (
           <>
-            <p className="text-[13px] text-zinc-500 leading-relaxed mb-3.5">
+            <p className="text-[13px] text-zinc-400 leading-relaxed mb-3.5">
               You are not broadcasting. Set a signal to appear on the map for the next two hours.
             </p>
             {onOpenSetIntent && (
@@ -265,7 +267,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <footer className="flex items-center justify-between px-1 pb-2 opacity-70">
         <div className="flex items-center gap-2 text-zinc-500">
           <Radio className="w-3.5 h-3.5 text-[#6F3CC3]" />
-          <span className="text-[11px] font-bold tracking-[0.18em] uppercase">Gayze</span>
+          <span className="text-[11px] font-medium tracking-[0.1em] text-zinc-400">Gayze</span>
           <span className="text-[11px] text-zinc-600">Real Intent. Real Time.</span>
         </div>
         {onOpenDiscover && (

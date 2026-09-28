@@ -181,15 +181,15 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   };
 
   return (
-    <div className="max-w-2xl mx-auto pb-6">
+    <div className="gayze-premium-page max-w-2xl mx-auto pb-6">
       {/* In-view header (mobile has no global header) */}
-      <header className="flex items-start justify-between gap-3 pt-4 pb-4">
+      <header className="flex items-start justify-between gap-3 pt-5 pb-4">
         <div className="min-w-0">
           <span className="g-label">{userNeighborhood || 'Near you'}</span>
-          <h1 className="text-[26px] leading-tight font-extrabold tracking-[-0.02em] text-white mt-1">
+          <h1 className="text-[25px] leading-tight font-semibold tracking-[-0.022em] text-white mt-1.5">
             Discover
           </h1>
-          <p className="text-[12.5px] text-zinc-500 mt-0.5">
+          <p className="text-[12.5px] text-zinc-500 mt-1">
             {liveCount > 0
               ? `${liveCount} live ${liveCount === 1 ? 'intent' : 'intents'} nearby, nearest first`
               : 'People here, by what they actually want to do'}
@@ -208,22 +208,21 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         <button
           type="button"
           onClick={() => { hapticLight(); onOpenSetIntent?.(); }}
-          className="w-full flex items-center gap-3 mb-4 px-4 py-3 rounded-[16px] text-left cursor-pointer border border-[#6F3CC3]/45 bg-[#6F3CC3]/[0.12] transition-colors hover:bg-[#6F3CC3]/[0.16]"
+          className="g-signal-strip mb-4"
         >
           <span
-            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              activeUserIntent.isPaused ? 'bg-zinc-500' : 'bg-[#6F3CC3] shadow-[0_0_10px_rgba(111,60,195,0.9)] animate-pulse'
-            }`}
+            className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
+            aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
-            <div className="text-[13.5px] font-bold text-white truncate">
-              Your signal · {activeUserIntent.intent.replace(' · ', ' ')}
+            <div className="text-[13.5px] font-semibold text-white truncate">
+              {activeUserIntent.intent.replace(' · ', ' ')}
             </div>
             <div className="g-map-state__meta truncate">
               {activeUserIntent.isPaused ? 'Paused' : `Live around ${activeUserIntent.area}`}
             </div>
           </div>
-          <span className="text-[12px] font-bold text-[#c9b0f5] shrink-0">Manage</span>
+          <span className="text-[12px] text-[#c9b0f5] shrink-0">Manage</span>
         </button>
       )}
 
@@ -272,8 +271,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             >
               <div
                 className={`g-avatar w-11 h-11 text-[14px] ${
-                  row.mode === 'private' ? 'g-avatar--ring-private' : 'g-avatar--ring-social'
-                }`}
+                  row.mode === 'private' ? 'g-avatar--private' : 'g-avatar--social'
+                } ${row.live ? 'g-avatar--live' : ''}`}
               >
                 {row.kind === 'profile' ? (
                   <img
@@ -287,23 +286,38 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-[14px] font-bold text-white truncate">{row.name}</span>
-                  <span className={`g-chip shrink-0 ${row.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`text-[14px] truncate ${row.live ? 'font-semibold text-white' : 'font-medium text-zinc-300'}`}>
+                    {row.name}
+                  </span>
+                  {row.live ? (
+                    <span className="g-chip g-chip--live shrink-0">
+                      <span className="g-dot" />
+                      Live
+                    </span>
+                  ) : (
+                    <span className="g-chip g-chip--quiet shrink-0">Later</span>
+                  )}
+                </div>
+                <div className="text-[12px] text-zinc-400 truncate mt-1">
+                  <span className={row.mode === 'private' ? 'text-[#c9b0f5]' : 'text-[#e7c98a]'}>
                     {row.intentLabel}
                   </span>
-                  {row.live && <span className="g-dot shrink-0" aria-label="Live now" />}
+                  <span className="text-zinc-600"> · </span>
+                  {row.description}
                 </div>
-                <div className="text-[11.5px] text-zinc-500 truncate mt-0.5">{row.description}</div>
-                <div className="flex items-center gap-2 mt-1 text-[10.5px] font-mono text-zinc-600">
+                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-zinc-500">
+                  <span>{row.area}</span>
+                  <span className="text-zinc-700">·</span>
                   <span>{formatDistance(row.km)}</span>
-                  <span>· {row.area}</span>
                   {row.verified && (
-                    <span className="flex items-center gap-1 text-emerald-400/90 not-italic">
-                      <ShieldCheck className="w-3 h-3" /> verified
-                    </span>
+                    <>
+                      <span className="text-zinc-700">·</span>
+                      <span className="flex items-center gap-1 text-emerald-400/90">
+                        <ShieldCheck className="w-3 h-3" /> Verified
+                      </span>
+                    </>
                   )}
-                  {row.reliability > 0 && <span className="text-[#C9A24D]/80">· {row.reliability}</span>}
                 </div>
               </div>
 

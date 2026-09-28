@@ -43,7 +43,7 @@ export const TrustReputationSnapshot: React.FC<TrustReputationSnapshotProps> = (
         {isQRVerified && (
           <>
             <span className="text-zinc-500">·</span>
-            <span className="text-[#C9A24D] font-bold">QR ✓</span>
+            <span className="text-[#C9A24D] font-semibold">QR verified</span>
           </>
         )}
       </span>
@@ -81,7 +81,7 @@ export const TrustReputationSnapshot: React.FC<TrustReputationSnapshotProps> = (
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Award className="w-4 h-4 text-[#C9A24D]" />
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+          <span className="text-[13px] font-semibold text-white">
             TRUST & REPUTATION
           </span>
         </div>
@@ -94,7 +94,7 @@ export const TrustReputationSnapshot: React.FC<TrustReputationSnapshotProps> = (
       <div className="grid grid-cols-2 gap-2 text-xs">
         {/* Verification Status */}
         <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 space-y-0.5">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase">Identity</span>
+          <span className="g-label">Identity</span>
           <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>{isSafetyVerified ? 'Safety Verified' : 'Standard'}</span>
@@ -103,7 +103,7 @@ export const TrustReputationSnapshot: React.FC<TrustReputationSnapshotProps> = (
 
         {/* Peer Vouch count */}
         <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 space-y-0.5">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase">In-Person Peers</span>
+          <span className="g-label">In-person peers</span>
           <div className="flex items-center gap-1.5 text-zinc-200 font-semibold font-mono">
             <Users className="w-3.5 h-3.5 text-purple-400" />
             <span>{verifiedPeers} Verified</span>
@@ -112,7 +112,7 @@ export const TrustReputationSnapshot: React.FC<TrustReputationSnapshotProps> = (
 
         {/* In-Person Encounters */}
         <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 space-y-0.5">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase">Direct Encounters</span>
+          <span className="g-label">Direct encounters</span>
           <div className="flex items-center gap-1.5 text-zinc-200 font-semibold font-mono">
             <HeartHandshake className="w-3.5 h-3.5 text-[#C9A24D]" />
             <span>{metTimes > 0 ? `Met ${metTimes} times` : 'New Connection'}</span>
@@ -121,7 +121,7 @@ export const TrustReputationSnapshot: React.FC<TrustReputationSnapshotProps> = (
 
         {/* QR Handshake */}
         <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 space-y-0.5">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase">QR Cryptographic</span>
+          <span className="g-label">QR verification</span>
           <div className="flex items-center gap-1.5 font-semibold">
             {isQRVerified ? (
               <span className="text-[#C9A24D] flex items-center gap-1">

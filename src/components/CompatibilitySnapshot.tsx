@@ -215,13 +215,13 @@ export const CompatibilitySnapshot: React.FC<CompatibilitySnapshotProps> = ({
 
     return (
       <div
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono text-[9px] font-bold uppercase tracking-wider ${
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${
           hasIntentMatch
-            ? 'bg-amber-400/15 border border-amber-400/40 text-amber-300 shadow-[0_0_10px_rgba(201,162,77,0.25)]'
-            : 'bg-purple-500/15 border border-purple-500/35 text-purple-200'
+            ? 'bg-[#C9A24D]/12 border border-[#C9A24D]/25 text-[#C9A24D]'
+            : 'bg-[#6F3CC3]/16 border border-[#6F3CC3]/30 text-[#c4a9f7]'
         } ${className}`}
       >
-        <Sparkles className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+        <Sparkles className={`w-3 h-3 shrink-0 ${hasIntentMatch ? 'text-[#C9A24D]' : 'text-[#b796f0]'}`} />
         <span>{matchTitle}</span>
       </div>
     );
@@ -233,7 +233,7 @@ export const CompatibilitySnapshot: React.FC<CompatibilitySnapshotProps> = ({
     return (
       <div className={`space-y-1.5 ${className}`}>
         {hasIntentMatch && (
-          <div className="flex items-center gap-1 text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">
+          <div className="flex items-center gap-1 text-[11px] font-medium text-amber-400">
             <Sparkles className="w-3 h-3 text-amber-400" />
             <span>{matchTitle}</span>
           </div>
@@ -265,7 +265,7 @@ export const CompatibilitySnapshot: React.FC<CompatibilitySnapshotProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className={`w-4 h-4 ${hasIntentMatch ? 'text-[#C9A24D]' : 'text-purple-400'}`} />
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+          <span className="text-[13px] font-semibold text-white">
             {matchTitle}
           </span>
         </div>

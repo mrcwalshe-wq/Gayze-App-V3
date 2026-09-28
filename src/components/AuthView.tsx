@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
+import { GayzeLogo } from './GayzeLogo';
 
 export type AuthMode = 'signin' | 'signup' | 'forgot' | 'reset' | 'confirm_pending';
 
@@ -210,16 +211,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   return (
     <div className="min-h-[100dvh] bg-[#090a0f] text-white flex items-center justify-center px-5 py-10">
-      <div className="w-full max-w-md">
+      <div className="g-atmos" aria-hidden="true" />
+      <div className="g-shell w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-5 w-16 h-16 rounded-2xl bg-[#11131a] border border-white/10 flex items-center justify-center shadow-2xl">
-            <div className="w-9 h-9 rounded-full border-2 border-[#6F3CC3] ring-4 ring-[#6F3CC3]/15" />
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">GAYZE</h1>
-          <p className="mt-2 text-sm text-zinc-400">Real Intent. Real Time.</p>
+          <GayzeLogo size={62} showWordmark={false} className="mb-3" />
+          <h1 className="text-[22px] font-semibold tracking-[0.14em] text-white">GAYZE</h1>
+          <p className="mt-1.5 text-[13px] text-zinc-400">
+            <span className="text-[#b796f0]">Real Intent.</span>{' '}
+            <span className="text-[#C9A24D]/90">Real Time.</span>
+          </p>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-[#0e1017]/95 backdrop-blur-xl p-5 sm:p-7 shadow-2xl">
+        <div className="g-panel p-5 sm:p-7 !rounded-[24px]">
           <div className="mb-6">
             <h2 className="text-lg font-semibold">{title}</h2>
             <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>

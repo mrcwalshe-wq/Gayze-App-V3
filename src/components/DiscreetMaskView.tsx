@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal, Shield, Eye, Lock, ArrowLeft } from 'lucide-react';
 
 interface DiscreetMaskViewProps {
   onExitMask: () => void;

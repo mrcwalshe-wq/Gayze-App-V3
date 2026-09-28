@@ -373,7 +373,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 font-semibold">
+                  <span className="g-badge g-badge--verify !text-[11px]">
                     Verified
                   </span>
                 </div>
@@ -447,7 +447,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
 
                   {/* Verification Code */}
                   <div className="p-2.5 rounded-xl bg-[#090a0e] border border-white/10 text-[11px] space-y-1">
-                    <div className="text-zinc-400 text-[10px] uppercase font-mono tracking-wider font-semibold">Safety Match Code</div>
+                    <div className="g-label">Safety match code</div>
                     <div className="font-mono text-[#C9A24D] font-bold tracking-wider">
                       {scannedPeerPayload.fingerprint?.toUpperCase()}
                     </div>
@@ -518,7 +518,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                           className="w-full h-full object-cover"
                         />
                         {/* Target reticle */}
-                        <div className="absolute inset-8 border-2 border-dashed border-[#C9A24D]/80 rounded-xl pointer-events-none animate-pulse" />
+                        <div className="absolute inset-8 border border-dashed border-[#C9A24D]/50 rounded-[14px] pointer-events-none" />
                         <button
                           onClick={stopCamera}
                           className="absolute bottom-2.5 px-3 py-1 text-[11px] font-medium bg-black/80 hover:bg-black text-white rounded-lg backdrop-blur-md border border-white/10 cursor-pointer"

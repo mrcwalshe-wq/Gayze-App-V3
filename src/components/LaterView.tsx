@@ -136,33 +136,28 @@ export const LaterView: React.FC<LaterViewProps> = ({
       {/* Header section with host button */}
       <div className="gayze-page-intro flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <span className="h-7 w-[2px] bg-gradient-to-b from-[#C9A24D] to-[#6F3CC3]" />
-            <div>
-            <div className="g-label text-[#C9A24D] mb-1">Later</div>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
-              Planned gatherings
-            </h1>
-            </div>
-          </div>
-          <p className="text-[11px] sm:text-xs text-zinc-500 sm:max-w-md leading-relaxed">
-            Meet later, not now — planned gatherings with an encrypted chat for attendees
+          <div className="g-label">Later</div>
+          <h1 className="text-[25px] sm:text-[30px] font-semibold tracking-[-0.03em] text-white mt-1.5">
+            Planned gatherings
+          </h1>
+          <p className="text-[12.5px] text-zinc-500 sm:max-w-md leading-relaxed mt-1.5">
+            Calm and planned. RSVP, and talk with the people who are going.
           </p>
         </div>
 
         <button
           onClick={() => setIsHostModalOpen(true)}
-          className="h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors shadow-sm self-start sm:self-auto cursor-pointer"
+          className="g-btn g-btn--amber !min-h-[44px] self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          <span>Host Gathering</span>
+          <span>Host gathering</span>
         </button>
       </div>
 
       {/* Filter bars */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         {/* Time filters */}
-        <div className="gayze-premium-control flex items-center gap-1 p-1 rounded-xl border overflow-x-auto no-scrollbar">
+        <div className="gayze-premium-control flex items-center gap-1 p-1 rounded-[14px] border overflow-x-auto no-scrollbar">
           {[
             { id: 'all', label: 'All Dates' },
             { id: 'tonight', label: 'Tonight' },
@@ -172,10 +167,10 @@ export const LaterView: React.FC<LaterViewProps> = ({
             <button
               key={item.id}
               onClick={() => setTimeFilter(item.id as any)}
-              className={`h-8 px-3 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+              className={`h-8 px-3 text-[12.5px] rounded-[10px] transition-colors whitespace-nowrap cursor-pointer ${
                 timeFilter === item.id
-                  ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-white/[0.06] text-white font-medium shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
+                  : 'text-zinc-400 font-normal hover:text-white'
               }`}
             >
               {item.label}
@@ -230,24 +225,24 @@ export const LaterView: React.FC<LaterViewProps> = ({
           return (
             <div
               key={gathering.id}
-              className="gayze-premium-panel hover:border-[#C9A24D]/35 rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between"
+              className="gayze-premium-panel hover:border-white/15 rounded-[18px] p-4 sm:p-5 transition-colors flex flex-col justify-between"
             >
               <div>
-                {/* Header: Date badge + Attendance count */}
+                {/* Header: when + how many are going */}
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs text-[#C9A24D] bg-[#C9A24D]/10 px-2.5 py-1 rounded-lg border border-[#C9A24D]/30">
+                  <span className="g-chip g-chip--quiet">
                     <Calendar className="w-3.5 h-3.5" />
                     <span>{gathering.dateStr}</span>
-                  </div>
+                  </span>
 
-                  <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 font-mono">
+                  <div className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
                     <Users className="w-3.5 h-3.5 text-zinc-500" />
-                    <span>{gathering.rsvpCount} / {gathering.capacity} attending</span>
+                    <span>{gathering.rsvpCount} of {gathering.capacity} going</span>
                   </div>
                 </div>
 
                 {/* Title */}
-                <h3 className="text-base font-bold text-white mt-3 leading-snug">
+                <h3 className="text-[16px] font-semibold text-white mt-3 leading-snug tracking-[-0.012em]">
                   {gathering.title}
                 </h3>
 
@@ -260,47 +255,46 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
+                <p className="text-[12.5px] text-zinc-400 mt-2 leading-relaxed">
                   {gathering.description}
                 </p>
 
-                {/* Venue & Location */}
-                <div className="mt-3 pt-2.5 border-t border-white/[0.07] space-y-1 text-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-zinc-200 font-medium">
+                {/* Venue */}
+                <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-[12.5px] text-zinc-200 min-w-0">
                       <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
-                      <span>{gathering.locationName}</span>
+                      <span className="truncate">{gathering.locationName}</span>
                       {gathering.isSafeHavenVenue && (
-                        <span title="Safe Haven Verified" className="inline-flex shrink-0">
+                        <span title="Safe Haven venue" className="inline-flex shrink-0">
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                         </span>
                       )}
                     </div>
-                    <span className="text-zinc-400">{gathering.neighborhood}</span>
+                    <span className="text-[11.5px] text-zinc-500 shrink-0">{gathering.neighborhood}</span>
                   </div>
-
-                  <div className="text-[11px] text-zinc-400 pl-5">
-                    {gathering.address}
-                  </div>
+                  {gathering.address && (
+                    <div className="text-[11.5px] text-zinc-500 pl-5 truncate">{gathering.address}</div>
+                  )}
                 </div>
 
-                {/* Safety Guidelines / Host Pledge */}
-                <div className="mt-2.5 p-2 rounded-xl bg-[#141620] border border-white/[0.07] text-[11px] text-zinc-400 flex items-start gap-2">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                {/* Host pledge — a quiet line, not another box */}
+                <div className="mt-3 flex items-start gap-2 text-[11.5px] text-zinc-500 leading-relaxed">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400/80 shrink-0 mt-0.5" />
                   <span>{gathering.safetyGuidelines}</span>
                 </div>
 
-                {/* Progress bar */}
-                <div className="mt-3 space-y-1">
-                  <div className="w-full h-1.5 bg-[#1c1f2b] rounded-full overflow-hidden">
+                {/* Capacity */}
+                <div className="mt-3.5 space-y-1.5">
+                  <div className="w-full h-[3px] bg-white/[0.07] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#C9A24D] transition-all"
+                      className="h-full bg-[#C9A24D]/70 transition-all duration-500"
                       style={{ width: `${percentFull}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-                    <span>{spotsLeft} spots available</span>
-                    <span>{percentFull}% filled</span>
+                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                    <span>{spotsLeft} spots left</span>
+                    <span>{gathering.capacity} max</span>
                   </div>
                 </div>
               </div>
@@ -311,10 +305,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <button
                   onClick={() => onToggleRsvp(gathering.id)}
                   disabled={busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending)}
-                  className={`h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${
-                    gathering.isAttending
-                      ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/50'
-                      : 'bg-[#1c1f2b] hover:bg-[#252838] text-zinc-200 border border-white/10'
+                  className={`g-btn !min-h-[44px] ${
+                    gathering.isAttending ? 'g-btn--selected' : 'g-btn--quiet'
                   }`}
                 >
                   {busyGatheringId === gathering.id ? (
@@ -335,10 +327,10 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 {groupChatAvailable ? (
                   <button
                     onClick={() => onOpenGatheringChat(gathering)}
-                    className="h-11 min-h-[44px] flex items-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
+                    className="g-btn g-btn--amber !min-h-[44px]"
                   >
                     <Lock className="w-3.5 h-3.5" />
-                    <span>Group Room</span>
+                    <span>Group room</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 ) : (
@@ -358,11 +350,14 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
       {/* Host Gathering Modal */}
       {isHostModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg gayze-premium-panel rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="g-overlay flex items-center justify-center p-3 sm:p-4" onClick={() => setIsHostModalOpen(false)}>
+          <div
+            className="g-panel relative w-full max-w-lg p-5 sm:p-6 !rounded-[20px] space-y-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#C9A24D]/15 border border-[#C9A24D]/30 flex items-center justify-center text-[#C9A24D]">
+                <div className="w-8 h-8 rounded-[10px] bg-[#C9A24D]/12 border border-[#C9A24D]/25 flex items-center justify-center text-[#C9A24D]">
                   <Calendar className="w-4 h-4" />
                 </div>
                 <div>
