@@ -17,23 +17,13 @@ export interface MapTileProvider {
 /**
  * GAYZE V3 map providers.
  *
- * Open/free chain. OSM.org requires a valid Referer — set referrerPolicy on
- * every OSM layer. CartoCDN is first because it is reliable for production
- * SPAs and does not enforce OSM.org's referer brownout.
+ * 1. OpenStreetMap primary (Obsidian Dark)
+ * 2. OpenStreetMap HOT fallback
+ *
+ * Open/free chain. OSM requires a valid Referer — set referrerPolicy on
+ * every OSM layer.
  */
 export const MAP_PROVIDERS: MapTileProvider[] = [
-  {
-    id: 'carto-dark',
-    name: 'Carto Dark Matter',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    subdomains: 'abcd',
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>',
-    maxZoom: 20,
-    minZoom: 1,
-    crossOrigin: true,
-    referrerPolicy: 'strict-origin-when-cross-origin',
-  },
   {
     id: 'osm-obsidian-dark',
     name: 'OpenStreetMap (Obsidian Dark)',

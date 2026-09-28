@@ -13,11 +13,12 @@ import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
-import { AuthView } from './components/AuthView';
+import { AuthView, type AuthMode } from './components/AuthView';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY } from './services/supabaseClient';
 import { watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
+import { FALLBACK_MAP_CENTER, NEUTRAL_AREA_LABEL, resolveAreaLabel } from './config/mapDefaults';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
@@ -75,6 +76,10 @@ export default function App() {
 
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [isAuthenticated, setIsAuthenticated] = useState(!isSupabaseConfigured);
+  const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
+  const [pendingAuthEmail, setPendingAuthEmail] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const recoverySessionRef = useRef(false);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const locationPermissionStatusRef = useRef<'granted' | 'denied' | null>(null);
@@ -93,14 +98,54 @@ export default function App() {
     if (!isSupabaseConfigured || !supabase) return;
 
     let disposed = false;
+
+    // Detect recovery callback in URL hash or query params on load
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const search = window.location.search || '';
+      const isRecovery = hash.includes('type=recovery') || search.includes('type=recovery');
+      if (isRecovery) {
+        recoverySessionRef.current = true;
+        setForcedAuthMode('reset');
+        setIsAuthenticated(false);
+      }
+    }
+
     void supabase.auth.getSession().then(({ data }) => {
       if (disposed) return;
+      if (recoverySessionRef.current) {
+        setIsAuthenticated(false);
+        setAuthReady(true);
+        return;
+      }
       setIsAuthenticated(Boolean(data.session?.user));
       setAuthReady(true);
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(Boolean(session?.user));
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      if (disposed) return;
+
+      if (event === 'PASSWORD_RECOVERY') {
+        recoverySessionRef.current = true;
+        setForcedAuthMode('reset');
+        setIsAuthenticated(false);
+        setAuthReady(true);
+        return;
+      }
+
+      if (event === 'SIGNED_OUT') {
+        recoverySessionRef.current = false;
+        setIsAuthenticated(false);
+        setAuthReady(true);
+        return;
+      }
+
+      const hasUser = Boolean(session?.user);
+      if (hasUser && !recoverySessionRef.current) {
+        setIsAuthenticated(true);
+      } else if (!hasUser) {
+        setIsAuthenticated(false);
+      }
       setAuthReady(true);
     });
 
