@@ -593,16 +593,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </section>
       )}
 
-      {/* Notifications — Web Push opt-in and per-category preferences */}
-      {onOpenNotifications && (
-        <section className="g-panel overflow-hidden mb-5">
+      {/* Notifications — always-visible Web Push entry point */}
+      <section className="g-panel overflow-hidden mb-5">
           <div className="px-4 pt-3.5 pb-1">
             <span className="g-label">Notifications</span>
           </div>
           <button
             type="button"
             className="g-row"
-            onClick={() => { hapticLight(); onOpenNotifications(); }}
+            onClick={() => { hapticLight(); onOpenNotifications?.(); }}
           >
             <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40">
               <Bell className="w-4 h-4" />
@@ -613,8 +612,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </span>
             <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
           </button>
-        </section>
-      )}
+      </section>
 
       {/* Safety & privacy */}
       <section className="g-panel overflow-hidden mb-5">
