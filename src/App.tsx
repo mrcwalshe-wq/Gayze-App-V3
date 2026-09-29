@@ -540,6 +540,10 @@ export default function App() {
 
   const roomsRef = useRef<SwarmRoom[]>(rooms);
   useEffect(() => { roomsRef.current = rooms; }, [rooms]);
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  const activeRoomIdRef = useRef(activeRoomId);
+  useEffect(() => { activeRoomIdRef.current = activeRoomId; }, [activeRoomId]);
 
   const activeUserIntentRef = useRef<UserActiveIntent | null>(activeUserIntent);
   useEffect(() => { activeUserIntentRef.current = activeUserIntent; }, [activeUserIntent]);
@@ -762,7 +766,7 @@ export default function App() {
             ? { ...candidate, lastMessage: plainText, lastTimestamp: message.timestamp } : candidate
           ).sort((a, b) => b.lastTimestamp - a.lastTimestamp));
 
-          if (activeRoomId !== row.conversation_id || activeTab !== 'swarms') {
+          if (activeRoomIdRef.current !== row.conversation_id || activeTabRef.current !== 'swarms') {
             setUnreadMessageCount((count) => count + 1);
             showToast('New message from ' + senderName);
             hapticMessageDecrypted();
