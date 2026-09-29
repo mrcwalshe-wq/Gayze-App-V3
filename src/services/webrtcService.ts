@@ -59,13 +59,14 @@ export function getIceServers(): RTCIceServer[] {
   const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL as string | undefined;
 
   const defaultStunServers: RTCIceServer[] = [
+    { urls: 'stun:stun.cloudflare.com:3478' },
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
   ];
 
-  if (turnUrl) {
+  if (turnUrl && turnUsername && turnCredential) {
     defaultStunServers.push({
       urls: turnUrl,
       username: turnUsername,
@@ -91,6 +92,49 @@ class WebRTCCallService {
   private activeTargetUserId: string | null = null;
   private ringingTimeoutTimer: number | null = null;
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
+  private resolvedIceServers: RTCIceServer[] | null = null;
+
+  private async loadIceServers(): Promise<RTCIceServer[]> {
+    if (this.resolvedIceServers) return this.resolvedIceServers;
+
+    const configured = getIceServers();
+    const hasConfiguredTurn = configured.some((server) => {
+      const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+      return urls.some((url) => String(url).startsWith('turn:') || String(url).startsWith('turns:'));
+    });
+
+    // VITE_ICE_SERVERS_JSON / legacy TURN env configuration takes precedence.
+    if (hasConfiguredTurn) {
+      this.resolvedIceServers = configured;
+      return configured;
+    }
+
+    // Production path: obtain short-lived Cloudflare TURN credentials from our
+    // authenticated Supabase Edge Function. The Cloudflare TURN key never
+    // reaches the browser.
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.functions.invoke('webrtc-ice-servers', {
+          body: {},
+        });
+
+        if (!error && data?.iceServers && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+          this.resolvedIceServers = data.iceServers as RTCIceServer[];
+          console.info('[GAYZE WebRTC] Cloudflare TURN credentials loaded');
+          return this.resolvedIceServers;
+        }
+
+        if (error) {
+          console.warn('[GAYZE WebRTC] TURN credential function unavailable; using STUN fallback', error);
+        }
+      } catch (error) {
+        console.warn('[GAYZE WebRTC] TURN credential request failed; using STUN fallback', error);
+      }
+    }
+
+    this.resolvedIceServers = configured;
+    return configured;
+  }
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -257,7 +301,10 @@ class WebRTCCallService {
       // 1. Acquire local media stream first to verify permissions
       await this.acquireLocalMedia(params.callType);
 
-      // 2. Set up signaling channel for conversation
+      // 2. Load short-lived TURN credentials before creating the peer connection
+      await this.loadIceServers();
+
+      // 3. Set up signaling channel for conversation
       await this.setupCallSignaling(params.conversationId, params.callerId, true);
 
       // 3. Send call-request to target user's personal channel
@@ -329,7 +376,10 @@ class WebRTCCallService {
       // 1. Acquire local media
       await this.acquireLocalMedia(params.callType);
 
-      // 2. Join signaling channel
+      // 2. Load short-lived TURN credentials before creating the peer connection
+      await this.loadIceServers();
+
+      // 3. Join signaling channel
       await this.setupCallSignaling(params.conversationId, params.userId, false);
 
       // 3. Notify caller that call was accepted
@@ -379,7 +429,7 @@ class WebRTCCallService {
     }
 
     const pc = new RTCPeerConnection({
-      iceServers: getIceServers(),
+      iceServers: this.resolvedIceServers || getIceServers(),
       iceCandidatePoolSize: 4,
     });
 
