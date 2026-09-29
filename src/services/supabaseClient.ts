@@ -1,7 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+// Production-safe fallback: these are Supabase browser publishable credentials,
+// not service-role secrets. Keeping them here prevents a Cloudflare Pages build
+// from silently falling back to demo mode when build-time env injection is absent.
+// Environment variables still take precedence for local/staging overrides.
+const DEFAULT_SUPABASE_URL = 'https://qdewyupsqmtonkloqxsh.supabase.co';
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_TeBAtLH6YljGFKbz4pvNtg_1JH6TbYO';
+
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || DEFAULT_SUPABASE_URL;
+const supabasePublishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim() || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
 
