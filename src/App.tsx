@@ -14,7 +14,7 @@ import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView, type AuthMode } from './components/AuthView';
-import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY } from './services/supabaseClient';
+import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
@@ -203,7 +203,10 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash || '';
       const search = window.location.search || '';
-      const isRecovery = hash.includes('type=recovery') || search.includes('type=recovery');
+      const pathname = window.location.pathname;
+      const isRecovery = pathname === AUTH_REDIRECT_PATHS.resetPassword
+        || hash.includes('type=recovery')
+        || search.includes('type=recovery');
       if (isRecovery) {
         recoverySessionRef.current = true;
         setForcedAuthMode('reset');
