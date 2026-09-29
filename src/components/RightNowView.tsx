@@ -298,15 +298,34 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       setRemainingMinutes(0);
       return;
     }
-    // Display-only countdown. Expiry itself is handled where the signal lives
-    // (App / Supabase), so this never mutates intent state.
+
+    // The backend expiry timestamp is authoritative. Recalculate frequently
+    // enough that the map CTA and management sheet never get stuck on "0m"
+    // while the signal is still live.
     const updateRemaining = () => {
-      setRemainingMinutes(Math.max(0, Math.round((activeUserIntent.expiresAt - Date.now()) / 60000)));
+      const expiresAt = Number(activeUserIntent.expiresAt);
+      const remaining = Number.isFinite(expiresAt)
+        ? Math.max(0, Math.ceil((expiresAt - Date.now()) / 60000))
+        : 0;
+
+      setRemainingMinutes(remaining);
+
+      // Once the authoritative expiry has passed, immediately remove the stale
+      // local signal. Supabase already filters expired rows from discovery.
+      if (remaining <= 0 && expiresAt <= Date.now() && !activeUserIntent.isPaused) {
+        onUpdateActiveUserIntent?.(null);
+      }
     };
+
     updateRemaining();
-    const interval = window.setInterval(updateRemaining, 30000);
+    const interval = window.setInterval(updateRemaining, 10000);
     return () => window.clearInterval(interval);
-  }, [activeUserIntent?.remoteId, activeUserIntent?.expiresAt, activeUserIntent?.isPaused]);
+  }, [
+    activeUserIntent?.remoteId,
+    activeUserIntent?.expiresAt,
+    activeUserIntent?.isPaused,
+    onUpdateActiveUserIntent,
+  ]);
 
   // A slow tick keeps expired intents off the map even between discovery refreshes.
   const [nowTick, setNowTick] = useState(() => Date.now());
