@@ -533,6 +533,37 @@ export async function submitInterest(toUserId: string, intentId?: string): Promi
   }
 }
 
+
+export interface IncomingInterest {
+  id: string;
+  fromUserId: string;
+  fromDisplayName: string;
+  createdAt: number;
+  status: 'pending' | 'mutual' | 'declined' | 'withdrawn';
+}
+
+export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('interests')
+      .select('id,from_user_id,created_at,status,from_profile:profiles!interests_from_user_id_fkey(display_name)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      fromUserId: row.from_user_id,
+      fromDisplayName: row.from_profile?.display_name || 'Someone',
+      createdAt: new Date(row.created_at).getTime(),
+      status: row.status,
+    }));
+  } catch (error) {
+    console.warn('[GAYZE] Could not load incoming interests:', error);
+    return [];
+  }
+}
+
 export interface SupabaseMessageRow {
   id: string;
   conversation_id: string;
