@@ -1,0 +1,9 @@
+project_id = "gayze"
+
+[functions.send-push]
+# This function authenticates callers itself: either a verified user JWT (for
+# the self-targeted test push) or the shared x-gayze-dispatch-secret header
+# used by the database trigger. The platform-level JWT gate must therefore be
+# off, otherwise pg_net trigger dispatches would be rejected before reaching
+# our own checks.
+verify_jwt = false

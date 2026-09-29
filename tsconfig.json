@@ -23,5 +23,12 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    // Supabase Edge Functions are Deno, not browser/Node. They are type-checked
+    // by the Supabase CLI against the Deno runtime, not by the app's tsc pass.
+    "supabase"
+  ]
 }
