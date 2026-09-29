@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { hapticSensitiveAction, triggerVibration } from '../services/hapticService';
 import { webrtcCallService, CallState } from '../services/webrtcService';
+import { getCallAudioContext, closeCallAudio } from '../services/callAudioService';
 
 interface EncryptedCallModalProps {
   isOpen: boolean;
@@ -52,7 +53,6 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const terminalCloseTimerRef = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
-  const ringtoneContextRef = useRef<AudioContext | null>(null);
   const ringtoneTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -66,38 +66,20 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
       window.clearInterval(ringtoneTimerRef.current);
       ringtoneTimerRef.current = null;
     }
-    const ctx = ringtoneContextRef.current;
-    ringtoneContextRef.current = null;
-    if (ctx) {
-      void ctx.close().catch(() => undefined);
-    }
+    closeCallAudio();
   };
 
   const playRingtoneBurst = () => {
-    const AudioContextCtor = window.AudioContext || (window as typeof window & {
-      webkitAudioContext?: typeof AudioContext;
-    }).webkitAudioContext;
-    if (!AudioContextCtor) return;
-
-    let ctx = ringtoneContextRef.current;
-    if (!ctx) {
-      ctx = new AudioContextCtor();
-      ringtoneContextRef.current = ctx;
-    }
-    if (ctx.state === 'suspended') {
-      void ctx.resume().catch(() => undefined);
-    }
-    if (ctx.state !== 'running') return;
-
+    const ctx = getCallAudioContext();
+    if (!ctx || ctx.state !== 'running') return;
     const now = ctx.currentTime;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.045, now + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.025);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
     gain.connect(ctx.destination);
-
     [523.25, 659.25, 783.99].forEach((frequency, index) => {
-      const oscillator = ctx!.createOscillator();
+      const oscillator = ctx.createOscillator();
       oscillator.type = index === 2 ? 'triangle' : 'sine';
       oscillator.frequency.setValueAtTime(frequency, now);
       oscillator.connect(gain);
@@ -115,7 +97,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
     // Outgoing uses the ascending GAYZE ringback. Incoming uses a different
     // two-stage chime so the recipient can distinguish an incoming call.
     const play = isIncoming ? () => {
-      const ctx = getRingtoneContext();
+      const ctx = getCallAudioContext();
       if (!ctx || ctx.state !== 'running') return;
       const now = ctx.currentTime;
       const tones = [
