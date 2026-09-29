@@ -2,8 +2,8 @@
 #
 # NOTE: the production Worker (gayze-app-v3 / https://gayze.co.uk) predates this
 # file and was configured outside the repository. Reconcile this with the
-# existing dashboard configuration before running `wrangler deploy`, and keep
-# the `name` below identical to the deployed Worker so you update it in place
+# existing dashboard configuration before running wrangler deploy, and keep
+# the name below identical to the deployed Worker so you update it in place
 # rather than creating a second Worker.
 #
 # What this configuration guarantees for the PWA:
@@ -11,7 +11,7 @@
 #     real static files from the build output, with extension-derived
 #     Content-Type headers (see also public/_headers).
 #   * Unknown paths fall back to index.html, so notification deep links such as
-#     /messages/<id> load the SPA instead of 404ing.
+#     /messages/<conversation-id> load the SPA instead of 404ing.
 #   * Everything is HTTPS-only on the Workers platform.
 
 name = "gayze-app-v3"
@@ -26,3 +26,8 @@ not_found_handling = "single-page-application"
 
 [observability]
 enabled = true
+
+# Cloudflare's build pipeline runs wrangler preview for this project.
+# The preview command requires this block even though production deployment
+# is handled by the existing Workers Build configuration.
+[previews]
