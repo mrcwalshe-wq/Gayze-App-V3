@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { getAuthRedirectUrl, supabase } from '../services/supabaseClient';
+import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
 import { GayzeLogo } from './GayzeLogo';
 
@@ -79,7 +79,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       password,
       options: {
         data: { display_name: displayName.trim() || 'Gayze User' },
-        emailRedirectTo: getAuthRedirectUrl('/'),
+        emailRedirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.emailConfirm),
       },
     });
     if (error) throw error;
@@ -103,7 +103,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-      redirectTo: getAuthRedirectUrl('/'),
+      redirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.resetPassword),
     });
     // Always show a neutral success message — do not reveal account existence.
     if (error) {
@@ -148,7 +148,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: trimmed,
-      options: { emailRedirectTo: getAuthRedirectUrl('/') },
+      options: { emailRedirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.emailConfirm) },
     });
     if (error) throw error;
     setFeedback('Confirmation email sent. Check your inbox and spam folder.', 'success');
