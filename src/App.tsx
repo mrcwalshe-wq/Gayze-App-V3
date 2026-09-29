@@ -1174,6 +1174,8 @@ export default function App() {
     showToast('Gathering created.');
   };
 
+  const cleanupRealtimeRef = useRef<(() => void) | null>(null);
+
   // Hydrate and subscribe to real Supabase conversation messages.
   // Direct conversations derive their key from the two device identities;
   // group conversations resolve a per-device key envelope. When no key can be
@@ -1305,14 +1307,31 @@ export default function App() {
 
       const rows = await loadConversationMessages(activeRoomId);
       for (const row of rows) await applyRow(row);
+
+      if (disposed) return;
+
+      const unsubscribe = subscribeToConversationMessages(
+        activeRoomId,
+        (row) => { void applyRow(row); },
+        (status, error) => {
+          if (disposed) return;
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error('[GAYZE] Live chat subscription failed', error);
+            showToast('Live chat connection lost — retrying…');
+          }
+        },
+      );
+      cleanupRealtimeRef.current = unsubscribe;
     };
 
+    cleanupRealtimeRef.current?.();
+    cleanupRealtimeRef.current = null;
     void hydrate();
-    const unsubscribe = subscribeToConversationMessages(activeRoomId, (row) => { void applyRow(row); });
 
     return () => {
       disposed = true;
-      unsubscribe();
+      cleanupRealtimeRef.current?.();
+      cleanupRealtimeRef.current = null;
     };
   }, [activeRoomId, supabaseUserId]);
 
@@ -1394,7 +1413,25 @@ export default function App() {
         const expiresAt = ephemeralTtlSeconds && ephemeralTtlSeconds > 0
           ? new Date(Date.now() + ephemeralTtlSeconds * 1000).toISOString()
           : null;
-        await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt);
+        const persisted = await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt);
+        setMessages((prev) => {
+          const existing = prev[roomId] || [];
+          if (existing.some((item) => item.id === persisted.id)) return prev;
+          return {
+            ...prev,
+            [roomId]: [...existing, {
+              ...newMsg,
+              id: persisted.id,
+              timestamp: new Date(persisted.created_at).getTime(),
+              senderKey: persisted.sender_id,
+              senderName: persisted.sender_id === supabaseUserIdRef.current ? 'You' : newMsg.senderName,
+              roomId: persisted.conversation_id,
+              cipherText: persisted.ciphertext,
+              nonceHex: persisted.nonce || nonceHex,
+            }],
+          };
+        });
+        hapticMessageDecrypted();
       } catch (error) {
         console.error('[GAYZE] Failed to persist encrypted message', error);
         showToast('Message was not sent — secure sync failed');
