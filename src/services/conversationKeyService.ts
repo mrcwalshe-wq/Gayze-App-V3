@@ -47,7 +47,8 @@ async function resolveDirectKey(room: SwarmRoom): Promise<ConversationKeyResult>
   // unavailable while a newly-created conversation is hydrating.
   if (!peerJwk) {
     const devices = await loadConversationPeerDevices(room.id);
-    const peerDevice = devices.find((device) => device.user_id !== room.memberIds?.find((id) => id !== room.peerUserId));
+    const peerDevice = devices.find((device) => device.user_id === room.peerUserId)
+      ?? devices[0];
     peerJwk = parseJwk(peerDevice?.public_key);
   }
   if (!peerJwk) {
