@@ -37,6 +37,8 @@ interface ChatRoomViewProps {
   activeRoomId: string;
   onSelectRoom: (roomId: string) => void;
   currentUser: UserProfile;
+  /** Authenticated Supabase user id; live message sender_id values use this, not the device public-key fingerprint. */
+  currentUserId?: string | null;
   onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string) => Promise<void>;
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
   onOpenQR?: (peerName?: string) => void;
@@ -56,6 +58,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   activeRoomId,
   onSelectRoom,
   currentUser,
+  currentUserId,
   onSendMessage,
   onUpdateRoomTtl,
   onOpenQR,
@@ -475,7 +478,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           {/* Messages Feed */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
             {currentMessages.map((msg) => {
-              const isMe = msg.senderKey === currentUser.publicKey;
+              const isMe = currentUserId
+                ? msg.senderKey === currentUserId
+                : msg.senderKey === currentUser.publicKey;
               const isInspecting = inspectedMessageId === msg.id;
 
               return (
