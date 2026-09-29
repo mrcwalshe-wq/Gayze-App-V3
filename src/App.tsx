@@ -1322,6 +1322,24 @@ export default function App() {
         },
       );
       cleanupRealtimeRef.current = unsubscribe;
+
+      // Realtime is the low-latency path; this lightweight foreground sync is
+      // the reliability path. It closes the small race between initial hydrate
+      // and channel join and recovers automatically from iOS/WebSocket drops.
+      const pollId = window.setInterval(async () => {
+        if (disposed) return;
+        try {
+          const latest = await loadConversationMessages(activeRoomId);
+          for (const row of latest) await applyRow(row);
+        } catch (error) {
+          console.warn('[GAYZE] Conversation foreground sync failed', error);
+        }
+      }, 3000);
+
+      cleanupRealtimeRef.current = () => {
+        unsubscribe();
+        window.clearInterval(pollId);
+      };
     };
 
     cleanupRealtimeRef.current?.();
