@@ -612,6 +612,14 @@ export default function App() {
           shortKey,
         };
 
+        // Publish a complete local user immediately. A brand-new account may
+        // not have a profiles row yet; waiting for the profile round-trip left
+        // the authenticated shell with the empty live fixture and could make
+        // downstream identity-dependent UI render with incomplete state.
+        setCurrentUser(identityUser);
+
+        // Profile creation is best-effort. The UI must remain usable even if
+        // profile RLS/schema/network setup is temporarily unavailable.
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
         if (isStale()) return;
 
