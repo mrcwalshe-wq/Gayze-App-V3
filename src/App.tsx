@@ -15,6 +15,19 @@ import { IncomingCallModal } from './components/IncomingCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { ProfileOnboarding } from './components/ProfileOnboarding';
+import { InstallPrompt } from './components/InstallPrompt';
+import { NotificationsModal } from './components/NotificationsModal';
+import {
+  registerServiceWorker,
+  resyncSubscription,
+  updateAppBadge,
+} from './services/pushService';
+import {
+  isAuthPath,
+  isGayzeServiceWorkerMessage,
+  replacePath,
+  routeFromPath,
+} from './services/notificationRouting';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { primeCallAudio } from './services/callAudioService';
@@ -481,6 +494,7 @@ export default function App() {
   // Modals & Mask
   const [isMaskActive, setIsMaskActive] = useState(false);
   const [isIdentityOpen, setIsIdentityOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSafetyTimerOpen, setIsSafetyTimerOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
@@ -942,8 +956,71 @@ export default function App() {
     if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
   }, []);
 
+  // ---------------------------------------------------------------------
+  // PWA / Web Push
+  //
+  // The service worker is what makes Gayze installable and is the only way to
+  // receive a real OS-level push. Registration is independent of auth so the
+  // install prompt and offline shell work before sign-in.
+  // ---------------------------------------------------------------------
   useEffect(() => {
-    if (!isSupabaseConfigured || !isAuthenticated || !supabaseUserId || !supabase) return;
+    void registerServiceWorker();
+  }, []);
+
+  // Apply a notification deep link on first authenticated render. Auth
+  // callback paths are skipped so this can never interfere with the Supabase
+  // OAuth/PKCE round trip.
+  const initialRouteAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || initialRouteAppliedRef.current || typeof window === 'undefined') return;
+    initialRouteAppliedRef.current = true;
+
+    const { pathname } = window.location;
+    if (pathname === '/' || isAuthPath(pathname)) return;
+
+    const route = routeFromPath(pathname);
+    setActiveTab(route.tab);
+    if (route.conversationId) setActiveRoomId(route.conversationId);
+    if (route.openNotifications) setIsNotificationsOpen(true);
+  }, [isAuthenticated]);
+
+  // Messages posted by the service worker: notification taps and endpoint
+  // rotation. Routing happens in-place so the authenticated session survives.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      const data: unknown = event.data;
+      if (!isGayzeServiceWorkerMessage(data)) return;
+
+      if (data.type === 'NOTIFICATION_CLICK' && data.url) {
+        const route = routeFromPath(data.url);
+        setActiveTab(route.tab);
+        if (route.conversationId) setActiveRoomId(route.conversationId);
+        if (route.openNotifications) setIsNotificationsOpen(true);
+        replacePath(data.url);
+        return;
+      }
+
+      if (data.type === 'PUSH_SUBSCRIPTION_CHANGED') {
+        void resyncSubscription(data.oldEndpoint ?? null);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Home Screen badge mirrors the real unread count (and clears with it).
+  useEffect(() => {
+    updateAppBadge(unreadMessageCount);
+  }, [unreadMessageCount]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !isAuthenticated || !supabaseUserId) return;
+    // Bind the non-null client inside this effect. The auth-bootstrap effect has
+    // its own local binding; referencing that one from here was a scope error
+    // that threw a ReferenceError the moment a user authenticated.
     const supabaseClient = supabase;
     let disposed = false;
     let initialised = false;
@@ -2345,6 +2422,7 @@ export default function App() {
               onOpenQR={() => handleOpenQRModal()}
               onOpenSafeHavens={() => setActiveTab('safe_havens')}
               onOpenDiscover={() => setActiveTab('dating')}
+              onOpenNotifications={() => setIsNotificationsOpen(true)}
             />
           )}
 
@@ -2495,6 +2573,15 @@ export default function App() {
         onEndCheckin={handleEndCheckin}
         remainingSeconds={remainingSeconds}
       />
+
+      {/* Web Push opt-in, category preferences and device state */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
+
+      {/* iOS Home Screen install nudge (self-hiding, dismissal-aware) */}
+      <InstallPrompt />
 
       {/* Cryptographic Swarm Identity & Privacy Modal */}
       <IdentityModal

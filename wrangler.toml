@@ -1,0 +1,28 @@
+# GAYZE — Cloudflare Workers static-asset deployment.
+#
+# NOTE: the production Worker (gayze-app-v3 / https://gayze.co.uk) predates this
+# file and was configured outside the repository. Reconcile this with the
+# existing dashboard configuration before running `wrangler deploy`, and keep
+# the `name` below identical to the deployed Worker so you update it in place
+# rather than creating a second Worker.
+#
+# What this configuration guarantees for the PWA:
+#   * /service-worker.js, /manifest.webmanifest and /icons/*.png are served as
+#     real static files from the build output, with extension-derived
+#     Content-Type headers (see also public/_headers).
+#   * Unknown paths fall back to index.html, so notification deep links such as
+#     /messages/<id> load the SPA instead of 404ing.
+#   * Everything is HTTPS-only on the Workers platform.
+
+name = "gayze-app-v3"
+compatibility_date = "2025-09-01"
+
+[assets]
+directory = "./dist"
+# Required so /messages/<conversation-id> (a notification click target) resolves
+# to the app shell. Real files like /service-worker.js still win over the
+# fallback because they exist in ./dist.
+not_found_handling = "single-page-application"
+
+[observability]
+enabled = true
