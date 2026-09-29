@@ -2286,6 +2286,7 @@ export default function App() {
               activeRoomId={activeRoomId}
               onSelectRoom={(id) => setActiveRoomId(id)}
               currentUser={currentUser}
+              currentUserId={supabaseUserId}
               onSendMessage={handleSendMessage}
               onUpdateRoomTtl={handleUpdateRoomTtl}
               onOpenQR={(peerName) => {
