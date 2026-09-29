@@ -14,6 +14,7 @@ import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView, type AuthMode } from './components/AuthView';
+import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { primeCallAudio } from './services/callAudioService';
@@ -199,6 +200,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
+    const supabaseClient = supabase;
 
     let disposed = false;
 
@@ -965,7 +967,7 @@ export default function App() {
     };
 
     void handleInterestChange();
-    const channel = supabase
+    const channel = supabaseClient
       .channel('gayze-incoming-interests')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'interests' }, () => {
         void handleInterestChange();
@@ -978,7 +980,7 @@ export default function App() {
 
     return () => {
       disposed = true;
-      void supabase.removeChannel(channel);
+      void supabaseClient.removeChannel(channel);
     };
   }, [isAuthenticated, supabaseUserId]);
 
@@ -2437,7 +2439,7 @@ export default function App() {
       </main>
 
       {showProfileOnboarding && supabaseUserId && (
-        <ProfileOnboarding currentUser={currentUser} userId={supabaseUserId} onSave={handleSaveProfileOnboarding} />
+        <ProfileOnboarding currentUser={currentUser} onSave={handleSaveProfileOnboarding} />
       )}
 
       {/* Schedule Meeting & Safe Haven Date Modal */}
