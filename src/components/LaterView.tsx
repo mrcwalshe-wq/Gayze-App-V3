@@ -21,6 +21,7 @@ interface LaterViewProps {
   currentUser: UserProfile;
   currentUserId: string | null;
   userLocation: { lat: number; lng: number } | null;
+  activeIntentMode?: 'social' | 'private';
   /** True only when a real group conversation can be opened for a gathering. */
   groupChatAvailable?: boolean;
   /** Gathering id currently being written to the backend (RSVP/create). */
@@ -35,6 +36,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   currentUser,
   currentUserId,
   userLocation,
+  activeIntentMode: _activeIntentMode,
   groupChatAvailable = false,
   busyGatheringId = null,
 }) => {
