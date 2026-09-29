@@ -76,6 +76,7 @@ import {
   submitGaze,
   loadConversationMessages,
   loadIncomingInterests,
+  updateSupabaseProfile,
   persistConversationMessage,
   subscribeToConversationMessages,
   subscribeToAllConversationMessages,
@@ -527,6 +528,7 @@ export default function App() {
   const [supabaseRightNowPulses, setSupabaseRightNowPulses] = useState<Pulse[]>([]);
   const [supabaseReady, setSupabaseReady] = useState(false);
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
+  const [showProfileOnboarding, setShowProfileOnboarding] = useState(false);
   const [identityDevices, setIdentityDevices] = useState<import('./services/supabaseService').IdentityDevice[]>([]);
   const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState<string | null>(null);
 
@@ -591,6 +593,7 @@ export default function App() {
       try {
         const user = await ensureSupabaseSession();
         if (!user || isStale()) return;
+        setShowProfileOnboarding(user.user_metadata?.profile_complete !== true);
         supabaseUserIdRef.current = user.id;
         setSupabaseUserId(user.id);
 
@@ -1808,6 +1811,21 @@ export default function App() {
     showToast(`Local check-in timer started for ${meeting.venueName}.`);
   };
 
+  const handleSaveProfileOnboarding = async (profile: { displayName: string; handle: string; bio: string; age: number; privacySetting: import('./types').LocationPrivacy; interests: string[] }) => {
+    if (!supabaseUserId || !supabase) return false;
+    const saved = await updateSupabaseProfile(supabaseUserId, profile);
+    if (!saved) return false;
+    const { error } = await supabase.auth.updateUser({ data: { display_name: profile.displayName, profile_complete: true } });
+    if (error) {
+      console.warn('[GAYZE] Profile completion metadata update failed:', error.message);
+      return false;
+    }
+    setCurrentUser((prev) => ({ ...prev, displayName: profile.displayName, handle: profile.handle, bio: profile.bio, privacySetting: profile.privacySetting, interests: profile.interests }));
+    setShowProfileOnboarding(false);
+    showToast('Profile saved — welcome to GAYZE');
+    return true;
+  };
+
   // Calling & Gaze Handlers
   const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string) => {
     // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
@@ -2417,6 +2435,10 @@ export default function App() {
           )}
         </Suspense>
       </main>
+
+      {showProfileOnboarding && supabaseUserId && (
+        <ProfileOnboarding currentUser={currentUser} userId={supabaseUserId} onSave={handleSaveProfileOnboarding} />
+      )}
 
       {/* Schedule Meeting & Safe Haven Date Modal */}
       <ScheduleMeetingModal
