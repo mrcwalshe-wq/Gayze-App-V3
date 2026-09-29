@@ -25,10 +25,27 @@ export const AUTH_REDIRECT_PATHS = {
   magicLink: '/auth/magic-link',
 } as const;
 
-/** Auth redirect target for local Vite and production. */
+/**
+ * Auth redirect target for local Vite and production.
+ * Local development stays on localhost; the current Cloudflare workers.dev
+ * deployment is redirected to the permanent GAYZE domain.
+ */
 export function getAuthRedirectUrl(path: string = AUTH_REDIRECT_PATHS.home): string {
   if (typeof window === 'undefined') return path;
-  const base = window.location.origin.replace(/\/$/, '');
+
+  const origin = window.location.origin.replace(/\/$/, '');
+  const hostname = window.location.hostname;
+  const isLocalhost =
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]';
+  const isCloudflareWorkersHost = hostname.endsWith('.workers.dev');
+
+  const base =
+    !isLocalhost && isCloudflareWorkersHost
+      ? 'https://gayze.co.uk'
+      : origin;
+
   const normalised = path.startsWith('/') ? path : `/${path}`;
   return `${base}${normalised}`;
 }
