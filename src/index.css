@@ -1725,9 +1725,72 @@ button, input, select, textarea, [role="button"] {
   color: #e4d7fb;
 }
 .g-optpill[data-active='true'][data-tone='amber'] {
-  background: rgba(201, 162, 77, 0.14);
-  border-color: rgba(201, 162, 77, 0.6);
-  color: #ecd6a5;
+  background:
+    radial-gradient(120% 180% at 18% 0%, rgba(255, 226, 139, 0.18), transparent 52%),
+    rgba(201, 162, 77, 0.14);
+  border-color: rgba(201, 162, 77, 0.72);
+  color: #f4dfae;
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 77, 0.16),
+    0 8px 24px rgba(201, 162, 77, 0.16),
+    inset 0 1px 0 rgba(255, 238, 184, 0.12);
+}
+
+/* The timing controls are the key decision in the live-signal composer.
+   Give the selected state a stronger violet "now" presence on mobile. */
+.g-sheet__body .g-optpill[data-active='true'] {
+  background:
+    radial-gradient(130% 180% at 18% 0%, rgba(203, 166, 255, 0.20), transparent 52%),
+    linear-gradient(180deg, rgba(111, 60, 195, 0.24), rgba(111, 60, 195, 0.14));
+  border-color: rgba(170, 132, 245, 0.82);
+  color: #f0e8ff;
+  box-shadow:
+    0 0 0 1px rgba(170, 132, 245, 0.12),
+    0 8px 26px rgba(111, 60, 195, 0.20),
+    inset 0 1px 0 rgba(235, 220, 255, 0.14);
+}
+
+.g-sheet__body .g-optpill[data-active='true']:active {
+  transform: translateY(1px);
+}
+
+/* Keep the composer usable above the iOS home indicator and make the
+   sticky action area visually separate from the scrolling choices. */
+@media (max-width: 639px) {
+  .g-sheet {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 10px);
+  }
+
+  .g-sheet__head {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .g-sheet__body {
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-bottom: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .g-sheet__foot {
+    padding-left: 18px;
+    padding-right: 18px;
+    background:
+      linear-gradient(180deg, rgba(8, 9, 13, 0.82), rgba(8, 9, 13, 0.97));
+    box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.22);
+  }
+
+  .g-sheet__foot .g-btn {
+    min-height: 48px;
+  }
+
+  .g-optpill {
+    min-height: 42px;
+    padding-left: 15px;
+    padding-right: 15px;
+    font-size: 12.5px;
+  }
 }
 
 /* Reveal animation for progressive sections */
