@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   ArrowRight,
   AlertTriangle,
+  Bell,
 } from 'lucide-react';
 import { UserActiveIntent, UserProfile } from '../types';
 import { hapticLight, hapticSensitiveAction, triggerVibration } from '../services/hapticService';
@@ -48,6 +49,8 @@ interface ProfileViewProps {
   onOpenSafeHavens: () => void;
   onOpenDiscover?: () => void;
   onAvatarUpdated?: (url: string | undefined) => void;
+  /** Opens the Web Push opt-in / notification preferences sheet. */
+  onOpenNotifications?: () => void;
 }
 
 const privacyLabel: Record<string, string> = {
@@ -85,6 +88,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenSafeHavens,
   onOpenDiscover,
   onAvatarUpdated,
+  onOpenNotifications,
 }) => {
   const [now, setNow] = useState(Date.now());
   const [photos, setPhotos] = useState<ProfilePhoto[]>([]);
@@ -588,6 +592,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </section>
       )}
+
+      {/* Notifications — always-visible Web Push entry point */}
+      <section className="g-panel overflow-hidden mb-5">
+          <div className="px-4 pt-3.5 pb-1">
+            <span className="g-label">Notifications</span>
+          </div>
+          <button
+            type="button"
+            className="g-row"
+            onClick={() => { hapticLight(); onOpenNotifications?.(); }}
+          >
+            <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40">
+              <Bell className="w-4 h-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13.5px] font-bold text-white">Notifications</span>
+              <span className="block text-[11px] text-zinc-500 truncate">Messages, intent activity and safety</span>
+            </span>
+            <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
+          </button>
+      </section>
 
       {/* Safety & privacy */}
       <section className="g-panel overflow-hidden mb-5">
