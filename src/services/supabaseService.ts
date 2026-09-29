@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import type { UserActiveIntent, Pulse, SafeHaven, UserProfile, LocationPrivacy } from '../types';
 import { getProfilePhotoUrl } from './profilePhotoService';
+import { requestConnectionPush } from './pushService';
 
 export interface RightNowDiscoveryRow {
   intent_id: string; user_id: string; display_name: string; age: number | null; bio: string | null;
@@ -522,6 +523,12 @@ export async function submitInterest(toUserId: string, intentId?: string): Promi
       return { sent: false, mutual: false, conversation_id: null };
     }
     const result = data as { mutual?: boolean; conversation_id?: string | null };
+    // The RPC result is the authoritative "mutual was just created" signal.
+    // Forward it so the other member is notified (server enforces exactly-once
+    // and the recipient's preferences). Fire-and-forget: no effect on the flow.
+    if (result.mutual && result.conversation_id) {
+      void requestConnectionPush(result.conversation_id);
+    }
     return {
       sent: true,
       mutual: Boolean(result.mutual),

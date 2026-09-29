@@ -26,6 +26,7 @@ Worker: `gayze-app-v3`
 | Database | `supabase/migrations/20260929120000_push_notifications.sql` |
 | Push sender | `supabase/functions/send-push/index.ts` |
 | Key generator | `scripts/generate-vapid-keys.mjs` |
+| Verification harness | `scripts/push-tests/` (PGlite + simulated device; see its README) |
 
 The icons are rasterised from the existing official Gayze mark
 (`public/gayze-logo.jpg`). The logo was not redesigned or recreated.
@@ -101,18 +102,52 @@ Creates, all with RLS forced on:
   Used for the "notify once per intent" anti-spam guarantee.
 
 Plus `push_category_enabled()` (server-side preference gate),
-`request_push_dispatch()` (pg_net call into the Edge Function) and triggers on
-`messages` and `interests`.
+`request_push_dispatch()` (pg_net call into the Edge Function) and an
+`AFTER INSERT` trigger on `messages`.
 
-### Intent expiry sweep
+### The base schema is NOT in this repository
+
+`profiles`, `messages`, `conversations`, `conversation_members`, `intents`,
+`interests` and `safety_checkins` are created outside this repo (see
+`docs/BACKEND_REQUIREMENTS.md`), as is the `submit_interest` RPC. The migration
+therefore never alters them, and:
+
+* **Preflight** — every object it creates carries a `gayze-push:` comment. If a
+  function/table of the same name exists *without* that comment the migration
+  aborts before changing anything, instead of overwriting it. (`touch_updated_at`
+  is deliberately not used; the push tables have their own
+  `gayze_push_set_updated_at()`.)
+* **`messages` trigger** — installed only if `public.messages` is a real table
+  with `id`, `conversation_id`, `sender_id`; otherwise skipped with a `WARNING`.
+  The trigger body can never raise, so it cannot abort a message insert.
+* **Sweeps** — no-op with a `WARNING` if their tables/columns are missing.
+* **No `interests` trigger.** See "Connection notification" below.
+
+Before applying, confirm in the live project (SQL editor):
 
 ```sql
-select cron.schedule(
-  'gayze-intent-expiry',
-  '*/5 * * * *',
-  $$select public.sweep_expiring_intents()$$
-);
+select table_name, column_name from information_schema.columns
+where table_schema = 'public' and (
+  (table_name = 'messages'         and column_name in ('id','conversation_id','sender_id')) or
+  (table_name = 'profiles'         and column_name in ('id','display_name')) or
+  (table_name = 'conversation_members' and column_name in ('conversation_id','user_id')) or
+  (table_name = 'intents'          and column_name in ('id','user_id','expires_at','is_paused')) or
+  (table_name = 'safety_checkins'  and column_name in ('id','user_id','status','expires_at')) or
+  (table_name = 'interests')
+) order by 1, 2;
 ```
+
+### Cron sweeps
+
+```sql
+select cron.schedule('gayze-intent-expiry', '*/5 * * * *',
+                     $$select public.sweep_expiring_intents()$$);
+select cron.schedule('gayze-safety-expiry', '* * * * *',
+                     $$select public.sweep_expired_safety_checkins()$$);
+```
+
+The safety sweep only considers check-ins that expired in the last hour, so the
+first run cannot replay old check-ins that were never closed.
 
 ---
 
@@ -153,18 +188,41 @@ curl -I https://gayze.co.uk/icons/gayze-192.png    # image/png
 
 ## 7. Notification catalogue
 
-| Type | Trigger | Title | Click destination |
-| --- | --- | --- | --- |
-| `message` | insert on `messages` | New message | `/messages/<conversationId>` |
-| `intent` | insert on `interests` | Someone is interested | `/right-now` |
-| `intent_expiring` | `sweep_expiring_intents()` cron | Your intent is ending soon | `/profile` |
-| `connection` | mutual interest dispatch | New connection | `/messages/<conversationId>` |
-| `safety` | genuine safety events only | Gayze safety alert | `/profile` |
-| `test` | admin/dev button | Gayze notifications are working | `/profile` |
+| Type | Producer | Title | Click destination | Wired? |
+| --- | --- | --- | --- | --- |
+| `message` | insert on `messages` (trigger) | New message | `/messages/<conversationId>` | yes |
+| `connection` | `submit_interest` RPC result (client -> `send-push`) | New connection | `/messages/<conversationId>` | yes |
+| `intent_expiring` | `sweep_expiring_intents()` cron | Your intent is ending soon | `/profile` | yes (needs cron) |
+| `safety` | `sweep_expired_safety_checkins()` cron | Gayze safety alert | `/profile` | yes (needs cron) |
+| `intent` ("someone is interested") | none yet | Someone is interested | `/right-now` | **no** — needs the `interests` schema / `submit_interest` body |
+| `test` | admin/dev button | Gayze notifications are working | `/profile` | yes |
 
 Message bodies are **end-to-end encrypted**. The server stores ciphertext only
 and therefore cannot — and does not — put message content in a push payload.
 The body is limited to `"<Sender> sent you a message"`.
+
+### Connection notification (mutual interest)
+
+The transition to "mutual" happens inside `submit_interest`, whose definition is
+not in this repo, so no table trigger is used (it could miss the transition or
+fire on the wrong row). The authoritative signal is the RPC's own result:
+
+1. `submitInterest()` gets `{ mutual: true, conversation_id }`.
+2. It calls `send-push` with `{ action: 'connection', conversationId }` and the
+   caller's JWT (fire-and-forget; never affects the interest flow).
+3. `send-push` verifies the JWT, loads `conversation_members`, requires exactly
+   two members including the caller, and derives the recipient (the *other*
+   member) itself — the request body never names a recipient.
+4. It claims `('connection', conversationId)` in `notification_dispatch_log`
+   (anchored to a canonical member so either side contends for the same slot):
+   exactly one push per conversation, however often or from whichever side it is
+   called.
+5. It then applies the recipient's preferences (`push_category_enabled`).
+
+Limitation: a client that never reports the mutual result (app killed between
+the RPC returning and the follow-up call) sends no push. If you want that
+closed, make `submit_interest` itself call `public.request_push_dispatch(...)`
+at the mutual transition once its body is reviewed.
 
 ---
 
@@ -177,6 +235,16 @@ The body is limited to `"<Sender> sent you a message"`.
   `push_category_enabled()`, not only in the UI.
 * Endpoints reported as `404`/`410` by the push service are deleted
   immediately, so dead devices are not retained.
+* **Shared devices / sign-out.** Before the session is removed, sign-out
+  (1) unsubscribes this browser from `PushManager` and (2) deletes this
+  endpoint's `push_subscriptions` row under the signed-in user's own RLS. Both
+  are bounded (2.5 s), independent and non-fatal: a failure can never block
+  sign-out, and leaves a `gayze_push_pending_revoke` marker so the browser
+  subscription is revoked on the next app start. If a session ends without the
+  sign-out handler (remote/global sign-out), the `SIGNED_OUT` event revokes the
+  browser subscription locally. The next user never claims an old row: if the
+  browser still holds a subscription they do not own, enabling push revokes it
+  and mints a fresh endpoint. RLS is unchanged.
 * The service worker never caches cross-origin traffic (Supabase REST,
   Realtime, Auth, Storage), never caches non-GET requests, and never caches a
   request carrying an `Authorization` header.

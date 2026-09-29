@@ -2,21 +2,83 @@
 -- GAYZE — Web Push notifications
 --
 -- Adds:
---   1. public.push_subscriptions      — one row per browser/device endpoint
+--   1. public.push_subscriptions       — one row per browser/device endpoint
 --   2. public.notification_preferences — per-user category switches
---   3. public.notification_dispatch_log — server-side de-duplication / anti-spam
---   4. Trigger plumbing that asks the `send-push` Edge Function to fan out
+--   3. public.notification_dispatch_log — server-side exactly-once / anti-spam
+--   4. Trigger + sweep plumbing that asks the `send-push` Edge Function to fan out
+--
+-- IMPORTANT — the base Gayze schema (profiles, messages, conversations,
+-- conversation_members, intents, interests, safety_checkins, ...) is NOT
+-- defined by any migration in this repository (see docs/BACKEND_REQUIREMENTS.md).
+-- This migration therefore:
+--   * never redefines or alters any pre-existing application object;
+--   * refuses to run (preflight below) if a name it wants to own is already
+--     taken by something it did not create;
+--   * only attaches the `messages` trigger after confirming the table and the
+--     three columns the trigger reads actually exist, and otherwise skips it
+--     with a WARNING instead of failing or guessing;
+--   * makes every trigger/sweep failure non-fatal to the originating write.
 --
 -- Security model:
---   * RLS is ON for every table. A user can only ever see or mutate their own
---     rows. There is no policy that exposes another user's endpoint or keys.
+--   * RLS is ON (and FORCED) for every table. A user can only ever see or
+--     mutate their own rows. There is no policy that exposes another user's
+--     endpoint or keys. RLS is NOT relaxed anywhere in this migration.
 --   * The VAPID private key lives only in Edge Function secrets, never here
 --     and never in a column.
 --   * Preferences are enforced server-side inside the Edge Function as well as
---     being honoured by the UI (see §Preference helper below).
+--     being honoured by the UI (see "Preference helper" below).
 -- ===========================================================================
 
 create extension if not exists pgcrypto;
+
+-- ---------------------------------------------------------------------------
+-- 0. Preflight — never overwrite something this migration does not own.
+--
+--    Every object created here carries a comment that starts with 'gayze-push:'.
+--    Re-running the migration is fine (it finds its own objects); colliding
+--    with a pre-existing application object aborts the whole migration
+--    (Supabase runs each migration in a transaction) before anything changes.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  v_fn  text;
+  v_tbl text;
+  v_oid oid;
+begin
+  foreach v_fn in array array[
+    'public.gayze_push_set_updated_at()',
+    'public.gayze_push_has_columns(text, text[])',
+    'public.push_category_enabled(uuid, text)',
+    'public.request_push_dispatch(jsonb)',
+    'public.on_message_notify_push()',
+    'public.sweep_expiring_intents()',
+    'public.sweep_expired_safety_checkins()'
+  ] loop
+    v_oid := to_regprocedure(v_fn);
+    if v_oid is not null
+       and coalesce(obj_description(v_oid, 'pg_proc'), '') not like 'gayze-push:%' then
+      raise exception
+        '[GAYZE] % already exists and was not created by the push migration; refusing to overwrite it',
+        v_fn;
+    end if;
+  end loop;
+
+  foreach v_tbl in array array[
+    'public.push_subscriptions',
+    'public.notification_preferences',
+    'public.notification_dispatch_log'
+  ] loop
+    v_oid := to_regclass(v_tbl);
+    if v_oid is not null
+       and coalesce(obj_description(v_oid, 'pg_class'), '') not like 'gayze-push:%' then
+      raise exception
+        '[GAYZE] table % already exists and was not created by the push migration; refusing to reuse it',
+        v_tbl;
+    end if;
+  end loop;
+end;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 1. Push subscriptions
@@ -37,7 +99,7 @@ create table if not exists public.push_subscriptions (
 );
 
 comment on table public.push_subscriptions is
-  'Web Push endpoints owned by a Gayze user. Never readable across users.';
+  'gayze-push: Web Push endpoints owned by a Gayze user. Never readable across users.';
 
 create index if not exists push_subscriptions_user_id_idx
   on public.push_subscriptions (user_id);
@@ -72,6 +134,14 @@ create policy "push_subscriptions_delete_own"
   to authenticated
   using (user_id = (select auth.uid()));
 
+-- Shared-device note: an endpoint belongs to exactly one user at a time
+-- (UNIQUE endpoint). The client releases it on sign-out (unsubscribe + delete
+-- under the signed-in user's own RLS). If that cleanup could not run, the next
+-- user on the device is given a FRESH endpoint by the client instead of
+-- re-claiming the old one, and the old endpoint is revoked with the push
+-- service, so it can only ever 404/410 and is pruned by `send-push`. No
+-- policy here lets one user take over another user's row.
+
 -- ---------------------------------------------------------------------------
 -- 2. Notification preferences
 -- ---------------------------------------------------------------------------
@@ -89,7 +159,7 @@ create table if not exists public.notification_preferences (
 );
 
 comment on table public.notification_preferences is
-  'Per-user push categories. Enforced server-side by the send-push function.';
+  'gayze-push: per-user push categories. Enforced server-side by the send-push function.';
 
 alter table public.notification_preferences enable row level security;
 alter table public.notification_preferences force row level security;
@@ -114,7 +184,11 @@ create policy "notification_preferences_update_own"
   with check (user_id = (select auth.uid()));
 
 -- ---------------------------------------------------------------------------
--- 3. Dispatch log — server-side anti-spam
+-- 3. Dispatch log — server-side exactly-once / anti-spam
+--
+--    (user_id, category, dedupe_key) is UNIQUE. Claiming a key is an INSERT;
+--    a second claim fails with unique_violation, which is how "exactly once"
+--    is enforced for connection, intent-expiry and safety pushes.
 -- ---------------------------------------------------------------------------
 
 create table if not exists public.notification_dispatch_log (
@@ -126,6 +200,9 @@ create table if not exists public.notification_dispatch_log (
   constraint notification_dispatch_dedupe_key unique (user_id, category, dedupe_key)
 );
 
+comment on table public.notification_dispatch_log is
+  'gayze-push: service-role-only exactly-once ledger for push dispatches.';
+
 create index if not exists notification_dispatch_log_recent_idx
   on public.notification_dispatch_log (user_id, category, created_at desc);
 
@@ -136,10 +213,15 @@ alter table public.notification_dispatch_log force row level security;
 -- Users never read or write their own dispatch log.
 
 -- ---------------------------------------------------------------------------
--- 4. updated_at maintenance
+-- 4. Helpers
+--
+--    `updated_at` maintenance uses a push-specific function. The generic name
+--    `touch_updated_at` is deliberately NOT used: it may already exist in the
+--    live project with different behaviour, and `create or replace` would
+--    silently change it for every table that uses it.
 -- ---------------------------------------------------------------------------
 
-create or replace function public.touch_updated_at()
+create or replace function public.gayze_push_set_updated_at()
 returns trigger
 language plpgsql
 as $$
@@ -149,15 +231,51 @@ begin
 end;
 $$;
 
+comment on function public.gayze_push_set_updated_at() is
+  'gayze-push: maintains updated_at on push tables only.';
+
 drop trigger if exists push_subscriptions_touch on public.push_subscriptions;
 create trigger push_subscriptions_touch
   before update on public.push_subscriptions
-  for each row execute function public.touch_updated_at();
+  for each row execute function public.gayze_push_set_updated_at();
 
 drop trigger if exists notification_preferences_touch on public.notification_preferences;
 create trigger notification_preferences_touch
   before update on public.notification_preferences
-  for each row execute function public.touch_updated_at();
+  for each row execute function public.gayze_push_set_updated_at();
+
+-- True only when `public.<p_table>` is an ordinary/partitioned table that has
+-- every column in p_columns. Used to avoid guessing about the base schema.
+create or replace function public.gayze_push_has_columns(p_table text, p_columns text[])
+returns boolean
+language sql
+stable
+set search_path = pg_catalog, public
+as $$
+  select
+    exists (
+      select 1
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public' and c.relname = p_table and c.relkind in ('r', 'p')
+    )
+    and (
+      select count(distinct a.attname)
+        from pg_attribute a
+        join pg_class c on c.oid = a.attrelid
+        join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public'
+         and c.relname = p_table
+         and a.attnum > 0
+         and not a.attisdropped
+         and a.attname = any (p_columns)
+    ) = cardinality(p_columns);
+$$;
+
+comment on function public.gayze_push_has_columns(text, text[]) is
+  'gayze-push: schema guard used by the push triggers and sweeps.';
+
+revoke all on function public.gayze_push_has_columns(text, text[]) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 5. Preference helper (used by the Edge Function via service role)
@@ -189,6 +307,9 @@ as $$
     true
   );
 $$;
+
+comment on function public.push_category_enabled(uuid, text) is
+  'gayze-push: server-side preference gate for send-push.';
 
 revoke all on function public.push_category_enabled(uuid, text) from public, anon, authenticated;
 
@@ -250,9 +371,14 @@ exception when others then
 end;
 $$;
 
+comment on function public.request_push_dispatch(jsonb) is
+  'gayze-push: pg_net bridge to the send-push Edge Function (never raises).';
+
 revoke all on function public.request_push_dispatch(jsonb) from public, anon, authenticated;
 
 -- 6a. New message -> notify every other conversation member.
+--     The body is wrapped so that NO failure here (missing profile row,
+--     unexpected column, pg_net down) can ever abort the message INSERT.
 create or replace function public.on_message_notify_push()
 returns trigger
 language plpgsql
@@ -262,81 +388,74 @@ as $$
 declare
   v_sender_name text;
 begin
-  select coalesce(nullif(trim(p.display_name), ''), 'Someone')
-    into v_sender_name
-    from public.profiles p
-   where p.id = new.sender_id;
+  begin
+    begin
+      select coalesce(nullif(trim(p.display_name), ''), 'Someone')
+        into v_sender_name
+        from public.profiles p
+       where p.id = new.sender_id;
+    exception when others then
+      v_sender_name := null;
+    end;
 
-  perform public.request_push_dispatch(jsonb_build_object(
-    'event', 'message',
-    'conversationId', new.conversation_id,
-    'senderId', new.sender_id,
-    'senderName', coalesce(v_sender_name, 'Someone'),
-    'messageId', new.id
-  ));
-
-  return new;
-end;
-$$;
-
-drop trigger if exists messages_notify_push on public.messages;
-create trigger messages_notify_push
-  after insert on public.messages
-  for each row execute function public.on_message_notify_push();
-
--- 6b. Interest in an intent.
---     A reciprocal interest is a real connection, so both sides are told and
---     the weaker "someone is interested" ping is suppressed for that case.
-create or replace function public.on_interest_notify_push()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_mutual boolean;
-begin
-  select exists (
-    select 1
-      from public.interests prior
-     where prior.from_user_id = new.to_user_id
-       and prior.to_user_id   = new.from_user_id
-       and prior.id <> new.id
-       and coalesce(prior.status, 'pending') <> 'withdrawn'
-  ) into v_mutual;
-
-  if v_mutual then
     perform public.request_push_dispatch(jsonb_build_object(
-      'event', 'connection', 'toUserId', new.to_user_id));
-    perform public.request_push_dispatch(jsonb_build_object(
-      'event', 'connection', 'toUserId', new.from_user_id));
-  else
-    perform public.request_push_dispatch(jsonb_build_object(
-      'event', 'intent',
-      'toUserId', new.to_user_id,
-      'fromUserId', new.from_user_id,
-      'intentId', new.intent_id
+      'event', 'message',
+      'conversationId', new.conversation_id,
+      'senderId', new.sender_id,
+      'senderName', coalesce(v_sender_name, 'Someone'),
+      'messageId', new.id
     ));
-  end if;
+  exception when others then
+    raise warning '[GAYZE] message push trigger failed: %', sqlerrm;
+  end;
 
   return new;
 end;
 $$;
 
+comment on function public.on_message_notify_push() is
+  'gayze-push: AFTER INSERT trigger body for public.messages (never raises).';
+
+revoke all on function public.on_message_notify_push() from public, anon, authenticated;
+
+-- Attach only to a real `messages` table that has the columns the trigger
+-- reads (id, conversation_id, sender_id — all three are written/selected by the
+-- client in src/services/supabaseService.ts). Otherwise skip with a warning.
 do $$
 begin
-  if to_regclass('public.interests') is not null then
-    execute 'drop trigger if exists interests_notify_push on public.interests';
-    execute 'create trigger interests_notify_push
-               after insert on public.interests
-               for each row execute function public.on_interest_notify_push()';
+  if public.gayze_push_has_columns('messages', array['id', 'conversation_id', 'sender_id']) then
+    execute 'drop trigger if exists messages_notify_push on public.messages';
+    execute 'create trigger messages_notify_push
+               after insert on public.messages
+               for each row execute function public.on_message_notify_push()';
+  else
+    raise warning
+      '[GAYZE] public.messages (id, conversation_id, sender_id) not found; message push trigger NOT installed';
   end if;
 end;
 $$;
+
+-- 6b. "Connection" (mutual interest) is intentionally NOT a database trigger.
+--
+--     The state transition to "mutual" happens inside the `submit_interest`
+--     RPC, whose definition is not in this repository, so there is no table
+--     event this migration can safely treat as "mutual was just created".
+--     The authoritative signal is the RPC's own result ({ mutual, conversation_id }).
+--     The client forwards exactly that to `send-push` (action: 'connection'),
+--     which verifies the caller belongs to that two-person conversation and then
+--     claims (peer, 'connection', conversation_id) in notification_dispatch_log,
+--     so the push fires at most once per conversation regardless of retries or
+--     of both users calling it.
+--
+--     Likewise there is no interests trigger for the generic "someone is
+--     interested" (`intent`) push: it would need interests.to_user_id /
+--     interests.intent_id, which are not confirmed by anything in this repo.
 
 -- 6c. Intent expiry sweep. Schedule with pg_cron, e.g.:
 --   select cron.schedule('gayze-intent-expiry', '*/5 * * * *',
 --                        $$select public.sweep_expiring_intents()$$);
+--   Columns read: intents.id, user_id, expires_at, is_paused (all read or
+--   written by src/services/supabaseService.ts).
 create or replace function public.sweep_expiring_intents()
 returns integer
 language plpgsql
@@ -347,6 +466,11 @@ declare
   v_row   record;
   v_count integer := 0;
 begin
+  if not public.gayze_push_has_columns('intents', array['id', 'user_id', 'expires_at', 'is_paused']) then
+    raise warning '[GAYZE] public.intents (id, user_id, expires_at, is_paused) not found; intent expiry sweep skipped';
+    return 0;
+  end if;
+
   for v_row in
     select i.id, i.user_id, i.expires_at
       from public.intents i
@@ -375,14 +499,21 @@ begin
 end;
 $$;
 
+comment on function public.sweep_expiring_intents() is
+  'gayze-push: cron sweep, one push per intent nearing expiry.';
+
 revoke all on function public.sweep_expiring_intents() from public, anon, authenticated;
 
 -- 6d. Safety check-in expiry.
 --     A safety timer running out without the user ending it is a genuine
 --     safety event — the only situation in which Gayze sends a safety push.
---     Schedule alongside the intent sweep:
+--     Only check-ins that expired within the last hour are considered, so the
+--     first run can never replay historical check-ins that were simply never
+--     closed. Schedule alongside the intent sweep:
 --       select cron.schedule('gayze-safety-expiry', '* * * * *',
 --                            $$select public.sweep_expired_safety_checkins()$$);
+--     Columns read: safety_checkins.id, user_id, status, expires_at (all read
+--     or written by src/services/supabaseService.ts).
 create or replace function public.sweep_expired_safety_checkins()
 returns integer
 language plpgsql
@@ -393,7 +524,8 @@ declare
   v_row   record;
   v_count integer := 0;
 begin
-  if to_regclass('public.safety_checkins') is null then
+  if not public.gayze_push_has_columns('safety_checkins', array['id', 'user_id', 'status', 'expires_at']) then
+    raise warning '[GAYZE] public.safety_checkins (id, user_id, status, expires_at) not found; safety sweep skipped';
     return 0;
   end if;
 
@@ -402,6 +534,7 @@ begin
       from public.safety_checkins c
      where c.status = 'active'
        and c.expires_at <= now()
+       and c.expires_at >  now() - interval '1 hour'
   loop
     -- One safety push per check-in, ever.
     begin
@@ -422,5 +555,8 @@ begin
   return v_count;
 end;
 $$;
+
+comment on function public.sweep_expired_safety_checkins() is
+  'gayze-push: cron sweep, one push per expired safety check-in.';
 
 revoke all on function public.sweep_expired_safety_checkins() from public, anon, authenticated;

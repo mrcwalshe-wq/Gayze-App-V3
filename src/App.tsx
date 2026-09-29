@@ -18,8 +18,11 @@ import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { InstallPrompt } from './components/InstallPrompt';
 import { NotificationsModal } from './components/NotificationsModal';
 import {
+  finishPendingPushRevoke,
   registerServiceWorker,
+  releasePushOnSignOut,
   resyncSubscription,
+  revokeLocalPushSubscription,
   updateAppBadge,
 } from './services/pushService';
 import {
@@ -261,6 +264,11 @@ export default function App() {
       }
 
       if (event === 'SIGNED_OUT') {
+        // The session ended without the in-app sign-out handler (remote/global
+        // sign-out, invalid refresh token). The JWT is gone so the server row
+        // cannot be deleted under RLS, but this browser's endpoint can still be
+        // revoked so the previous account stops receiving pushes on this device.
+        void revokeLocalPushSubscription();
         authGenerationRef.current += 1;
         recoverySessionRef.current = false;
         setIsAuthenticated(false);
@@ -965,6 +973,9 @@ export default function App() {
   // ---------------------------------------------------------------------
   useEffect(() => {
     void registerServiceWorker();
+    // Finish revoking this browser's push subscription if a previous sign-out
+    // could not confirm it (shared-device safety). No-op otherwise.
+    void finishPendingPushRevoke();
   }, []);
 
   // Apply a notification deep link on first authenticated render. Auth
@@ -2617,6 +2628,12 @@ export default function App() {
           locationWatchStopRef.current?.();
           locationWatchStopRef.current = null;
           recoverySessionRef.current = false;
+
+          // Release this device's push subscription while the session is still
+          // valid (the row delete needs the user's JWT to pass RLS). Bounded and
+          // never throws: a failed cleanup can not block sign-out. If it cannot
+          // be confirmed, the subscription is revoked on next app start.
+          await releasePushOnSignOut();
 
           // Remove the persisted browser session first. This is the authoritative
           // local logout path and also works when Supabase's network sign-out is

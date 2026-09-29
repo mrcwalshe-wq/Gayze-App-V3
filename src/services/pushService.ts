@@ -229,10 +229,35 @@ async function persistSubscription(subscription: PushSubscription): Promise<void
   if (error) throw new Error(error.message);
 }
 
-async function removeSubscriptionRow(endpoint: string): Promise<void> {
-  if (!supabase) return;
+async function removeSubscriptionRow(endpoint: string): Promise<boolean> {
+  if (!supabase) return false;
+  // RLS scopes this to the signed-in user's own rows, so it can only ever
+  // delete a subscription that belongs to the current user.
   const { error } = await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
-  if (error) console.warn('[GAYZE] Failed to delete push subscription row:', error.message);
+  if (error) {
+    console.warn('[GAYZE] Failed to delete push subscription row:', error.message);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * True only when the signed-in user owns a stored row for this endpoint.
+ * RLS hides other users' rows, so a device endpoint that is (or was) registered
+ * to someone else correctly reads as "not ours".
+ */
+async function ownsSubscriptionRow(endpoint: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .select('id')
+    .eq('endpoint', endpoint)
+    .maybeSingle();
+  if (error) {
+    console.warn('[GAYZE] Could not check push subscription ownership:', error.message);
+    return false;
+  }
+  return Boolean(data);
 }
 
 // ---------------------------------------------------------------------------
@@ -300,8 +325,19 @@ export async function subscribeToPush(): Promise<SubscribeResult> {
       };
     }
 
-    // Step 4 — subscribe. Reuse an existing subscription when present.
+    // Step 4 — subscribe. Reuse the browser's existing subscription ONLY when
+    // the signed-in user already owns it. A subscription left behind by another
+    // account (sign-out cleanup could not run) is revoked and replaced with a
+    // fresh endpoint, so the previous account's row can never receive this
+    // user's notifications and this user never has to claim someone else's row.
     let subscription = await registration.pushManager.getSubscription();
+    if (subscription && !(await ownsSubscriptionRow(subscription.endpoint))) {
+      const revoked = await subscription.unsubscribe();
+      if (!revoked) {
+        return { ok: false, reason: 'Gayze could not reset this device\u2019s notification registration. Try again.' };
+      }
+      subscription = null;
+    }
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -345,8 +381,16 @@ export async function resyncSubscription(oldEndpoint?: string | null): Promise<v
     if (!registration) return;
     if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') return;
 
+    // Only re-register a device this user actually opted in. Browser permission
+    // is per-device, not per-account, so on a shared device a different signed-in
+    // user must not be silently enrolled just because permission was granted.
+    const existing = await registration.pushManager.getSubscription();
+    const ownsOld = oldEndpoint ? await ownsSubscriptionRow(oldEndpoint) : false;
+    const ownsCurrent = existing ? await ownsSubscriptionRow(existing.endpoint) : false;
+    if (!ownsOld && !ownsCurrent) return;
+
     const subscription =
-      (await registration.pushManager.getSubscription()) ??
+      existing ??
       (await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
@@ -363,7 +407,140 @@ export async function resyncSubscription(oldEndpoint?: string | null): Promise<v
 export async function isDeviceSubscribed(): Promise<boolean> {
   if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') return false;
   const subscription = await getExistingSubscription();
-  return Boolean(subscription);
+  if (!subscription) return false;
+  // A browser subscription registered to a different account is not "on" for
+  // the current user.
+  return ownsSubscriptionRow(subscription.endpoint);
+}
+
+// ---------------------------------------------------------------------------
+// Sign-out / shared-device safety
+// ---------------------------------------------------------------------------
+
+/**
+ * localStorage flag: a sign-out could not confirm that this browser's push
+ * subscription was revoked. It is deliberately NOT cleared by the sign-out
+ * cache purge, and is honoured on the next app start regardless of who (if
+ * anyone) is signed in.
+ */
+const PUSH_PENDING_REVOKE_KEY = 'gayze_push_pending_revoke';
+
+function withTimeout<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const timer = window.setTimeout(() => resolve(fallback), ms);
+    work.then(
+      (value) => { window.clearTimeout(timer); resolve(value); },
+      () => { window.clearTimeout(timer); resolve(fallback); },
+    );
+  });
+}
+
+/** This browser's current push subscription, WITHOUT waiting on a worker to become ready. */
+async function currentBrowserSubscription(): Promise<PushSubscription | null> {
+  if (!isPushSupported()) return null;
+  const registration = await navigator.serviceWorker.getRegistration('/');
+  return registration ? registration.pushManager.getSubscription() : null;
+}
+
+function setPendingRevoke(pending: boolean): void {
+  try {
+    if (pending) window.localStorage.setItem(PUSH_PENDING_REVOKE_KEY, '1');
+    else window.localStorage.removeItem(PUSH_PENDING_REVOKE_KEY);
+  } catch {
+    /* Storage unavailable — nothing more we can do. */
+  }
+}
+
+/**
+ * Release this device's push subscription when the user signs out.
+ *
+ * MUST run BEFORE the Supabase session is removed: deleting the row needs the
+ * signed-in user's JWT so it passes (unchanged) RLS. Steps:
+ *   1. unsubscribe this browser from PushManager (kills the endpoint at the push service);
+ *   2. delete this endpoint's row for the signed-in user.
+ * Both are attempted independently. It NEVER throws and is bounded by
+ * `timeoutMs`, so a failed or slow cleanup can never block sign-out. If either
+ * step could not be confirmed, a pending-revoke flag is left so the browser
+ * subscription is revoked on the next app start.
+ */
+export async function releasePushOnSignOut(timeoutMs = 2500): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  const work = async (): Promise<boolean> => {
+    const subscription = await currentBrowserSubscription();
+    if (!subscription) return true; // nothing on this device to release
+    const { endpoint } = subscription;
+
+    const [unsubscribed, rowRemoved] = await Promise.all([
+      subscription.unsubscribe().catch(() => false),
+      removeSubscriptionRow(endpoint).catch(() => false),
+    ]);
+    // `unsubscribed` is the security-critical half (it makes the endpoint
+    // undeliverable even if the server row lingers).
+    return unsubscribed && rowRemoved;
+  };
+
+  try {
+    const clean = await withTimeout(work(), timeoutMs, false);
+    // Only a confirmed-clean release clears the retry marker.
+    setPendingRevoke(!clean);
+  } catch (error) {
+    console.warn('[GAYZE] Push release on sign-out failed:', error);
+    setPendingRevoke(true);
+  }
+}
+
+/**
+ * Revoke this browser's push subscription locally (no server call, no session
+ * needed). Used when a session ends without our sign-out handler having run
+ * (remote/global sign-out, invalid refresh token) and to finish an interrupted
+ * `releasePushOnSignOut`. The now-dead endpoint is pruned server-side on its
+ * next 404/410.
+ */
+export async function revokeLocalPushSubscription(): Promise<void> {
+  try {
+    const subscription = await currentBrowserSubscription();
+    if (subscription) {
+      const ok = await subscription.unsubscribe();
+      if (!ok) { setPendingRevoke(true); return; }
+    }
+    setPendingRevoke(false);
+  } catch (error) {
+    console.warn('[GAYZE] Local push revoke failed:', error);
+    setPendingRevoke(true);
+  }
+}
+
+/** Run once at startup: finish any revoke a previous sign-out could not confirm. */
+export async function finishPendingPushRevoke(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  let pending = false;
+  try { pending = window.localStorage.getItem(PUSH_PENDING_REVOKE_KEY) === '1'; } catch { /* ignore */ }
+  if (pending) await revokeLocalPushSubscription();
+}
+
+// ---------------------------------------------------------------------------
+// Connection push (mutual interest)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tell the backend that the signed-in user's `submit_interest` call just made a
+ * mutual connection, so the OTHER member can be notified. The recipient is never
+ * sent from here: `send-push` derives it from `conversation_members`, verifies
+ * the caller belongs to that two-person conversation, enforces the recipient's
+ * notification preferences, and claims a once-per-conversation ledger slot.
+ * Fire-and-forget: it never throws and never affects the interest flow.
+ */
+export async function requestConnectionPush(conversationId: string): Promise<void> {
+  if (!supabase || !conversationId) return;
+  try {
+    const { error } = await supabase.functions.invoke('send-push', {
+      body: { action: 'connection', conversationId },
+    });
+    if (error) console.warn('[GAYZE] Connection push request failed:', error.message);
+  } catch (error) {
+    console.warn('[GAYZE] Connection push request failed:', error);
+  }
 }
 
 // ---------------------------------------------------------------------------

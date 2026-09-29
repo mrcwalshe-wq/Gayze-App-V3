@@ -4,12 +4,12 @@
  * The only place in the system that holds the VAPID private key. It is read
  * from Edge Function secrets and never returned, logged or exposed.
  *
- * Two authenticated entry points:
+ * Three authenticated entry points:
  *
  *   1. Trigger dispatch (server -> server)
  *      Header: x-gayze-dispatch-secret: <PUSH_DISPATCH_SECRET>
  *      Body:   { event: 'message' | 'intent' | 'intent_expiring'
- *                       | 'connection' | 'safety', ... }
+ *                       | 'safety', ... }
  *      Called by public.request_push_dispatch() via pg_net.
  *
  *   2. Test push (authenticated user -> their own devices only)
@@ -17,6 +17,16 @@
  *      Body:   { action: 'test' }
  *      A user can ONLY ever target themselves here; the target is taken from
  *      the verified JWT, never from the request body.
+ *
+ *   3. Connection push (authenticated user -> the OTHER member of a direct
+ *      conversation that their own `submit_interest` call just made mutual)
+ *      Header: Authorization: Bearer <user access token>
+ *      Body:   { action: 'connection', conversationId }
+ *      The recipient is never taken from the request body: it is derived
+ *      server-side from `conversation_members`, the caller must be one of
+ *      exactly two members, and delivery is claimed once per conversation
+ *      ('connection', conversationId) in notification_dispatch_log, whichever
+ *      member calls.
  *
  * Required secrets:
  *   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT,
@@ -159,6 +169,71 @@ async function notify(userId: string, payload: NotificationPayload): Promise<num
 // Event handlers
 // ---------------------------------------------------------------------------
 
+/**
+ * Claim a one-time dispatch slot. Returns true only for the caller that
+ * inserted the ledger row; any retry / duplicate gets false (unique_violation).
+ * On any other error we return false: better to miss a push than to spam.
+ */
+async function claimDispatch(userId: string, category: Category, dedupeKey: string): Promise<boolean> {
+  const { error } = await admin
+    .from('notification_dispatch_log')
+    .insert({ user_id: userId, category, dedupe_key: dedupeKey });
+  if (!error) return true;
+  if ((error as { code?: string }).code !== '23505') {
+    console.warn('[GAYZE] dispatch claim failed:', error.message);
+  }
+  return false;
+}
+
+/**
+ * Mutual-interest push. `callerId` is the verified JWT subject of the user whose
+ * `submit_interest` call returned mutual; the recipient is the other member.
+ */
+async function handleConnectionAction(callerId: string, conversationIdRaw: unknown): Promise<{ delivered: number; reason?: string }> {
+  const conversationId = typeof conversationIdRaw === 'string' ? conversationIdRaw : '';
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId)) {
+    return { delivered: 0, reason: 'invalid_conversation' };
+  }
+
+  const { data: members, error } = await admin
+    .from('conversation_members')
+    .select('user_id')
+    .eq('conversation_id', conversationId);
+  if (error) {
+    console.warn('[GAYZE] connection member lookup failed:', error.message);
+    return { delivered: 0, reason: 'lookup_failed' };
+  }
+
+  const ids = (members ?? []).map((m) => (m as { user_id: string }).user_id);
+  // Only a direct (two-person) conversation the caller belongs to can be a
+  // "connection". Anything else is rejected without revealing why.
+  if (ids.length !== 2 || !ids.includes(callerId)) return { delivered: 0, reason: 'not_a_direct_member' };
+
+  const peerId = ids.find((id) => id !== callerId);
+  if (!peerId) return { delivered: 0, reason: 'not_a_direct_member' };
+
+  // Exactly once per CONVERSATION, however many times and from whichever side
+  // this is called (e.g. the other user later re-sends interest and the RPC
+  // reports the same mutual conversation again). The ledger key is therefore
+  // anchored to a canonical member (the lexicographically smaller user id) rather
+  // than to the recipient, so both sides contend for the same single slot.
+  const claimOwner = ids.slice().sort()[0];
+  if (!(await claimDispatch(claimOwner, 'connection', conversationId))) {
+    return { delivered: 0, reason: 'already_sent' };
+  }
+
+  const delivered = await notify(peerId, {
+    type: 'connection',
+    title: 'New connection',
+    // No names, no intent details.
+    body: 'You and someone nearby are both interested.',
+    url: `/messages/${conversationId}`,
+    conversationId,
+    tag: `gayze-connection-${conversationId}`,
+  });
+  return { delivered };
+}
+
 async function handleMessageEvent(body: Record<string, unknown>): Promise<number> {
   const conversationId = String(body.conversationId ?? '');
   const senderId = String(body.senderId ?? '');
@@ -193,6 +268,9 @@ async function handleMessageEvent(body: Record<string, unknown>): Promise<number
   return sent;
 }
 
+// NOTE: no database trigger currently produces the 'intent' event (the interests
+// schema and submit_interest body are not in this repository). The handler is
+// kept so a verified producer can be wired later without changing this contract.
 async function handleIntentEvent(body: Record<string, unknown>): Promise<number> {
   const toUserId = String(body.toUserId ?? '');
   const intentId = body.intentId ? String(body.intentId) : null;
@@ -221,21 +299,6 @@ async function handleIntentExpiringEvent(body: Record<string, unknown>): Promise
     url: '/profile',
     intentId,
     tag: `gayze-intent-expiring-${intentId ?? 'general'}`,
-  });
-}
-
-async function handleConnectionEvent(body: Record<string, unknown>): Promise<number> {
-  const toUserId = String(body.toUserId ?? '');
-  const conversationId = body.conversationId ? String(body.conversationId) : null;
-  if (!toUserId) return 0;
-
-  return notify(toUserId, {
-    type: 'connection',
-    title: 'New connection',
-    body: 'You and someone nearby are both interested.',
-    url: conversationId ? `/messages/${conversationId}` : '/messages',
-    conversationId,
-    tag: `gayze-connection-${conversationId ?? 'general'}`,
   });
 }
 
@@ -268,14 +331,19 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid JSON body' }, 400);
   }
 
-  // --- Path 1: authenticated user requesting a test push to their own devices
+  // --- Path 1: authenticated user actions (verified JWT; target never from body)
   const authHeader = req.headers.get('Authorization');
-  if (body.action === 'test') {
+  if (body.action === 'test' || body.action === 'connection') {
     if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Authentication required' }, 401);
 
     const token = authHeader.slice('Bearer '.length);
     const { data: userData, error: userError } = await admin.auth.getUser(token);
     if (userError || !userData?.user) return json({ error: 'Invalid session' }, 401);
+
+    if (body.action === 'connection') {
+      const result = await handleConnectionAction(userData.user.id, body.conversationId);
+      return json({ ok: true, ...result });
+    }
 
     // The target is the verified JWT subject — a caller cannot push to anyone else.
     const sent = await deliver(userData.user.id, {
@@ -306,9 +374,6 @@ Deno.serve(async (req) => {
       break;
     case 'intent_expiring':
       delivered = await handleIntentExpiringEvent(body);
-      break;
-    case 'connection':
-      delivered = await handleConnectionEvent(body);
       break;
     case 'safety':
       delivered = await handleSafetyEvent(body);
