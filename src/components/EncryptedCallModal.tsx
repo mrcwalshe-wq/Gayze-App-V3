@@ -274,8 +274,18 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   };
 
   const handleToggleMute = () => {
-    const nextState = webrtcCallService.toggleAudio();
-    setIsMuted(!nextState);
+    // Toggle the actual capture track immediately as well as the service state.
+    // This keeps the control reliable if the service stream reference lags behind
+    // the media element during call setup.
+    const stream = webrtcCallService.getLocalStream?.();
+    const track = stream?.getAudioTracks()[0];
+    const nextMuted = track ? track.enabled : !isMuted;
+    if (track) {
+      track.enabled = !nextMuted;
+    } else {
+      webrtcCallService.toggleAudio(!nextMuted);
+    }
+    setIsMuted(nextMuted);
   };
 
   const handleToggleVideo = () => {
@@ -461,7 +471,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
           {/* Speaker Toggle */}
           <button
-            onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+            onClick={() => setIsSpeakerOn((current) => !current)}
             className={`w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
               !isSpeakerOn
                 ? 'bg-zinc-800 text-zinc-500 border-white/5'
