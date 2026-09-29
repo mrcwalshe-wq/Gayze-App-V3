@@ -182,6 +182,10 @@ export default function App() {
   const lastTrackedTabRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (activeTab === 'swarms') setUnreadMessageCount(0);
+  }, [activeTab]);
+
+  useEffect(() => {
     if (lastTrackedTabRef.current === activeTab) return;
     lastTrackedTabRef.current = activeTab;
     if (activeTab === 'right_now') {
@@ -473,6 +477,7 @@ export default function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const toastTimeoutRef = useRef<number | null>(null);
 
   // Schedule Meeting Modal state
@@ -757,7 +762,8 @@ export default function App() {
             ? { ...candidate, lastMessage: plainText, lastTimestamp: message.timestamp } : candidate
           ).sort((a, b) => b.lastTimestamp - a.lastTimestamp));
 
-          if (activeRoomId !== row.conversation_id) {
+          if (activeRoomId !== row.conversation_id || activeTab !== 'swarms') {
+            setUnreadMessageCount((count) => count + 1);
             showToast('New message from ' + senderName);
             hapticMessageDecrypted();
           }
@@ -2167,7 +2173,7 @@ export default function App() {
       <Navbar
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab)}
-        unreadCount={0}
+        unreadCount={unreadMessageCount}
         onOpenMask={() => setIsMaskActive(true)}
         onOpenIdentity={() => setIsIdentityOpen(true)}
         onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
