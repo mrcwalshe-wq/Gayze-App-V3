@@ -2362,6 +2362,7 @@ export default function App() {
               onOpenGatheringChat={handleOpenGatheringChat}
               onCreateGathering={handleCreateGathering}
               currentUser={currentUser}
+              activeIntentMode={activeUserIntent?.mode}
               currentUserId={supabaseUserId}
               userLocation={userLocation}
             />
