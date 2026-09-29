@@ -1298,8 +1298,21 @@ export default function App() {
 
       let plainText = '[Encrypted message]';
       let mediaUrl: string | undefined = undefined;
-      if (conversationKey && row.nonce) {
+      let decryptedOk = false;
+
+      // A message can arrive through Realtime before the device identity/key
+      // bootstrap has finished. Resolve the key again and retry a few times so
+      // the recipient never gets stuck with a permanent ciphertext placeholder.
+      for (let attempt = 0; attempt < 3 && row.nonce && !decryptedOk; attempt += 1) {
         try {
+          if (!conversationKey) {
+            const resolved = await resolveConversationKey(
+              targetRoom,
+              supabaseUserIdRef.current ?? undefined,
+            );
+            conversationKey = resolved.key;
+          }
+          if (!conversationKey) throw new Error('Conversation key unavailable');
           const decrypted = await decryptWithConversationKey(row.ciphertext, row.nonce, conversationKey);
           if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
             try {
@@ -1312,8 +1325,11 @@ export default function App() {
           } else {
             plainText = decrypted;
           }
+          decryptedOk = true;
         } catch (error) {
-          console.warn('[GAYZE] Unable to decrypt conversation message', error);
+          conversationKey = null;
+          if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
+          else console.warn('[GAYZE] Unable to decrypt conversation message', error);
         }
       }
 
@@ -1338,7 +1354,13 @@ export default function App() {
 
       setMessages((prev) => {
         const existing = prev[activeRoomId] || [];
-        if (existing.some((item) => item.id === message.id)) return prev;
+        const existingIndex = existing.findIndex((item) => item.id === message.id);
+        if (existingIndex >= 0) {
+          if (!decryptedOk || existing[existingIndex].plainText !== '[Encrypted message]') return prev;
+          const updated = [...existing];
+          updated[existingIndex] = message;
+          return { ...prev, [activeRoomId]: updated };
+        }
         return { ...prev, [activeRoomId]: [...existing, message] };
       });
     };
