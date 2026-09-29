@@ -40,7 +40,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   targetUserId,
   isIncoming = false,
 }) => {
-  const [callState, setCallState] = useState<CallState>(isIncoming ? 'connecting' : 'calling');
+  const [callState, setCallState] = useState<CallState>(isIncoming ? 'ringing' : 'calling');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -59,9 +59,8 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  // Branded call alert: use Web Audio so GAYZE does not depend on a remote
-  // audio asset being available. The tone is deliberately short and subtle,
-  // and is stopped as soon as the call leaves the pre-connect states.
+  // Branded GAYZE call alert. Caller and recipient deliberately use different
+  // signatures so each side has a distinct call experience.
   const stopRingtone = () => {
     if (ringtoneTimerRef.current !== null) {
       window.clearInterval(ringtoneTimerRef.current);
@@ -97,13 +96,13 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
     gain.connect(ctx.destination);
 
-    [660, 880].forEach((frequency, index) => {
+    [523.25, 659.25, 783.99].forEach((frequency, index) => {
       const oscillator = ctx!.createOscillator();
-      oscillator.type = 'sine';
+      oscillator.type = index === 2 ? 'triangle' : 'sine';
       oscillator.frequency.setValueAtTime(frequency, now);
       oscillator.connect(gain);
-      oscillator.start(now + index * 0.07);
-      oscillator.stop(now + 0.39);
+      oscillator.start(now + index * 0.10);
+      oscillator.stop(now + 0.49);
     });
   };
 
@@ -113,11 +112,34 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
       return;
     }
 
-    // Immediate attempt plus a repeating burst. For outgoing calls the call
-    // button supplies the user gesture; browsers may still block incoming
-    // autoplay until the user has interacted with the page.
-    playRingtoneBurst();
-    ringtoneTimerRef.current = window.setInterval(playRingtoneBurst, 1400);
+    // Outgoing uses the ascending GAYZE ringback. Incoming uses a different
+    // two-stage chime so the recipient can distinguish an incoming call.
+    const play = isIncoming ? () => {
+      const ctx = getRingtoneContext();
+      if (!ctx || ctx.state !== 'running') return;
+      const now = ctx.currentTime;
+      const tones = [
+        [392, 0, 0.34, 0.055],
+        [493.88, 0.09, 0.42, 0.05],
+        [587.33, 0.18, 0.52, 0.045],
+        [783.99, 0.34, 0.58, 0.032],
+      ];
+      tones.forEach(([frequency, offset, duration, level]) => {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = frequency === 783.99 ? 'sine' : 'triangle';
+        oscillator.frequency.setValueAtTime(frequency, now);
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(level, now + offset + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + duration);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(now + offset);
+        oscillator.stop(now + offset + duration + 0.02);
+      });
+    } : playRingtoneBurst;
+    play();
+    ringtoneTimerRef.current = window.setInterval(play, isIncoming ? 1900 : 1700);
 
     return () => stopRingtone();
   }, [isOpen, callState]);
@@ -163,14 +185,16 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
         if (local) void localVideoRef.current.play().catch(() => undefined);
       }
       if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remote;
-        if (remote) void remoteVideoRef.current.play().catch((error) => {
+        remoteVideoRef.current.srcObject = initialCallType === 'video' ? remote : null;
+        remoteVideoRef.current.muted = initialCallType !== 'video';
+        if (remote && initialCallType === 'video') void remoteVideoRef.current.play().catch((error) => {
           console.warn('[GAYZE Call] Remote video autoplay was blocked', error);
         });
       }
       if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = remote;
-        if (remote) void remoteAudioRef.current.play().catch((error) => {
+        remoteAudioRef.current.srcObject = initialCallType === 'audio' ? remote : null;
+        remoteAudioRef.current.volume = isSpeakerOn ? 1 : 0;
+        if (remote && initialCallType === 'audio') void remoteAudioRef.current.play().catch((error) => {
           console.warn('[GAYZE Call] Remote audio autoplay was blocked', error);
         });
       }
@@ -189,6 +213,9 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   useEffect(() => {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.volume = isSpeakerOn ? 1 : 0;
+    }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.volume = isSpeakerOn ? 1 : 0;
     }
   }, [isSpeakerOn]);
 
