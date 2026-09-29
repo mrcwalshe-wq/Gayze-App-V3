@@ -1,28 +1,50 @@
-# GAYZE — Cloudflare Workers static-asset deployment.
+# GAYZE — Cloudflare Workers static-asset configuration.
 #
-# NOTE: the production Worker (gayze-app-v3 / https://gayze.co.uk) predates this
-# file and was configured outside the repository. Reconcile this with the
-# existing dashboard configuration before running `wrangler deploy`, and keep
-# the `name` below identical to the deployed Worker so you update it in place
-# rather than creating a second Worker.
+# TARGET: the EXISTING production Worker `gayze-app-v3`
+#         (custom domain https://gayze.co.uk).
 #
-# What this configuration guarantees for the PWA:
-#   * /service-worker.js, /manifest.webmanifest and /icons/*.png are served as
-#     real static files from the build output, with extension-derived
-#     Content-Type headers (see also public/_headers).
-#   * Unknown paths fall back to index.html, so notification deep links such as
-#     /messages/<id> load the SPA instead of 404ing.
-#   * Everything is HTTPS-only on the Workers platform.
+# `name` below is the only thing that selects the Worker. It matches the
+# deployed Worker exactly, and there are no [env.*] blocks, so `wrangler deploy`
+# updates that Worker in place. It cannot create a second Worker.
+#
+# --- Deliberately NOT configured, so a deploy cannot clobber live settings ---
+#
+# routes / custom domains:
+#   Intentionally absent. gayze.co.uk is attached to the Worker in the
+#   Cloudflare dashboard. Wrangler treats its config as the source of truth for
+#   routes and will replace the Worker's domain/route set when routes are
+#   declared — declaring a partial list here could DETACH gayze.co.uk or any
+#   other hostname (e.g. www). With no routes key, wrangler skips route/domain
+#   sync entirely and the dashboard configuration is left exactly as-is.
+#
+# workers_dev:
+#   Intentionally absent so the existing *.workers.dev setting is inherited
+#   rather than forced. NOTE: when no routes are declared, wrangler's default
+#   for this key is `true`. Confirm in the dashboard that
+#   gayze-app-v3.mrcwalshe.workers.dev is meant to stay enabled.
+#
+# account_id:
+#   Intentionally absent; supplied by the authenticated wrangler session or
+#   CLOUDFLARE_ACCOUNT_ID, so this file does not pin an account.
+#
+# main:
+#   Absent because this is an assets-only Worker. IMPORTANT: if the deployed
+#   `gayze-app-v3` currently runs a Worker *script*, deploying this config would
+#   replace that script with static-asset serving. Verify in the dashboard
+#   before the first deploy.
 
 name = "gayze-app-v3"
 compatibility_date = "2025-09-01"
 
+# Wrangler deletes every plaintext Worker variable before applying the ones in
+# this file (--keep-vars defaults to false). This config declares no [vars], so
+# without keep_vars a deploy would wipe any variable set in the dashboard.
+# Secrets are never deleted by a deploy; plaintext variables are.
+keep_vars = true
+
 [assets]
 directory = "./dist"
-# Required so /messages/<conversation-id> (a notification click target) resolves
-# to the app shell. Real files like /service-worker.js still win over the
-# fallback because they exist in ./dist.
+# Required so notification deep links such as /messages/<conversation-id>
+# resolve to the app shell. Real files like /service-worker.js and
+# /manifest.webmanifest still win over the fallback because they exist in ./dist.
 not_found_handling = "single-page-application"
-
-[observability]
-enabled = true
