@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Chrome } from 'lucide-react';
 import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
 import { GayzeLogo } from './GayzeLogo';
@@ -59,6 +59,22 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const setFeedback = (text: string, tone: 'error' | 'success' | 'info' = 'info') => {
     setMessage(text);
     setMessageTone(tone);
+  };
+
+  const submitGoogle = async () => {
+    if (!supabase) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.home) },
+      });
+      if (error) throw error;
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Google sign-in failed. Please try again.', 'error');
+      setBusy(false);
+    }
   };
 
   const submitSignIn = async () => {
@@ -345,6 +361,26 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 Return to sign in
               </button>
             </div>
+          )}
+
+
+          {(mode === 'signin' || mode === 'signup') && (
+            <>
+              <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                <span className="h-px flex-1 bg-white/[0.07]" />
+                <span>or</span>
+                <span className="h-px flex-1 bg-white/[0.07]" />
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void submitGoogle()}
+                className="w-full h-12 rounded-xl bg-white text-[#111318] hover:bg-zinc-100 disabled:opacity-50 font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                <Chrome className="w-4 h-4" />
+                Continue with Google
+              </button>
+            </>
           )}
 
           {(mode === 'signin' || mode === 'signup') && (
