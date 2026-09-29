@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal } from '../types';
+import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode } from '../types';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import {
   Lock,
@@ -50,6 +50,8 @@ interface ChatRoomViewProps {
   /** True when no conversation key could be resolved on this device. */
   conversationKeyUnavailable?: boolean;
   conversationKeyReason?: string;
+  /** Current GAYZE mode controls the live chat border hue. */
+  activeIntentMode?: TopLevelIntentMode;
 }
 
 export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
@@ -69,6 +71,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onlineUserIds,
   conversationKeyUnavailable = false,
   conversationKeyReason,
+  activeIntentMode,
 }) => {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -495,10 +498,19 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   </div>
 
                   <div
-                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed ${isMe
-                      ? 'g-bubble--mine rounded-tr-sm'
-                      : 'bg-[#141620] text-zinc-100 border border-white/[0.08] rounded-tl-sm'
-                      }`}
+                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed border transition-colors ${
+                      activeIntentMode === 'private'
+                        ? isMe
+                          ? 'g-bubble--mine rounded-tr-sm !border-[#6F3CC3]/65 shadow-[0_0_18px_rgba(111,60,195,0.10)]'
+                          : 'bg-[#141620] text-zinc-100 rounded-tl-sm !border-[#6F3CC3]/45'
+                        : activeIntentMode === 'social'
+                          ? isMe
+                            ? 'g-bubble--mine rounded-tr-sm !border-[#C9A24D]/65 shadow-[0_0_18px_rgba(201,162,77,0.10)]'
+                            : 'bg-[#141620] text-zinc-100 rounded-tl-sm !border-[#C9A24D]/45'
+                          : isMe
+                            ? 'g-bubble--mine rounded-tr-sm border-white/10'
+                            : 'bg-[#141620] text-zinc-100 rounded-tl-sm border-white/[0.08]'
+                    }`}
                   >
                     {/* Encrypted Photo Attachment if present */}
                     {msg.mediaUrl && (
