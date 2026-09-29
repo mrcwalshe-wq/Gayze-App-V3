@@ -52,10 +52,75 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const terminalCloseTimerRef = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
+  const ringtoneContextRef = useRef<AudioContext | null>(null);
+  const ringtoneTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  // Branded call alert: use Web Audio so GAYZE does not depend on a remote
+  // audio asset being available. The tone is deliberately short and subtle,
+  // and is stopped as soon as the call leaves the pre-connect states.
+  const stopRingtone = () => {
+    if (ringtoneTimerRef.current !== null) {
+      window.clearInterval(ringtoneTimerRef.current);
+      ringtoneTimerRef.current = null;
+    }
+    const ctx = ringtoneContextRef.current;
+    ringtoneContextRef.current = null;
+    if (ctx) {
+      void ctx.close().catch(() => undefined);
+    }
+  };
+
+  const playRingtoneBurst = () => {
+    const AudioContextCtor = window.AudioContext || (window as typeof window & {
+      webkitAudioContext?: typeof AudioContext;
+    }).webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    let ctx = ringtoneContextRef.current;
+    if (!ctx) {
+      ctx = new AudioContextCtor();
+      ringtoneContextRef.current = ctx;
+    }
+    if (ctx.state === 'suspended') {
+      void ctx.resume().catch(() => undefined);
+    }
+    if (ctx.state !== 'running') return;
+
+    const now = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.045, now + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+    gain.connect(ctx.destination);
+
+    [660, 880].forEach((frequency, index) => {
+      const oscillator = ctx!.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, now);
+      oscillator.connect(gain);
+      oscillator.start(now + index * 0.07);
+      oscillator.stop(now + 0.39);
+    });
+  };
+
+  useEffect(() => {
+    if (!isOpen || (callState !== 'calling' && callState !== 'ringing')) {
+      stopRingtone();
+      return;
+    }
+
+    // Immediate attempt plus a repeating burst. For outgoing calls the call
+    // button supplies the user gesture; browsers may still block incoming
+    // autoplay until the user has interacted with the page.
+    playRingtoneBurst();
+    ringtoneTimerRef.current = window.setInterval(playRingtoneBurst, 1400);
+
+    return () => stopRingtone();
+  }, [isOpen, callState]);
 
   useEffect(() => {
     if (!isOpen) return;
