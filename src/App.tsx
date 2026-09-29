@@ -726,7 +726,7 @@ export default function App() {
             if (result) {
               const loaded = buildRoomsFromSupabase(result, supabaseUserIdRef.current || '');
               setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserIdRef.current || ''));
-              room = loaded.find((candidate) => candidate.id === row.conversation_id) || null;
+              room = loaded.find((candidate) => candidate.id === row.conversation_id);
             }
           }
           if (!room || disposed) return;
