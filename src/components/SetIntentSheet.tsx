@@ -490,7 +490,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
           </div>
 
           {/* Sticky footer: summary + go live */}
-          <div className="g-sheet__foot">
+          <div className={`g-sheet__foot ${mode ? `g-sheet__foot--${mode}` : ''}`}>
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-medium text-white truncate">
                 {intent ? optionLabel(intent) : 'Choose what you’re up for'}
@@ -503,7 +503,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             </div>
             <button
               type="submit"
-              className="g-btn g-btn--primary min-w-[128px]"
+              className={`g-btn min-w-[128px] ${mode === 'social' ? 'g-btn--intent-social' : mode === 'private' ? 'g-btn--intent-private' : 'g-btn--primary'}`}
               disabled={!mode || !intent || isSubmitting}
             >
               {isSubmitting ? 'Publishing…' : (isEditing ? 'Update signal' : 'Go live')}
