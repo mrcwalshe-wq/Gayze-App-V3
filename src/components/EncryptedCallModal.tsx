@@ -49,6 +49,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const terminalCloseTimerRef = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
 
@@ -94,9 +95,19 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
     const unsubStreams = webrtcCallService.subscribeStreams((local, remote) => {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = local;
+        if (local) void localVideoRef.current.play().catch(() => undefined);
       }
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remote;
+        if (remote) void remoteVideoRef.current.play().catch((error) => {
+          console.warn('[GAYZE Call] Remote video autoplay was blocked', error);
+        });
+      }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remote;
+        if (remote) void remoteAudioRef.current.play().catch((error) => {
+          console.warn('[GAYZE Call] Remote audio autoplay was blocked', error);
+        });
       }
     });
 
@@ -223,6 +234,10 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
         {/* Center: Live Video Streams or Audio Waveform */}
         <div className="flex-1 flex flex-col items-center justify-center my-3 relative overflow-hidden rounded-2xl bg-[#090a0f] border border-white/10">
+          {/* Dedicated remote audio element. Keeping audio separate from the
+              video presentation avoids iOS/Safari autoplay and visibility quirks. */}
+          <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+
           {/* Remote Video Stream Element */}
           <video
             ref={remoteVideoRef}
