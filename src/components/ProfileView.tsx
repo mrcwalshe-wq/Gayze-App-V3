@@ -32,6 +32,7 @@ import {
   uploadProfilePhoto,
   type ProfilePhoto,
 } from '../services/profilePhotoService';
+import { getPushEnvironment, isDeviceSubscribed } from '../services/pushService';
 
 interface ProfileViewProps {
   currentUser: UserProfile;
@@ -96,9 +97,34 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showNotificationReminder, setShowNotificationReminder] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const env = getPushEnvironment();
+        if (env.blockedBy === 'unsupported' || env.blockedBy === 'not-configured') return;
+        const subscribed = await isDeviceSubscribed();
+        if (cancelled || subscribed) return;
+        try {
+          const dismissedAt = Number(window.localStorage.getItem('gayze_notification_reminder_dismissed_at')) || 0;
+          if (dismissedAt && Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return;
+        } catch {
+          // Continue if local storage is unavailable.
+        }
+        setShowNotificationReminder(true);
+      } catch {
+        // Notification setup is optional and must never affect the profile view.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -516,6 +542,50 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         )}
       </section>
+
+      {showNotificationReminder && onOpenNotifications && (
+        <section className="g-panel g-panel--live p-4 mb-5 border-[#6F3CC3]/30 bg-[#6F3CC3]/[0.06]">
+          <div className="flex items-start gap-3">
+            <span className="flex items-center justify-center w-9 h-9 rounded-[11px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 text-[#c9b0f5] shrink-0">
+              <Bell className="w-4 h-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[13.5px] font-bold text-white">Turn on notifications</p>
+                  <p className="mt-1 text-[11.5px] leading-relaxed text-zinc-400">
+                    Stay in the loop when someone messages you, responds to your intent or connects with you.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="g-icon-btn g-icon-btn--bare shrink-0"
+                  aria-label="Dismiss notification reminder"
+                  onClick={() => {
+                    hapticLight();
+                    try {
+                      window.localStorage.setItem('gayze_notification_reminder_dismissed_at', String(Date.now()));
+                    } catch {
+                      // Ignore storage failures.
+                    }
+                    setShowNotificationReminder(false);
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                className="g-btn g-btn--primary mt-3 w-full sm:w-auto"
+                onClick={() => { hapticLight(); onOpenNotifications(); }}
+              >
+                <Bell className="w-4 h-4" />
+                Start notifications
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Current signal */}
       <section className={`g-panel p-4 mb-5 ${activeUserIntent && !activeUserIntent.isPaused ? 'g-panel--live' : ''}`}>
