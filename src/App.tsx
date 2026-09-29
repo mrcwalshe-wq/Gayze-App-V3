@@ -74,6 +74,7 @@ import {
   submitInterest,
   submitGaze,
   loadConversationMessages,
+  loadIncomingInterests,
   persistConversationMessage,
   subscribeToConversationMessages,
   subscribeToAllConversationMessages,
@@ -480,6 +481,7 @@ export default function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
+  const knownIncomingInterestIdsRef = useRef<Set<string>>(new Set());
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const toastTimeoutRef = useRef<number | null>(null);
 
@@ -933,6 +935,49 @@ export default function App() {
   useEffect(() => () => {
     if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || !supabaseUserId) return;
+    let disposed = false;
+    let initialised = false;
+
+    const handleInterestChange = async () => {
+      const incoming = await loadIncomingInterests();
+      if (disposed) return;
+
+      const currentIds = new Set(incoming.map((interest) => interest.id));
+      if (!initialised) {
+        knownIncomingInterestIdsRef.current = currentIds;
+        initialised = true;
+        return;
+      }
+
+      const newInterest = incoming.find((interest) => !knownIncomingInterestIdsRef.current.has(interest.id));
+      knownIncomingInterestIdsRef.current = currentIds;
+      if (!newInterest) return;
+
+      triggerVibration([40, 60, 100]);
+      showToast(`New interest from ${newInterest.fromDisplayName}`);
+    };
+
+    void handleInterestChange();
+    const channel = supabase
+      .channel('gayze-incoming-interests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'interests' }, () => {
+        void handleInterestChange();
+      })
+      .subscribe((status, error) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[GAYZE] Incoming interest realtime unavailable:', error);
+        }
+      });
+
+    return () => {
+      disposed = true;
+      void supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated, supabaseUserId]);
+
 
   // Handlers for "Right Now"
   const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {
