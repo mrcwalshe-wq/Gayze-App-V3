@@ -584,6 +584,7 @@ export async function persistConversationMessage(
 export function subscribeToConversationMessages(
   conversationId: string,
   onMessage: (row: SupabaseMessageRow) => void,
+  onStatus?: (status: string, error?: Error) => void,
 ) {
   if (!supabase) return () => undefined;
 
@@ -599,7 +600,14 @@ export function subscribeToConversationMessages(
       },
       (payload) => onMessage(payload.new as SupabaseMessageRow),
     )
-    .subscribe();
+    .subscribe((status, error) => {
+      if (status === 'SUBSCRIBED') {
+        console.info('[GAYZE] Conversation realtime subscribed', conversationId);
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[GAYZE] Conversation realtime failed', conversationId, error);
+      }
+      onStatus?.(status, error instanceof Error ? error : undefined);
+    });
 
   const client = supabase;
   return () => { void client.removeChannel(channel); };
