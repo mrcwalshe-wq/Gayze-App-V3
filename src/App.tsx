@@ -16,6 +16,7 @@ import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
+import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
 import { FALLBACK_MAP_CENTER, NEUTRAL_AREA_LABEL, resolveAreaLabel } from './config/mapDefaults';
@@ -1809,6 +1810,8 @@ export default function App() {
 
   // Calling & Gaze Handlers
   const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string) => {
+    // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
+    primeCallAudio();
     // Live calls must belong to a real mutual conversation. A synthetic room
     // cannot provide a valid signaling context and would leave the call UI stuck.
     if (IS_LIVE_BACKEND) {
@@ -1835,6 +1838,7 @@ export default function App() {
   };
 
   const handleAcceptIncomingCall = async (call: IncomingCall) => {
+    primeCallAudio();
     setIncomingCall(null);
     setCallPeerName(call.callerName);
     setCallType(call.callType);
