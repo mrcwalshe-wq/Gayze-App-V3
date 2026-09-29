@@ -16,12 +16,21 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKe
 // This makes sign-out reliable even if Supabase changes its default key format.
 export const GAYZE_AUTH_STORAGE_KEY = 'gayze-auth-token';
 
-/** Auth redirect target for local Vite and Vercel/production. */
-export function getAuthRedirectUrl(path = '/'): string {
+/** Branded auth callback paths used by Supabase email links. */
+export const AUTH_REDIRECT_PATHS = {
+  home: '/',
+  resetPassword: '/auth/reset-password',
+  emailConfirm: '/auth/confirm',
+  emailChange: '/auth/email-change',
+  magicLink: '/auth/magic-link',
+} as const;
+
+/** Auth redirect target for local Vite and production. */
+export function getAuthRedirectUrl(path: string = AUTH_REDIRECT_PATHS.home): string {
   if (typeof window === 'undefined') return path;
   const base = window.location.origin.replace(/\/$/, '');
   const normalised = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${normalised === '/' ? '/' : normalised}`;
+  return `${base}${normalised}`;
 }
 
 export const supabase = isSupabaseConfigured
