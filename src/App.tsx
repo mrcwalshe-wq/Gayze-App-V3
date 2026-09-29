@@ -76,6 +76,7 @@ import {
   loadConversationMessages,
   persistConversationMessage,
   subscribeToConversationMessages,
+  subscribeToAllConversationMessages,
   verifyPeerIdentity,
   registerIdentityDevice,
   listIdentityDevices,
@@ -539,6 +540,7 @@ export default function App() {
   useEffect(() => { activeUserIntentRef.current = activeUserIntent; }, [activeUserIntent]);
 
   const refreshDiscoveryRef = useRef<() => Promise<void>>(async () => undefined);
+  const refreshConversationListRef = useRef<() => Promise<void>>(async () => undefined);
 
   const refreshDiscovery = async () => {
     if (!IS_LIVE_BACKEND) return;
@@ -676,18 +678,96 @@ export default function App() {
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
   // 4. Conversation list hydration (Supabase is the source of truth).
+  const refreshConversationList = async () => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserIdRef.current) return;
+    const viewerId = supabaseUserIdRef.current;
+    const result = await loadMyConversations();
+    if (!result || isSigningOutRef.current) return;
+    const loaded = buildRoomsFromSupabase(result, viewerId);
+    setRooms((prev) => mergeBackendRooms(prev, loaded, viewerId));
+  };
+
+  useEffect(() => {
+    refreshConversationListRef.current = refreshConversationList;
+  });
+
   useEffect(() => {
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
     let disposed = false;
-    void (async () => {
-      const result = await loadMyConversations();
-      if (disposed || !result || isSigningOutRef.current) return;
-      const loaded = buildRoomsFromSupabase(result, supabaseUserId);
-      setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserId));
-    })();
-    return () => { disposed = true; };
+    void refreshConversationListRef.current();
+    const poll = window.setInterval(() => {
+      if (!disposed) void refreshConversationListRef.current();
+    }, 5000);
+    return () => { disposed = true; window.clearInterval(poll); };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
+  // Global message stream: the inbox receives messages even when the user is
+  // on another destination. The conversation poll also catches newly-created rooms.
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    let disposed = false;
+    const unsubscribe = subscribeToAllConversationMessages(
+      (row) => {
+        if (disposed || row.sender_id === supabaseUserIdRef.current) return;
+        void (async () => {
+          let room = roomsRef.current.find((candidate) => candidate.id === row.conversation_id);
+          if (!room) {
+            await refreshConversationListRef.current();
+            room = roomsRef.current.find((candidate) => candidate.id === row.conversation_id);
+          }
+          if (!room || disposed) return;
+
+          let plainText = '[Encrypted message]';
+          let mediaUrl: string | undefined;
+          try {
+            const resolved = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
+            if (resolved.key && row.nonce) {
+              const decrypted = await decryptWithConversationKey(row.ciphertext, row.nonce, resolved.key);
+              if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
+                try {
+                  const parsed = JSON.parse(decrypted);
+                  plainText = parsed.text || '';
+                  mediaUrl = parsed.mediaUrl;
+                } catch { plainText = decrypted; }
+              } else { plainText = decrypted; }
+            }
+          } catch (error) {
+            console.warn('[GAYZE] Global message decryption failed', error);
+          }
+
+          const senderName = room.memberNames?.[row.sender_id] || room.peerName || room.name || 'Gayze member';
+          const message: EncryptedMessage = {
+            id: row.id, roomId: row.conversation_id, senderKey: row.sender_id, senderName,
+            timestamp: new Date(row.created_at).getTime(), cipherText: row.ciphertext,
+            nonceHex: row.nonce || '', plainText, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
+            isBurned: Boolean(row.burned_at), mediaUrl, mediaType: mediaUrl ? 'image' : undefined,
+          };
+
+          setMessages((prev) => {
+            const existing = prev[row.conversation_id] || [];
+            if (existing.some((item) => item.id === row.id)) return prev;
+            return { ...prev, [row.conversation_id]: [...existing, message] };
+          });
+          setRooms((prev) => prev.map((candidate) => candidate.id === row.conversation_id
+            ? { ...candidate, lastMessage: plainText, lastTimestamp: message.timestamp } : candidate
+          ).sort((a, b) => b.lastTimestamp - a.lastTimestamp));
+
+          if (activeRoomId !== row.conversation_id) {
+            showToast('New message from ' + senderName);
+            hapticMessageDecrypted();
+          }
+        })();
+      },
+      (status, error) => {
+        if (disposed) return;
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[GAYZE] Global message realtime failed', error);
+          showToast('Message notifications temporarily disconnected — retrying…');
+        }
+      },
+    );
+    return () => { disposed = true; unsubscribe(); };
+  }, [isAuthenticated, isSigningOut, supabaseUserId, activeRoomId]);
   // WebRTC User Signaling & Truthful Presence
   useEffect(() => {
     if (!isSupabaseConfigured || !supabaseUserId) return;
