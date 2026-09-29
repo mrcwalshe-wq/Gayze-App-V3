@@ -943,7 +943,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !isAuthenticated || !supabaseUserId) return;
+    if (!isSupabaseConfigured || !isAuthenticated || !supabaseUserId || !supabase) return;
+    const supabaseClient = supabase;
     let disposed = false;
     let initialised = false;
 
