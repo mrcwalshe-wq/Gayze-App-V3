@@ -946,7 +946,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       const selfIcon = L.divIcon({
         className: 'custom-user-marker',
         html: isLive
-          ? `<div class="gm-self${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
+          ? `<div class="gm-self gm-self--${activeUserIntent?.mode === 'private' ? 'private' : 'social'}${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
               resolvedUserAvatarUrl
                 ? `<img class="gm-self__photo" src="${resolvedUserAvatarUrl.replace(/"/g, '&quot;')}" alt="" />`
                 : ''
@@ -1127,7 +1127,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               aria-label="Manage your Right Now signal"
             >
               <span
-                className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
+                className={`g-live-dot g-live-dot--${activeUserIntent.mode === 'private' ? 'private' : 'social'} shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
                 aria-hidden="true"
               />
               <span className="min-w-0 text-left">
@@ -1358,7 +1358,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   hapticLight();
                   setIsUserIntentDrawerOpen(true);
                 }}
-                className="g-live-cta"
+                className={`g-live-cta g-live-cta--${activeUserIntent.mode === 'private' ? 'private' : 'social'}`}
                 aria-label="Your signal is live — manage it"
               >
                 {!activeUserIntent.isPaused && (
