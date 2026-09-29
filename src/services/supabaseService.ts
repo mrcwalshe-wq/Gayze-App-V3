@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { UserActiveIntent, Pulse, SafeHaven, UserProfile } from '../types';
+import type { UserActiveIntent, Pulse, SafeHaven, UserProfile, LocationPrivacy } from '../types';
 import { getProfilePhotoUrl } from './profilePhotoService';
 
 export interface RightNowDiscoveryRow {
