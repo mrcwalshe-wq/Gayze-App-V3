@@ -613,6 +613,43 @@ export function subscribeToConversationMessages(
   return () => { void client.removeChannel(channel); };
 }
 
+/**
+ * Global message stream used by the Messages destination and notification layer.
+ * RLS on public.messages limits Postgres Changes delivery to conversations the
+ * authenticated user can read. The active chat may also have its own filtered
+ * channel; duplicate rows are de-duped by message id in App.
+ */
+export function subscribeToAllConversationMessages(
+  onMessage: (row: SupabaseMessageRow) => void,
+  onStatus?: (status: string, error?: Error) => void,
+) {
+  if (!supabase) return () => undefined;
+
+  const channel = supabase
+    .channel('gayze-all-conversation-messages')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+      },
+      (payload) => onMessage(payload.new as SupabaseMessageRow),
+    )
+    .subscribe((status, error) => {
+      if (status === 'SUBSCRIBED') {
+        console.info('[GAYZE] Global message realtime subscribed');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[GAYZE] Global message realtime failed', error);
+      }
+      onStatus?.(status, error instanceof Error ? error : undefined);
+    });
+
+  const client = supabase;
+  return () => { void client.removeChannel(channel); };
+}
+
+
 export async function submitGaze(toUserId: string, intentId?: string) {
   if (!supabase) return { sent: false };
   try {
