@@ -923,62 +923,66 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
   if (!supabase) return null;
   const user = await ensureSupabaseSession();
   if (!user) return null;
+
   try {
-    const { data: mine, error: mineError } = await supabase
-      .from('conversation_members')
-      .select('conversation_id,user_id')
-      .eq('user_id', user.id)
-      .limit(50);
-    if (mineError) {
-      console.warn('[GAYZE] Conversation list unavailable:', mineError.message);
+    // conversation_members is intentionally self-readable under RLS, so a
+    // normal table query cannot discover the other member. The scoped RPC
+    // returns only conversations in which auth.uid() is a member.
+    const { data, error } = await supabase.rpc('get_my_conversations');
+    if (error) {
+      console.warn('[GAYZE] Conversation list unavailable:', error.message);
       return null;
     }
-    const conversationIds = Array.from(new Set((mine ?? []).map((row) => row.conversation_id as string)));
+
+    const rows = (data ?? []) as Array<{
+      conversation_id: string;
+      conversation_created_at: string | null;
+      user_id: string;
+      display_name: string | null;
+      neighborhood: string | null;
+      avatar_path: string | null;
+    }>;
+
+    const conversationIds = Array.from(new Set(rows.map((row) => row.conversation_id)));
     if (!conversationIds.length) return { summaries: [], members: [], profiles: [] };
 
-    const { data: summaries, error: summaryError } = await supabase
-      .from('conversations')
-      .select('id,created_at')
-      .in('id', conversationIds);
-    if (summaryError) {
-      console.warn('[GAYZE] Conversation rows unavailable:', summaryError.message);
-    }
+    const summaries: ConversationSummary[] = [];
+    const seenSummaries = new Set<string>();
+    const members: ConversationMemberRecord[] = [];
+    const seenMembers = new Set<string>();
+    const profiles: ConversationMemberProfile[] = [];
+    const seenProfiles = new Set<string>();
 
-    const { data: members, error: memberError } = await supabase
-      .from('conversation_members')
-      .select('conversation_id,user_id')
-      .in('conversation_id', conversationIds);
-    if (memberError) {
-      console.warn('[GAYZE] Conversation members unavailable:', memberError.message);
-    }
-    const memberRows: ConversationMemberRecord[] = (members ?? []).map((row) => ({
-      conversationId: row.conversation_id as string,
-      userId: row.user_id as string,
-    }));
-
-    const memberIds = Array.from(new Set(memberRows.map((row) => row.userId)));
-    let profiles: ConversationMemberProfile[] = [];
-    if (memberIds.length) {
-      const { data: profileRows, error: profileError } = await supabase
-        .from('profiles')
-        .select('id,display_name,neighborhood,avatar_path')
-        .in('id', memberIds);
-      if (profileError) {
-        console.warn('[GAYZE] Conversation member profiles unavailable:', profileError.message);
+    for (const row of rows) {
+      if (!seenSummaries.has(row.conversation_id)) {
+        seenSummaries.add(row.conversation_id);
+        summaries.push({
+          id: row.conversation_id,
+          createdAt: row.conversation_created_at,
+        });
       }
-      profiles = (profileRows ?? []).map((row) => ({
-        userId: row.id as string,
-        displayName: (row.display_name as string) || null,
-        neighborhood: (row.neighborhood as string) || null,
-        avatarPath: (row.avatar_path as string) || null,
-      }));
+
+      const memberKey = row.conversation_id + ':' + row.user_id;
+      if (!seenMembers.has(memberKey)) {
+        seenMembers.add(memberKey);
+        members.push({
+          conversationId: row.conversation_id,
+          userId: row.user_id,
+        });
+      }
+
+      if (!seenProfiles.has(row.user_id)) {
+        seenProfiles.add(row.user_id);
+        profiles.push({
+          userId: row.user_id,
+          displayName: row.display_name || null,
+          neighborhood: row.neighborhood || null,
+          avatarPath: row.avatar_path || null,
+        });
+      }
     }
 
-    const summaryRows: ConversationSummary[] = summaryError
-      ? conversationIds.map((id) => ({ id, createdAt: null }))
-      : (summaries ?? []).map((row) => ({ id: row.id as string, createdAt: (row.created_at as string) || null }));
-
-    return { summaries: summaryRows, members: memberRows, profiles };
+    return { summaries, members, profiles };
   } catch (err: any) {
     console.warn('[GAYZE] Conversation load exception:', err?.message || err);
     return null;
