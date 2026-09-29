@@ -733,9 +733,11 @@ export default function App() {
 
           let plainText = '[Encrypted message]';
           let mediaUrl: string | undefined;
-          try {
-            const resolved = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
-            if (resolved.key && row.nonce) {
+          let decryptedOk = false;
+          for (let attempt = 0; attempt < 3 && row.nonce && !decryptedOk; attempt += 1) {
+            try {
+              const resolved = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
+              if (!resolved.key) throw new Error(resolved.reason || 'Conversation key unavailable');
               const decrypted = await decryptWithConversationKey(row.ciphertext, row.nonce, resolved.key);
               if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
                 try {
@@ -744,9 +746,11 @@ export default function App() {
                   mediaUrl = parsed.mediaUrl;
                 } catch { plainText = decrypted; }
               } else { plainText = decrypted; }
+              decryptedOk = true;
+            } catch (error) {
+              if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
+              else console.warn('[GAYZE] Global message decryption failed', error);
             }
-          } catch (error) {
-            console.warn('[GAYZE] Global message decryption failed', error);
           }
 
           const senderName = room.memberNames?.[row.sender_id] || room.peerName || room.name || 'Gayze member';
@@ -759,7 +763,13 @@ export default function App() {
 
           setMessages((prev) => {
             const existing = prev[row.conversation_id] || [];
-            if (existing.some((item) => item.id === row.id)) return prev;
+            const existingIndex = existing.findIndex((item) => item.id === row.id);
+            if (existingIndex >= 0) {
+              if (!decryptedOk || existing[existingIndex].plainText !== '[Encrypted message]') return prev;
+              const updated = [...existing];
+              updated[existingIndex] = message;
+              return { ...prev, [row.conversation_id]: updated };
+            }
             return { ...prev, [row.conversation_id]: [...existing, message] };
           });
           setRooms((prev) => prev.map((candidate) => candidate.id === row.conversation_id
