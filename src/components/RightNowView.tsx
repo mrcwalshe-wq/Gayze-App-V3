@@ -1159,6 +1159,24 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         </button>
       </div>
 
+      {/* Small, persistent key so "visible nearby" is not confused with "live". */}
+      <div
+        className="absolute top-[calc(env(safe-area-inset-top,0px)+104px)] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+        aria-label="Map key"
+      >
+        <div className="g-map-legend">
+          <span className="g-map-legend__item">
+            <span className="g-map-legend__dot g-map-legend__dot--live" aria-hidden="true" />
+            Live · available now
+          </span>
+          <span className="g-map-legend__sep" aria-hidden="true" />
+          <span className="g-map-legend__item">
+            <span className="g-map-legend__dot g-map-legend__dot--nearby" aria-hidden="true" />
+            Nearby · not live
+          </span>
+        </div>
+      </div>
+
       {/* Status toast */}
       {statusMessage && (
         <div className="g-toast">
