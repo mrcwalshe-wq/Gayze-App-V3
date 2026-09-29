@@ -739,7 +739,7 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('display_name,handle,bio,privacy_setting,reliability_score,verified_peers_count,safety_verified,neighborhood,identity_public_key,avatar_path')
+    .select('display_name,handle,bio,privacy_setting,reliability_score,verified_peers_count,safety_verified,neighborhood,identity_public_key,avatar_path,age,interests')
     .eq('id', userId)
     .maybeSingle();
   if (error) {
@@ -755,6 +755,7 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
     displayName: data.display_name || undefined,
     handle: data.handle || undefined,
     bio: data.bio || '',
+    interests: Array.isArray(data.interests) ? data.interests : [],
     avatarUrl,
     privacySetting: data.privacy_setting || undefined,
     // Trust signals are shown exactly as stored. A profile with no history reads
@@ -765,6 +766,26 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
     neighborhood: data.neighborhood || 'Near you',
     publicKey: data.identity_public_key || undefined,
   };
+}
+
+export async function updateSupabaseProfile(userId: string, profile: { displayName: string; handle: string; bio: string; age: number; privacySetting: LocationPrivacy; interests: string[] }) {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('profiles').update({
+      display_name: profile.displayName.trim(),
+      handle: profile.handle.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 32),
+      bio: profile.bio.trim(),
+      age: profile.age,
+      privacy_setting: profile.privacySetting,
+      interests: profile.interests,
+      updated_at: new Date().toISOString(),
+    }).eq('id', userId);
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.warn('[GAYZE] Profile preferences update failed:', error);
+    return false;
+  }
 }
 
 export async function ensureSupabaseProfile(userId: string, sourceUser: UserProfile, identityPublicKey?: string) {
