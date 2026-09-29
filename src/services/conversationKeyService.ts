@@ -35,10 +35,21 @@ function parseJwk(value: string | null | undefined): JsonWebKey | null {
  * exactly as before — no key material is added to the database.
  */
 async function resolveDirectKey(room: SwarmRoom): Promise<ConversationKeyResult> {
-  const peer = room.peerKey
+  // Live conversations must use a real ECDH public JWK, never a display
+  // fingerprint or stale demo peerKey.
+  const inlinePeer = parseJwk(room.peerKey);
+  const peer = inlinePeer
     ? { peer_public_key: room.peerKey }
     : await loadConversationPeerKey(room.id);
-  const peerJwk = parseJwk(peer?.peer_public_key);
+  let peerJwk = parseJwk(peer?.peer_public_key);
+
+  // Fall back to the verified device registry if the profile RPC is briefly
+  // unavailable while a newly-created conversation is hydrating.
+  if (!peerJwk) {
+    const devices = await loadConversationPeerDevices(room.id);
+    const peerDevice = devices.find((device) => device.user_id !== room.memberIds?.find((id) => id !== room.peerUserId));
+    peerJwk = parseJwk(peerDevice?.public_key);
+  }
   if (!peerJwk) {
     return {
       key: null,
