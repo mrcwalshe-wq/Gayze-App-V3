@@ -679,8 +679,9 @@ export default function App() {
 
   // 4. Conversation list hydration (Supabase is the source of truth).
   const refreshConversationList = async () => {
-    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserIdRef.current) return;
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut) return;
     const viewerId = supabaseUserIdRef.current;
+    if (!viewerId) return;
     const result = await loadMyConversations();
     if (!result || isSigningOutRef.current) return;
     const loaded = buildRoomsFromSupabase(result, viewerId);
@@ -712,8 +713,12 @@ export default function App() {
         void (async () => {
           let room = roomsRef.current.find((candidate) => candidate.id === row.conversation_id);
           if (!room) {
-            await refreshConversationListRef.current();
-            room = roomsRef.current.find((candidate) => candidate.id === row.conversation_id);
+            const result = await loadMyConversations();
+            if (result) {
+              const loaded = buildRoomsFromSupabase(result, supabaseUserIdRef.current || '');
+              setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserIdRef.current || ''));
+              room = loaded.find((candidate) => candidate.id === row.conversation_id) || null;
+            }
           }
           if (!room || disposed) return;
 
