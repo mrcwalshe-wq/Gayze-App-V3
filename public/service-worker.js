@@ -282,13 +282,14 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   const data = (event.notification && event.notification.data) || {};
+  const targetPath = safePath(data.url, '/');
+  event.notification.close();
+
+  event.waitUntil(
   // Fall back to THIS event type's destination (same rule as the push handler),
   // so a message notification with a corrupt/absent URL still opens Messages.
   const defaults = DEFAULT_COPY[data.type] || DEFAULT_COPY.message;
   const targetPath = safePath(data.url, defaults.url);
-  event.notification.close();
-
-  event.waitUntil(
     (async () => {
       const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
