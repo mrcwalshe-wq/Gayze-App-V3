@@ -1,0 +1,124 @@
+-- ============================================================================
+-- PENDING / DO NOT AUTO-APPLY
+-- ============================================================================
+-- This file is intentionally NOT in supabase/migrations/, so `supabase db push`
+-- and the CLI's migration runner will never execute it.
+--
+-- It is a recipe for wiring the 5 km ceiling into the LIVE
+-- public.discover_right_now, to be applied by someone who can read that
+-- function's real definition. It exists because the live DDL is not checked
+-- into this repository, and re-creating the function from documentation would
+-- risk removing production behaviour.
+--
+-- Prerequisite already applied:
+--   supabase/migrations/20260930090000_discover_right_now_radius_cap.sql
+--   -> creates public.clamp_discovery_radius_m(double precision)
+--
+-- ============================================================================
+-- STEP 1 — Capture the live definition BEFORE changing anything
+-- ============================================================================
+-- Run against the live project (psql, or Dashboard -> SQL Editor):
+--
+--   select pg_get_functiondef(p.oid) as definition
+--   from pg_proc p
+--   join pg_namespace n on n.oid = p.pronamespace
+--   where n.nspname = 'public' and p.proname = 'discover_right_now';
+--
+-- Also record, and paste into the PR before merging:
+--
+--   select p.proname,
+--          pg_get_function_identity_arguments(p.oid) as arguments,
+--          pg_get_function_result(p.oid)             as result,
+--          p.prosecdef                               as security_definer,
+--          p.provolatile                             as volatility,
+--          p.proacl                                  as grants,
+--          (select setting from pg_db_role_setting s
+--            join pg_proc f on f.oid = s.setprocedure
+--           where f.oid = p.oid)                     as role_settings
+--   from pg_proc p
+--   join pg_namespace n on n.oid = p.pronamespace
+--   where n.nspname = 'public' and p.proname = 'discover_right_now';
+--
+-- `search_path` shows up in pg_db_role_setting / proconfig:
+--
+--   select p.proname, p.proconfig
+--   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--   where n.nspname = 'public' and p.proname = 'discover_right_now';
+--
+-- ============================================================================
+-- STEP 2 — The minimal change
+-- ============================================================================
+-- Against the captured definition, make exactly ONE change: wrap the caller's
+-- radius argument in the clamp at the point it is used for distance.
+--
+--   BEFORE (whatever the live form is):
+--       ... st_dwithin(caller.location, i.location, p_radius_m)
+--       ... st_distance(...) <= p_radius_m
+--       ... i.location <-> caller.location < p_radius_m
+--
+--   AFTER:
+--       ... st_dwithin(caller.location, i.location,
+--                      public.clamp_discovery_radius_m(p_radius_m))
+--
+-- Rules for the edit:
+--   * Change the ARGUMENT only. Do not rewrite the query.
+--   * If the radius is used in more than one place, clamp it once in a CTE and
+--     reference that single value everywhere, so the predicate and any
+--     ORDER BY / logging stay consistent.
+--   * Keep the existing signature, return column list and column order EXACTLY.
+--     The client maps them positionally (src/services/supabaseService.ts,
+--     discoveryRowsToPulses).
+--   * Keep SECURITY DEFINER / INVOKER, VOLATILE/STABLE, search_path and the
+--     existing GRANTs exactly as they are.
+--   * Do NOT add filters that are not already there, and do NOT remove any that
+--     are. Expiry / paused / own-row behaviour is already production behaviour:
+--     verify it, do not reinvent it.
+--
+-- Then apply with `create or replace function public.discover_right_now(...)`
+-- using the FULL captured definition with only that one substitution, inside a
+-- transaction:
+--
+--   begin;
+--   create or replace function public.discover_right_now(... ) ... ;  -- edited
+--   -- STEP 3 checks below
+--   commit;   -- or rollback;
+--
+-- ============================================================================
+-- STEP 3 — Verify against the live project before committing
+-- ============================================================================
+-- As an authenticated user (not anon, not service_role):
+--
+--   -- a) 10 km and 25 km must return exactly the 5 km result set
+--   with r5  as (select intent_id from discover_right_now(5000)),
+--        r10 as (select intent_id from discover_right_now(10000)),
+--        r25 as (select intent_id from discover_right_now(25000))
+--   select (select count(*) from r10 except select count(*) from r5)  as ten_differs,
+--          (select count(*) from r25 except select count(*) from r5)  as twentyfive_differs;
+--   -- expect 0 / 0
+--
+--   -- b) hostile inputs must not widen the search
+--   select (select count(*) from discover_right_now('NaN'))       <=
+--          (select count(*) from discover_right_now(5000))        as nan_ok,
+--          (select count(*) from discover_right_now('Infinity'))  <=
+--          (select count(*) from discover_right_now(5000))        as inf_ok,
+--          (select count(*) from discover_right_now(-1))          <=
+--          (select count(*) from discover_right_now(5000))        as negative_ok;
+--
+--   -- c) the selected radius is genuinely honoured (1 km narrows)
+--   select (select count(*) from discover_right_now(1000)) <=
+--          (select count(*) from discover_right_now(5000))        as narrows_ok;
+--
+--   -- d) nothing further away than 5 km is ever returned
+--   select max(distance_m) as worst_m from discover_right_now(25000);
+--   -- expect <= 5000 (and <= whatever the live privacy/jitter policy allows)
+--
+--   -- e) return shape unchanged
+--   select * from discover_right_now(5000) limit 0;
+--   -- column names and order must match docs/BACKEND_REQUIREMENTS.md §2 and
+--   -- the RightNowDiscoveryRow type in src/services/supabaseService.ts.
+--
+-- ============================================================================
+-- STEP 4 — Rollback
+-- ============================================================================
+-- Keep the STEP 1 output. Rolling back is re-applying the original definition
+-- verbatim; public.clamp_discovery_radius_m can stay (it is inert until called).

@@ -3,13 +3,18 @@
  *
  * Runs the REAL DDL from
  *   supabase/migrations/20260930090000_discover_right_now_radius_cap.sql
- * inside PGlite (a real Postgres) and asserts the 5 km ceiling is enforced
- * server-side, so a 10 km / 25 km request can never succeed.
+ * inside PGlite (a real Postgres) and asserts:
  *
- * The full `discover_right_now` body needs PostGIS + the live schema, which do
- * not exist here, so that half is verified structurally (the cap is provably
- * wired into the query) and by testing its exclusion predicates against a
- * faithful, geometry-free reference query.
+ *   [1] the migration is ADDITIVE ONLY — it cannot touch the live
+ *       discover_right_now, whose DDL is not in this repository;
+ *   [2] the clamp DDL enforces max 5 km for every hostile input;
+ *   [3] the exclusion/ceiling semantics the live function must have, checked
+ *       against a faithful geometry-free reference query.
+ *
+ * The full `discover_right_now` body needs PostGIS + the live schema, neither of
+ * which exists here, so that half is specified by supabase/pending/ and must be
+ * verified against the real project by an operator. Nothing in this file claims
+ * the live RPC was executed.
  *
  * Run: node scripts/discovery-tests/radius-cap.test.mjs
  */
@@ -19,6 +24,8 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const MIGRATION = `${REPO}/supabase/migrations/20260930090000_discover_right_now_radius_cap.sql`;
+const RECIPE = `${REPO}/supabase/pending/discover_right_now_radius_cap.recipe.sql`;
+const MIGRATIONS_DIR = `${REPO}/supabase/migrations`;
 const sql = fs.readFileSync(MIGRATION, 'utf8');
 
 let failures = 0;
@@ -27,6 +34,38 @@ const assert = (cond, msg) => {
   else console.log('  \u2713', msg);
 };
 const section = (t) => console.log(`\n=== ${t} ===`);
+
+/**
+ * Strip SQL comments, respecting dollar-quoting, so the safety assertions test
+ * the EXECUTABLE statements and not the explanatory prose. Without this, a
+ * comment such as "does NOT create ... discover_right_now" would itself trip a
+ * `create|replace ... discover_right_now` pattern.
+ */
+function stripSqlComments(source) {
+  let out = '';
+  let i = 0;
+  let inDollar = false;
+  while (i < source.length) {
+    if (source.startsWith('$$', i)) {
+      inDollar = !inDollar;
+      out += '$$';
+      i += 2;
+      continue;
+    }
+    if (!inDollar && source.startsWith('--', i)) {
+      while (i < source.length && source[i] !== '\n') i += 1;
+      continue;
+    }
+    if (!inDollar && source.startsWith('/*', i)) {
+      const end = source.indexOf('*/', i + 2);
+      i = end === -1 ? source.length : end + 2;
+      continue;
+    }
+    out += source[i];
+    i += 1;
+  }
+  return out;
+}
 
 /** Pull one `create or replace function ... $$ ... $$;` block out of the file. */
 function extractFunction(source, name) {
@@ -37,24 +76,51 @@ function extractFunction(source, name) {
   return source.slice(start, end + 3);
 }
 
-section('[1] The migration defines the ceiling and wires it into discovery');
+// ---------------------------------------------------------------------------
+section('[1] SAFETY \u2014 the migration cannot alter the live discover_right_now');
+// This is the point of the whole file. The live function's DDL is unknown to
+// this repo, so the migration must not create, replace, drop or re-grant it.
+// Assertions run against the comment-stripped, i.e. EXECUTABLE, SQL.
+const exec = stripSqlComments(sql);
+assert(!/discover_right_now/i.test(exec),
+  'the executable SQL never mentions discover_right_now at all');
+assert(!/create\s+(or\s+replace\s+)?function\s+public\.discover_right_now/i.test(exec),
+  'migration does NOT create or replace public.discover_right_now');
+assert(!/drop\s+function/i.test(exec), 'migration drops no function');
+assert(!/alter\s+function/i.test(exec), 'migration alters no function');
+assert(!/drop\s+(table|policy|view|trigger)/i.test(exec),
+  'migration drops no table, policy, view or trigger');
+assert(!/alter\s+table/i.test(exec), 'migration alters no table');
+{
+  // Grants only ever touch the new helper, never a pre-existing object.
+  const grantTargets = [...exec.matchAll(/(?:revoke|grant)[\s\S]*?on\s+(?:function\s+)?([\w.]+)/gi)]
+    .map((m) => m[1]);
+  assert(grantTargets.length > 0, 'the migration does state its grants explicitly');
+  assert(grantTargets.every((t) => /clamp_discovery_radius_m/i.test(t)),
+    `every revoke/grant targets only the new helper (${grantTargets.join(', ')})`);
+}
+{
+  // Exactly one object is created, and it is the new helper.
+  const created = exec.match(/create\s+(or\s+replace\s+)?(function|table|view|policy|index)\s+\S+/gi) || [];
+  assert(created.length === 1, `exactly one object is created (found ${created.length}: ${created.join(', ')})`);
+  assert(/clamp_discovery_radius_m/i.test(created[0] || ''), 'the one created object is clamp_discovery_radius_m');
+}
+assert(fs.existsSync(RECIPE), 'the operator recipe exists at supabase/pending/');
+assert(!fs.readdirSync(MIGRATIONS_DIR).some((f) => /recipe/i.test(f)),
+  'the recipe is NOT in supabase/migrations/, so the CLI will never auto-apply it');
+{
+  const recipe = fs.readFileSync(RECIPE, 'utf8');
+  assert(/pg_get_functiondef/.test(recipe), 'recipe tells the operator to capture the live definition first');
+  assert(/clamp_discovery_radius_m\(p_radius_m\)/.test(recipe), 'recipe applies the clamp to the radius argument');
+  assert(/DO NOT AUTO-APPLY/.test(recipe), 'recipe is clearly marked do-not-auto-apply');
+}
+
+// ---------------------------------------------------------------------------
+section('[2] The real clamp DDL enforces max 5 km (run in Postgres)');
 const clampDdl = extractFunction(sql, 'clamp_discovery_radius_m');
 assert(clampDdl.includes('least(') && clampDdl.includes('5000'),
   'clamp_discovery_radius_m caps at 5000 m');
-const discoverDdl = extractFunction(sql, 'discover_right_now');
-assert(discoverDdl.includes('public.clamp_discovery_radius_m(p_radius_m)'),
-  'discover_right_now passes its radius through the clamp');
-assert(discoverDdl.includes('cap.radius_m'),
-  'the distance predicate uses the CLAMPED radius, not the raw argument');
-assert(!/st_dwithin\([^)]*p_radius_m/.test(discoverDdl),
-  'the raw p_radius_m is never used directly in the distance predicate');
-assert(discoverDdl.includes('i.expires_at > now()'), 'expired intents are excluded');
-assert(discoverDdl.includes("coalesce(i.is_paused, false) = false"), 'paused intents are excluded');
-assert(discoverDdl.includes('i.user_id <> c.uid'), "the caller's own row is excluded");
-assert(/grant execute on function public\.discover_right_now[^;]*to authenticated;/.test(sql),
-  'only authenticated callers can execute discovery');
 
-section('[2] The real clamp DDL enforces max 5 km (run in Postgres)');
 const db = new PGlite();
 await db.exec(clampDdl);
 
@@ -101,7 +167,11 @@ for (const special of ['NaN', 'Infinity', '-Infinity']) {
     `across 16 hostile/edge inputs the returned radius never exceeds 5000 m (max ${rows[0].worst})`);
 }
 
-section('[3] Discovery exclusion predicates (reference query over real Postgres)');
+// ---------------------------------------------------------------------------
+// Reference semantics. This models what the LIVE function must do once the
+// recipe is applied. It is a specification test, NOT a test of the live RPC.
+// ---------------------------------------------------------------------------
+section('[3] Required discovery semantics (reference query, NOT the live RPC)');
 await db.exec(`
   create table intents (
     id int primary key, user_id int, mode text, intent text,
@@ -152,6 +222,14 @@ assert(JSON.stringify(await discover({ radius: 5000, mode: 'private' })) === JSO
   'the mode filter works (private only)');
 assert(JSON.stringify(await discover({ radius: 5000, mode: 'social' })) === JSON.stringify([1]),
   'the mode filter works (social only)');
+{
+  const { rows } = await db.query(
+    `select max(i.distance_m) as worst from intents i
+      where i.distance_m <= public.clamp_discovery_radius_m(25000)`,
+  );
+  assert(Number(rows[0].worst) <= 5000,
+    `nothing further than 5 km survives a 25 km request (worst ${rows[0].worst} m)`);
+}
 
 console.log('');
 if (failures > 0) {
@@ -159,4 +237,5 @@ if (failures > 0) {
   process.exitCode = 1;
 } else {
   console.log('DISCOVERY RADIUS TESTS: ALL PASSED');
+  console.log('  (live RPC NOT executed \u2014 see supabase/pending/ for the operator step)');
 }

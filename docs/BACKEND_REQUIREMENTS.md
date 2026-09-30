@@ -86,6 +86,20 @@ chose. Until then the client derives the label from `starts_at`.
 * `discover_right_now` must not return the caller's own row (the client also filters it).
 * Expired rows (`expires_at <= now()`) and paused rows must never appear in discovery.
 * Reliability and verification counters are backend-owned; the client never writes them.
+* **Travel distance is capped at 5 km.** `p_radius_m` must be clamped to
+  `100..5000`; a 10 km, 25 km, negative, `NaN` or `Infinity` request must never
+  widen the search beyond 5000 m. The clamp helper
+  `public.clamp_discovery_radius_m(double precision)` ships in
+  `supabase/migrations/20260930090000_discover_right_now_radius_cap.sql` and is
+  covered by `npm run test:discovery`.
+
+  That migration is **additive only** — it creates the helper and deliberately
+  does *not* touch `discover_right_now`, because the live function's DDL is not
+  checked into this repository and re-creating it from this document would risk
+  removing production behaviour. Wiring the clamp into the live function is a
+  separate operator step: `supabase/pending/discover_right_now_radius_cap.recipe.sql`.
+  Until that step is applied the ceiling is enforced client-side only
+  (`src/config/mapDefaults.ts`).
 
 ## 6. Edge functions
 

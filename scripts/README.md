@@ -19,7 +19,7 @@ Run it once per fresh clone; the individual suites need it.
 | Push — SQL | `npm run test:push-sql` | The **real** migration `supabase/migrations/20260929120000_push_notifications.sql` on in-process Postgres (PGlite) with real RLS/roles/triggers. See `push-tests/README.md`. |
 | Push — end to end | `npm run test:push-e2e` | The **real** `src/services/pushService.ts` and `supabase/functions/send-push/index.ts` against that database, with a simulated browser PushManager. |
 | E2EE | `npm run test:e2ee` | The **real** `src/services/cryptoService.ts` (WebCrypto AES-GCM + ECDH) across two simulated devices with separate identity stores. |
-| Discovery radius | `npm run test:discovery` | The **real** clamp DDL from `supabase/migrations/20260930090000_discover_right_now_radius_cap.sql`, executed in Postgres. |
+| Discovery radius | `npm run test:discovery` | The **real** clamp DDL from `supabase/migrations/20260930090000_discover_right_now_radius_cap.sql`, executed in Postgres — plus a proof that the migration cannot touch the live `discover_right_now`. |
 | Interaction | `npm run test:interaction` | The **real** `RightNowView` mounted with React 19 in jsdom, driving real clicks against the shipped JSX and Leaflet wiring. |
 
 ## What each suite covers
@@ -38,6 +38,10 @@ Run it once per fresh clone; the individual suites need it.
   yielding wrong plaintext.
 
 ### `test:discovery`
+* **Safety first:** the comment-stripped, *executable* SQL never mentions
+  `discover_right_now`; it creates exactly one object (the clamp helper) and
+  every `revoke`/`grant` targets only that helper. The live function's DDL is
+  not in this repository, so the migration must not be able to replace it.
 * `10 km` and `25 km` requests are clamped to `5 km` — they can never succeed.
 * `NaN` / `Infinity` / `null` / negative / zero all collapse into 100 m–5 km.
 * 1 km and 3 km genuinely narrow the result set (the selected distance matters).
@@ -60,8 +64,12 @@ Run it once per fresh clone; the individual suites need it.
 
 * `test:e2ee` simulates `indexedDB` / `localStorage` in memory. Real browser
   key persistence is not exercised.
-* `test:discovery` runs the clamp DDL verbatim, but the full
-  `discover_right_now` body needs PostGIS and the live schema, so that half is
-  verified structurally plus a faithful geometry-free reference query.
+* `test:discovery` runs the clamp DDL verbatim, but the **live
+  `discover_right_now` was never executed**. Its DDL is not in this repository
+  and this sandbox has no Supabase credentials and no TLS egress to
+  `*.supabase.co`. Section [3] is a *specification* test over a geometry-free
+  reference query, not a test of the production RPC. Wiring the clamp into the
+  live function is an operator step: see
+  `supabase/pending/discover_right_now_radius_cap.recipe.sql`.
 * `test:interaction` runs in jsdom: there is no real layout, so pixel-level
   rendering and touch gestures are not covered.
