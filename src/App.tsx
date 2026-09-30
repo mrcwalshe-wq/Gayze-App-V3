@@ -2015,7 +2015,7 @@ export default function App() {
       displayName: payload.displayName,
       handle: payload.handle,
       bio: payload.bio,
-      age: payload.age,
+      age: payload.age ?? currentUser.age ?? 18,
       privacySetting: payload.privacySetting,
       interests: payload.lookingFor,
     });
