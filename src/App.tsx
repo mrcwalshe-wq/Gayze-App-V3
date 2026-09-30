@@ -670,37 +670,60 @@ export default function App() {
         // downstream identity-dependent UI render with incomplete state.
         setCurrentUser(identityUser);
 
-          setCurrentUser((prev) => ({ ...prev, intimacy: savedIntimacy }));
-        if (savedIntimacy) {
-        const savedIntimacy = await loadIntimacyProfile(user.id);
-            availability: savedDetails.availability,
-            mySetup: savedDetails.mySetup,
-            boundaries: savedDetails.boundaries,
-            hobbies: savedDetails.hobbies,
-            bodyType: savedDetails.bodyType ?? undefined,
-            heightCm: savedDetails.heightCm ?? undefined,
-            pronouns: savedDetails.pronouns ?? undefined,
-        if (savedDetails) {
-        if (!isStale()) return;
-        const savedDetails = await loadProfileDetails(user.id);
-        // until the migration is applied) — load them separately and fail soft.
-        // "About you" details and intimacy are additive (and may not exist
-        // Profile creation is best-effort. The UI must remain usable even if
-        // profile RLS/schema/network setup is temporarily unavailable.
-        await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
-        if (isStale()) return;
+        // Load the persisted profile first, then merge the additive profile
+        // details and intimacy fields. Each optional layer fails soft so a
+        // missing migration/schema never prevents the authenticated shell.
+        try {
+          await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
+          if (isStale()) return;
 
-        const savedProfile = await loadSupabaseProfile(user.id);
-        if (isStale()) return;
-        if (savedProfile) {
-          setCurrentUser((prev) => ({
-            ...prev,
-            ...Object.fromEntries(Object.entries(savedProfile).filter(([, value]) => value !== undefined)),
-            // The device identity key is what peers need for E2EE; only this
-            // bootstrap may set it, and it is never overwritten from a fingerprint.
-            publicKey: identity.fingerprint,
-            shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
-          }));
+          const savedProfile = await loadSupabaseProfile(user.id);
+          if (isStale()) return;
+          if (savedProfile) {
+            setCurrentUser((prev) => ({
+              ...prev,
+              ...Object.fromEntries(
+                Object.entries(savedProfile).filter(([, value]) => value !== undefined),
+              ),
+              // The device identity key is what peers need for E2EE; only this
+              // bootstrap may set it, and it is never overwritten from a fingerprint.
+              publicKey: identity.fingerprint,
+              shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+            }));
+          }
+        } catch (error) {
+          console.warn('[GAYZE] Profile bootstrap failed:', error);
+        }
+
+        // "About you" details and intimacy are additive and may depend on
+        // migrations being present. Keep them independent and fail soft.
+        try {
+          const savedDetails = await loadProfileDetails(user.id);
+          if (isStale()) return;
+          if (savedDetails) {
+            setCurrentUser((prev) => ({
+              ...prev,
+              availability: savedDetails.availability,
+              mySetup: savedDetails.mySetup,
+              boundaries: savedDetails.boundaries,
+              hobbies: savedDetails.hobbies,
+              bodyType: savedDetails.bodyType ?? undefined,
+              heightCm: savedDetails.heightCm ?? undefined,
+              pronouns: savedDetails.pronouns ?? undefined,
+            }));
+          }
+        } catch (error) {
+          console.warn('[GAYZE] Profile details load skipped:', error);
+        }
+
+        try {
+          const savedIntimacy = await loadIntimacyProfile(user.id);
+          if (isStale()) return;
+          if (savedIntimacy) {
+            setCurrentUser((prev) => ({ ...prev, intimacy: savedIntimacy }));
+          }
+        } catch (error) {
+          console.warn('[GAYZE] Intimacy profile load skipped:', error);
         }
 
         try {
