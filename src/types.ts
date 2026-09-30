@@ -232,6 +232,7 @@ export interface SwarmRoom {
   peerName?: string;
   peerNeighborhood?: string;
   peerAvatar?: string;
+  peerLastSeenAt?: number;
   safetyNumber: string; // e.g. "4920 1823 8812 3901 0291 9410"
   swarmSecretKeyHex: string;
   lastMessage?: string;
