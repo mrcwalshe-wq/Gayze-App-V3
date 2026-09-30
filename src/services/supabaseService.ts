@@ -1251,6 +1251,7 @@ export function initPresence(
   userId: string,
   displayName: string,
   onSync: (onlineUserIds: Set<string>) => void,
+  visible = true,
 ): () => void {
   if (!supabase) return () => undefined;
 
@@ -1270,7 +1271,7 @@ export function initPresence(
       onSync(onlineIds);
     })
     .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
+      if (status === 'SUBSCRIBED' && visible) {
         await channel.track({
           user_id: userId,
           display_name: displayName,
