@@ -29,6 +29,7 @@ interface DiscoverViewProps {
   onOpenQRWithPeer?: (profile: DatingProfile) => void;
   onOpenSetIntent?: () => void;
   onOpenMap?: () => void;
+  onOpenProfileEdit?: (section?: string) => void;
 }
 
 /** Distances are approximate by design; unknown distances are never guessed. */
