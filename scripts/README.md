@@ -19,7 +19,7 @@ Run it once per fresh clone; the individual suites need it.
 | Push — SQL | `npm run test:push-sql` | The **real** migration `supabase/migrations/20260929120000_push_notifications.sql` on in-process Postgres (PGlite) with real RLS/roles/triggers. See `push-tests/README.md`. |
 | Push — end to end | `npm run test:push-e2e` | The **real** `src/services/pushService.ts` and `supabase/functions/send-push/index.ts` against that database, with a simulated browser PushManager. |
 | E2EE | `npm run test:e2ee` | The **real** `src/services/cryptoService.ts` (WebCrypto AES-GCM + ECDH) across two simulated devices with separate identity stores. |
-| Discovery radius | `npm run test:discovery` | The **real** clamp DDL from `supabase/migrations/20260930090000_discover_right_now_radius_cap.sql`, executed in Postgres — plus a proof that the migration cannot touch the live `discover_right_now`. |
+| Discovery radius | `npm run test:discovery` | The **real** `supabase/migrations/20260930090000_discover_right_now_radius_cap.sql`, executed in Postgres (PGlite) against a faithful stand-in of `private.discover_right_now`. Covers the 5 km cap, its pre-flight drift guards and idempotency. |
 | Inspect script | `npm run test:inspect-script` | The **real** `supabase/pending/inspect_discover_right_now.sql`, executed statement by statement in Postgres against stand-in functions, plus a proof that it is read-only. |
 | Interaction | `npm run test:interaction` | The **real** `RightNowView` mounted with React 19 in jsdom, driving real clicks against the shipped JSX and Leaflet wiring. |
 
@@ -39,15 +39,29 @@ Run it once per fresh clone; the individual suites need it.
   yielding wrong plaintext.
 
 ### `test:discovery`
-* **Safety first:** the comment-stripped, *executable* SQL never mentions
-  `discover_right_now`; it creates exactly one object (the clamp helper) and
-  every `revoke`/`grant` targets only that helper. The live function's DDL is
-  not in this repository, so the migration must not be able to replace it.
-* `10 km` and `25 km` requests are clamped to `5 km` — they can never succeed.
-* `NaN` / `Infinity` / `null` / negative / zero all collapse into 100 m–5 km.
-* 1 km and 3 km genuinely narrow the result set (the selected distance matters).
-* Expired, paused and the caller's own intents are excluded, even when a wider
-  radius is requested.
+Runs the migration file verbatim. The migration is a guarded `DO` block that
+reads the live wrapper with `pg_get_functiondef()` and re-executes it with one
+substring swapped, so the signature, return shape, language, `SECURITY DEFINER`
+mode, volatility, `search_path` and owner are all re-asserted **byte-identical**
+against values captured from the catalog before the change.
+* **10 km and 25 km are indistinguishable from 5 km** — the 9 km and 25 km rows
+  are unreachable at any requested radius, and the leak is demonstrated against
+  the *unmodified* function first so the fix is shown to be doing the work.
+* **500 m, 2 000 m, 4 999 m, 5 000 m and 0 m are unchanged** — compared against
+  the same function before the migration ran, not against expected literals.
+* **`NULL` still returns nothing.** Postgres `least()`/`greatest()` *ignore*
+  NULLs, so the naive `least(greatest(p_radius_m, 0), 5000)` maps NULL to **0**
+  (verified in Postgres); the migration's explicit `CASE` keeps NULL as NULL.
+* **Negative radii deliberately change**: the live function returned nothing
+  (no distance can be `<= -100`); the capped one clamps to 0. This is asserted
+  as a change, because asserting "unchanged" would assert the old behaviour.
+* Expired, paused and the caller's own intents stay excluded at 25 km, and the
+  `Social` / `Private` and intent-name filters are identical before and after.
+* **Drift guards**: the migration aborts, leaving the function untouched, when
+  the wrapper is missing, when volatility/language/security/`search_path` differ,
+  or when the pass-through call is not present exactly once. It is idempotent.
+* `private.discover_right_now` is never written to, and the migration contains
+  no static DDL at all.
 
 ### `test:interaction`
 * The 5 km ceiling in the UI: no 10 km / 25 km option exists anywhere.
@@ -79,12 +93,14 @@ Run it once per fresh clone; the individual suites need it.
 
 * `test:e2ee` simulates `indexedDB` / `localStorage` in memory. Real browser
   key persistence is not exercised.
-* `test:discovery` runs the clamp DDL verbatim, but the **live
-  `discover_right_now` was never executed**. Its DDL is not in this repository
-  and this sandbox has no Supabase credentials and no TLS egress to
-  `*.supabase.co`. Section [3] is a *specification* test over a geometry-free
-  reference query, not a test of the production RPC. Wiring the clamp into the
-  live function is an operator step: see
-  `supabase/pending/discover_right_now_radius_cap.recipe.sql`.
+* `test:discovery` executes the real migration, but **not against the live
+  project**. PostGIS is unavailable in PGlite, so `st_dwithin` is modelled as
+  `distance_m <= p_radius_m`, and `private.discover_right_now` is a stand-in
+  shaped to the behaviour the operator confirmed (caller exclusion,
+  `is_paused = false`, `expires_at > now()`, mode/intent filters, radius filter,
+  expiry ordering). What is genuinely proven is the thing the migration changes:
+  the radius value the private function receives. Post-apply verification
+  against the live project is still an operator step — the queries are in the
+  migration file's footer.
 * `test:interaction` runs in jsdom: there is no real layout, so pixel-level
   rendering and touch gestures are not covered.
