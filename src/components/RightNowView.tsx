@@ -1706,15 +1706,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" aria-hidden="true" />
                       )}
                       <span className="text-zinc-300">
-                }
-                      : null
-                      ? selectedItem.item.id
-                    : selectedItem.type === 'profile'
-                    ? selectedItem.item.peerId
-                  selectedItem.type === 'pulse'
-                userId={
-              <PeerProfileSummary
-              {/* Peer profile summary — public tier + visibility-enforced intimacy */}
                         {isSelectedLive ? 'Live right now' : 'Not live'}
                       </span>
                       <span>·</span>
