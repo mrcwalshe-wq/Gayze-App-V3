@@ -12,6 +12,8 @@ import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { EncryptedCallModal } from './components/EncryptedCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
+import type { EditSectionKey } from './config/profileOptions';
+import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { ProfileOnboarding } from './components/ProfileOnboarding';
@@ -41,6 +43,7 @@ import { FALLBACK_MAP_CENTER, MAX_TRAVEL_DISTANCE_KM, NEUTRAL_AREA_LABEL, clampT
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
 const SafeHavenView = lazy(() => import('./components/SafeHavenView').then((module) => ({ default: module.SafeHavenView })));
+const ProfileEditSheet = lazy(() => import('./components/ProfileEditSheet').then((module) => ({ default: module.ProfileEditSheet })));
 const ChatRoomView = lazy(() => import('./components/ChatRoomView').then((module) => ({ default: module.ChatRoomView })));
 const DiscoverView = lazy(() => import('./components/DiscoverView').then((module) => ({ default: module.DiscoverView })));
 const ProfileView = lazy(() => import('./components/ProfileView').then((module) => ({ default: module.ProfileView })));
@@ -91,6 +94,10 @@ import {
   subscribeToRightNow,
   submitInterest,
   submitGaze,
+  saveIntimacyProfile,
+  updateProfileDetails,
+  loadIntimacyProfile,
+  loadProfileDetails,
   loadConversationMessages,
   loadIncomingInterests,
   updateSupabaseProfile,
@@ -663,6 +670,21 @@ export default function App() {
         // downstream identity-dependent UI render with incomplete state.
         setCurrentUser(identityUser);
 
+          setCurrentUser((prev) => ({ ...prev, intimacy: savedIntimacy }));
+        if (savedIntimacy) {
+        const savedIntimacy = await loadIntimacyProfile(user.id);
+            availability: savedDetails.availability,
+            mySetup: savedDetails.mySetup,
+            boundaries: savedDetails.boundaries,
+            hobbies: savedDetails.hobbies,
+            bodyType: savedDetails.bodyType ?? undefined,
+            heightCm: savedDetails.heightCm ?? undefined,
+            pronouns: savedDetails.pronouns ?? undefined,
+        if (savedDetails) {
+        if (!isStale()) return;
+        const savedDetails = await loadProfileDetails(user.id);
+        // until the migration is applied) — load them separately and fail soft.
+        // "About you" details and intimacy are additive (and may not exist
         // Profile creation is best-effort. The UI must remain usable even if
         // profile RLS/schema/network setup is temporarily unavailable.
         await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
@@ -1914,6 +1936,38 @@ export default function App() {
       activeRoomId,
       `Accepted — see you at ${meeting.venueName}, ${meeting.timeStr}. Local check-in timer started.`
     );
+      showToast('Profile saved');
+      showToast('Profile saved — some new details could not sync yet');
+    if (!detailsSaved || !intimacySaved) {
+      return true;
+      showToast('Could not save to your account — changes kept on this device');
+    if (!coreSaved) {
+    const intimacySaved = await saveIntimacyProfile(supabaseUserId, intimacy);
+    const detailsSaved = await updateProfileDetails(supabaseUserId, {
+    // migration is applied — degrade with a toast, never block the core save.
+    // Additive columns and the intimacy table may not exist until the
+    const coreSaved = await updateSupabaseProfile(supabaseUserId, {
+    if (!supabaseUserId) return true;
+      intimacy,
+      availability: payload.availability,
+      mySetup: payload.mySetup,
+      boundaries: payload.boundaries,
+      hobbies: payload.hobbies,
+      bodyType: payload.bodyType,
+      heightCm: payload.heightCm,
+      pronouns: payload.pronouns,
+      interests: payload.lookingFor,
+      privacySetting: payload.privacySetting,
+      age: payload.age,
+      bio: payload.bio,
+      handle: payload.handle,
+      displayName: payload.displayName,
+    // Local state first: the profile must persist even in demo/offline mode.
+    const intimacy: import('./types').IntimacyProfile = payload.intimacy;
+  const handleSaveProfileEdit = async (payload: ProfileSavePayload): Promise<boolean> => {
+  const [profileEditSection, setProfileEditSection] = useState<EditSectionKey | null>(null);
+  const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
+  // --- Profile / "About you" editor -------------------------------------------
     showToast(`Local check-in timer started for ${meeting.venueName}.`);
   };
 
@@ -2431,6 +2485,9 @@ export default function App() {
               onOpenSetIntent={handleOpenIntentSheet}
               onOpenMap={() => setActiveTab('right_now')}
             />
+                setIsProfileEditOpen(true);
+                setProfileEditSection(section ?? null);
+              onOpenProfileEdit={(section) => {
           )}
 
           {activeTab === 'profile' && (
@@ -2588,6 +2645,22 @@ export default function App() {
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
         userNeighborhood={currentUser.neighborhood}
+          />
+            onOpenSetIntent={handleOpenIntentSheet}
+            onOpenIdentity={() => setIsIdentityOpen(true)}
+            initialSection={profileEditSection}
+            onSave={handleSaveProfileEdit}
+            }}
+              setProfileEditSection(null);
+              setIsProfileEditOpen(false);
+            onClose={() => {
+            hasPhoto={Boolean(currentUser.avatarUrl)}
+            currentUser={currentUser}
+            isOpen={isProfileEditOpen}
+          <ProfileEditSheet
+        <Suspense fallback={null}>
+      {isProfileEditOpen && (
+      {/* Sectioned "About you" profile editor */}
       />
 
       {/* Local Safety Check-in Timer Modal */}

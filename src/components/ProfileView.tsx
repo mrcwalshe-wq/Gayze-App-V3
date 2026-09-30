@@ -21,6 +21,10 @@ import {
   ArrowRight,
   AlertTriangle,
   Bell,
+} from '../config/profileOptions';
+  type EditSectionKey,
+  INTIMACY_VISIBILITY_OPTIONS,
+  computeProfileCompletion,
 } from 'lucide-react';
 import { UserActiveIntent, UserProfile } from '../types';
 import { hapticLight, hapticSensitiveAction, triggerVibration } from '../services/hapticService';
@@ -49,6 +53,8 @@ interface ProfileViewProps {
   onOpenQR: () => void;
   onOpenSafeHavens: () => void;
   onOpenDiscover?: () => void;
+  onOpenProfileEdit?: (section?: EditSectionKey) => void;
+  /** Opens the sectioned profile editor (the "Edit profile" pencil). */
   onAvatarUpdated?: (url: string | undefined) => void;
   /** Opens the Web Push opt-in / notification preferences sheet. */
   onOpenNotifications?: () => void;
@@ -87,6 +93,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenIdentity,
   onOpenQR,
   onOpenSafeHavens,
+  onOpenProfileEdit,
   onOpenDiscover,
   onAvatarUpdated,
   onOpenNotifications,
@@ -99,6 +106,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showNotificationReminder, setShowNotificationReminder] = useState(false);
 
+          }
+            return;
+            setShowNotificationReminder(false);
+          if (dismissedAt) {
+          setShowNotificationReminder(false);
+          // Enabled — the prompt has done its job; hide it immediately.
+        if (subscribed) {
+          return;
+          if (!cancelled) setShowNotificationReminder(false);
+        if (env.blockedBy === 'unsupported' || env.blockedBy === 'not-configured') {
+    const checkReminder = async () => {
+  // the single entry point into the existing notification settings sheet.
+  // moment this device is subscribed. The permanent Notifications row below is
+  // dismissed it (dismissal is permanent), and it disappears for good the
+  // system: it shows only while notifications are off AND the user has not
+  // The promotional card is an ONBOARDING prompt, not a second notification
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
 
@@ -117,6 +140,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           // Continue if local storage is unavailable.
         }
         setShowNotificationReminder(true);
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+      window.clearInterval(id);
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    const onWake = () => { void checkReminder(); };
+    const id = window.setInterval(() => { void checkReminder(); }, 30000);
+    // e.g. from the Notifications sheet or the OS settings — retires the prompt.
+    // a live intent) + focus/visibility, so a subscription started elsewhere —
+    // Own heartbeat (independent of the intent countdown, which only runs with
+    void checkReminder();
       } catch {
         // Notification setup is optional and must never affect the profile view.
       }
@@ -293,6 +327,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     : tone === 'amber' ? 'text-[#e7c98a] bg-[#C9A24D]/10 border-[#C9A24D]/30'
     : tone === 'purple' ? 'text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40'
     : 'text-zinc-400 bg-white/[0.05] border-white/10';
+              style={{ width: `${completion.percent}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D]"
+          <div className="mt-2 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                Make your profile more useful — {completion.missing.length} quick {completion.missing.length === 1 ? 'thing' : 'things'} to add
+              <div className="text-[12.5px] text-zinc-300 mt-0.5 truncate">
+                Profile · {completion.percent}% complete
+              <div className="text-[10px] uppercase tracking-[0.14em] text-zinc-500 font-semibold">
+            <div className="min-w-0">
+          aria-label="Improve your profile"
+          onClick={() => { hapticLight(); onOpenProfileEdit?.(completion.missing[0].section as EditSectionKey); }}
+          className="w-full text-left rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 mb-4 hover:bg-white/[0.04] transition-colors"
+      {completion.missing.length > 0 && (
+      {/* Profile completion — a quiet nudge, never a blocking checklist */}
+  ].filter((value): value is string => Boolean(value));
+    currentUser.bodyType,
+    currentUser.heightCm ? `${currentUser.heightCm} cm` : undefined,
+    currentUser.pronouns,
+  const factTags = [
+    : undefined;
+    ? INTIMACY_VISIBILITY_OPTIONS.find((option) => option.value === currentUser.intimacy?.visibility)?.label
+  const intimacyVisibilityLabel = currentUser.intimacy
+  });
+    hasBio: Boolean(currentUser.bio && currentUser.bio.trim()),
+    setupCount: currentUser.mySetup?.length ?? 0,
+    ),
+      || (currentUser.intimacy?.experience && currentUser.intimacy.experience !== 'Not specified'),
+      || (currentUser.intimacy?.preferences.length ?? 0) > 0
+      currentUser.intimacy?.role
+    hasIntimacy: Boolean(
+    interestCount: currentUser.hobbies?.length ?? 0,
+    lookingForCount: currentUser.interests.length,
+    hasPhoto: photos.length > 0 || Boolean(currentUser.avatarUrl),
+  const completion = computeProfileCompletion({
+  // Profile completion — the checklist that materially improves matching.
 
   const emptySlotsCount = Math.max(0, MAX_PHOTOS - photos.length);
 
@@ -332,6 +400,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className="g-badge g-badge--verify">
                 <ShieldCheck className="w-3 h-3" /> Verified
               </span>
+            · approximate area
+              .join(' · ')}{' '}
+              .filter(Boolean)
+            {[currentUser.age ? String(currentUser.age) : null, currentUser.pronouns || null, areaLabel || currentUser.neighborhood]
             )}
           </div>
           <div className="text-[12px] text-zinc-400 mt-1 truncate">
@@ -345,6 +417,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </span>
             <span className="g-badge g-badge--quiet font-mono">{currentUser.shortKey}</span>
           </div>
+          aria-label="Edit profile"
+            else onOpenIdentity();
+            if (onOpenProfileEdit) onOpenProfileEdit('identity');
+            hapticLight();
         </div>
         <button
           type="button"
@@ -574,6 +650,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <X className="w-4 h-4" />
                 </button>
               </div>
+                  onOpenNotifications();
+                  setShowNotificationReminder(false);
+                  // row below remains the single entry point from here on.
+                  // Engaging the prompt retires it — the permanent Notifications
               <button
                 type="button"
                 className="g-btn g-btn--primary mt-3 w-full sm:w-auto"
@@ -648,6 +728,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </button>
             )}
           </>
+          <span className="g-label">Looking for</span>
+              <span key={tag} className="g-tag">{tag}</span>
+            {factTags.map((tag) => (
+      {!currentUser.bio?.trim() && factTags.length > 0 && (
+              ))}
+                <span key={tag} className="g-tag">{tag}</span>
+              {factTags.map((tag) => (
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+          {factTags.length > 0 && (
+          <p className="mt-2 text-[13.5px] leading-relaxed text-zinc-200">“{currentUser.bio.trim()}”</p>
+      {(currentUser.bio && currentUser.bio.trim()) && (
+      {/* ---------------- Profile summary — only sections with content ---------------- */}
         )}
       </section>
 
@@ -660,6 +752,35 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span key={interest} className="g-tag">{interest}</span>
             ))}
           </div>
+              <span key={boundary} className="g-tag">{boundary}</span>
+            {currentUser.boundaries!.map((boundary) => (
+          <span className="g-label">Boundaries</span>
+      {(currentUser.boundaries?.length ?? 0) > 0 && (
+              <span key={when} className="g-chip g-chip--quiet">{when}</span>
+            {(currentUser.availability ?? []).map((when) => (
+              <span key={setup} className="g-tag">{setup}</span>
+            {(currentUser.mySetup ?? []).map((setup) => (
+          <span className="g-label">My setup</span>
+      {((currentUser.mySetup?.length ?? 0) > 0 || (currentUser.availability?.length ?? 0) > 0) && (
+              <span className="g-tag">{currentUser.intimacy!.experience}</span>
+            {currentUser.intimacy!.experience && currentUser.intimacy!.experience !== 'Not specified' && (
+              <span key={preference} className="g-tag">{preference}</span>
+            {currentUser.intimacy!.preferences.map((preference) => (
+              <span className="g-chip g-chip--private">{currentUser.intimacy!.role}</span>
+            {currentUser.intimacy!.role && (
+              <span className="g-badge g-badge--quiet">{intimacyVisibilityLabel}</span>
+            {intimacyVisibilityLabel && (
+            <span className="g-label">Intimacy</span>
+          <div className="flex items-center justify-between gap-3">
+      )) && (
+        || (currentUser.intimacy.experience && currentUser.intimacy.experience !== 'Not specified')
+        || currentUser.intimacy.preferences.length > 0
+        currentUser.intimacy.role
+      {(currentUser.intimacy && (
+              <span key={hobby} className="g-tag">{hobby}</span>
+            {currentUser.hobbies!.map((hobby) => (
+          <span className="g-label">Interests</span>
+      {(currentUser.hobbies?.length ?? 0) > 0 && (
         </section>
       )}
 

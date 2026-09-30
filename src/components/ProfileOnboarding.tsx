@@ -1,16 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowRight, Check, ShieldCheck } from 'lucide-react';
 import type { LocationPrivacy, UserProfile } from '../types';
+import { LOOKING_FOR_OPTIONS } from '../config/profileOptions';
 
 interface ProfileOnboardingProps {
   currentUser: UserProfile;
   onSave: (profile: { displayName: string; handle: string; bio: string; age: number; privacySetting: LocationPrivacy; interests: string[] }) => Promise<boolean>;
 }
 
-const PREFERENCES = ['Meet', 'Drinks', 'Date', 'Chat', 'Group', 'Hookup', 'Hookup · Host', 'Hookup · Travel', 'Hookup · Outdoor', 'Hookup · Car'];
+// "What I'm looking for" — the same vocabulary the Profile "Looking for"
+// section uses, stored in the same existing `profiles.interests` column.
+const PREFERENCES: readonly string[] = LOOKING_FOR_OPTIONS;
 
 export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUser, onSave }) => {
   const [displayName, setDisplayName] = useState(currentUser.displayName || '');
+
   const [handle, setHandle] = useState(currentUser.handle?.replace(/^gayze-user(-[a-z0-9]+)?$/, '') || '');
   const [bio, setBio] = useState(currentUser.bio || '');
   const [age, setAge] = useState('');
@@ -46,6 +50,7 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
             <select value={privacySetting} onChange={(e) => setPrivacySetting(e.target.value as LocationPrivacy)} className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none">
               <option value="fuzzy_500m">Approx. 500m</option><option value="neighborhood">Neighborhood</option><option value="ghost">Ghost mode</option>
             </select>
+            <div className="text-xs font-semibold text-white">What are you looking for?</div>
           </div>
           <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 280))} placeholder="Short bio (optional)" rows={3} className="w-full rounded-xl bg-[#090a0f] border border-white/10 px-4 py-3 text-sm outline-none resize-none focus:border-[#6F3CC3]/70" />
           <div>
