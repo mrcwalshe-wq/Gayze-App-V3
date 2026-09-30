@@ -893,7 +893,7 @@ export default function App() {
       },
     );
     return () => { disposed = true; unsubscribe(); };
-  }, [isAuthenticated, isSigningOut, supabaseUserId, activeRoomId]);
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
   // WebRTC User Signaling & Truthful Presence
   useEffect(() => {
     if (!isSupabaseConfigured || !supabaseUserId) return;
