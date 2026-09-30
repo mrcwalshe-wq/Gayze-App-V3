@@ -450,7 +450,8 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                     key={option}
                     label={option}
                     selected={intimacyExperience === option}
-                    onClick={() => selectOne(option, intimacyExperience, setIntimacyExperience)}+                  />
+                    onClick={() => selectOne(option, intimacyExperience, setIntimacyExperience)}
+                  />
                 ))}
               </div>
             </div>
