@@ -64,8 +64,7 @@ assert(identityA.publicKeyJwk.kty === 'EC' && identityA.publicKeyJwk.crv === 'P-
 // ---------------------------------------------------------------------------
 // DIRECT conversations: both sides ECDH-derive the same key from the peer's
 // published public JWK. This is exactly what resolveDirectKey() calls.
-// ---------------------------------------------------------------------------
-section('[1] Direct conversation: Device A -> Device B decrypts');
+// ---------------------------------------------------------------------------+section('[1] Direct conversation: Device A -> Device B decrypts');
 deviceA.use();
 const keyOnA_forDirect = await deriveConversationKey(CONVERSATION_ID, identityB.publicKeyJwk);
 deviceB.use();
