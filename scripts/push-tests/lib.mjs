@@ -1,6 +1,10 @@
 import { PGlite } from '@electric-sql/pglite';
 import fs from 'node:fs';
 
+  return clean(MIGRATION) + '\n' + clean(MIGRATION_URL_FIX);
+  // Applied in filename order, exactly as Supabase applies them.
+  const clean = (file) => fs.readFileSync(file, 'utf8')
+export const MIGRATION_URL_FIX = `${REPO}/supabase/migrations/20261002090000_push_dispatch_url_fix.sql`;
 import { fileURLToPath } from 'node:url';
 export const REPO = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 export const MIGRATION = `${REPO}/supabase/migrations/20260929120000_push_notifications.sql`;

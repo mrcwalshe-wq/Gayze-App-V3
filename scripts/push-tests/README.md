@@ -1,16 +1,28 @@
 # Push notification verification harness
 
-Runs the **real** migration (`supabase/migrations/20260929120000_push_notifications.sql`)
+Runs the **real** migrations (`supabase/migrations/20260929120000_push_notifications.sql`
+and `20261002090000_push_dispatch_url_fix.sql`, in that order)
 on an in-process Postgres (PGlite, real RLS/roles/triggers), and drives the **real**
 `src/services/pushService.ts` and `supabase/functions/send-push/index.ts` against it with a
-simulated browser PushManager. It is offline; it never talks to Supabase or Cloudflare.
+simulated browser PushManager. `sw.test.mjs` loads the **real** `public/service-worker.js`
+against a fake `self` and drives its `push` / `notificationclick` / `fetch` handlers.
+It is offline; it never talks to Supabase or Cloudflare.
 
 ```bash
 npm install
 npm install --no-save @electric-sql/pglite   # test-only, deliberately not in package.json
 node scripts/push-tests/sql.test.mjs
 node scripts/push-tests/e2e.test.mjs
+node scripts/push-tests/sw.test.mjs
 ```
+
+Coverage highlights: pg_net dispatch URL normalisation for every plausible
+`gayze_functions_url` value (the message-push fix); message / interest / connection /
+system / safety / intent-expiry dispatch; exactly-once ledger suppression; preference
+gates including the master switch; multi-device delivery (one push per device); stale
+endpoint pruning that never touches a healthy device; E2EE payload exclusion (no
+ciphertext, nonce, keys or message text in any push); service-worker tap destinations
+per event type and the narrow-fetch guarantees.
 
 What it stubs (and therefore does NOT prove): `pgcrypto` / `pg_net` / Vault (stubbed),
 Supabase's `auth.uid()` (a GUC-backed stand-in), web-push delivery and the browser's
