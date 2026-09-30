@@ -29,6 +29,9 @@
     "dist",
     // Supabase Edge Functions are Deno, not browser/Node. They are type-checked
     // by the Supabase CLI against the Deno runtime, not by the app's tsc pass.
-    "supabase"
+    "supabase",
+    // Test harnesses run under Node via `tsx` (which transpiles without
+    // type-checking) against jsdom/PGlite shims, not in the browser bundle.
+    "scripts"
   ]
 }

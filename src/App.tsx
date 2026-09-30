@@ -36,7 +36,7 @@ import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './se
 import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
-import { FALLBACK_MAP_CENTER, NEUTRAL_AREA_LABEL, resolveAreaLabel } from './config/mapDefaults';
+import { FALLBACK_MAP_CENTER, MAX_TRAVEL_DISTANCE_KM, NEUTRAL_AREA_LABEL, clampTravelDistanceKm, resolveAreaLabel } from './config/mapDefaults';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
@@ -172,6 +172,12 @@ export default function App() {
   const recoverySessionRef = useRef(false);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  // Travel distance the user picked in the Right Now filter sheet. Always
+  // clamped to the 5 km ceiling and mirrored into a ref so the discovery
+  // refresher can read it without re-subscribing.
+  const [travelDistanceKm, setTravelDistanceKm] = useState<number>(MAX_TRAVEL_DISTANCE_KM);
+  const travelDistanceKmRef = useRef<number>(MAX_TRAVEL_DISTANCE_KM);
+  useEffect(() => { travelDistanceKmRef.current = travelDistanceKm; }, [travelDistanceKm]);
   const requestUserLocation = async () => {
     try {
       setLocationError(null);
@@ -589,7 +595,10 @@ export default function App() {
     if (!viewerId || isSigningOutRef.current) return;
     const generation = authGenerationRef.current;
     try {
-      const rows = await discoverRightNow({ radiusMeters: 5000 });
+      // The user's selected travel distance reaches discovery, clamped to the
+      // 5 km ceiling so a wider radius can never be requested.
+      const radiusMeters = Math.round(clampTravelDistanceKm(travelDistanceKmRef.current) * 1000);
+      const rows = await discoverRightNow({ radiusMeters });
       if (generation !== authGenerationRef.current || isSigningOutRef.current) return;
       // The authenticated user is never part of their own nearby list.
       const pulsesWithAvatars = await resolvePulsesWithAvatars(discoveryRowsToPulses(rows, viewerId));
@@ -605,6 +614,12 @@ export default function App() {
   // Keep the latest discovery refresher reachable from the effects and
   // callbacks below without re-subscribing on every render.
   useEffect(() => { refreshDiscoveryRef.current = refreshDiscovery; });
+
+  // Changing the travel distance re-runs live discovery at the new radius.
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated) return;
+    void refreshDiscoveryRef.current();
+  }, [travelDistanceKm, isAuthenticated]);
 
   // 1. Session, profile and device identity.
   useEffect(() => {
@@ -2465,6 +2480,7 @@ export default function App() {
               onSubmitGaze={handleSubmitGaze}
               onSwitchToLater={() => setActiveTab('later')}
               onRequestLocation={requestUserLocation}
+              onMaxDistanceKmChange={(km) => setTravelDistanceKm(clampTravelDistanceKm(km))}
               onUpdateActiveUserIntent={handleUpdateActiveUserIntent}
             />
           )}

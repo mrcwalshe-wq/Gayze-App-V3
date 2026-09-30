@@ -9,7 +9,14 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:setup": "npm install --no-save @electric-sql/pglite jsdom @testing-library/react @testing-library/dom",
+    "test:push-sql": "node scripts/push-tests/sql.test.mjs",
+    "test:push-e2e": "node scripts/push-tests/e2e.test.mjs",
+    "test:e2ee": "tsx scripts/e2ee-tests/e2ee.test.mjs",
+    "test:discovery": "node scripts/discovery-tests/radius-cap.test.mjs",
+    "test:interaction": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/interaction-tests/interaction.test.tsx",
+    "test": "npm run test:push-sql && npm run test:push-e2e && npm run test:e2ee && npm run test:discovery && npm run test:interaction"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
