@@ -1394,6 +1394,51 @@ export interface IntimacyProfile {
   visibility: 'everyone' | 'connections' | 'private';
 }
 
+export interface PublicProfileSummary {
+  displayName: string;
+  age?: number;
+  bio?: string;
+  pronouns?: string;
+  heightCm?: number;
+  bodyType?: string;
+  lookingFor: string[];
+  hobbies: string[];
+  boundaries: string[];
+  mySetup: string[];
+  availability: string[];
+}
+
+export async function loadPublicProfileSummary(userId: string): Promise<PublicProfileSummary | null> {
+  if (!supabase || !userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('display_name,age,bio,pronouns,height_cm,body_type,interests,hobbies,boundaries,my_setup,availability')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error || !data) {
+      if (error) console.warn('[GAYZE] Public profile summary unavailable:', error.message);
+      return null;
+    }
+    return {
+      displayName: data.display_name || 'Gayze member',
+      age: data.age != null ? Number(data.age) : undefined,
+      bio: data.bio || undefined,
+      pronouns: data.pronouns || undefined,
+      heightCm: data.height_cm != null ? Number(data.height_cm) : undefined,
+      bodyType: data.body_type || undefined,
+      lookingFor: Array.isArray(data.interests) ? data.interests : [],
+      hobbies: Array.isArray(data.hobbies) ? data.hobbies : [],
+      boundaries: Array.isArray(data.boundaries) ? data.boundaries : [],
+      mySetup: Array.isArray(data.my_setup) ? data.my_setup : [],
+      availability: Array.isArray(data.availability) ? data.availability : [],
+    };
+  } catch (err: any) {
+    console.warn('[GAYZE] Public profile summary exception:', err?.message || err);
+    return null;
+  }
+}
+
 export async function loadProfileDetails(userId: string): Promise<ProfileDetails | null> {
   if (!supabase || !userId) return null;
   try {
