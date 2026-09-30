@@ -89,7 +89,6 @@ const spreadOverlappingCoordinate = (
   const radius = 0.00028 * ring;
   return [
     lat + Math.sin(angle) * radius,
-import { PeerProfileSummary } from './PeerProfileSummary';
     lng + Math.cos(angle) * radius,
   ];
 };
