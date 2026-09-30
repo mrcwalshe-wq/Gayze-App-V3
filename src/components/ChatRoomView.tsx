@@ -353,15 +353,17 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1.5">
                   {currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block g-breathe" />
-                      <span className="text-emerald-400 font-semibold font-mono">Online</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] inline-block g-breathe" />
+                      <span className="text-[#C9A24D] font-semibold font-mono">Online now</span>
                     </>
                   ) : (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 inline-block" />
                       <span className="truncate font-mono">
                         {currentRoom.type === 'direct'
-                          ? (currentRoom.peerKey ? 'Device-to-device key' : 'Direct conversation')
+                          ? (currentRoom.peerLastSeenAt
+                            ? 'Last seen ' + new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                            : 'Last seen recently')
                           : 'Group conversation'}
                       </span>
                     </>
