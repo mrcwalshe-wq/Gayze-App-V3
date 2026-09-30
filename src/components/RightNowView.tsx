@@ -20,6 +20,9 @@ const fallbackMapCenter: [number, number] = [FALLBACK_MAP_CENTER.lat, FALLBACK_M
 /** Published privacy radius for other people's intent positions. */
 const PRIVACY_RADIUS_METERS = 300;
 
+// Re-exported so callers/tests can read the ceiling from either module.
+export { MAX_TRAVEL_DISTANCE_KM, clampTravelDistanceKm };
+
 /** Great-circle distance in km — computed on the device, never invented. */
 /**
  * Group live intents into atmospheric hotspots.
@@ -120,7 +123,14 @@ import {
   Radio
 } from 'lucide-react';
 import { MAP_PROVIDERS, tileLayerOptions } from '../config/mapProviders';
-import { FALLBACK_MAP_CENTER, FALLBACK_MAP_ZOOM, LOCATED_MAP_ZOOM, resolveAreaLabel } from '../config/mapDefaults';
+import {
+  FALLBACK_MAP_CENTER,
+  FALLBACK_MAP_ZOOM,
+  LOCATED_MAP_ZOOM,
+  MAX_TRAVEL_DISTANCE_KM,
+  clampTravelDistanceKm,
+  resolveAreaLabel,
+} from '../config/mapDefaults';
 import { analytics } from '../services/analyticsService';
 import {
   hapticLight,
@@ -149,6 +159,11 @@ interface RightNowViewProps {
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
   onSwitchToLater?: () => void;
   onRequestLocation?: () => void;
+  /**
+   * Reports the travel distance the user selected (always 1..5 km) so App can
+   * pass it to the live `discover_right_now` RPC instead of a fixed radius.
+   */
+  onMaxDistanceKmChange?: (km: number) => void;
   /** Signed/public URL for the current user's primary profile photo. */
   userAvatarUrl?: string;
 }
@@ -173,6 +188,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onSubmitGaze,
   onSwitchToLater,
   onRequestLocation,
+  onMaxDistanceKmChange,
   userAvatarUrl,
 }) => {
   // 1. The active Right Now signal is owned by App (Supabase in live mode).
@@ -217,6 +233,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const mapTileRetryRef = useRef<(() => void) | null>(null);
   const mapControlsRef = useRef<{ zoomIn: () => void; zoomOut: () => void; recenter: () => void } | null>(null);
   const userLocationRef = useRef(userLocation);
+  // Whether the camera has already been placed on a real device fix. Only the
+  // first fix moves the camera — later `watchPosition` updates must never steal
+  // the viewport back from the user mid-pan.
+  const hasCentredOnUserRef = useRef<boolean>(false);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [mapTilesUnavailable, setMapTilesUnavailable] = useState<boolean>(false);
   const [currentProviderIndex, setCurrentProviderIndex] = useState<number>(0);
@@ -234,7 +254,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social' | 'Private'>('All');
   const [selectedSubIntent, setSelectedSubIntent] = useState<string | null>(null);
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
-  const [maxDistanceKm, setMaxDistanceKm] = useState<number>(5);
+  const [maxDistanceKm, setMaxDistanceKmState] = useState<number>(MAX_TRAVEL_DISTANCE_KM);
+  /** Every write goes through the clamp, so 10 km / 25 km can never be set. */
+  const setMaxDistanceKm = (value: number | ((prev: number) => number)) => {
+    setMaxDistanceKmState((prev) => clampTravelDistanceKm(typeof value === 'function' ? value(prev) : value));
+  };
+
+  // Tell App whenever the selected travel distance changes so live discovery is
+  // re-run at that radius. The value is already clamped to the 5 km ceiling.
+  useEffect(() => {
+    onMaxDistanceKmChange?.(maxDistanceKm);
+  }, [maxDistanceKm]);
 
   // 4. Selected Discovery Item (Docked Compact Bottom Card & Expanded Sheet)
   // Start with a clean map. Discovery details appear only after the user
@@ -333,8 +363,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     const interval = window.setInterval(() => setNowTick(Date.now()), 30000);
     return () => window.clearInterval(interval);
   }, []);
+  // Only genuinely live signals reach the map, the counters and the nearby
+  // drawer: a real, finite, still-in-the-future expiry, and not paused. This
+  // matches `isItemLive` exactly — a pulse with no expiry is NOT live, so it
+  // can never render a marker for an intent that has ended or been paused.
   const livePulses = useMemo(
-    () => pulses.filter((pulse) => !pulse.expiresAt || pulse.expiresAt > nowTick),
+    () => pulses.filter((pulse) => (
+      !pulse.isPaused
+      && Number.isFinite(pulse.expiresAt)
+      && pulse.expiresAt > nowTick
+    )),
     [pulses, nowTick],
   );
 
@@ -539,7 +577,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (activeCategory !== 'all') num += 1;
     if (activeIntentMode !== 'All') num += 1;
     if (!showJitterCircles) num += 1;
-    if (maxDistanceKm < 5) num += 1;
+    if (maxDistanceKm < MAX_TRAVEL_DISTANCE_KM) num += 1;
     return num;
   }, [activeCategory, activeIntentMode, showJitterCircles, maxDistanceKm]);
 
@@ -626,7 +664,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setActiveCategory('all');
     setActiveIntentMode('All');
     setShowJitterCircles(true);
-    setMaxDistanceKm(5);
+    setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
   };
 
   // Retry the same provider/fallback pipeline used by the live map.
@@ -672,6 +710,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       : firstVisiblePulse
         ? [firstVisiblePulse.lat, firstVisiblePulse.lng]
         : fallbackMapCenter;
+    // The map was built already centred on the device fix, so the one-shot
+    // camera move below is no longer needed for this session.
+    if (userLocationRef.current) hasCentredOnUserRef.current = true;
     const initialZoom = userLocationRef.current
       ? LOCATED_MAP_ZOOM
       : firstVisiblePulse
@@ -856,15 +897,24 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     };
   }, []);
 
-  // Once the real device location arrives, move the live map to it.
+  // Once the FIRST real device location arrives, move the live map to it.
   // This replaces the previous behaviour where the map could remain centred
   // on a fallback location after permission was granted.
+  //
+  // It deliberately fires only once. `watchCurrentLocation` emits a new object
+  // on every GPS callback, so an unconditional `[userLocation]` effect used to
+  // re-fly the camera on each fix — yanking the viewport back while the user
+  // was panning. Later fixes still update the marker; only the explicit
+  // "recenter" control moves the camera again.
   useEffect(() => {
+    if (hasCentredOnUserRef.current) return;
     if (!userLocation) return;
+    if (!isMapReady) return;
     const map = mapInstanceRef.current;
     if (!map) return;
+    hasCentredOnUserRef.current = true;
     map.flyTo([userLocation.lat, userLocation.lng], LOCATED_MAP_ZOOM, { duration: 0.7 });
-  }, [userLocation]);
+  }, [userLocation, isMapReady]);
 
   // Update map layers on pulses, havens, profiles, or filter changes
   useEffect(() => {
@@ -1307,16 +1357,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 Create your intent
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                hapticLight();
-                setMaxDistanceKm((prev) => (prev <= 5 ? 10 : prev <= 10 ? 25 : 5));
-              }}
-              className="g-btn g-btn--ghost w-full !min-h-[34px] text-[12px]"
-            >
-              Widen radius to {maxDistanceKm <= 5 ? '10 km' : maxDistanceKm <= 10 ? '25 km' : '5 km'}
-            </button>
+            {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
+                }}
+                className="g-btn g-btn--ghost w-full !min-h-[34px] text-[12px]"
+              >
+                Widen radius to {MAX_TRAVEL_DISTANCE_KM} km
+              </button>
+            )}
           </div>
         </div>
       )}
