@@ -22,6 +22,8 @@ Run it once per fresh clone; the individual suites need it.
 | Discovery radius | `npm run test:discovery` | The **real** `supabase/migrations/20260930090000_discover_right_now_radius_cap.sql`, executed in Postgres (PGlite) against a faithful stand-in of `private.discover_right_now`. Covers the 5 km cap, its pre-flight drift guards and idempotency. |
 | Inspect script | `npm run test:inspect-script` | The **real** `supabase/pending/inspect_discover_right_now.sql`, executed statement by statement in Postgres against stand-in functions, plus a proof that it is read-only. |
 | Interaction | `npm run test:interaction` | The **real** `RightNowView` mounted with React 19 in jsdom, driving real clicks against the shipped JSX and Leaflet wiring. |
+| Profile migration | `npm run test:profile-migration` | The **real** `supabase/migrations/20261001090000_profile_about_you.sql` executed in Postgres (PGlite) against a legacy `profiles` schema: additive-only scan, existing rows preserved, `profile_intimacy` RLS + visibility enforcement. |
+| Profile UI | `npm run test:profile` | The **real** `ProfileView` and `ProfileEditSheet` mounted with React 19 in jsdom: one notification experience, summary sections, completion nudge, sectioned editor. |
 
 ## What each suite covers
 
@@ -74,6 +76,38 @@ against values captured from the catalog before the change.
 * Social / Private intent-mode filtering.
 * Drawers open, close and leave **no stale overlay**; backdrop tap dismisses.
 * Safe-area insets are applied.
+
+### `test:profile-migration`
+* Runs the shipped migration file verbatim. The statement scan proves it is
+  **additive only**: `ALTER TABLE … ADD COLUMN`, one new table, one new
+  SECURITY DEFINER read path — no existing column, policy or function is
+  dropped, altered or replaced, and `discover_right_now` is never mentioned.
+* An existing user's row (values, `interests` looking-for selections, trust
+  counters) is byte-identical after the migration; every new column is NULL.
+* `profile_intimacy`: RLS enabled, exactly one owner policy, CHECK rejects
+  visibility values outside `everyone/connections/private`, default is the
+  privacy-preserving `connections`.
+* `get_profile_intimacy` is exercised through all visibility paths: owner
+  always; stranger only for `everyone`; `connections` requires a shared
+  conversation (via the live `get_my_conversations()` shape); `private` is
+  never overridden. `anon` cannot execute it.
+* Idempotent: re-running the migration is a clean no-op.
+
+### `test:profile`
+* Notification onboarding is ONE experience: the promotional card renders only
+  while push is unsupported-off AND not dismissed AND not subscribed; enabling
+  retires it mid-session; dismissal is permanent; the single permanent
+  Notifications row opens the existing settings sheet in every state.
+* Profile summary sections (Looking for / Interests / Intimacy / My setup /
+  Boundaries) render only when they contain information; the intimacy
+  visibility badge is shown; the owner always sees their own section.
+* Completion nudge: material-first priority order, soft copy, jumps into the
+  editor at the first missing section, never blocks the rest of the profile.
+* Sectioned editor: all seven sections, chips/toggles over text entry, intimacy
+  and role are optional, sensitive visibility defaults to `connections`,
+  grouped Save, 18+ age gate, `+ Add interests` progressive disclosure,
+  custom interests survive Save, closing a dirty sheet autosaves without
+  confirmation dialogs.
 
 ### `test:inspect-script`
 * `supabase/pending/inspect_discover_right_now.sql` contains **only** SELECT/WITH

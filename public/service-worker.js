@@ -21,7 +21,7 @@
  *   - Only content-hashed build output and static brand assets are cached.
  */
 
-const SW_VERSION = 'gayze-sw-v1';
+const SW_VERSION = 'gayze-sw-v2';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 
@@ -286,6 +286,10 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   event.waitUntil(
+  // Fall back to THIS event type's destination (same rule as the push handler),
+  // so a message notification with a corrupt/absent URL still opens Messages.
+  const defaults = DEFAULT_COPY[data.type] || DEFAULT_COPY.message;
+  const targetPath = safePath(data.url, defaults.url);
     (async () => {
       const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
