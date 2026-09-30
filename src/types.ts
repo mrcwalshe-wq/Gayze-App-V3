@@ -15,6 +15,15 @@ export interface UserProfile {
   reliabilityScore: number; // e.g. 95/100
   verifiedPeersCount: number; // In-person QR verified peers
   hapticsEnabled?: boolean; // Vibration API haptic feedback preference
+  age?: number;
+  pronouns?: string;
+  heightCm?: number;
+  bodyType?: string;
+  hobbies?: string[];
+  boundaries?: string[];
+  mySetup?: string[];
+  availability?: string[];
+  intimacy?: IntimacyProfile;
 }
 
 export interface Pulse {
