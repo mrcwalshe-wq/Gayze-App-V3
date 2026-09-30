@@ -1853,36 +1853,6 @@ export default function App() {
     showToast(ttl === 0 ? 'Auto-delete turned off (messages will be kept)' : `Messages will auto-delete after ${ttl >= 3600 ? ttl / 3600 + 'h' : ttl / 60 + 'm'}`);
   };
 
-  // Safety Check-in Handlers — persisted in Supabase when the live backend is enabled.
-  const handleStartSafetyTimer = async (data: { partnerName: string; venueName: string; durationMinutes: number; notes: string }) => {
-    const durationMinutes = Math.max(1, Math.round(data.durationMinutes || 60));
-    const startedAt = Date.now();
-    const expiresAt = startedAt + durationMinutes * 60 * 1000;
-    hapticSensitiveAction();
-
-    if (isSupabaseConfigured && isAuthenticated) {
-      const saved = await startSafetyCheckin({ ...data, durationMinutes });
-      if (!saved) {
-        showToast('Unable to save safety check-in. Please try again.');
-        return;
-      }
-    }
-
-    const next: SafetyCheckin = {
-      isActive: true,
-      meetupPartnerName: data.partnerName,
-      venueName: data.venueName,
-      startedAt,
-      durationMinutes,
-      notes: data.notes,
-    };
-    setCheckinState(next);
-    setRemainingSeconds(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
-    if (!IS_LIVE_BACKEND) localStorage.setItem('gayze_checkin', JSON.stringify(next));
-    setIsSafetyTimerOpen(true);
-    showToast(`Safety timer started — ${durationMinutes} min`);
-  };
-
   // Meeting Scheduling & Acceptance Handlers
   const handleOpenScheduleMeeting = (peerName: string) => {
     setScheduleMeetingPeerName(peerName);
@@ -2593,7 +2563,7 @@ export default function App() {
               onOpenMap={() => setActiveTab('right_now')}
               onOpenProfileEdit={(section) => {
                 setIsProfileEditOpen(true);
-                setProfileEditSection(section ?? null);
+                setProfileEditSection(section ? section as EditSectionKey : null);
               }}
             />
           )}
@@ -2615,7 +2585,7 @@ export default function App() {
               onOpenDiscover={() => setActiveTab('dating')}
               onOpenProfileEdit={(section) => {
                 setIsProfileEditOpen(true);
-                setProfileEditSection(section ?? null);
+                setProfileEditSection(section ? section as EditSectionKey : null);
               }}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
             />
