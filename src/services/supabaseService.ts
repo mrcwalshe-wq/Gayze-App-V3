@@ -1370,3 +1370,150 @@ export async function createStoryFromIntent(intent: UserActiveIntent, photoUrl?:
   }
   return data?.id ?? null;
 }
+
+
+/**
+ * Load the additive public "About you" profile fields.
+ * These fields were introduced by 20261001090000_profile_about_you.sql.
+ * Fail soft so older environments remain usable until the migration is applied.
+ */
+export interface ProfileDetails {
+  pronouns?: string;
+  heightCm?: number;
+  bodyType?: string;
+  hobbies: string[];
+  boundaries: string[];
+  mySetup: string[];
+  availability: string[];
+}
+
+export interface IntimacyProfile {
+  role?: string;
+  preferences: string[];
+  experience?: string;
+  visibility: 'everyone' | 'connections' | 'private';
+}
+
+export async function loadProfileDetails(userId: string): Promise<ProfileDetails | null> {
+  if (!supabase || !userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('pronouns,height_cm,body_type,hobbies,boundaries,my_setup,availability')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[GAYZE] Profile details load unavailable:', error.message);
+      return null;
+    }
+    if (!data) return null;
+
+    return {
+      pronouns: data.pronouns ?? undefined,
+      heightCm: data.height_cm != null ? Number(data.height_cm) : undefined,
+      bodyType: data.body_type ?? undefined,
+      hobbies: Array.isArray(data.hobbies) ? data.hobbies : [],
+      boundaries: Array.isArray(data.boundaries) ? data.boundaries : [],
+      mySetup: Array.isArray(data.my_setup) ? data.my_setup : [],
+      availability: Array.isArray(data.availability) ? data.availability : [],
+    };
+  } catch (err: any) {
+    console.warn('[GAYZE] Profile details load exception:', err?.message || err);
+    return null;
+  }
+}
+
+export async function updateProfileDetails(
+  userId: string,
+  details: Partial<ProfileDetails>,
+): Promise<boolean> {
+  if (!supabase || !userId) return false;
+  try {
+    const values: Record<string, unknown> = {};
+    if (details.pronouns !== undefined) values.pronouns = details.pronouns || null;
+    if (details.heightCm !== undefined) values.height_cm = details.heightCm ?? null;
+    if (details.bodyType !== undefined) values.body_type = details.bodyType || null;
+    if (details.hobbies !== undefined) values.hobbies = details.hobbies;
+    if (details.boundaries !== undefined) values.boundaries = details.boundaries;
+    if (details.mySetup !== undefined) values.my_setup = details.mySetup;
+    if (details.availability !== undefined) values.availability = details.availability;
+
+    if (!Object.keys(values).length) return true;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(values)
+      .eq('id', userId);
+
+    if (error) {
+      console.warn('[GAYZE] Profile details update unavailable:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('[GAYZE] Profile details update exception:', err?.message || err);
+    return false;
+  }
+}
+
+export async function loadIntimacyProfile(userId: string): Promise<IntimacyProfile | null> {
+  if (!supabase || !userId) return null;
+  try {
+    // This RPC is the deliberate read path for sensitive profile data. It
+    // applies intimacy_visibility server-side and never exposes the table via
+    // a normal client select.
+    const { data, error } = await supabase.rpc('get_profile_intimacy', {
+      p_user_id: userId,
+    });
+    if (error) {
+      console.warn('[GAYZE] Intimacy profile load unavailable:', error.message);
+      return null;
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+
+    return {
+      role: row.intimacy_role ?? undefined,
+      preferences: Array.isArray(row.intimacy_prefs) ? row.intimacy_prefs : [],
+      experience: row.intimacy_experience ?? undefined,
+      visibility: (row.intimacy_visibility === 'everyone' ||
+        row.intimacy_visibility === 'private' ||
+        row.intimacy_visibility === 'connections')
+        ? row.intimacy_visibility
+        : 'connections',
+    };
+  } catch (err: any) {
+    console.warn('[GAYZE] Intimacy profile load exception:', err?.message || err);
+    return null;
+  }
+}
+
+export async function saveIntimacyProfile(
+  userId: string,
+  intimacy: IntimacyProfile,
+): Promise<boolean> {
+  if (!supabase || !userId) return false;
+  try {
+    const { error } = await supabase
+      .from('profile_intimacy')
+      .upsert({
+        user_id: userId,
+        intimacy_role: intimacy.role || null,
+        intimacy_prefs: Array.isArray(intimacy.preferences) ? intimacy.preferences : [],
+        intimacy_experience: intimacy.experience || null,
+        intimacy_visibility: intimacy.visibility || 'connections',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.warn('[GAYZE] Intimacy profile save unavailable:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('[GAYZE] Intimacy profile save exception:', err?.message || err);
+    return false;
+  }
+}
