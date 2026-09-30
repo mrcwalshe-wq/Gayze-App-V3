@@ -20,6 +20,7 @@ Run it once per fresh clone; the individual suites need it.
 | Push — end to end | `npm run test:push-e2e` | The **real** `src/services/pushService.ts` and `supabase/functions/send-push/index.ts` against that database, with a simulated browser PushManager. |
 | E2EE | `npm run test:e2ee` | The **real** `src/services/cryptoService.ts` (WebCrypto AES-GCM + ECDH) across two simulated devices with separate identity stores. |
 | Discovery radius | `npm run test:discovery` | The **real** clamp DDL from `supabase/migrations/20260930090000_discover_right_now_radius_cap.sql`, executed in Postgres — plus a proof that the migration cannot touch the live `discover_right_now`. |
+| Inspect script | `npm run test:inspect-script` | The **real** `supabase/pending/inspect_discover_right_now.sql`, executed statement by statement in Postgres against stand-in functions, plus a proof that it is read-only. |
 | Interaction | `npm run test:interaction` | The **real** `RightNowView` mounted with React 19 in jsdom, driving real clicks against the shipped JSX and Leaflet wiring. |
 
 ## What each suite covers
@@ -59,6 +60,20 @@ Run it once per fresh clone; the individual suites need it.
 * Social / Private intent-mode filtering.
 * Drawers open, close and leave **no stale overlay**; backdrop tap dismisses.
 * Safe-area insets are applied.
+
+### `test:inspect-script`
+* `supabase/pending/inspect_discover_right_now.sql` contains **only** SELECT/WITH
+  statements — asserted by checking every statement's leading keyword.
+* All 8 blocks execute without error against a `plpgsql` stand-in shaped like the
+  expected production function.
+* Q2 really returns the signature, defaults, `RETURNS TABLE`, `SECURITY DEFINER`
+  and `search_path`; Q3 reports security, volatility, language, config, owner and
+  effective privileges; Q4 separates IN from `RETURNS TABLE` columns.
+* Q8's chunked fallback reassembles **byte-for-byte** into the Q2 output,
+  including for a body longer than one chunk (8526 chars / 3 chunks).
+* Documents a real Postgres behaviour: `pg_depend` records **no** table
+  dependencies for function bodies, so Q6 is a labelled text-scan heuristic
+  rather than a catalog query.
 
 ## Known limits
 
