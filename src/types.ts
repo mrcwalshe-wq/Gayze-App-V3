@@ -24,6 +24,8 @@ export interface UserProfile {
   mySetup?: string[];
   availability?: string[];
   intimacy?: IntimacyProfile;
+  /** Hide presence from other users while still allowing authenticated chat. */
+  presenceIncognito?: boolean;
 }
 
 export interface Pulse {
