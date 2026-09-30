@@ -49,8 +49,7 @@ interface ProfileViewProps {
   onOpenQR: () => void;
   onOpenSafeHavens: () => void;
   onOpenDiscover?: () => void;
-  onOpenProfileEdit?: (section?: EditSectionKey) => void;
-  /** Opens the sectioned profile editor (the "Edit profile" pencil). */
+  onOpenProfileEdit?: (section?: string) => void;
   onAvatarUpdated?: (url: string | undefined) => void;
   /** Opens the Web Push opt-in / notification preferences sheet. */
   onOpenNotifications?: () => void;
@@ -89,7 +88,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenIdentity,
   onOpenQR,
   onOpenSafeHavens,
-  onOpenProfileEdit,
   onOpenDiscover,
   onOpenProfileEdit,
   onAvatarUpdated,
@@ -101,6 +99,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showNotificationReminder, setShowNotificationReminder] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
 
@@ -119,17 +119,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           // Continue if local storage is unavailable.
         }
         setShowNotificationReminder(true);
-      document.removeEventListener('visibilitychange', onWake);
-      window.removeEventListener('focus', onWake);
-      window.clearInterval(id);
-    document.addEventListener('visibilitychange', onWake);
-    window.addEventListener('focus', onWake);
-    const onWake = () => { void checkReminder(); };
-    const id = window.setInterval(() => { void checkReminder(); }, 30000);
-    // e.g. from the Notifications sheet or the OS settings — retires the prompt.
-    // a live intent) + focus/visibility, so a subscription started elsewhere —
-    // Own heartbeat (independent of the intent countdown, which only runs with
-    void checkReminder();
       } catch {
         // Notification setup is optional and must never affect the profile view.
       }
@@ -348,9 +337,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             )}
           </div>
           <div className="text-[12px] text-zinc-400 mt-1 truncate">
-            {[currentUser.age ? String(currentUser.age) : null, currentUser.pronouns || null, areaLabel || currentUser.neighborhood]
-              .filter(Boolean)
-              .join(' · ')} · approximate area
+            {areaLabel || currentUser.neighborhood} · approximate area
           </div>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className="g-badge g-badge--trust">
@@ -360,19 +347,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </span>
             <span className="g-badge g-badge--quiet font-mono">{currentUser.shortKey}</span>
           </div>
-      </section>
-
-      {onOpenProfileEdit && (
+        </div>
         <button
           type="button"
-          onClick={() => { hapticLight(); onOpenProfileEdit('identity'); }}
-          className="g-btn g-btn--quiet w-full mb-4"
+          onClick={() => { hapticLight(); onOpenProfileEdit?.('identity'); }}
+          className="g-icon-btn shrink-0"
+          aria-label="Edit profile"
         >
-          <Edit3 className="w-3.5 h-3.5" /> Edit profile
+          <Edit3 className="w-4 h-4" />
         </button>
-      )}
+      </section>
 
-            {/* Profile photos — first-class gallery with reordering, primary designation, and full-screen view */}
+      {/* Profile photos — first-class gallery with reordering, primary designation, and full-screen view */}
       <section className="g-panel p-4 mb-5">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
@@ -559,6 +545,50 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         )}
       </section>
 
+      {showNotificationReminder && onOpenNotifications && (
+        <section className="g-panel g-panel--live p-4 mb-5 border-[#6F3CC3]/30 bg-[#6F3CC3]/[0.06]">
+          <div className="flex items-start gap-3">
+            <span className="flex items-center justify-center w-9 h-9 rounded-[11px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 text-[#c9b0f5] shrink-0">
+              <Bell className="w-4 h-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[13.5px] font-bold text-white">Turn on notifications</p>
+                  <p className="mt-1 text-[11.5px] leading-relaxed text-zinc-400">
+                    Stay in the loop when someone messages you, responds to your intent or connects with you.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="g-icon-btn g-icon-btn--bare shrink-0"
+                  aria-label="Dismiss notification reminder"
+                  onClick={() => {
+                    hapticLight();
+                    try {
+                      window.localStorage.setItem('gayze_notification_reminder_dismissed_at', String(Date.now()));
+                    } catch {
+                      // Ignore storage failures.
+                    }
+                    setShowNotificationReminder(false);
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                className="g-btn g-btn--primary mt-3 w-full sm:w-auto"
+                onClick={() => { hapticLight(); onOpenNotifications(); }}
+              >
+                <Bell className="w-4 h-4" />
+                Start notifications
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Current signal */}
       <section className={`g-panel p-4 mb-5 ${activeUserIntent && !activeUserIntent.isPaused ? 'g-panel--live' : ''}`}>
         <div className="flex items-center justify-between gap-3 mb-3">
@@ -623,47 +653,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         )}
       </section>
 
-      {/* Profile summary */}
-      {(currentUser.bio?.trim() || currentUser.interests.length > 0 || (currentUser.hobbies?.length ?? 0) > 0 || (currentUser.mySetup?.length ?? 0) > 0 || (currentUser.boundaries?.length ?? 0) > 0 || (currentUser.intimacy?.role)) && (
-        <section className="g-panel p-4 mb-5">
-          {currentUser.bio?.trim() && (
-            <p className="text-[13.5px] leading-relaxed text-zinc-200">“{currentUser.bio.trim()}”</p>
-          )}
-          {currentUser.interests.length > 0 && (
-            <div className="mt-3">
-              <span className="g-label">Looking for</span>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {currentUser.interests.map((tag) => <span key={tag} className="g-tag">{tag}</span>)}
-              </div>
-            </div>
-          )}
-          {(currentUser.hobbies?.length ?? 0) > 0 && (
-            <div className="mt-3">
-              <span className="g-label">Interests</span>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {currentUser.hobbies!.map((tag) => <span key={tag} className="g-tag">{tag}</span>)}
-              </div>
-            </div>
-          )}
-          {(currentUser.mySetup?.length ?? 0) > 0 && (
-            <div className="mt-3">
-              <span className="g-label">My setup</span>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {currentUser.mySetup!.map((tag) => <span key={tag} className="g-tag">{tag}</span>)}
-              </div>
-            </div>
-          )}
-          {(currentUser.boundaries?.length ?? 0) > 0 && (
-            <div className="mt-3">
-              <span className="g-label">Boundaries</span>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {currentUser.boundaries!.map((tag) => <span key={tag} className="g-tag">{tag}</span>)}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
       {/* Attributes */}
       {currentUser.interests.length > 0 && (
         <section className="mb-5">
@@ -673,35 +662,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span key={interest} className="g-tag">{interest}</span>
             ))}
           </div>
-              <span key={boundary} className="g-tag">{boundary}</span>
-            {currentUser.boundaries!.map((boundary) => (
-          <span className="g-label">Boundaries</span>
-      {(currentUser.boundaries?.length ?? 0) > 0 && (
-              <span key={when} className="g-chip g-chip--quiet">{when}</span>
-            {(currentUser.availability ?? []).map((when) => (
-              <span key={setup} className="g-tag">{setup}</span>
-            {(currentUser.mySetup ?? []).map((setup) => (
-          <span className="g-label">My setup</span>
-      {((currentUser.mySetup?.length ?? 0) > 0 || (currentUser.availability?.length ?? 0) > 0) && (
-              <span className="g-tag">{currentUser.intimacy!.experience}</span>
-            {currentUser.intimacy!.experience && currentUser.intimacy!.experience !== 'Not specified' && (
-              <span key={preference} className="g-tag">{preference}</span>
-            {currentUser.intimacy!.preferences.map((preference) => (
-              <span className="g-chip g-chip--private">{currentUser.intimacy!.role}</span>
-            {currentUser.intimacy!.role && (
-              <span className="g-badge g-badge--quiet">{intimacyVisibilityLabel}</span>
-            {intimacyVisibilityLabel && (
-            <span className="g-label">Intimacy</span>
-          <div className="flex items-center justify-between gap-3">
-      )) && (
-        || (currentUser.intimacy.experience && currentUser.intimacy.experience !== 'Not specified')
-        || currentUser.intimacy.preferences.length > 0
-        currentUser.intimacy.role
-      {(currentUser.intimacy && (
-              <span key={hobby} className="g-tag">{hobby}</span>
-            {currentUser.hobbies!.map((hobby) => (
-          <span className="g-label">Interests</span>
-      {(currentUser.hobbies?.length ?? 0) > 0 && (
         </section>
       )}
 
