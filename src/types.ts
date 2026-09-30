@@ -1,1 +1,306 @@
+export type LocationPrivacy = 'fuzzy_500m' | 'neighborhood' | 'ghost';
 
+export interface UserProfile {
+  publicKey: string;
+  shortKey: string;
+  handle: string;
+  displayName: string;
+  bio: string;
+  avatarSeed: string;
+  avatarUrl?: string;
+  neighborhood: string;
+  privacySetting: LocationPrivacy;
+  safetyVerified: boolean;
+  interests: string[];
+  reliabilityScore: number; // e.g. 95/100
+  verifiedPeersCount: number; // In-person QR verified peers
+  hapticsEnabled?: boolean; // Vibration API haptic feedback preference
+}
+
+export interface Pulse {
+  id: string;
+  peerId: string;
+  peerName: string;
+  peerShortKey: string;
+  peerAvatar: string;
+  peerAge?: number;
+  title: string;
+  description: string;
+  activityCategory: 'coffee' | 'drinks' | 'walk' | 'active' | 'culture' | 'chill';
+  intentMode?: TopLevelIntentMode;
+  intent?: EncounterIntent;
+  travelDistance?: string;
+  canHost?: string;
+  travelWillingness?: string;
+  venueName: string;
+  neighborhood: string;
+  approxDistanceKm: number;
+  jitterMeters: number;
+  lat: number;
+  lng: number;
+  durationHours: number;
+  createdAt: number;
+  expiresAt: number;
+  tags: string[];
+  safeHavenVenue?: boolean;
+  isPaused?: boolean;
+  peerReliabilityScore?: number;
+  verifiedPeersCount?: number;
+  safetyVerified?: boolean;
+  bio?: string;
+}
+
+export interface Gathering {
+  id: string;
+  hostId: string;
+  hostName: string;
+  hostShortKey: string;
+  hostAvatar: string;
+  title: string;
+  description: string;
+  category: 'social' | 'arts' | 'active' | 'games' | 'discussions' | 'nightlife';
+  dateStr: string; // e.g. 'Tonight', 'Tomorrow', 'Saturday, 19:30'
+  timestamp: number;
+  locationName: string;
+  address: string;
+  neighborhood: string;
+  isSafeHavenVenue: boolean;
+  lat: number | null;
+  lng: number | null;
+  capacity: number;
+  rsvpCount: number;
+  isAttending: boolean;
+  tags: string[];
+  safetyGuidelines: string;
+}
+
+export interface SafeHaven {
+  id: string;
+  name: string;
+  type: 'cafe' | 'bookstore' | 'community_center' | 'queer_bar' | 'public_square';
+  address: string;
+  neighborhood: string;
+  safetyScore: number; // e.g. 9.8
+  features: string[];
+  lat: number;
+  lng: number;
+  openHours: string;
+  approxDistanceKm: number;
+  emergencyPhone?: string;
+  staffTrained: boolean;
+}
+
+export interface MeetingProposal {
+  id: string;
+  venueName: string;
+  address: string;
+  timeStr: string;
+  timestamp: number;
+  status: 'proposed' | 'accepted' | 'declined';
+  isSafeHaven: boolean;
+  safetyTimerDurationMinutes: number;
+}
+
+export interface EncryptedMessage {
+  id: string;
+  roomId: string;
+  senderKey: string;
+  senderName: string;
+  timestamp: number;
+  cipherText: string;
+  nonceHex: string;
+  plainText: string;
+  ephemeralTtlSeconds?: number;
+  isBurned?: boolean;
+  isSystem?: boolean;
+  meetingData?: MeetingProposal;
+  mediaUrl?: string;
+  mediaType?: 'image';
+}
+
+export interface GazeInteraction {
+  peerId: string;
+  peerName: string;
+  timestamp: number;
+  isMutual?: boolean;
+}
+
+export type TopLevelIntentMode = 'social' | 'private';
+
+export const SOCIAL_INTENTS = [
+  'All',
+  'Meet',
+  'Drinks',
+  'Date',
+  'Chat',
+  'Group',
+] as const;
+
+export const PRIVATE_INTENTS = [
+  'All',
+  'Hookup',
+  'Hookup · Host',
+  'Hookup · Travel',
+  'Hookup · Outdoor',
+  'Hookup · Car',
+  'Other',
+] as const;
+
+export type SocialIntent = typeof SOCIAL_INTENTS[number];
+export type PrivateIntent = typeof PRIVATE_INTENTS[number];
+export type EncounterIntent = SocialIntent | PrivateIntent;
+
+export interface UserActiveIntent {
+  /**
+   * Row id of this intent in Supabase (`intents.id`).
+   * Present whenever the intent is backed by the live backend; absent in
+   * local/demo mode. Pause/resume/end operate on this id.
+   */
+  remoteId?: string;
+  mode: TopLevelIntentMode;
+  intent: EncounterIntent;
+  description: string;
+  when: string;
+  duration: string;
+  travelDistance: string;
+  canHost?: 'Can host' | 'Cannot host' | 'Depends';
+  travelWillingness?: 'Yes' | 'Within reason' | 'Car required';
+  context?: 'Private' | 'Public' | 'Either';
+  area: string;
+  isNearSafeHaven?: boolean;
+  safeHavenName?: string;
+  activatedAt: number;
+  expiresAt: number;
+  isPaused?: boolean;
+}
+
+export interface SocialStory {
+  id: string;
+  peerId: string;
+  peerName: string;
+  avatarUrl: string;
+  photoUrl: string;
+  caption: string;
+  locationName: string;
+  timestamp: number;
+  intent: EncounterIntent;
+  category: 'social' | 'private' | 'spicy';
+}
+
+export interface IntentActivityPost {
+  id: string;
+  peerId: string;
+  peerName: string;
+  peerAvatar: string;
+  photoUrl?: string;
+  activityTitle: string;
+  description: string;
+  category: 'social' | 'private' | 'spicy';
+  intent: EncounterIntent;
+  timing: 'Right Now' | 'Next 1 hour' | 'Next 2 hours' | 'Tonight' | 'Tomorrow';
+  venueName: string;
+  neighborhood: string;
+  approxDistanceKm: number;
+  timestamp: number;
+  isSafeHaven: boolean;
+  reliabilityScore: number;
+  gazesCount: number;
+}
+
+export interface SwarmRoom {
+  id: string;
+  name: string;
+  type: 'direct' | 'gathering';
+  /** Member user ids for backend-backed conversations (empty for local/demo rooms). */
+  memberIds?: string[];
+  /** Display names keyed by user id, used to label messages in group conversations. */
+  memberNames?: Record<string, string>;
+  peerKey?: string;
+  peerUserId?: string;
+  connectionContext?: string;
+  peerName?: string;
+  peerNeighborhood?: string;
+  peerAvatar?: string;
+  safetyNumber: string; // e.g. "4920 1823 8812 3901 0291 9410"
+  swarmSecretKeyHex: string;
+  lastMessage?: string;
+  lastTimestamp: number;
+  ephemeralTtlSeconds: number; // 0 = off, 300 = 5min, 3600 = 1hr, 86400 = 24hr
+  verifiedViaQR?: boolean;
+  verifiedAt?: number;
+  peerReliabilityScore?: number;
+}
+
+export interface DatingProfile {
+  id: string;
+  name: string;
+  age: number;
+  photoUrl: string;
+  neighborhood: string;
+  approxDistanceKm: number;
+  headline: string;
+  bio: string;
+  lookingFor: 'dating' | 'dates_coffee' | 'casual' | 'relationship' | 'friends';
+  lookingForLabel: string;
+  heightCm: number;
+  rolePronouns?: string;
+  interests: string[];
+  tribes: string[];
+  isOnline: boolean;
+  lastActive: string;
+  safetyVerified: boolean;
+  peerPublicKey: string;
+  favoriteSafeHaven?: string;
+  isFavorited?: boolean;
+  reliabilityScore: number;
+  verifiedPeersCount: number;
+  verifiedViaQR?: boolean;
+  intentMode?: TopLevelIntentMode;
+  intent?: EncounterIntent;
+  hasRightNowIntent?: boolean;
+  rightNowDetail?: string;
+  intentExpiresAt?: number;
+  activityCategory?: 'coffee' | 'drinks' | 'walk' | 'active' | 'culture' | 'chill';
+  vouchesCount?: number;
+  metTimesCount?: number;
+  canHost?: 'Can host' | 'Cannot host' | 'Depends';
+  travelWillingness?: 'Yes' | 'Within reason' | 'Car required';
+}
+
+export interface CompatibilitySignal {
+  type: 'intent' | 'timing' | 'location' | 'haven' | 'activity' | 'trust';
+  label: string;
+  matched: boolean;
+  scoreWeight?: number;
+  detail?: string;
+}
+
+export interface SwarmQRPayload {
+  v: number;
+  type: 'gayze_swarm_identity';
+  publicKey: string;
+  shortKey: string;
+  displayName: string;
+  neighborhood: string;
+  reliabilityScore: number;
+  verifiedPeersCount: number;
+  timestamp: number;
+  fingerprint?: string;
+}
+
+export interface SafetyCheckin {
+  isActive: boolean;
+  meetupPartnerName: string;
+  venueName: string;
+  startedAt: number;
+  durationMinutes: number;
+  notes: string;
+}
+
+
+export interface IntimacyProfile {
+  role?: string;
+  preferences: string[];
+  experience?: string;
+  visibility: 'everyone' | 'connections' | 'private';
+}
