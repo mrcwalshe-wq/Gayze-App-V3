@@ -559,54 +559,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         )}
       </section>
 
-      {showNotificationReminder && onOpenNotifications && (
-        <section className="g-panel g-panel--live p-4 mb-5 border-[#6F3CC3]/30 bg-[#6F3CC3]/[0.06]">
-          <div className="flex items-start gap-3">
-            <span className="flex items-center justify-center w-9 h-9 rounded-[11px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 text-[#c9b0f5] shrink-0">
-              <Bell className="w-4 h-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-[13.5px] font-bold text-white">Turn on notifications</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-zinc-400">
-                    Stay in the loop when someone messages you, responds to your intent or connects with you.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="g-icon-btn g-icon-btn--bare shrink-0"
-                  aria-label="Dismiss notification reminder"
-                  onClick={() => {
-                    hapticLight();
-                    try {
-                      window.localStorage.setItem('gayze_notification_reminder_dismissed_at', String(Date.now()));
-                    } catch {
-                      // Ignore storage failures.
-                    }
-                    setShowNotificationReminder(false);
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-                  onOpenNotifications();
-                  setShowNotificationReminder(false);
-                  // row below remains the single entry point from here on.
-                  // Engaging the prompt retires it — the permanent Notifications
-              <button
-                type="button"
-                className="g-btn g-btn--primary mt-3 w-full sm:w-auto"
-                onClick={() => { hapticLight(); onOpenNotifications(); }}
-              >
-                <Bell className="w-4 h-4" />
-                Start notifications
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* Current signal */}
       <section className={`g-panel p-4 mb-5 ${activeUserIntent && !activeUserIntent.isPaused ? 'g-panel--live' : ''}`}>
         <div className="flex items-center justify-between gap-3 mb-3">
@@ -667,7 +619,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 Create your intent
               </button>
             )}
-          </>
           </>
         )}
       </section>
