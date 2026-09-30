@@ -15,13 +15,12 @@
     "test:push-sw": "node scripts/push-tests/sw.test.mjs",
     "test:profile-migration": "node scripts/profile-tests/migration.test.mjs",
     "test:profile": "tsx --import ./scripts/profile-tests/register-hooks.mjs scripts/profile-tests/profile.test.tsx",
-    "test": "npm run test:push-sql && npm run test:push-e2e && npm run test:push-sw && npm run test:e2ee && npm run test:discovery && npm run test:inspect-script && npm run test:interaction && npm run test:profile-migration && npm run test:profile"
+    "test": "npm run test:push-sql && npm run test:push-e2e && npm run test:push-sw && npm run test:e2ee && npm run test:discovery && npm run test:inspect-script && npm run test:interaction && npm run test:profile-migration && npm run test:profile",
     "test:push-e2e": "node scripts/push-tests/e2e.test.mjs",
     "test:e2ee": "tsx scripts/e2ee-tests/e2ee.test.mjs",
     "test:discovery": "node scripts/discovery-tests/public-wrapper.test.mjs",
     "test:inspect-script": "node scripts/discovery-tests/inspect-script.test.mjs",
-    "test:interaction": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/interaction-tests/interaction.test.tsx",
-    "test": "npm run test:push-sql && npm run test:push-e2e && npm run test:e2ee && npm run test:discovery && npm run test:inspect-script && npm run test:interaction"
+    "test:interaction": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/interaction-tests/interaction.test.tsx"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
