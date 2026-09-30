@@ -1936,39 +1936,89 @@ export default function App() {
       activeRoomId,
       `Accepted — see you at ${meeting.venueName}, ${meeting.timeStr}. Local check-in timer started.`
     );
-      showToast('Profile saved');
-      showToast('Profile saved — some new details could not sync yet');
-    if (!detailsSaved || !intimacySaved) {
-      return true;
-      showToast('Could not save to your account — changes kept on this device');
-    if (!coreSaved) {
-    const intimacySaved = await saveIntimacyProfile(supabaseUserId, intimacy);
-    const detailsSaved = await updateProfileDetails(supabaseUserId, {
-    // migration is applied — degrade with a toast, never block the core save.
-    // Additive columns and the intimacy table may not exist until the
-    const coreSaved = await updateSupabaseProfile(supabaseUserId, {
-    if (!supabaseUserId) return true;
-      intimacy,
-      availability: payload.availability,
-      mySetup: payload.mySetup,
-      boundaries: payload.boundaries,
-      hobbies: payload.hobbies,
-      bodyType: payload.bodyType,
-      heightCm: payload.heightCm,
-      pronouns: payload.pronouns,
-      interests: payload.lookingFor,
-      privacySetting: payload.privacySetting,
-      age: payload.age,
-      bio: payload.bio,
-      handle: payload.handle,
-      displayName: payload.displayName,
-    // Local state first: the profile must persist even in demo/offline mode.
-    const intimacy: import('./types').IntimacyProfile = payload.intimacy;
   const handleSaveProfileEdit = async (payload: ProfileSavePayload): Promise<boolean> => {
-  const [profileEditSection, setProfileEditSection] = useState<EditSectionKey | null>(null);
-  const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
-  // --- Profile / "About you" editor -------------------------------------------
-    showToast(`Local check-in timer started for ${meeting.venueName}.`);
+    // Persist locally first so profile editing remains useful offline.
+    const intimacy: import('./types').IntimacyProfile = payload.intimacy;
+    setCurrentUser((prev) => ({
+      ...prev,
+      displayName: payload.displayName,
+      handle: payload.handle,
+      bio: payload.bio,
+      age: payload.age,
+      privacySetting: payload.privacySetting,
+      interests: payload.lookingFor,
+      pronouns: payload.pronouns,
+      heightCm: payload.heightCm,
+      bodyType: payload.bodyType,
+      hobbies: payload.hobbies,
+      boundaries: payload.boundaries,
+      mySetup: payload.mySetup,
+      availability: payload.availability,
+      intimacy,
+    }));
+
+    try {
+      localStorage.setItem('gayze_user', JSON.stringify({
+        ...currentUserRef.current,
+        displayName: payload.displayName,
+        handle: payload.handle,
+        bio: payload.bio,
+        age: payload.age,
+        privacySetting: payload.privacySetting,
+        interests: payload.lookingFor,
+        pronouns: payload.pronouns,
+        heightCm: payload.heightCm,
+        bodyType: payload.bodyType,
+        hobbies: payload.hobbies,
+        boundaries: payload.boundaries,
+        mySetup: payload.mySetup,
+        availability: payload.availability,
+        intimacy,
+      }));
+    } catch {
+      // Local persistence is best-effort.
+    }
+
+    if (!supabaseUserId) {
+      showToast('Profile saved');
+      return true;
+    }
+
+    const coreSaved = await updateSupabaseProfile(supabaseUserId, {
+      displayName: payload.displayName,
+      handle: payload.handle,
+      bio: payload.bio,
+      age: payload.age,
+      privacySetting: payload.privacySetting,
+      interests: payload.lookingFor,
+    });
+
+    if (!coreSaved) {
+      showToast('Could not save your account profile — changes kept on this device');
+      return false;
+    }
+
+    // These fields are additive and may not exist until the migration is applied.
+    // Fail soft: the core profile save remains successful.
+    const detailsSaved = await updateProfileDetails(supabaseUserId, {
+      pronouns: payload.pronouns,
+      heightCm: payload.heightCm,
+      bodyType: payload.bodyType,
+      hobbies: payload.hobbies,
+      boundaries: payload.boundaries,
+      mySetup: payload.mySetup,
+      availability: payload.availability,
+    });
+
+    const intimacySaved = await saveIntimacyProfile(supabaseUserId, intimacy);
+
+    if (!detailsSaved || !intimacySaved) {
+      showToast('Profile saved — some new details could not sync yet');
+      return true;
+    }
+
+    showToast('Profile saved');
+    return true;
   };
 
   const handleSaveProfileOnboarding = async (profile: { displayName: string; handle: string; bio: string; age: number; privacySetting: import('./types').LocationPrivacy; interests: string[] }) => {
@@ -2484,10 +2534,11 @@ export default function App() {
               onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
               onOpenSetIntent={handleOpenIntentSheet}
               onOpenMap={() => setActiveTab('right_now')}
-            />
+              onOpenProfileEdit={(section) => {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ?? null);
-              onOpenProfileEdit={(section) => {
+              }}
+            />
           )}
 
           {activeTab === 'profile' && (
@@ -2505,6 +2556,10 @@ export default function App() {
               onOpenQR={() => handleOpenQRModal()}
               onOpenSafeHavens={() => setActiveTab('safe_havens')}
               onOpenDiscover={() => setActiveTab('dating')}
+              onOpenProfileEdit={(section) => {
+                setIsProfileEditOpen(true);
+                setProfileEditSection(section ?? null);
+              }}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
             />
           )}
@@ -2645,23 +2700,26 @@ export default function App() {
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
         userNeighborhood={currentUser.neighborhood}
-          />
-            onOpenSetIntent={handleOpenIntentSheet}
-            onOpenIdentity={() => setIsIdentityOpen(true)}
-            initialSection={profileEditSection}
-            onSave={handleSaveProfileEdit}
-            }}
+      />
+
+      {/* Sectioned "About you" profile editor */}
+      {isProfileEditOpen && (
+        <Suspense fallback={null}>
+          <ProfileEditSheet
+            isOpen={isProfileEditOpen}
+            currentUser={currentUser}
+            hasPhoto={Boolean(currentUser.avatarUrl)}
+            onClose={() => {
               setProfileEditSection(null);
               setIsProfileEditOpen(false);
-            onClose={() => {
-            hasPhoto={Boolean(currentUser.avatarUrl)}
-            currentUser={currentUser}
-            isOpen={isProfileEditOpen}
-          <ProfileEditSheet
-        <Suspense fallback={null}>
-      {isProfileEditOpen && (
-      {/* Sectioned "About you" profile editor */}
-      />
+            }}
+            onSave={handleSaveProfileEdit}
+            initialSection={profileEditSection}
+            onOpenIdentity={() => setIsIdentityOpen(true)}
+            onOpenSetIntent={handleOpenIntentSheet}
+          />
+        </Suspense>
+      )}
 
       {/* Local Safety Check-in Timer Modal */}
       <SafetyTimerModal
