@@ -80,9 +80,32 @@ export interface ServiceWorkerAppMessage {
   type?: string;
   url?: string;
   oldEndpoint?: string | null;
+  navigationExpiresAt?: number;
   payload?: unknown;
 }
 
 export function isGayzeServiceWorkerMessage(data: unknown): data is ServiceWorkerAppMessage {
   return Boolean(data) && typeof data === 'object' && (data as ServiceWorkerAppMessage).source === 'gayze-sw';
+}
+
+const PENDING_NOTIFICATION_PATH = 'gayze_notification_destination';
+/** Preserve the same-origin notification destination across OAuth/login reloads. */
+export function rememberNotificationPath(raw: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin || isAuthPath(url.pathname)) return;
+    if (!/^\/(notifications|profile(?:\/notifications)?|messages\/[0-9a-f-]{36})\/?$/i.test(url.pathname)) return;
+    window.sessionStorage.setItem(PENDING_NOTIFICATION_PATH, url.pathname + url.search);
+  } catch { /* Private browsing can deny storage; current URL remains fallback. */ }
+}
+export function consumeNotificationPath(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_NOTIFICATION_PATH);
+    window.sessionStorage.removeItem(PENDING_NOTIFICATION_PATH);
+    if (!raw) return null;
+    const url = new URL(raw, window.location.origin);
+    return url.origin === window.location.origin && /^\/(notifications|profile(?:\/notifications)?|messages\/[0-9a-f-]{36})\/?$/i.test(url.pathname) ? url.pathname + url.search : null;
+  } catch { return null; }
 }

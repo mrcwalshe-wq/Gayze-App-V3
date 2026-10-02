@@ -1,3 +1,5 @@
+import { notificationCopy, type NotificationInbox, type InboxNotification } from '../services/notificationInbox';
+import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Bell,
@@ -30,7 +32,11 @@ import {
 
 interface NotificationsModalProps {
   isOpen: boolean;
+  currentUserId?: string | null;
   onClose: () => void;
+  inbox?: NotificationInbox | null;
+  inboxStatus?: ChatConnectionState;
+  onOpenNotification?: (notice: InboxNotification) => void;
 }
 
 /**
@@ -50,13 +56,13 @@ type CategoryKey = Exclude<keyof NotificationPreferences, 'pushEnabled'>;
 
 const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta: string }[] = [
   { key: 'messages', icon: <MessageCircle className="w-4 h-4" />, label: 'Messages', meta: 'When someone messages you' },
-  { key: 'intentActivity', icon: <Radio className="w-4 h-4" />, label: 'Intent activity', meta: 'When someone responds to your intent' },
+  { key: 'intentActivity', icon: <Radio className="w-4 h-4" />, label: 'Gayzes', meta: 'When someone sends you a Gayze' },
   { key: 'connections', icon: <UserPlus className="w-4 h-4" />, label: 'Connections', meta: 'When interest is mutual' },
   { key: 'intentExpiry', icon: <Timer className="w-4 h-4" />, label: 'Intent expiry', meta: 'Before your intent lapses' },
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification }) => {
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -79,20 +85,35 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
     void refresh();
   }, [isOpen, refresh]);
 
+  useEffect(() => {
+    const recovery = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (!isOpen || detail?.userId !== currentUserId) return;
+      if (detail.state === 'needs-enable') {
+        setSubscribed(false);
+        setFeedback({ text: 'This device needs notification registration renewed. Tap Enable notifications.', tone: 'info' });
+      } else if (detail.state === 'ready') { void refresh(); }
+      else if (detail.state === 'unavailable') setFeedback({ text: 'Notification registration could not be checked. Try again when connected.', tone: 'error' });
+    };
+    window.addEventListener('gayze-push-recovery', recovery);
+    return () => window.removeEventListener('gayze-push-recovery', recovery);
+  }, [isOpen, currentUserId, refresh]);
+
   if (!isOpen) return null;
 
   const handleEnable = async () => {
     hapticSensitiveAction();
     setBusy(true);
     setFeedback(null);
-    const result = await subscribeToPush();
+    const result = await subscribeToPush(currentUserId ?? undefined);
     if (result.ok) {
       setSubscribed(true);
       // Turning push on from a disabled master state should also re-enable it.
       const next = { ...prefs, pushEnabled: true };
       setPrefs(next);
-      await saveNotificationPreferences(next);
-      setFeedback({ text: 'Notifications are on for this device.', tone: 'ok' });
+      const saved = await saveNotificationPreferences(next, currentUserId ?? undefined);
+      setFeedback(saved ? { text: 'Notifications are on for this device.', tone: 'ok' }
+        : { text: 'Device registered, but notification preferences could not be saved. Please retry.', tone: 'error' });
     } else {
       setFeedback({ text: result.reason ?? 'Enabling notifications failed.', tone: 'error' });
     }
@@ -103,7 +124,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const handleDisable = async () => {
     hapticSensitiveAction();
     setBusy(true);
-    const ok = await unsubscribeFromPush();
+    const ok = await unsubscribeFromPush(currentUserId ?? undefined);
     if (ok) {
       setSubscribed(false);
       setFeedback({ text: 'Notifications are off for this device.', tone: 'info' });
@@ -117,7 +138,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
     hapticLight();
     const next = { ...prefs, ...patch };
     setPrefs(next);
-    const ok = await saveNotificationPreferences(next);
+    const ok = await saveNotificationPreferences(next, currentUserId ?? undefined);
     if (!ok) {
       setPrefs(prefs);
       setFeedback({ text: 'Could not save that preference.', tone: 'error' });
@@ -130,7 +151,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
     const result = await sendTestNotification();
     setFeedback(
       result.ok
-        ? { text: 'Test push sent. Lock your device to see it on the Lock Screen.', tone: 'ok' }
+        ? { text: 'Push provider accepted the test. Device delivery still needs confirmation.', tone: 'ok' }
         : { text: result.reason ?? 'Test notification failed.', tone: 'error' },
     );
     setBusy(false);
@@ -160,6 +181,21 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
         </div>
 
         <div className="g-sheet__body space-y-4">
+          <section aria-label="Notification inbox" className="g-panel p-4 space-y-3">
+            <h3 className="text-sm font-semibold">Your notifications {inbox ? `· ${inbox.unread} unread` : ''}</h3>
+            {inboxStatus !== 'connected' && <p role="status" className="text-xs text-zinc-400">
+              {inboxStatus === 'connecting' || inboxStatus === 'syncing' ? 'Loading notifications…' : 'Notification inbox unavailable — reconnecting. Saved notifications are retained.'}
+            </p>}
+            {inbox && inbox.rows.length === 0 && <p className="text-xs text-zinc-400">No notifications yet.</p>}
+            {inbox?.rows.map((notice) => <button key={notice.id} type="button"
+              onClick={() => onOpenNotification?.(notice)}
+              className="block w-full rounded-lg border border-white/10 p-3 text-left text-sm hover:bg-white/5"
+              aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notificationCopy[notice.category] ?? 'GAYZE notification'}`}>
+              {!notice.read_at && <span className="mr-2 text-[#C9A24D]" aria-hidden="true">●</span>}
+              {notificationCopy[notice.category] ?? 'GAYZE notification'}
+              <time className="block mt-1 text-xs text-zinc-500" dateTime={notice.created_at}>{new Date(notice.created_at).toLocaleString()}</time>
+            </button>)}
+          </section>
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-[12px] text-zinc-400">
               <Loader2 className="w-4 h-4 animate-spin" />

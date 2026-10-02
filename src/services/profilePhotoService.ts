@@ -17,11 +17,21 @@ const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 
 // In-memory cache for signed URLs to avoid redundant requests on re-renders
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
+const pendingSignedUrls = new Map<string, Promise<string>>();
+
 export async function signedUrl(path: string): Promise<string> {
   const cached = signedUrlCache.get(path);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.url;
   }
+  const pending = pendingSignedUrls.get(path);
+  if (pending) return pending;
+  const work = requestSignedUrl(path);
+  pendingSignedUrls.set(path, work);
+  try { return await work; } finally { if (pendingSignedUrls.get(path) === work) pendingSignedUrls.delete(path); }
+}
+
+async function requestSignedUrl(path: string): Promise<string> {
   if (!supabase) throw new Error('Supabase is not configured.');
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
   if (error || !data?.signedUrl) throw new Error(error?.message || 'Could not load profile photo.');

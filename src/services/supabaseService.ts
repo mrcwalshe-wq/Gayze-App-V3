@@ -1,4 +1,7 @@
+import { intentWhenLabel } from './intentTiming';
 import { supabase } from './supabaseClient';
+import { subscribeToRecoveredMessages, type MessageListener } from './chatSubscriptions';
+import { RealtimeRecovery, requireRealtimeSession, type ChatConnectionState } from './realtimeRecovery';
 import type { UserActiveIntent, Pulse, SafeHaven, UserProfile, LocationPrivacy } from '../types';
 import { getProfilePhotoUrl } from './profilePhotoService';
 import { requestConnectionPush } from './pushService';
@@ -299,19 +302,6 @@ const CAN_HOST_VALUES = ['Can host', 'Cannot host', 'Depends'] as const;
 const TRAVEL_VALUES = ['Yes', 'Within reason', 'Car required'] as const;
 const CONTEXT_VALUES = ['Private', 'Public', 'Either'] as const;
 
-/**
- * `intents.when_label` does not exist in the schema, so the composer's timing
- * choice is derived from the activation time on reload. See
- * docs/BACKEND_REQUIREMENTS.md.
- */
-function deriveIntentWhen(activatedAt: number): string {
-  const minutesAgo = (Date.now() - activatedAt) / 60000;
-  if (minutesAgo < 60) return 'Now';
-  if (minutesAgo < 180) return 'Next 1 hour';
-  if (minutesAgo < 360) return 'Next 2 hours';
-  return 'Tonight';
-}
-
 export function intentRowToActiveIntent(row: IntentRow): UserActiveIntent {
   const activatedAt = row.starts_at ? new Date(row.starts_at).getTime() : Date.now();
   const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : activatedAt;
@@ -320,7 +310,7 @@ export function intentRowToActiveIntent(row: IntentRow): UserActiveIntent {
     mode: row.mode === 'private' ? 'private' : 'social',
     intent: (row.intent || 'Meet') as UserActiveIntent['intent'],
     description: row.description || '',
-    when: deriveIntentWhen(activatedAt),
+    when: intentWhenLabel(activatedAt),
     duration: row.duration_label || '2 hrs',
     travelDistance: row.travel_distance_label || 'Within 2 km',
     canHost: CAN_HOST_VALUES.find((value) => value === row.can_host),
@@ -598,14 +588,17 @@ export async function persistConversationMessage(
   ciphertext: string,
   nonce: string,
   expiresAt?: string | null,
+  messageId: string = crypto.randomUUID(),
+  expectedUserId?: string,
 ) {
   if (!supabase) throw new Error('Supabase is not configured');
   const user = await ensureSupabaseSession();
-  if (!user) throw new Error('Authentication required');
+  if (!user || (expectedUserId && user.id !== expectedUserId)) throw new Error('Authentication required');
 
   const { data, error } = await supabase
     .from('messages')
     .insert({
+      id: messageId,
       conversation_id: conversationId,
       sender_id: user.id,
       ciphertext,
@@ -615,76 +608,37 @@ export async function persistConversationMessage(
     .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // A timeout can hide a successful commit. Manual retry uses the same
+    // messages primary key, not a new send. Never upsert/update ciphertext.
+    const receipt = await supabase.from('messages')
+      .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
+      .eq('id', messageId).eq('conversation_id', conversationId).eq('sender_id', user.id).maybeSingle();
+    if (!receipt.error && receipt.data) return receipt.data as SupabaseMessageRow;
+    throw error;
+  }
   return data as SupabaseMessageRow;
 }
 
 export function subscribeToConversationMessages(
   conversationId: string,
-  onMessage: (row: SupabaseMessageRow) => void,
-  onStatus?: (status: string, error?: Error) => void,
+  onMessage: MessageListener,
+  onStatus: ((status: ChatConnectionState) => void) | undefined,
+  userId: string,
+  recentOnly?: () => boolean,
 ) {
   if (!supabase) return () => undefined;
-
-  const channel = supabase
-    .channel(`gayze-conversation-${conversationId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `conversation_id=eq.${conversationId}`,
-      },
-      (payload) => onMessage(payload.new as SupabaseMessageRow),
-    )
-    .subscribe((status, error) => {
-      if (status === 'SUBSCRIBED') {
-        console.info('[GAYZE] Conversation realtime subscribed', conversationId);
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        console.error('[GAYZE] Conversation realtime failed', conversationId, error);
-      }
-      onStatus?.(status, error instanceof Error ? error : undefined);
-    });
-
-  const client = supabase;
-  return () => { void client.removeChannel(channel); };
+  return subscribeToRecoveredMessages(supabase, userId, conversationId, onMessage, onStatus, undefined, recentOnly);
 }
 
-/**
- * Global message stream used by the Messages destination and notification layer.
- * RLS on public.messages limits Postgres Changes delivery to conversations the
- * authenticated user can read. The active chat may also have its own filtered
- * channel; duplicate rows are de-duped by message id in App.
- */
+/** RLS limits the inbox scan/stream to this authenticated user's messages. */
 export function subscribeToAllConversationMessages(
-  onMessage: (row: SupabaseMessageRow) => void,
-  onStatus?: (status: string, error?: Error) => void,
+  onMessage: MessageListener,
+  onStatus: ((status: ChatConnectionState) => void) | undefined,
+  userId: string,
 ) {
   if (!supabase) return () => undefined;
-
-  const channel = supabase
-    .channel('gayze-all-conversation-messages')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-      },
-      (payload) => onMessage(payload.new as SupabaseMessageRow),
-    )
-    .subscribe((status, error) => {
-      if (status === 'SUBSCRIBED') {
-        console.info('[GAYZE] Global message realtime subscribed');
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        console.error('[GAYZE] Global message realtime failed', error);
-      }
-      onStatus?.(status, error instanceof Error ? error : undefined);
-    });
-
-  const client = supabase;
-  return () => { void client.removeChannel(channel); };
+  return subscribeToRecoveredMessages(supabase, userId, undefined, onMessage, onStatus);
 }
 
 
@@ -804,7 +758,7 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
       .slice(0, 32) || 'gayze-user';
     const uniqueHandle = baseHandle + '-' + userId.slice(0, 8);
 
-    const { data, error } = await supabase.from('profiles').upsert({
+    const { error } = await supabase.from('profiles').upsert({
       id: userId,
       handle: uniqueHandle,
       display_name: sourceUser.displayName || 'Gayze User',
@@ -815,12 +769,20 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
       // wipe a real score, so the columns are left untouched on conflict.
       neighborhood: sourceUser.neighborhood || null,
       identity_public_key: identityPublicKey ?? null,
-    }, { onConflict: 'id' }).select('*').single();
+    }, { onConflict: 'id', ignoreDuplicates: true });
     if (error) {
       console.warn('[GAYZE] Supabase profile upsert unavailable:', error.message);
       return null;
     }
-    return data;
+    // Bootstrap defaults must NEVER overwrite an existing privacy/profile row.
+    // Only the device identity is intentionally rotated by this operation.
+    if (identityPublicKey) {
+      const updated = await supabase.from('profiles').update({ identity_public_key: identityPublicKey }).eq('id', userId);
+      if (updated.error) throw updated.error;
+    }
+    const result = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (result.error) throw result.error;
+    return result.data;
   } catch (err: any) {
     console.warn('[GAYZE] Supabase profile upsert exception:', err?.message || err);
     return null;
@@ -963,6 +925,7 @@ export interface ConversationMemberProfile {
   displayName: string | null;
   neighborhood: string | null;
   avatarPath: string | null;
+  lastSeenAt?: string | null;
 }
 
 export interface MyConversations {
@@ -1000,6 +963,8 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
       display_name: string | null;
       neighborhood: string | null;
       avatar_path: string | null;
+      last_seen_at?: string | null;
+      presence_incognito?: boolean;
     }>;
 
     const conversationIds = Array.from(new Set(rows.map((row) => row.conversation_id)));
@@ -1037,6 +1002,9 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
           displayName: row.display_name || null,
           neighborhood: row.neighborhood || null,
           avatarPath: row.avatar_path || null,
+          // Only use the membership-scoped RPC's value; never infer last seen
+          // from profile creation or fetch unrestricted device activity.
+          lastSeenAt: row.presence_incognito ? null : row.last_seen_at || null,
         });
       }
     }
@@ -1255,35 +1223,36 @@ export function initPresence(
 ): () => void {
   if (!supabase) return () => undefined;
 
-  const channel = supabase.channel('gayze-presence', {
-    config: {
-      presence: { key: userId },
-    },
-  });
-
-  channel
-    .on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState();
-      const onlineIds = new Set<string>();
-      for (const key of Object.keys(state)) {
-        onlineIds.add(key);
-      }
-      onSync(onlineIds);
-    })
-    .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED' && visible) {
-        await channel.track({
-          user_id: userId,
-          display_name: displayName,
-          online_at: new Date().toISOString(),
-        });
-      }
-    });
-
   const client = supabase;
-  return () => {
-    if (client) void client.removeChannel(channel);
-  };
+  let channel: import('@supabase/supabase-js').RealtimeChannel | null = null;
+  const recovery = new RealtimeRecovery({
+    client, userId, topic: 'gayze-presence', syncWhileJoining: false,
+    channelOptions: { config: { presence: { key: userId } } },
+    session: (signal) => requireRealtimeSession(client, userId, signal),
+    build: (next, current) => {
+      channel = next;
+      return next.on('presence', { event: 'sync' }, () => {
+        if (!current()) return;
+        const ids = new Set<string>();
+        for (const entries of Object.values(next.presenceState<{ user_id: string }>())) {
+          for (const entry of entries) if (entry.user_id) ids.add(entry.user_id);
+        }
+        onSync(ids);
+      });
+    },
+    reconcile: async (_signal, current) => {
+      if (!channel || !current() || channel.state !== 'joined') return;
+      if (visible) {
+        const result = await channel.track({ user_id: userId, online_at: new Date().toISOString() });
+        if (result !== 'ok') throw new Error('Presence tracking unavailable');
+      } else {
+        await channel.untrack();
+      }
+    },
+    // Never keep showing peers as online from a disconnected/hidden snapshot.
+    status: (state) => { if (state !== 'connected' && state !== 'syncing') onSync(new Set()); },
+  });
+  return () => { recovery.stop(); onSync(new Set()); };
 }
 
 /**

@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-globals */
 /**
  * GAYZE — production service worker.
  *
@@ -21,7 +20,7 @@
  *   - Only content-hashed build output and static brand assets are cached.
  */
 
-const SW_VERSION = 'gayze-sw-v2';
+const SW_VERSION = 'gayze-sw-v4';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 
@@ -202,6 +201,7 @@ function applyBadge(count) {
 
 /** Notification copy per Gayze event type. All content is non-explicit. */
 const DEFAULT_COPY = {
+  gaze: { title: 'New Gayze', body: 'Someone sent you a Gayze.', url: '/notifications' },
   message: { title: 'New message', body: 'You have a new Gayze message.', url: '/messages' },
   intent: { title: 'Someone is interested', body: 'Someone responded to your intent.', url: '/right-now' },
   intent_expiring: { title: 'Your intent is ending soon', body: 'Your active intent expires shortly.', url: '/profile' },
@@ -225,9 +225,64 @@ function safePath(rawUrl, fallback) {
   }
 }
 
+// Presentation receipts are NOT backend delivery claims. Always display a
+// user-visible notification for every push event (Apple userVisibleOnly).
+// A replay quietly replaces the SAME tagged record, without another toast.
+// v2 deliberately does not trust the old receipt-before-display cache as proof.
+let pushQueue = Promise.resolve();
+const displayedInWorker = new Set();
+const validId = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+async function displayReceipt(id, write = false) {
+  if (!validId(id)) return false;
+  if (!write && displayedInWorker.has(id)) return true;
+  if (write) {
+    displayedInWorker.add(id);
+    if (displayedInWorker.size > 2500) displayedInWorker.delete(displayedInWorker.values().next().value);
+  }
+  try {
+    const cache = await caches.open('gayze-notification-receipts-v2');
+    const key = new URL('/__notification_receipt__/' + id, self.location.origin).href;
+    if (!write) return Boolean(await cache.match(key));
+    await cache.put(key, new Response('displayed'));
+    const keys = await cache.keys();
+    if (keys.length > 2500) await Promise.all(keys.slice(0, keys.length - 2500).map((old) => cache.delete(old)));
+  } catch { /* Storage failure never prevents user-visible push. */ }
+  return false;
+}
+
+function notificationTarget(data) {
+  if ((data.type === 'message' || data.type === 'connection') && validId(data.conversationId)) {
+    return `/messages/${data.conversationId}${validId(data.notificationId) ? `?notification=${data.notificationId}` : ''}`;
+  }
+  return safePath(data.url, (DEFAULT_COPY[data.type] || DEFAULT_COPY.message).url);
+}
+
+// Web Push requires a visible notification (especially on iOS). Do not drop
+// pushes merely because a window exists. A focused app can acknowledge the
+// same stable message ID: keep ONE OS record, silent, and ONE foreground toast.
+// Missing/old/unresponsive clients fall back to the normal audible OS alert.
+async function presentInFocusedApp(data) {
+  if (data.type !== 'message' || !data.messageId || !data.recipientId || typeof MessageChannel === 'undefined') return false;
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const client = windows.find((window) => window.visibilityState === 'visible' && window.focused);
+  if (!client) return false;
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const finish = (handled) => {
+      clearTimeout(timer);
+      channel.port1.close();
+      resolve(handled);
+    };
+    const timer = setTimeout(() => finish(false), 400);
+    channel.port1.onmessage = (event) => finish(event.data?.handled === true);
+    try { client.postMessage({ source: 'gayze-sw', type: 'PRESENT_MESSAGE', payload: { ...data, presentationExpiresAt: Date.now() + 300 } }, [channel.port2]); }
+    catch { channel.port2.close(); finish(false); }
+  });
+}
+
 self.addEventListener('push', (event) => {
   event.waitUntil(
-    (async () => {
+    (pushQueue = pushQueue.catch(() => {}).then(async () => {
       let payload = {};
       if (event.data) {
         try {
@@ -237,25 +292,37 @@ self.addEventListener('push', (event) => {
         }
       }
 
+      let replay = await displayReceipt(payload.notificationId);
       const type = typeof payload.type === 'string' ? payload.type : 'message';
       const defaults = DEFAULT_COPY[type] || DEFAULT_COPY.message;
 
       const title = payload.title || defaults.title;
       const body = payload.body || defaults.body;
-      const url = safePath(payload.url, defaults.url);
+      const url = notificationTarget({ ...payload, type });
 
-      // One notification per conversation/intent replaces the previous one
-      // instead of stacking — this is the "do not spam" guarantee on-device.
-      const tag = payload.tag || `gayze-${type}-${payload.conversationId || payload.intentId || 'general'}`;
+      // Stable server ID wins over an arbitrary changing payload tag.
+      const tag = validId(payload.notificationId) ? `gayze-${payload.notificationId}`
+        : payload.tag || `gayze-${type}-${payload.conversationId || payload.intentId || 'general'}`;
+      try {
+        replay ||= Boolean((await self.registration.getNotifications?.({ tag }))?.length);
+      } catch { /* Best effort; still display. */ }
 
       const data = {
         type,
+        notificationId: payload.notificationId || null,
+        messageId: payload.messageId || null,
+        recipientId: payload.recipientId || null,
         url,
         conversationId: payload.conversationId || null,
         intentId: payload.intentId || null,
         receivedAt: Date.now(),
       };
 
+      let foregroundHandled = false;
+      if (!replay) {
+        try { foregroundHandled = await presentInFocusedApp(data); }
+        catch { /* App handshake is optional; native display must still run. */ }
+      }
       await self.registration.showNotification(title, {
         body,
         tag,
@@ -264,50 +331,72 @@ self.addEventListener('push', (event) => {
         badge: NOTIFICATION_BADGE,
         // Persist on the Lock Screen / Notification Centre until acted on.
         requireInteraction: type === 'safety',
-        renotify: Boolean(payload.renotify),
-        silent: false,
+        renotify: false,
+        silent: replay || foregroundHandled,
         timestamp: Date.now(),
       });
+
+      // Only successful display earns a receipt. Rejection leaves retry safe.
+      await displayReceipt(payload.notificationId, true);
 
       if (typeof payload.badgeCount === 'number') applyBadge(payload.badgeCount);
 
       // Let any open Gayze window refresh its own unread state.
-      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true }).catch(() => []);
       for (const client of clientList) {
-        client.postMessage({ source: 'gayze-sw', type: 'PUSH_RECEIVED', payload: data });
+        try { client.postMessage({ source: 'gayze-sw', type: 'PUSH_RECEIVED', payload: data }); } catch { /* A stale app cannot invalidate display success. */ }
       }
-    })(),
+    })),
   );
 });
+
+function bounded(work, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Client unavailable')), ms);
+    Promise.resolve(work).then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+  });
+}
+
+async function routeInReadyApp(client, targetPath, data) {
+  if (typeof MessageChannel === 'undefined') return false;
+  return new Promise(resolve => {
+    const channel = new MessageChannel();
+    let finished = false;
+    const finish = handled => {
+      if (finished) return;
+      finished = true; clearTimeout(timer); channel.port1.close(); channel.port2.close(); resolve(handled);
+    };
+    const timer = setTimeout(() => finish(false), 600);
+    channel.port1.onmessage = event => finish(event.data?.handled === true);
+    try { client.postMessage({ source: 'gayze-sw', type: 'NOTIFICATION_CLICK', url: targetPath,
+      navigationExpiresAt: Date.now() + 600, data }, [channel.port2]); }
+    catch { finish(false); }
+  });
+}
 
 self.addEventListener('notificationclick', (event) => {
   const data = (event.notification && event.notification.data) || {};
   event.notification.close();
-
-  // Fall back to THIS event type's destination (same rule as the push handler),
-  // so a message notification with a corrupt/absent URL still opens Messages.
-  const defaults = DEFAULT_COPY[data.type] || DEFAULT_COPY.message;
-  const targetPath = safePath(data.url, defaults.url);
-
-  event.waitUntil(
-    (async () => {
-      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-
-      // Prefer an already-open Gayze window: focus it and route in-place so the
-      // authenticated SPA session is preserved (no reload, no re-auth).
-      for (const client of clientList) {
-        if (new URL(client.url).origin !== self.location.origin) continue;
-        await client.focus();
-        client.postMessage({ source: 'gayze-sw', type: 'NOTIFICATION_CLICK', url: targetPath, data });
-        return;
-      }
-
-      // Otherwise open a new window on this worker's own origin. Because the
-      // worker is served from https://gayze.co.uk in production, this can never
-      // resolve to localhost.
-      await self.clients.openWindow(new URL(targetPath, self.location.origin).toString());
-    })(),
-  );
+  const targetPath = notificationTarget(data);
+  const targetUrl = new URL(targetPath, self.location.origin).href;
+  event.waitUntil((async () => {
+    let clients = [];
+    try { clients = await bounded(self.clients.matchAll({ type: 'window', includeUncontrolled: true }), 800); }
+    catch { /* Fall through to a cold launch. */ }
+    clients = clients.filter(client => {
+      try { return new URL(client.url).origin === self.location.origin; } catch { return false; }
+    }).sort((a, b) => Number(Boolean(b.focused)) - Number(Boolean(a.focused)));
+    // Bound retries so notification user activation isn't consumed by stale windows.
+    for (const client of clients.slice(0, 2)) {
+      try {
+        await bounded(client.focus(), 800);
+        if (await routeInReadyApp(client, targetPath, data)) return;
+        // Old, suspended or not-yet-mounted SPA: carry the destination in the URL.
+        if (client.navigate && await bounded(client.navigate(targetUrl), 800)) return;
+      } catch { /* A failed focus/message/navigation never aborts the fallback. */ }
+    }
+    await self.clients.openWindow(targetUrl);
+  })());
 });
 
 self.addEventListener('notificationclose', () => {

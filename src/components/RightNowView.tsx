@@ -151,7 +151,7 @@ interface RightNowViewProps {
   onOpenDirectChat: (pulse: Pulse) => void;
   onOpenDirectChatWithProfile?: (profile: DatingProfile) => void;
   onSelectHaven: (haven: SafeHaven) => void;
-  onGazeAtPeer?: (peerName: string) => void;
+  onGazeAtPeer?: (peerName: string, peerId?: string, intentId?: string) => boolean | void | Promise<boolean | void>;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
@@ -450,21 +450,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
   };
 
-  const handleGazeAtPerson = async (name: string, pulseObj?: Pulse) => {
+  const handleGazeAtPerson = async (name: string, peerId: string, pulseObj?: Pulse) => {
     triggerVibration([40, 80]);
-    setGazedPeerNames((prev) => new Set(prev).add(name));
-
-    if (pulseObj && onSubmitGaze) {
-      try {
-        await onSubmitGaze(pulseObj);
-        showStatusMessage(`Gaze sent to ${name}`, 2200);
-      } catch (error) {
-        console.error('[GAYZE] Gaze submission failed', error);
-        showStatusMessage('Gaze could not be sent — try again');
-      }
-    }
-
-    if (onGazeAtPeer) onGazeAtPeer(name);
+    try {
+      const sent = pulseObj && onSubmitGaze
+        ? (await onSubmitGaze(pulseObj)).sent
+        : await onGazeAtPeer?.(name, peerId);
+      if (sent === true) setGazedPeerNames((prev) => new Set(prev).add(peerId));
+      else showStatusMessage('Gaze could not be sent — try again');
+    } catch { showStatusMessage('Gaze could not be sent — try again'); }
   };
 
   const formatRemainingTime = (mins: number) => {
@@ -1364,7 +1358,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   hapticLight();
                   setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
                 }}
-                className="g-btn g-btn--ghost w-full !min-h-[34px] text-[12px]"
+                className="g-btn g-btn--ghost w-full !min-h-[44px] text-[12px]"
               >
                 Widen radius to {MAX_TRAVEL_DISTANCE_KM} km
               </button>
@@ -1453,10 +1447,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             >
               {selectedItem.type === 'profile' ? (
                 <div className="relative w-11 h-11 rounded-[14px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
+                  <span className="absolute inset-0 flex items-center justify-center text-sm text-white" aria-hidden="true">{selectedItem.item.name.charAt(0)}</span>
                   <img
                     src={selectedItem.item.photoUrl}
                     alt={selectedItem.item.name}
-                    className="w-full h-full object-cover"
+                    className="relative w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
@@ -1533,7 +1528,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 setSelectedItem(null);
               }}
-              className="g-icon-btn g-icon-btn--bare !w-9 !h-9 shrink-0"
+              className="g-icon-btn g-icon-btn--bare !w-11 !h-11 shrink-0"
               title="Close preview"
               aria-label="Close preview"
             >
@@ -1611,13 +1606,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
+                    onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item.id)}
                     className={`g-btn !px-3 text-[12px] ${
-                      gazedPeerNames.has(selectedItem.item.name) ? 'g-btn--primary' : 'g-btn--quiet'
+                      gazedPeerNames.has(selectedItem.item.id) ? 'g-btn--primary' : 'g-btn--quiet'
                     }`}
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    {gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze'}
+                    {gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}
                   </button>
                 )}
                 <button
@@ -1652,7 +1647,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           onClick={() => setIsCardExpanded(false)}
         >
           <div
-            className="g-sheet mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+14px)] md:mb-24 pointer-events-auto"
+            className="g-sheet g-sheet--above-nav pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag Handle */}
@@ -1670,11 +1665,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   {selectedItem.type === 'profile' ? (
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-[0_12px_24px_rgba(201,162,77,0.22)]">
+                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-[0_12px_24px_rgba(201,162,77,0.22)]">
+                      <span className="absolute inset-0 flex items-center justify-center text-xl text-white" aria-hidden="true">{selectedItem.item.name.charAt(0)}</span>
                       <img
                         src={selectedItem.item.photoUrl}
                         alt={selectedItem.item.name}
-                        className="w-full h-full object-cover"
+                        className="relative w-full h-full object-cover"
                         onError={(e) => {
                           // No stand-in portrait is substituted: a missing photo
                           // shows the person's initial instead.
@@ -1884,14 +1880,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
-                        className={`g-btn !min-h-[46px] !px-2 flex-1 ${gazedPeerNames.has(selectedItem.item.name)
+                        onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item.id)}
+                        className={`g-btn !min-h-[46px] !px-2 flex-1 ${gazedPeerNames.has(selectedItem.item.id)
                           ? 'g-btn--selected'
                           : 'g-btn--quiet'
                           }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
-                        <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze'}</span>
+                        <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}</span>
                       </button>
                     )}
 
@@ -1957,7 +1953,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <button
                     type="button"
                     onClick={handleClearFilters}
-                    className="g-btn g-btn--ghost !min-h-[36px] px-3 text-[12px]"
+                    className="g-btn g-btn--ghost !min-h-[44px] px-3 text-[12px]"
                   >
                     Reset
                   </button>
@@ -1965,7 +1961,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsFilterDrawerOpen(false)}
-                  className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                  className="g-icon-btn g-icon-btn--bare !w-11 !h-11"
                   aria-label="Close filters"
                 >
                   <X className="w-4 h-4" />
@@ -2119,7 +2115,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     setIsNearbyOpen(false);
                     setIsFilterDrawerOpen(true);
                   }}
-                  className="g-btn g-btn--quiet !min-h-[36px] px-3 text-[12px]"
+                  className="g-btn g-btn--quiet !min-h-[44px] px-3 text-[12px]"
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
                   Filter
@@ -2127,7 +2123,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsNearbyOpen(false)}
-                  className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                  className="g-icon-btn g-icon-btn--bare !w-11 !h-11"
                   aria-label="Close nearby list"
                 >
                   <X className="w-4 h-4" />
@@ -2297,7 +2293,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsUserIntentDrawerOpen(false)}
-                className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                className="g-icon-btn g-icon-btn--bare !w-11 !h-11"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -2393,7 +2389,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button
                 type="button"
                 onClick={() => setMutualMatchPulse(null)}
-                className="g-icon-btn g-icon-btn--bare !w-9 !h-9 shrink-0"
+                className="g-icon-btn g-icon-btn--bare !w-11 !h-11 shrink-0"
                 aria-label="Dismiss"
               >
                 <X className="w-4 h-4" />

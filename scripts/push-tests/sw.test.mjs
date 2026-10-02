@@ -134,7 +134,7 @@ console.log('\n=== [3] notificationclick routing ===');
   clientList.push({
     url: 'https://gayze.app/profile',
     focus: async () => { focused.push(true); },
-    postMessage: (m) => { clientMessages.push(m); },
+    postMessage: (m, ports) => { clientMessages.push(m); ports?.[0]?.postMessage({ handled: true }); ports?.[0]?.close(); },
   });
   await fire('notificationclick', {
     notification: { data: { type: 'message', url: '/messages/conv-9', conversationId: 'conv-9' }, close: () => {} },

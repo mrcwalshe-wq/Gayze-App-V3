@@ -2,8 +2,18 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
+import type { ChatConnectionState } from './services/realtimeRecovery';
+import type { MessageDelivery } from './services/chatSubscriptions';
+import { watchNotificationInbox, markNotificationRead, type NotificationInbox, type InboxNotification } from './services/notificationInbox';
+import { mergeMessage, mergeMessages } from './services/messageMerge';
+import { ChatMessageProcessor, MessageBatcher } from './services/chatMessageProcessing';
+import { beginChatTrace, clearChatTrace } from './services/chatTrace';
+import { ChatHistoryOwnership } from './services/chatHistoryOwnership';
+import { MessageAlerts } from './services/messageAlerts';
 
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
 import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
 import { SafetyTimerModal } from './components/SafetyTimerModal';
@@ -24,6 +34,7 @@ import {
   registerServiceWorker,
   releasePushOnSignOut,
   resyncSubscription,
+  watchPushSubscriptionRecovery,
   revokeLocalPushSubscription,
   updateAppBadge,
 } from './services/pushService';
@@ -32,6 +43,8 @@ import {
   isGayzeServiceWorkerMessage,
   replacePath,
   routeFromPath,
+  rememberNotificationPath,
+  consumeNotificationPath,
 } from './services/notificationRouting';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
@@ -98,7 +111,6 @@ import {
   updateProfileDetails,
   loadIntimacyProfile,
   loadProfileDetails,
-  loadConversationMessages,
   loadIncomingInterests,
   updateSupabaseProfile,
   persistConversationMessage,
@@ -214,9 +226,6 @@ export default function App() {
   const locationPermissionStatusRef = useRef<'granted' | 'denied' | null>(null);
   const lastTrackedTabRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (activeTab === 'swarms') setUnreadMessageCount(0);
-  }, [activeTab]);
 
   useEffect(() => {
     if (lastTrackedTabRef.current === activeTab) return;
@@ -256,6 +265,7 @@ export default function App() {
         setAuthReady(true);
         return;
       }
+      setSessionUserId(data.session?.user?.id ?? null);
       setIsAuthenticated(Boolean(data.session?.user));
       setAuthReady(true);
     });
@@ -282,6 +292,8 @@ export default function App() {
         // cannot be deleted under RLS, but this browser's endpoint can still be
         // revoked so the previous account stops receiving pushes on this device.
         void revokeLocalPushSubscription();
+        clearChatAccount();
+        setSessionUserId(null);
         authGenerationRef.current += 1;
         recoverySessionRef.current = false;
         setIsAuthenticated(false);
@@ -289,6 +301,11 @@ export default function App() {
         return;
       }
 
+      if (session?.user && supabaseUserIdRef.current && session.user.id !== supabaseUserIdRef.current) {
+        authGenerationRef.current += 1;
+        clearChatAccount();
+      }
+      setSessionUserId(session?.user?.id ?? null);
       const hasUser = Boolean(session?.user);
       if (hasUser && !recoverySessionRef.current) {
         setIsAuthenticated(true);
@@ -497,6 +514,22 @@ export default function App() {
   }, [isAuthenticated]);
 
   const [activeRoomId, setActiveRoomId] = useState<string>(() => (IS_LIVE_BACKEND ? '' : 'room_marcus'));
+  const directChatRequestRef = useRef(0);
+  const [chatOpenRequest, setChatOpenRequest] = useState<{ roomId: string; sequence: number } | null>(null);
+  const [visibleChatRoomId, setVisibleChatRoomId] = useState<string | null>(null);
+  const visibleChatRoomRef = useRef<string | null>(null);
+  const reportVisibleChatRoom = useCallback((id: string | null) => {
+    visibleChatRoomRef.current = id;
+    setVisibleChatRoomId(id);
+  }, []);
+  function requestConversationOpen(roomId: string) {
+    directChatRequestRef.current++;
+    beginChatTrace(roomId);
+    setChatOpenRequest(previous => ({ roomId, sequence: (previous?.sequence ?? 0) + 1 }));
+    setActiveRoomId(roomId);
+    setActiveTab('swarms');
+  }
+
 
   // Local safety check-in timer state
   const [checkinState, setCheckinState] = useState<SafetyCheckin>(() => {
@@ -523,7 +556,10 @@ export default function App() {
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [profileEditSection, setProfileEditSection] = useState<EditSectionKey | null>(null);
   const knownIncomingInterestIdsRef = useRef<Set<string>>(new Set());
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [notificationInbox, setNotificationInbox] = useState<NotificationInbox | null>(null);
+  const [notificationInboxStatus, setNotificationInboxStatus] = useState<ChatConnectionState>('connecting');
+  const notificationRefreshRef = useRef<() => void>(() => {});
+  const unreadMessageCount = notificationInbox?.messageUnread ?? 0;
   const toastTimeoutRef = useRef<number | null>(null);
 
   // Schedule Meeting Modal state
@@ -537,6 +573,9 @@ export default function App() {
   const [callTargetUserId, setCallTargetUserId] = useState<string | undefined>(undefined);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [isIncomingCallActive, setIsIncomingCallActive] = useState(false);
+  const [inboxConnection, setInboxConnection] = useState<ChatConnectionState>('connecting');
+  const [chatConnection, setChatConnection] = useState<{ roomId: string; state: ChatConnectionState }>({ roomId: '', state: 'connecting' });
+  const [presenceProfileUserId, setPresenceProfileUserId] = useState<string | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
   // Set Intent Sheet state — canonical Right Now intent state.
@@ -567,6 +606,7 @@ export default function App() {
   const [supabaseRightNowPulses, setSupabaseRightNowPulses] = useState<Pulse[]>([]);
   const [supabaseReady, setSupabaseReady] = useState(false);
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [showProfileOnboarding, setShowProfileOnboarding] = useState(false);
   const [identityDevices, setIdentityDevices] = useState<import('./services/supabaseService').IdentityDevice[]>([]);
   const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState<string | null>(null);
@@ -582,6 +622,89 @@ export default function App() {
   // ---------------------------------------------------------------------------
 
   const supabaseUserIdRef = useRef<string | null>(null);
+  const messageProcessorRef = useRef(new ChatMessageProcessor(resolveConversationKey, decryptWithConversationKey));
+  const messageAlertsRef = useRef(new MessageAlerts());
+  const loadedMessageIdsRef = useRef(new Set<string>());
+  const historyOwnershipRef = useRef(new ChatHistoryOwnership());
+  const messageBatcherRef = useRef<MessageBatcher | null>(null);
+  if (!messageBatcherRef.current) messageBatcherRef.current = new MessageBatcher((batch) => {
+    const userId = supabaseUserIdRef.current;
+    const generation = authGenerationRef.current;
+    if (!userId) return;
+    const grouped = new Map<string, EncryptedMessage[]>();
+    for (const message of batch) {
+      const rows = grouped.get(message.roomId) ?? [];
+      rows.push(message); grouped.set(message.roomId, rows);
+    }
+    setMessages((prev) => {
+      if (supabaseUserIdRef.current !== userId || authGenerationRef.current !== generation) return prev;
+      let next = prev;
+      for (const [roomId, rows] of grouped) {
+        const merged = mergeMessages(prev[roomId] ?? [], rows);
+        if (merged !== prev[roomId]) { if (next === prev) next = { ...prev }; next[roomId] = merged; }
+      }
+      return next;
+    });
+    setRooms((prev) => {
+      if (supabaseUserIdRef.current !== userId || authGenerationRef.current !== generation) return prev;
+      let changed = false;
+      const next = prev.map((room) => {
+        const latest = (grouped.has(room.id) ? mergeMessages([], grouped.get(room.id)!).at(-1) : undefined);
+        if (!latest || latest.timestamp < room.lastTimestamp) return room;
+        const text = latest.isBurned ? '' : latest.plainText === '[Encrypted message]' && room.lastTimestamp === latest.timestamp ? room.lastMessage : latest.plainText;
+        if (room.lastTimestamp === latest.timestamp && room.lastMessage === text) return room;
+        changed = true;
+        return { ...room, lastTimestamp: latest.timestamp, lastMessage: text };
+      });
+      return changed ? next.sort((a, b) => b.lastTimestamp - a.lastTimestamp) : prev;
+    });
+  });
+  const queueMessage = (message: EncryptedMessage) => {
+    loadedMessageIdsRef.current.add(message.id);
+    messageBatcherRef.current!.add(message);
+  };
+  const clearMessageWork = () => {
+    clearChatTrace();
+    messageProcessorRef.current.clear();
+    messageBatcherRef.current?.clear();
+    loadedMessageIdsRef.current.clear();
+    historyOwnershipRef.current.clear();
+  };
+  useEffect(() => () => { clearMessageWork(); messageAlertsRef.current.clear(); }, []);
+  const presentIncomingMessage = (messageId: string, roomId: string, recipientId: string) => messageAlertsRef.current.present(messageId, roomId, {
+    foreground: document.visibilityState === 'visible' && document.hasFocus(),
+    viewingRoom: activeTabRef.current === 'swarms' ? visibleChatRoomRef.current : null,
+    userId: supabaseUserIdRef.current, recipientId,
+  }, () => { showToast('New GAYZE message'); hapticMessageDecrypted(); });
+  const conversationLoadRef = useRef<{ userId: string; work: ReturnType<typeof loadMyConversations> } | null>(null);
+  const loadConversationListOnce = (userId: string) => {
+    const pending = conversationLoadRef.current;
+    if (pending?.userId === userId) return pending.work;
+    const entry = { userId, work: loadMyConversations() };
+    conversationLoadRef.current = entry;
+    void entry.work.finally(() => { if (conversationLoadRef.current === entry) conversationLoadRef.current = null; }).catch(() => {});
+    return entry.work;
+  };
+
+  function clearChatAccount() {
+    clearMessageWork();
+    messageAlertsRef.current.clear();
+    conversationLoadRef.current = null;
+    supabaseUserIdRef.current = null;
+    setSupabaseUserId(null);
+    setMessages({});
+    setRooms([]);
+    setActiveRoomId('');
+    setChatOpenRequest(null);
+    reportVisibleChatRoom(null);
+    setNotificationInbox(null);
+    initialRouteAppliedRef.current = false;
+    setOnlineUserIds(new Set());
+    setPresenceProfileUserId(null);
+    setIncomingCall(null);
+    setCurrentUser(LIVE_EMPTY_USER);
+  }
+
   const currentUserRef = useRef(currentUser);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
 
@@ -632,6 +755,7 @@ export default function App() {
 
   // 1. Session, profile and device identity.
   useEffect(() => {
+    setPresenceProfileUserId(null);
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut) return;
     let disposed = false;
     const generation = authGenerationRef.current;
@@ -642,6 +766,7 @@ export default function App() {
         const user = await ensureSupabaseSession();
         if (!user || isStale()) return;
         setShowProfileOnboarding(user.user_metadata?.profile_complete !== true);
+        if (supabaseUserIdRef.current !== user.id) { clearMessageWork(); messageAlertsRef.current.clear(); }
         supabaseUserIdRef.current = user.id;
         setSupabaseUserId(user.id);
 
@@ -676,14 +801,19 @@ export default function App() {
         // details and intimacy fields. Each optional layer fails soft so a
         // missing migration/schema never prevents the authenticated shell.
         try {
-          await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
+          const profileRow = await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
           if (isStale()) return;
 
           const savedProfile = await loadSupabaseProfile(user.id);
           if (isStale()) return;
           if (savedProfile) {
+            setPresenceProfileUserId(user.id);
             setCurrentUser((prev) => ({
               ...prev,
+              // Bootstrap already reads our own complete profile row. Honour
+              // a deployed incognito flag without assuming a new DB column or
+              // letting an unknown/failed profile read publish presence.
+              presenceIncognito: !profileRow || profileRow.presence_incognito === true,
               ...Object.fromEntries(
                 Object.entries(savedProfile).filter(([, value]) => value !== undefined),
               ),
@@ -746,7 +876,7 @@ export default function App() {
     })();
 
     return () => { disposed = true; };
-  }, [isAuthenticated, isSigningOut]);
+  }, [isAuthenticated, isSigningOut, sessionUserId]);
 
   // 2. Active intent: hydrate from Supabase, expire locally when it lapses.
   useEffect(() => {
@@ -794,8 +924,8 @@ export default function App() {
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut) return;
     const viewerId = supabaseUserIdRef.current;
     if (!viewerId) return;
-    const result = await loadMyConversations();
-    if (!result || isSigningOutRef.current) return;
+    const result = await loadConversationListOnce(viewerId);
+    if (!result || isSigningOutRef.current || supabaseUserIdRef.current !== viewerId) return;
     const loaded = buildRoomsFromSupabase(result, viewerId);
     setRooms((prev) => mergeBackendRooms(prev, loaded, viewerId));
   };
@@ -819,86 +949,92 @@ export default function App() {
   useEffect(() => {
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
     let disposed = false;
+    const latestHistory = new Map<string, { id: string; timestamp: number }>();
     const unsubscribe = subscribeToAllConversationMessages(
-      (row) => {
-        if (disposed || row.sender_id === supabaseUserIdRef.current) return;
-        void (async () => {
-          let room = roomsRef.current.find((candidate) => candidate.id === row.conversation_id);
-          if (!room) {
-            const result = await loadMyConversations();
-            if (result) {
-              const loaded = buildRoomsFromSupabase(result, supabaseUserIdRef.current || '');
-              setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserIdRef.current || ''));
-              room = loaded.find((candidate) => candidate.id === row.conversation_id);
-            }
+      async (row, delivery) => {
+        if (disposed || !delivery.current() || supabaseUserIdRef.current !== supabaseUserId) return;
+        if (delivery.notify && row.sender_id !== supabaseUserId) presentIncomingMessage(row.id, row.conversation_id, supabaseUserId);
+        const previous = latestHistory.get(row.conversation_id);
+        const timestamp = Date.parse(row.created_at);
+        const isLatest = !previous || timestamp > previous.timestamp || (timestamp === previous.timestamp && row.id >= previous.id);
+        if (isLatest) latestHistory.set(row.conversation_id, { id: row.id, timestamp });
+        // Inbox needs recent previews, new arrivals and mutations to rows already
+        // displayed. The active room owns full history; do not decrypt every old
+        // conversation merely to populate a one-line inbox preview.
+        if (!isLatest && !loadedMessageIdsRef.current.has(row.id)) {
+          historyOwnershipRef.current.unseenOlderRow(row.conversation_id);
+          // A newly committed old row in the visible room must still be decoded.
+          // Other rooms lose warm eligibility and do a full read when reopened.
+          if (!delivery.notify && activeRoomIdRef.current !== row.conversation_id) return true;
+        }
+        const processingGeneration = messageProcessorRef.current.generation;
+        let room = roomsRef.current.find((candidate) => candidate.id === row.conversation_id);
+        if (!room) {
+          const result = await loadConversationListOnce(supabaseUserId);
+          if (disposed || !delivery.current()) return;
+          if (result) {
+            const loaded = buildRoomsFromSupabase(result, supabaseUserIdRef.current || '');
+            setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserIdRef.current || ''));
+            room = loaded.find((candidate) => candidate.id === row.conversation_id);
           }
-          if (!room || disposed) return;
+        }
+        if (disposed || !delivery.current()) return;
+        if (!room) throw new Error('Conversation metadata unavailable');
 
-          let plainText = '[Encrypted message]';
-          let mediaUrl: string | undefined;
-          let decryptedOk = false;
-          for (let attempt = 0; attempt < 3 && row.nonce && !decryptedOk; attempt += 1) {
-            try {
-              const resolved = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
-              if (!resolved.key) throw new Error(resolved.reason || 'Conversation key unavailable');
-              const decrypted = await decryptWithConversationKey(row.ciphertext, row.nonce, resolved.key);
-              if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
-                try {
-                  const parsed = JSON.parse(decrypted);
-                  plainText = parsed.text || '';
-                  mediaUrl = parsed.mediaUrl;
-                } catch { plainText = decrypted; }
-              } else { plainText = decrypted; }
-              decryptedOk = true;
-            } catch (error) {
-              if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
-              else console.warn('[GAYZE] Global message decryption failed', error);
-            }
+        if (row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())) messageProcessorRef.current.forget(row, supabaseUserId);
+        let plainText = '[Encrypted message]';
+        let mediaUrl: string | undefined;
+        let decryptedOk = false;
+        for (let attempt = 0; attempt < (delivery.notify ? 3 : 1) && row.nonce && !row.burned_at && (!row.expires_at || Date.parse(row.expires_at) > Date.now()) && !decryptedOk; attempt += 1) {
+          try {
+            if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
+            const decrypted = await messageProcessorRef.current.text(room, row, supabaseUserId);
+            if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
+              try {
+                const parsed = JSON.parse(decrypted);
+                plainText = parsed.text || '';
+                mediaUrl = parsed.mediaUrl;
+              } catch { plainText = decrypted; }
+            } else { plainText = decrypted; }
+            decryptedOk = true;
+          } catch (error) {
+            if (attempt < (delivery.notify ? 2 : 0)) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
+            else console.warn('[GAYZE] Global message decryption failed', error);
           }
+        }
 
-          const senderName = room.memberNames?.[row.sender_id] || room.peerName || room.name || 'Gayze member';
-          const message: EncryptedMessage = {
-            id: row.id, roomId: row.conversation_id, senderKey: row.sender_id, senderName,
-            timestamp: new Date(row.created_at).getTime(), cipherText: row.ciphertext,
-            nonceHex: row.nonce || '', plainText, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
-            isBurned: Boolean(row.burned_at), mediaUrl, mediaType: mediaUrl ? 'image' : undefined,
-          };
+        if (disposed || !delivery.current() || supabaseUserIdRef.current !== supabaseUserId) return;
+        if (processingGeneration !== messageProcessorRef.current.generation) return false;
+        const senderName = row.sender_id === supabaseUserId ? 'You' : room.memberNames?.[row.sender_id] || room.peerName || room.name || 'Gayze member';
+        const message: EncryptedMessage = {
+          id: row.id, roomId: row.conversation_id, senderKey: row.sender_id, senderName,
+          timestamp: new Date(row.created_at).getTime(), cipherText: row.ciphertext,
+          nonceHex: row.nonce || '', plainText, expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
+          isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined,
+        };
 
-          setMessages((prev) => {
-            const existing = prev[row.conversation_id] || [];
-            const existingIndex = existing.findIndex((item) => item.id === row.id);
-            if (existingIndex >= 0) {
-              if (!decryptedOk || existing[existingIndex].plainText !== '[Encrypted message]') return prev;
-              const updated = [...existing];
-              updated[existingIndex] = message;
-              return { ...prev, [row.conversation_id]: updated };
-            }
-            return { ...prev, [row.conversation_id]: [...existing, message] };
-          });
-          setRooms((prev) => prev.map((candidate) => candidate.id === row.conversation_id
-            ? { ...candidate, lastMessage: plainText, lastTimestamp: message.timestamp } : candidate
-          ).sort((a, b) => b.lastTimestamp - a.lastTimestamp));
-
-          if (activeRoomIdRef.current !== row.conversation_id || activeTabRef.current !== 'swarms') {
-            setUnreadMessageCount((count) => count + 1);
-            showToast('New message from ' + senderName);
-            hapticMessageDecrypted();
-          }
-        })();
+        queueMessage(message);
+        return decryptedOk || message.isBurned || !row.nonce;
       },
-      (status, error) => {
+      (status) => {
         if (disposed) return;
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[GAYZE] Global message realtime failed', error);
-          showToast('Message notifications temporarily disconnected — retrying…');
+        historyOwnershipRef.current.inboxState(status);
+        setInboxConnection(status);
+        if (status === 'sign-in-required' && supabaseUserIdRef.current === supabaseUserId) {
+          authGenerationRef.current += 1;
+          clearChatAccount();
+          setSessionUserId(null);
+          setIsAuthenticated(false);
+          void revokeLocalPushSubscription();
         }
       },
+      supabaseUserId,
     );
     return () => { disposed = true; unsubscribe(); };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
   // WebRTC User Signaling & Truthful Presence
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabaseUserId) return;
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
 
     // 1. Listen for incoming call requests
     const unsubSignaling = webrtcCallService.initUserSignaling(
@@ -911,16 +1047,18 @@ export default function App() {
       }
     );
 
-    // 2. Track truthful Realtime presence
+    return unsubSignaling;
+  }, [supabaseUserId, isAuthenticated, isSigningOut]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    // Presence privacy is independent of authenticated messaging/call signalling.
     const unsubPresence = initPresence(supabaseUserId, currentUser.displayName, (onlineIds) => {
       setOnlineUserIds(onlineIds);
-    });
+    }, presenceProfileUserId === supabaseUserId && !currentUser.presenceIncognito && currentUser.privacySetting !== 'ghost');
 
-    return () => {
-      unsubSignaling();
-      unsubPresence();
-    };
-  }, [supabaseUserId, currentUser.displayName]);
+    return unsubPresence;
+  }, [supabaseUserId, currentUser.displayName, currentUser.presenceIncognito, currentUser.privacySetting, presenceProfileUserId, isAuthenticated, isSigningOut]);
 
   // Local persistence is limited to local/demo mode (no Supabase configured).
   // In live mode Supabase is the source of truth: nothing here is written from
@@ -1034,11 +1172,19 @@ export default function App() {
   // install prompt and offline shell work before sign-in.
   // ---------------------------------------------------------------------
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('notification')) {
+      rememberNotificationPath(window.location.pathname + window.location.search);
+    }
     void registerServiceWorker();
     // Finish revoking this browser's push subscription if a previous sign-out
     // could not confirm it (shared-device safety). No-op otherwise.
     void finishPendingPushRevoke();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || isSigningOut || !supabaseUserId) return;
+    return watchPushSubscriptionRecovery(supabaseUserId);
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
   // Apply a notification deep link on first authenticated render. Auth
   // callback paths are skipped so this can never interfere with the Supabase
@@ -1048,12 +1194,12 @@ export default function App() {
     if (!isAuthenticated || initialRouteAppliedRef.current || typeof window === 'undefined') return;
     initialRouteAppliedRef.current = true;
 
-    const { pathname } = window.location;
-    if (pathname === '/' || isAuthPath(pathname)) return;
-
-    const route = routeFromPath(pathname);
+    const path = consumeNotificationPath() ?? window.location.pathname + window.location.search;
+    if (path === '/' || isAuthPath(path)) return;
+    replacePath(path);
+    const route = routeFromPath(path);
     setActiveTab(route.tab);
-    if (route.conversationId) setActiveRoomId(route.conversationId);
+    if (route.conversationId) requestConversationOpen(route.conversationId);
     if (route.openNotifications) setIsNotificationsOpen(true);
   }, [isAuthenticated]);
 
@@ -1066,17 +1212,42 @@ export default function App() {
       const data: unknown = event.data;
       if (!isGayzeServiceWorkerMessage(data)) return;
 
+      if (data.type === 'PRESENT_MESSAGE') {
+        const payload = data.payload as { messageId?: string; conversationId?: string; recipientId?: string; presentationExpiresAt?: number } | undefined;
+        const uuid = /^[0-9a-f-]{36}$/i;
+        const handled = Boolean(payload && typeof payload.presentationExpiresAt === 'number' && payload.presentationExpiresAt >= Date.now() && uuid.test(payload.messageId ?? '') && uuid.test(payload.conversationId ?? '') && payload.recipientId
+          && presentIncomingMessage(payload.messageId!, payload.conversationId!, payload.recipientId));
+        event.ports[0]?.postMessage({ handled });
+        return;
+      }
+      if (data.type === 'PUSH_RECEIVED') {
+        const payload = data.payload as { messageId?: string; recipientId?: string } | undefined;
+        if (payload?.messageId && /^[0-9a-f-]{36}$/i.test(payload.messageId) && payload.recipientId) {
+          messageAlertsRef.current.acknowledged(payload.messageId, payload.recipientId, supabaseUserIdRef.current);
+        }
+        notificationRefreshRef.current(); return;
+      }
       if (data.type === 'NOTIFICATION_CLICK' && data.url) {
+        if (data.navigationExpiresAt && data.navigationExpiresAt < Date.now()) return;
+        const parsed = new URL(data.url, window.location.origin);
+        if (parsed.origin !== window.location.origin) return;
+        if (!supabaseUserIdRef.current) rememberNotificationPath(data.url);
+        const notificationId = parsed.searchParams.get('notification');
+        if (notificationId && /^[0-9a-f-]{36}$/i.test(notificationId) && supabaseUserIdRef.current) {
+          void markNotificationRead(notificationId).then(() => notificationRefreshRef.current()).catch(() => {});
+        }
         const route = routeFromPath(data.url);
         setActiveTab(route.tab);
-        if (route.conversationId) setActiveRoomId(route.conversationId);
+        if (route.conversationId) requestConversationOpen(route.conversationId);
         if (route.openNotifications) setIsNotificationsOpen(true);
         replacePath(data.url);
+        event.ports[0]?.postMessage({ handled: true });
         return;
       }
 
       if (data.type === 'PUSH_SUBSCRIPTION_CHANGED') {
-        void resyncSubscription(data.oldEndpoint ?? null);
+        const account = supabaseUserIdRef.current;
+        if (account) void resyncSubscription(data.oldEndpoint ?? null, account, () => supabaseUserIdRef.current === account);
       }
     };
 
@@ -1084,10 +1255,57 @@ export default function App() {
     return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
   }, []);
 
-  // Home Screen badge mirrors the real unread count (and clears with it).
   useEffect(() => {
-    updateAppBadge(unreadMessageCount);
-  }, [unreadMessageCount]);
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) {
+      setNotificationInbox(null); updateAppBadge(0); return;
+    }
+    let disposed = false;
+    const owner = watchNotificationInbox(supabaseUserId, (inbox) => {
+      if (!disposed && supabaseUserIdRef.current === supabaseUserId) setNotificationInbox(inbox);
+    }, (state) => { if (!disposed) setNotificationInboxStatus(state); });
+    notificationRefreshRef.current = owner.refresh;
+    return () => { disposed = true; owner.stop(); notificationRefreshRef.current = () => {}; };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+
+  // Unread state is read from PostgreSQL, never incremented/cleared by tab clicks.
+  useEffect(() => {
+    if (notificationInbox) updateAppBadge(notificationInbox.unread);
+  }, [notificationInbox]);
+
+  useEffect(() => {
+    if (!supabaseUserId || !isAuthenticated) return;
+    const markVisibleRoom = () => {
+      if (document.visibilityState !== 'visible' || activeTab !== 'swarms' || !activeRoomId || visibleChatRoomId !== activeRoomId) return;
+      if (chatConnection.roomId !== activeRoomId || chatConnection.state !== 'connected' || conversationKeyState.roomId !== activeRoomId || conversationKeyState.status !== 'ready') return;
+      if (!notificationInbox?.rows.some((row) => !row.read_at && row.category === 'message' && row.url === `/messages/${activeRoomId}`)) return;
+      void markNotificationRead(undefined, activeRoomId).then(() => notificationRefreshRef.current()).catch(() => {});
+    };
+    markVisibleRoom(); document.addEventListener('visibilitychange', markVisibleRoom);
+    return () => document.removeEventListener('visibilitychange', markVisibleRoom);
+  }, [notificationInbox, activeTab, activeRoomId, visibleChatRoomId, supabaseUserId, isAuthenticated, chatConnection, conversationKeyState]);
+
+  // Cold-start notification click survives login; the RPC can mark only OUR row.
+  useEffect(() => {
+    if (!isAuthenticated || !supabaseUserId) return;
+    const id = new URLSearchParams(window.location.search).get('notification');
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) {
+      void markNotificationRead(id).then(() => notificationRefreshRef.current()).catch(() => {});
+    }
+  }, [isAuthenticated, supabaseUserId]);
+
+  const openInboxNotification = async (notice: InboxNotification) => {
+    const account = supabaseUserIdRef.current, generation = authGenerationRef.current;
+    try {
+      await markNotificationRead(notice.id);
+      if (account !== supabaseUserIdRef.current || generation !== authGenerationRef.current) return;
+      notificationRefreshRef.current();
+      const route = routeFromPath(notice.url);
+      setActiveTab(route.tab);
+      if (route.conversationId) requestConversationOpen(route.conversationId);
+      setIsNotificationsOpen(Boolean(route.openNotifications));
+      replacePath(notice.url);
+    } catch { showToast('Could not update the notification. Please try again.'); }
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase || !isAuthenticated || !supabaseUserId) return;
@@ -1137,34 +1355,48 @@ export default function App() {
 
 
   // Handlers for "Right Now"
-  const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {
-    const isSupabaseConversation = Boolean(
-      isSupabaseConfigured
-      && conversationId
-      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(conversationId)
-    );
-    // Live conversations are created only by the backend after mutual interest.
-    // Never create a synthetic room in live mode: it cannot persist messages or
-    // establish a valid call context.
-    if (isSupabaseConfigured && isAuthenticated && !conversationId) {
-      const intentId = pulse.id.startsWith('supabase_') ? pulse.id.slice('supabase_'.length) : undefined;
-      const result = await submitInterest(pulse.peerId, intentId);
-      if (result.mutual && result.conversation_id) {
-        await handleOpenDirectChatFromPulse(pulse, result.conversation_id);
-        showToast('Mutual interest with ' + pulse.peerName + ' — chat opened');
-      } else if (result.sent) {
-        showToast('Interest sent to ' + pulse.peerName);
-      } else {
-        showToast('Could not send interest. Try again.');
+  const handleOpenDirectChatFromPulse = async (pulse: Pick<Pulse, 'id' | 'peerId' | 'peerName' | 'peerAvatar' | 'neighborhood' | 'title' | 'intentMode'>, conversationId?: string) => {
+    const request = ++directChatRequestRef.current;
+    const account = supabaseUserIdRef.current;
+    const generation = authGenerationRef.current;
+    const current = () => Boolean(request === directChatRequestRef.current && account && account === supabaseUserIdRef.current
+      && generation === authGenerationRef.current && !isSigningOutRef.current);
+    if (isSupabaseConfigured) {
+      if (!isAuthenticated || !current()) { showToast('Sign in to open this conversation.'); return; }
+      if (conversationId && (!isConversationId(conversationId) || !isConversationId(pulse.peerId))) {
+        showToast('This conversation is unavailable.'); return;
       }
-      return;
+      if (!conversationId) {
+        try {
+          const target = await resolveLiveDirectChat({
+            peerId: pulse.peerId, rooms: roomsRef.current, current,
+            loadRooms: async () => {
+              const result = await loadConversationListOnce(account!);
+              if (!result || !current()) return null;
+              const loaded = buildRoomsFromSupabase(result, account!);
+              setRooms(previous => mergeBackendRooms(previous, loaded, account!));
+              return loaded;
+            },
+            submitInterest: () => submitInterest(pulse.peerId,
+              pulse.id.startsWith('supabase_') ? pulse.id.slice('supabase_'.length) : undefined),
+          });
+          if (!current()) return;
+          if (target.kind === 'existing') requestConversationOpen(target.room.id);
+          else if (target.kind === 'matched') await handleOpenDirectChatFromPulse(pulse, target.conversationId);
+          else if (target.kind === 'pending') showToast('Interest sent to ' + pulse.peerName);
+        } catch {
+          if (current()) showToast('Could not open this conversation. Please try again.');
+        }
+        return;
+      }
     }
-    // Check if room already exists
-    const existingRoom = rooms.find((r) => r.id === conversationId || (!conversationId && (r.peerUserId === pulse.peerId || r.peerKey?.includes(pulse.peerShortKey) || r.name === pulse.peerName)));
-
+    const isSupabaseConversation = Boolean(isSupabaseConfigured && conversationId);
+    const conflictingRoom = conversationId && roomsRef.current.find(room => room.id === conversationId
+      && (room.type !== 'direct' || (room.peerUserId && room.peerUserId !== pulse.peerId)));
+    if (conflictingRoom) { showToast('This conversation does not match the selected person.'); return; }
+    const existingRoom = findDirectRoom(roomsRef.current, pulse.peerId, conversationId);
     if (existingRoom) {
-      setActiveRoomId(existingRoom.id);
-      setActiveTab('swarms');
+      requestConversationOpen(existingRoom.id);
       analytics.logEvent('chat_opened', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
       return;
     }
@@ -1191,13 +1423,15 @@ export default function App() {
       peerAvatar: pulse.peerAvatar,
       safetyNumber: demoSafetyNumber,
       swarmSecretKeyHex: demoRoomSecret,
-      connectionContext: `Connected via ${pulse.intentMode || 'social'} intent: ${pulse.title}`,
-      lastMessage: `Connected via pulse: "${pulse.title}"`,
+      connectionContext: pulse.id ? `Connected via ${pulse.intentMode || 'social'} intent: ${pulse.title}` : `Connected via Discover: ${pulse.title}`,
+      lastMessage: pulse.id ? `Connected via pulse: "${pulse.title}"` : 'Connected via Discover',
       lastTimestamp: Date.now(),
       ephemeralTtlSeconds: 3600, // default 1 hr burner
     };
 
-    setRooms((prev) => [newRoom, ...prev]);
+    setRooms((prev) => prev.some(room => room.id === roomId)
+      ? prev.map(room => room.id === roomId ? { ...room, peerUserId: pulse.peerId, peerName: pulse.peerName } : room)
+      : [newRoom, ...prev]);
     if (!isSupabaseConversation) {
       // Demo mode only: the opening line is encrypted with the room secret
       // rather than stored as a hand-written placeholder ciphertext.
@@ -1222,8 +1456,7 @@ export default function App() {
       }
     }
 
-    setActiveRoomId(roomId);
-    setActiveTab('swarms');
+    requestConversationOpen(roomId);
     analytics.logEvent('conversation_created', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
     analytics.logEvent('chat_opened', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
     showToast(`Chat opened with ${pulse.peerName}`);
@@ -1244,26 +1477,14 @@ export default function App() {
   };
 
   const handleOpenDirectChatWithProfile = async (profile: DatingProfile) => {
-    // In live mode, Discover profiles are derived from real active intents.
-    // Opening the profile must follow the same mutual-interest path as the map;
-    // never create a synthetic conversation before a match exists.
-    if (isSupabaseConfigured && isAuthenticated) {
+    // Never fall through to demo room creation in a configured live app.
+    if (isSupabaseConfigured) {
       const pulse = supabaseRightNowPulses.find((item) => item.peerId === profile.id);
-      if (pulse?.id.startsWith('supabase_')) {
-        const result = await submitInterest(
-          pulse.peerId,
-          pulse.id.slice('supabase_'.length),
-        );
-        if (result.mutual) {
-          await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
-          showToast(`Mutual interest with ${profile.name} — chat opened`);
-        } else if (result.sent) {
-          showToast(`Interest sent to ${profile.name}`);
-        } else {
-          showToast('Could not send interest. Try again.');
-        }
-        return;
-      }
+      await handleOpenDirectChatFromPulse(pulse || {
+        id: '', peerId: profile.id, peerName: profile.name,
+        peerAvatar: '', neighborhood: profile.neighborhood, title: profile.headline,
+      });
+      return;
     }
 
     const existingRoom = rooms.find(
@@ -1271,8 +1492,7 @@ export default function App() {
     );
 
     if (existingRoom) {
-      setActiveRoomId(existingRoom.id);
-      setActiveTab('swarms');
+      requestConversationOpen(existingRoom.id);
       analytics.logEvent('chat_opened', { source: 'discover' });
       return;
     }
@@ -1312,8 +1532,7 @@ export default function App() {
       ...prev,
       [roomId]: [initialMsg],
     }));
-    setActiveRoomId(roomId);
-    setActiveTab('swarms');
+    requestConversationOpen(roomId);
     analytics.logEvent('conversation_created', { source: 'discover' });
     analytics.logEvent('chat_opened', { source: 'discover' });
     showToast(`Encrypted chat opened with ${profile.name}`);
@@ -1446,8 +1665,7 @@ export default function App() {
   const handleOpenGatheringChat = (gathering: Gathering) => {
     const existing = rooms.find((r) => r.id === 'room_' + gathering.id);
     if (existing) {
-      setActiveRoomId(existing.id);
-      setActiveTab('swarms');
+      requestConversationOpen(existing.id);
       return;
     }
 
@@ -1469,8 +1687,7 @@ export default function App() {
     };
 
     setRooms((prev) => [newRoom, ...prev]);
-    setActiveRoomId(roomId);
-    setActiveTab('swarms');
+    requestConversationOpen(roomId);
   };
 
   const handleCreateGathering = async (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => {
@@ -1492,17 +1709,16 @@ export default function App() {
     showToast('Gathering created.');
   };
 
-  const cleanupRealtimeRef = useRef<(() => void) | null>(null);
-
   // Hydrate and subscribe to real Supabase conversation messages.
   // Direct conversations derive their key from the two device identities;
   // group conversations resolve a per-device key envelope. When no key can be
   // resolved the chat says so and sending is blocked — nothing is faked.
   useEffect(() => {
-    if (!IS_LIVE_BACKEND || !activeRoomId || !/^[0-9a-f-]{36}$/i.test(activeRoomId)) return;
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId || !activeRoomId || !/^[0-9a-f-]{36}$/i.test(activeRoomId)) return;
     let disposed = false;
 
-    let conversationKey: CryptoKey | null = null;
+    let keyReady = false;
+    let historyHadFailure = false;
     const room = roomsRef.current.find((candidate) => candidate.id === activeRoomId);
 
     const applyRow = async (row: {
@@ -1514,10 +1730,11 @@ export default function App() {
       created_at: string;
       expires_at: string | null;
       burned_at: string | null;
-    }) => {
-      if (disposed) return;
+    }, delivery: MessageDelivery) => {
+      if (disposed || !delivery.current()) return;
+      const processingGeneration = messageProcessorRef.current.generation;
       const targetRoom = roomsRef.current.find((candidate) => candidate.id === activeRoomId);
-      if (!targetRoom) return;
+      if (!targetRoom) throw new Error('Conversation metadata unavailable');
 
       let plainText = '[Encrypted message]';
       let mediaUrl: string | undefined = undefined;
@@ -1526,17 +1743,11 @@ export default function App() {
       // A message can arrive through Realtime before the device identity/key
       // bootstrap has finished. Resolve the key again and retry a few times so
       // the recipient never gets stuck with a permanent ciphertext placeholder.
-      for (let attempt = 0; attempt < 3 && row.nonce && !decryptedOk; attempt += 1) {
+      for (let attempt = 0; attempt < (delivery.notify ? 3 : 1) && row.nonce && !row.burned_at && (!row.expires_at || Date.parse(row.expires_at) > Date.now()) && !decryptedOk; attempt += 1) {
         try {
-          if (!conversationKey) {
-            const resolved = await resolveConversationKey(
-              targetRoom,
-              supabaseUserIdRef.current ?? undefined,
-            );
-            conversationKey = resolved.key;
-          }
-          if (!conversationKey) throw new Error('Conversation key unavailable');
-          const decrypted = await decryptWithConversationKey(row.ciphertext, row.nonce, conversationKey);
+          if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
+          const decrypted = await messageProcessorRef.current.text(targetRoom, row, supabaseUserId);
+          keyReady = true;
           if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
             try {
               const parsed = JSON.parse(decrypted);
@@ -1550,12 +1761,16 @@ export default function App() {
           }
           decryptedOk = true;
         } catch (error) {
-          conversationKey = null;
-          if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
+          keyReady = false;
+          if (attempt < (delivery.notify ? 2 : 0)) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
           else console.warn('[GAYZE] Unable to decrypt conversation message', error);
         }
       }
 
+      if (disposed || !delivery.current() || supabaseUserIdRef.current !== supabaseUserId) return;
+      if (processingGeneration !== messageProcessorRef.current.generation) return false;
+      if (row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())) messageProcessorRef.current.forget(row, supabaseUserId);
+      if (decryptedOk) setConversationKeyState((prev) => prev.roomId === activeRoomId && prev.status === 'ready' ? prev : { roomId: activeRoomId, status: 'ready' });
       const senderName = row.sender_id === supabaseUserIdRef.current
         ? 'You'
         : targetRoom.memberNames?.[row.sender_id] || targetRoom.peerName || targetRoom.name || 'Gayze member';
@@ -1568,24 +1783,17 @@ export default function App() {
         timestamp: new Date(row.created_at).getTime(),
         cipherText: row.ciphertext,
         nonceHex: row.nonce || '',
+        expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined,
         plainText,
         ephemeralTtlSeconds: targetRoom.ephemeralTtlSeconds,
-        isBurned: Boolean(row.burned_at),
+        isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())),
         mediaUrl,
         mediaType: mediaUrl ? 'image' : undefined,
       };
 
-      setMessages((prev) => {
-        const existing = prev[activeRoomId] || [];
-        const existingIndex = existing.findIndex((item) => item.id === message.id);
-        if (existingIndex >= 0) {
-          if (!decryptedOk || existing[existingIndex].plainText !== '[Encrypted message]') return prev;
-          const updated = [...existing];
-          updated[existingIndex] = message;
-          return { ...prev, [activeRoomId]: updated };
-        }
-        return { ...prev, [activeRoomId]: [...existing, message] };
-      });
+      if (!decryptedOk && !message.isBurned && row.nonce) historyHadFailure = true;
+      queueMessage(message);
+      return decryptedOk || message.isBurned || !row.nonce;
     };
 
     const hydrate = async () => {
@@ -1599,9 +1807,9 @@ export default function App() {
         return;
       }
       try {
-        const result = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
+        const result = await messageProcessorRef.current.key(room, supabaseUserId);
         if (disposed) return;
-        conversationKey = result.key;
+        keyReady = Boolean(result.key);
         setConversationKeyState({
           roomId: activeRoomId,
           status: result.status,
@@ -1645,53 +1853,35 @@ export default function App() {
         }
       }
 
-      const rows = await loadConversationMessages(activeRoomId);
-      for (const row of rows) await applyRow(row);
+    };
 
-      if (disposed) return;
+    let keyLoad: Promise<void> | null = null;
+    const refreshKeys = () => {
+      if (keyLoad || disposed) return;
+      keyLoad = hydrate().catch(() => {
+        if (!disposed) setConversationKeyState({ roomId: activeRoomId, status: 'unavailable', reason: 'Secure conversation setup is temporarily unavailable.' });
+      }).finally(() => { keyLoad = null; });
+    };
 
-      const unsubscribe = subscribeToConversationMessages(
-        activeRoomId,
-        (row) => { void applyRow(row); },
-        (status, error) => {
-          if (disposed) return;
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.error('[GAYZE] Live chat subscription failed', error);
-            showToast('Live chat connection lost — retrying…');
-          }
-        },
-      );
-      cleanupRealtimeRef.current = unsubscribe;
-
-      // Realtime is the low-latency path; this lightweight foreground sync is
-      // the reliability path. It closes the small race between initial hydrate
-      // and channel join and recovers automatically from iOS/WebSocket drops.
-      const pollId = window.setInterval(async () => {
+    // Subscribe independently of key/history hydration. A failed initial read
+    // must never prevent the retry owner from being installed.
+    const unsubscribe = subscribeToConversationMessages(
+      activeRoomId,
+      applyRow,
+      (state) => {
         if (disposed) return;
-        try {
-          const latest = await loadConversationMessages(activeRoomId);
-          for (const row of latest) await applyRow(row);
-        } catch (error) {
-          console.warn('[GAYZE] Conversation foreground sync failed', error);
-        }
-      }, 3000);
+        setChatConnection({ roomId: activeRoomId, state });
+        if (state === 'connected') historyOwnershipRef.current.roomComplete(activeRoomId, keyReady && !historyHadFailure);
+        else if (['reconnecting', 'offline', 'suspended', 'sign-in-required'].includes(state)) historyOwnershipRef.current.unseenOlderRow(activeRoomId);
+        if (state === 'connected' && !keyReady) refreshKeys();
+      },
+      supabaseUserId,
+      () => historyOwnershipRef.current.canReuse(activeRoomId),
+    );
+    refreshKeys();
 
-      cleanupRealtimeRef.current = () => {
-        unsubscribe();
-        window.clearInterval(pollId);
-      };
-    };
-
-    cleanupRealtimeRef.current?.();
-    cleanupRealtimeRef.current = null;
-    void hydrate();
-
-    return () => {
-      disposed = true;
-      cleanupRealtimeRef.current?.();
-      cleanupRealtimeRef.current = null;
-    };
-  }, [activeRoomId, supabaseUserId]);
+    return () => { disposed = true; unsubscribe(); };
+  }, [activeRoomId, supabaseUserId, isAuthenticated, isSigningOut, rooms.some((room) => room.id === activeRoomId)]);
 
   // Chat message sending with real WebCrypto AES-GCM
   const handleSendMessage = async (
@@ -1700,9 +1890,12 @@ export default function App() {
     ephemeralTtlSeconds?: number,
     meetingData?: MeetingProposal,
     mediaUrl?: string,
+    messageId?: string,
   ) => {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
+    const sendingUserId = supabaseUserIdRef.current;
+    const sendingGeneration = authGenerationRef.current;
 
     const isSupabaseRoom = IS_LIVE_BACKEND && /^[0-9a-f-]{36}$/i.test(roomId);
     let cipherHex: string;
@@ -1712,25 +1905,22 @@ export default function App() {
       : plainText;
 
     if (isSupabaseRoom) {
-      const resolved = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
+      const resolved = await messageProcessorRef.current.key(room, sendingUserId!);
       if (!resolved.key) {
-        showToast(resolved.reason || 'This conversation cannot be encrypted on this device yet');
-        return;
+        throw new Error(resolved.reason || 'This conversation cannot be encrypted on this device yet');
       }
       try {
         ({ cipherHex, nonceHex } = await encryptWithConversationKey(textToEncrypt, resolved.key));
       } catch (error) {
         console.error('[GAYZE] Secure conversation encryption failed', error);
-        showToast('Secure encryption failed. Message not sent.');
-        return;
+        throw new Error('Secure encryption failed. Message not sent.');
       }
     } else {
       try {
         ({ cipherHex, nonceHex } = await encryptPayload(textToEncrypt, room.swarmSecretKeyHex));
       } catch (error) {
         console.error('[GAYZE] Local message encryption failed', error);
-        showToast('Secure encryption is unavailable. Message not sent.');
-        return;
+        throw new Error('Secure encryption is unavailable. Message not sent.');
       }
     }
 
@@ -1756,7 +1946,7 @@ export default function App() {
       }));
     }
 
-    setRooms((prev) =>
+    if (!isSupabaseRoom) setRooms((prev) =>
       prev.map((r) =>
         r.id === roomId
           ? { ...r, lastMessage: plainText, lastTimestamp: Date.now() }
@@ -1771,28 +1961,28 @@ export default function App() {
         const expiresAt = ephemeralTtlSeconds && ephemeralTtlSeconds > 0
           ? new Date(Date.now() + ephemeralTtlSeconds * 1000).toISOString()
           : null;
-        const persisted = await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt);
-        setMessages((prev) => {
-          const existing = prev[roomId] || [];
-          if (existing.some((item) => item.id === persisted.id)) return prev;
-          return {
-            ...prev,
-            [roomId]: [...existing, {
-              ...newMsg,
-              id: persisted.id,
-              timestamp: new Date(persisted.created_at).getTime(),
-              senderKey: persisted.sender_id,
-              senderName: persisted.sender_id === supabaseUserIdRef.current ? 'You' : newMsg.senderName,
-              roomId: persisted.conversation_id,
-              cipherText: persisted.ciphertext,
-              nonceHex: persisted.nonce || nonceHex,
-            }],
-          };
-        });
+        if (isSigningOutRef.current || supabaseUserIdRef.current !== sendingUserId || authGenerationRef.current !== sendingGeneration) throw new Error('Session changed');
+        const persisted = await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt, messageId, sendingUserId ?? undefined);
+        if (isSigningOutRef.current || supabaseUserIdRef.current !== sendingUserId || authGenerationRef.current !== sendingGeneration) throw new Error('Session changed');
+        setMessages((prev) => ({
+          ...prev,
+          [roomId]: mergeMessage(prev[roomId] || [], {
+            ...newMsg, id: persisted.id, timestamp: new Date(persisted.created_at).getTime(),
+            expiresAt: persisted.expires_at ? Date.parse(persisted.expires_at) : undefined,
+            isBurned: Boolean(persisted.burned_at || (persisted.expires_at && Date.parse(persisted.expires_at) <= Date.now())),
+            senderKey: persisted.sender_id, senderName: 'You', roomId: persisted.conversation_id,
+            cipherText: persisted.ciphertext, nonceHex: persisted.nonce || nonceHex,
+          }),
+        }));
+        const sentAt = Date.parse(persisted.created_at);
+        setRooms((prev) => prev.map((candidate) => candidate.id === roomId && candidate.lastTimestamp <= sentAt
+          ? { ...candidate, lastMessage: persisted.burned_at || (persisted.expires_at && Date.parse(persisted.expires_at) <= Date.now()) ? 'Message expired' : plainText, lastTimestamp: sentAt }
+          : candidate));
         hapticMessageDecrypted();
       } catch (error) {
         console.error('[GAYZE] Failed to persist encrypted message', error);
-        showToast('Message was not sent — secure sync failed');
+        showToast('Message delivery not confirmed — your draft is kept');
+        throw error;
       }
       return;
     }
@@ -1917,15 +2107,16 @@ export default function App() {
       safetyTimerDurationMinutes: proposal.durationMinutes || 60,
     };
 
-    await handleSendMessage(
+    try {
+      await handleSendMessage(
       targetRoom.id,
       `Safe meetup invitation: let's meet at ${proposal.venueName}, ${proposal.timeStr}.`,
       targetRoom.ephemeralTtlSeconds,
       meetingData
     );
+    } catch { showToast('Meetup invitation was not confirmed. Please try again.'); return; }
 
-    setActiveRoomId(targetRoom.id);
-    setActiveTab('swarms');
+    requestConversationOpen(targetRoom.id);
     showToast(`Meetup proposal sent to ${scheduleMeetingPeerName} at ${proposal.venueName}`);
   };
 
@@ -1957,10 +2148,12 @@ export default function App() {
     });
 
     // Send confirmation in room
-    await handleSendMessage(
+    try {
+      await handleSendMessage(
       activeRoomId,
       `Accepted — see you at ${meeting.venueName}, ${meeting.timeStr}. Local check-in timer started.`
     );
+    } catch { showToast('Acceptance message was not confirmed. Your local safety timer is still active.'); }
   };
 
   const handleSaveProfileEdit = async (payload: ProfileSavePayload): Promise<boolean> => {
@@ -2118,30 +2311,33 @@ export default function App() {
     });
   };
 
-  const handleGazeAtPeer = (peerName: string) => {
+  const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
     triggerVibration([40, 70]);
 
     if (isSupabaseConfigured && isAuthenticated) {
-      const pulse = supabaseRightNowPulses.find((item) => item.peerName.toLowerCase() === peerName.toLowerCase());
+      const pulse = supabaseRightNowPulses.find((item) => item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`));
       if (!pulse || !pulse.id.startsWith('supabase_')) {
         showToast('That Gaze could not be linked to a live profile.');
-        return;
+        return false;
       }
-      void submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length)).then((result) => {
-        if (result.sent) {
-          showToast(`Gaze sent to ${peerName}`);
-        } else {
-          showToast('Gaze could not be sent. Try again.');
-        }
-      });
-      return;
+      const result = await submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length));
+      if (result.sent) {
+        showToast(`Gaze sent to ${peerName}`);
+      } else {
+        showToast('Gaze could not be sent. Try again.');
+      }
+      return result.sent;
     }
 
     showToast(`You gave a Gaze to ${peerName}.`);
+    return true;
   };
 
   const handleSubmitInterest = async (pulse: Pulse) => {
-    if (!isSupabaseConfigured) {
+    const account = supabaseUserIdRef.current;
+    const generation = authGenerationRef.current;
+    const request = ++directChatRequestRef.current;
+    if (!isSupabaseConfigured || !isAuthenticated || !account || isSigningOutRef.current) {
       return { sent: false, mutual: false, conversation_id: null };
     }
 
@@ -2153,16 +2349,21 @@ export default function App() {
 
     const intentId = pulse.id.slice('supabase_'.length);
     const result = await submitInterest(pulse.peerId, intentId);
+    if (account !== supabaseUserIdRef.current || generation !== authGenerationRef.current
+      || request !== directChatRequestRef.current || isSigningOutRef.current) {
+      return { sent: false, mutual: false, conversation_id: null };
+    }
     if (result.sent) {
       analytics.logEvent('interest_sent', { intent_mode: pulse.intentMode || 'social' });
     }
 
-    if (result.mutual) {
+    if (result.mutual && result.conversation_id && isConversationId(result.conversation_id)) {
       analytics.logEvent('mutual_interest', { intent_mode: pulse.intentMode || 'social' });
-      await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
-      showToast(`Mutual interest with ${pulse.peerName} — chat opened`);
-    } else {
+      await handleOpenDirectChatFromPulse(pulse, result.conversation_id);
+    } else if (result.sent && !result.mutual) {
       showToast(`Interest sent to ${pulse.peerName}`);
+    } else {
+      showToast('Could not open this conversation. Please try again.');
     }
 
     return result;
@@ -2447,6 +2648,7 @@ export default function App() {
       try {
         const bundle = parseRecoveryBundle(await file.text());
         await restoreRecoveryBundle(bundle, password);
+        clearMessageWork();
         const identity = await getOrCreateDeviceIdentity();
         setCurrentUser((prev) => ({
           ...prev,
@@ -2471,6 +2673,7 @@ export default function App() {
   const handlePurgeLocalCache = () => {
     hapticSensitiveAction();
     localStorage.removeItem('gayze_messages');
+    clearMessageWork();
     setMessages({});
     showToast('Decrypted message cache cleared on this device.');
   };
@@ -2523,8 +2726,9 @@ export default function App() {
       {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
+        onTabChange={(tab) => { if (tab === 'swarms') beginChatTrace(activeRoomId); setActiveTab(tab); }}
         unreadCount={unreadMessageCount}
+        notificationCount={notificationInbox?.unread ?? 0}
         onOpenMask={() => setIsMaskActive(true)}
         onOpenIdentity={() => setIsIdentityOpen(true)}
         onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
@@ -2539,7 +2743,7 @@ export default function App() {
         className={
           activeTab === 'right_now'
             ? 'fixed left-0 right-0 top-0 bottom-[calc(var(--g-tabbar-h)+env(safe-area-inset-bottom,0px))] md:top-[calc(3.5rem+env(safe-area-inset-top,0px))] overflow-hidden overscroll-none p-0'
-            : 'flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-10 overflow-y-auto overscroll-contain'
+            : activeTab === 'swarms' ? 'g-chat-viewport' : 'flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-10 overflow-y-auto overscroll-contain'
         }
       >
         <Suspense fallback={<div className="flex h-full min-h-[40vh] items-center justify-center text-xs text-zinc-400">Loading view…</div>}>
@@ -2642,7 +2846,9 @@ export default function App() {
               rooms={rooms}
               messages={messages}
               activeRoomId={activeRoomId}
-              onSelectRoom={(id) => setActiveRoomId(id)}
+              openRequest={chatOpenRequest}
+              onVisibleRoomChange={reportVisibleChatRoom}
+              onSelectRoom={requestConversationOpen}
               currentUser={currentUser}
               currentUserId={supabaseUserId}
               onSendMessage={handleSendMessage}
@@ -2658,6 +2864,7 @@ export default function App() {
               onAcceptMeeting={handleAcceptMeeting}
               onReturnToDiscovery={() => setActiveTab('right_now')}
               onlineUserIds={onlineUserIds}
+              connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
               conversationKeyUnavailable={
                 Boolean(activeRoomId)
                 && conversationKeyState.roomId === activeRoomId
@@ -2760,8 +2967,12 @@ export default function App() {
       />
 
       {/* Web Push opt-in, category preferences and device state */}
-      <NotificationsModal
+      <NotificationsModal key={supabaseUserId || 'signed-out'}
+        currentUserId={supabaseUserId}
         isOpen={isNotificationsOpen}
+        inbox={notificationInbox}
+        inboxStatus={notificationInboxStatus}
+        onOpenNotification={openInboxNotification}
         onClose={() => setIsNotificationsOpen(false)}
       />
 
@@ -2799,6 +3010,7 @@ export default function App() {
           // Invalidate every in-flight auth/bootstrap operation immediately.
           // The UI must never wait for a network round-trip to show the signed-out state.
           authGenerationRef.current += 1;
+          clearChatAccount();
           locationWatchStopRef.current?.();
           locationWatchStopRef.current = null;
           recoverySessionRef.current = false;
