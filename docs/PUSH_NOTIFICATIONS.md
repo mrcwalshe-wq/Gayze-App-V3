@@ -1,284 +1,145 @@
-# GAYZE — PWA & Web Push
+# GAYZE — durable notifications and existing Web Push
 
-Real, standards-based Web Push (Push API + Notifications API + Service Worker,
-authenticated with VAPID). There is no in-app-only imitation: if the platform
-cannot deliver an OS notification, the UI says so instead of faking one.
+> **Controlled release-candidate follow-up (2026-10-01):** See [RELEASE_CANDIDATE_REPORT.md](RELEASE_CANDIDATE_REPORT.md) for the current inventory, warm-history/cache and drawer fixes, migration hardening, latest tests and open release gates. No rollout is authorized.
 
-Production origin: **https://gayze.co.uk**
-Worker: `gayze-app-v3`
+Updated 2026-09-30. **Implementation and isolated local validation only. No migration, function or app deployment has been performed.** See [RELEASE_READINESS.md](RELEASE_READINESS.md) for results and remaining gates.
 
----
+## Technology and provenance
 
-## 1. What is in the repository
+The project uses browser **Web Push + VAPID**, the existing `web-push@3.6.7` library, Supabase Edge Functions/Postgres and the root `/service-worker.js`. Google, Mozilla, Apple and Windows push-service endpoints belong to the browser subscription. This is **not** a new FCM server-key integration or a native APNs-token integration. No provider was replaced.
 
-| Area | File |
+At base `1190d6a`, `supabase/functions/send-push/index.ts` was one newline. Read-only investigation also recovered an earlier sender on `feat/notification-reminder` (blob `03a7d2df0ec24851113e3de3d3944ca1dee113fd`). It confirmed the same provider/library, VAPID and dispatch-secret conventions, but did not provide a durable notification inbox or per-endpoint message/Gayze delivery claims. It was inspected as reference, not merged. **Patch 1 was not used.**
+
+## Authoritative pipeline
+
+```text
+Authenticated Gayze/message write
+  → AFTER INSERT trigger (recipient derived from actual source row/memberships)
+  → gayze_notifications row in the SAME database transaction
+  → pg_net dispatch of { notificationId }, using Vault dispatch secret
+  → send-push authenticates and loads that existing row
+  → check recipient preferences, read state and message membership/lifetime
+  → read recipient-owned PushManager subscriptions
+  → atomic unique (notification_id, endpoint) delivery claim
+  → VAPID-authenticated, aes128gcm-encrypted Web Push request
+  → browser's existing push service → installed device's service worker
+  → generic OS notification and same-origin URL
+  → GAYZE conversation or notification inbox
+  → owner-only database read acknowledgement → database unread count
+```
+
+If HTTP/provider delivery fails, **the notification row is not deleted**. If notification persistence itself fails, the source write rolls back rather than claiming a notification was durably created. HTTP dispatch is separately exception-isolated and never rolls back a successful source/notification transaction.
+
+### Database additions (not applied)
+
+`supabase/migrations/20261002100000_durable_notifications.sql` follows the existing base push and URL-fix migrations. The timestamp sorts after existing migration filenames; it is not evidence of any applied production migration.
+
+Schema change is necessary: existing `notification_dispatch_log` is service-role-only, has no read state/content/destination, and cannot supply an authoritative user inbox. The new objects are namespaced to avoid guessing/reusing an unknown `notifications` table:
+
+- `gayze_notifications`: recipient, actor, category, stable event key, safe destination, created/read/processed timestamps. Unique `(user_id, category, event_key)`. Users can **select only their own rows**, not insert/delete/edit content.
+- `gayze_notification_deliveries`: service-only endpoint claims and accepted/failed/expired/invalid/unknown state. Deleting an expired subscription does not remove a claim or notification.
+- Owner-only read RPC, authenticated connection-record RPC, service-only enqueue/eligibility/claim/drain RPCs, and scoped source/dispatch triggers.
+- `gayze_notification_push_allowed` rechecks message membership, expiry and burn state before sending. The claim RPC rechecks this too.
+- Gayze uses the current source's `from_user_id`, `to_user_id`, `intent_id` columns, not an invented gaze ID. Repeat Gayzes from the same actor to the same recipient for the same intent are intentionally one notification. Self-Gayzes do not notify.
+- Message recipients come from `conversation_members`, excluding the sender; the sender must be a member. The trigger rejects sender spoofing and anonymous application-role writes.
+- Legacy intent-expiry/safety sweeps still use `request_push_dispatch`, but that bridge now creates durable rows from database source data before HTTP dispatch. Connection notification creation now uses an authenticated RPC independently of Edge Function availability.
+
+The migration fails if required base objects/columns are missing or a new table/function name collides. It refuses to replace an unowned same-name message trigger/bridge. Existing base migrations are not edited. **Inspect production base DDL/RLS and migration history first; execute the additive migration transactionally only after approval.** The existing migration that adds profile fields is not automatically repaired/applied by this work.
+
+The generic `interests` event is separate from a `gazes` row. Its recipient/source schema and `submit_interest` function body remain absent; no guessed generic-interest trigger is installed. Connection creation still relies on the existing mutual-result client flow and its subsequent authenticated notification RPC; a crash between those operations remains a gap until the authoritative matching function can be updated transactionally.
+
+## Sender API and security
+
+Existing `supabase/config.toml` has `verify_jwt = false` because database dispatch uses a shared secret rather than a user JWT. **The function performs its own mandatory authentication.**
+
+| Request | Authorization |
 | --- | --- |
-| Manifest | `public/manifest.webmanifest` |
-| Icons | `public/icons/gayze-{180,192,512}.png`, `public/icons/gayze-512-maskable.png`, `public/apple-touch-icon.png` |
-| Service worker | `public/service-worker.js` |
-| Static headers | `public/_headers` |
-| Worker config | `wrangler.toml` |
-| Client push logic | `src/services/pushService.ts` |
-| Deep-link mapping | `src/services/notificationRouting.ts` |
-| Canonical origin | `src/config/appUrl.ts` |
-| Opt-in + preferences UI | `src/components/NotificationsModal.tsx` |
-| iOS install nudge | `src/components/InstallPrompt.tsx` |
-| Database | `supabase/migrations/20260929120000_push_notifications.sql` |
-| Push sender | `supabase/functions/send-push/index.ts` |
-| Key generator | `scripts/generate-vapid-keys.mjs` |
-| Verification harness | `scripts/push-tests/` (PGlite + simulated device; see its README) |
+| `{ notificationId }` with `x-gayze-dispatch-secret` | Constant-time digest comparison with server secret; loads existing notification |
+| `{ notificationId }` with `Authorization: Bearer …` | `auth.getUser(token)` verification; only the verified user's own notification |
+| `{ action: 'connection', conversationId }` | Verified JWT; connection RPC executed as that user, which checks two-member membership and derives recipient |
+| `{ action: 'test' }` | Verified JWT **and server-controlled `app_metadata.role === 'admin'`**; self-targeted, one record per user/minute |
 
-The icons are rasterised from the existing official Gayze mark
-(`public/gayze-logo.jpg`). The logo was not redesigned or recreated.
+No HTTP-supplied recipient, message text, title or URL is trusted. Old raw `{ event: ... }` sender requests are rejected; the updated SQL bridge converts supported legacy events to records. Production rollout must coordinate this API change with the database migration, not deploy just the sender or frontend.
 
----
+Additional protections:
 
-## 2. Generate VAPID keys
+- Bounded 8 KiB body; POST only; explicit CORS origin allowlist.
+- Safe same-origin destinations generated from database rows.
+- No plaintext message body in the server payload; generic Gayze/message copy protects lock-screen privacy.
+- Gayze uses the existing `intent_activity` preference (labelled “Gayzes” in the UI); no speculative preference column is introduced.
+- Fail-closed preference lookup; disabled push/categories do not remove notification records.
+- Endpoint URL allowlist for the existing browser push services; no arbitrary URLs, IPs, credentials or custom ports (SSRF protection).
+- P-256 subscription public-key and 16-byte auth-secret validation before network access. Invalid subscriptions are pruned; 404/410 subscriptions are pruned with owner/ID/endpoint scope. Other failures do not indiscriminately delete subscriptions.
+- VAPID key-pair validation before delivery claims. Invalid/missing server configuration leaves records pending.
+- Five-second provider timeout, five-minute provider TTL, stable notification tag/topic.
+- Provider/SDK exceptions are not returned or logged with their endpoint/token contents. `ECE_KEYLOG=1` prevents startup.
 
-```bash
-node scripts/generate-vapid-keys.mjs
-```
+### Honest delivery semantics
 
-This prints a P-256 application-server key pair.
+The unique claim is taken **before** calling the provider. Concurrent invocations cannot issue a second request to the same endpoint for that record. Claims survive failure, crash and expired-subscription deletion.
 
-* `VITE_VAPID_PUBLIC_KEY` — **public**. Embedded in the client bundle at build
-  time. Safe to expose.
-* `VAPID_PRIVATE_KEY` — **secret**. Supabase Edge Function secret only.
-  Never commit it, never put it in a `VITE_*` variable, never log it.
+This is **at-most-once application delivery attempt**, not distributed exactly-once delivery. An accepted provider request whose response is lost cannot safely be retried without risking another alert. Therefore failed/unknown/attempted claims are not automatically resent. A crash after claiming but before sending can also lose a push attempt. In both cases the authoritative unread notification remains available.
 
-`.gitignore` already excludes `.env*` (except `.env.example`).
+`gayze_drain_notifications()` retries unprocessed, unread records from the last 24 hours, at most 100 per call, using the existing HTTP bridge. It can recover a missing/failed trigger-to-function dispatch or missing server configuration **before a delivery claim exists**. It does not resend claimed endpoints. Records older than 24 hours remain in the inbox without historical OS alert floods. Newly subscribing devices do not automatically receive the entire historical inbox.
 
----
+The v4 worker serializes push events and keeps a bounded cache of 2,500 opaque **successful-display** notification-ID receipts across worker restarts. The receipt is written **after** `showNotification` resolves; a failed display remains retryable. It contains no message text, endpoint, actor, JWT or subscription key. The new receipt namespace does not trust the former receipt-before-display records.
 
-## 3. Configure secrets
+Backend delivery claims and device presentation are different mechanisms. **Every received push still calls `showNotification`**, including a replay with a receipt. The stable notification-ID tag replaces the same OS record; replay is quiet (`silent: true`, `renotify: false`) and does not initiate a second foreground toast handshake. Existing OS tag evidence also helps after receipt-storage failure. Bounded/evicted state and OS behavior prevent an absolute exactly-once guarantee; `silent` is not a promise that no system banner appears.
 
-### Frontend (Cloudflare build environment)
+Clicks prefer the stable conversation UUID carried for both message and connection notifications. Existing same-origin windows are focused and asked to acknowledge routing; failing/unready pages fall back to bounded URL navigation and then `openWindow`. Cold URLs and signed-out pending paths retain the room and notification IDs. Actual installed-PWA launch behavior remains a physical-device release gate.
 
-```
-VITE_VAPID_PUBLIC_KEY=<public key>
-```
+The Enable action requests permission synchronously before any auth, worker-readiness or lock await. Already-granted/denied permission is not repeatedly requested; concurrent Enable calls share a flight. Subscription and persistence wait for an active service worker, with a retryable readiness timeout. VAPID key encoding is checked before enrollment/permission mutation. Server preference-write failure is not reported as full notification success.
 
-Vite inlines `VITE_*` at build time, so this must be present in the environment
-that runs `npm run build`. Without it the app still builds and runs — the
-Notifications sheet simply reports that push is not configured for this build.
+Authenticated launch, visibility/pageshow, focus and online events reconcile the browser's current subscription. Mutations are serialized, with Web Locks coordinating tabs where available, and guarded against stale accounts/generations. An opaque local `{userId,rowId}` pointer must resolve to a row under the current user's RLS before it can authorize automatic recovery of a lost/rotated endpoint; it is not authority by itself. Healthy reconciliation is a no-op; replacement persistence precedes old-row cleanup, with interrupted cleanup retried without revoking a successful replacement. Missing ownership proof, pruned old rows, changed VAPID keys or disabled preferences require explicit Enable rather than silently claiming another account's endpoint. Recovery does not prompt for permission. Sign-out/opt-out invalidates pending work and prevents automatic re-enrollment.
 
-### Server (Supabase Edge Function secrets)
+Apple endpoints accept HTTPS subdomains of `push.apple.com`, including nested subdomains, while retaining scheme, userinfo, port, fragment and provider-host protections. This does not establish that a physical iPhone accepted or displayed a notification.
 
-```bash
-supabase secrets set \
-  VAPID_PUBLIC_KEY=<public key> \
-  VAPID_PRIVATE_KEY=<private key> \
-  VAPID_SUBJECT=mailto:support@gayze.co.uk \
-  PUSH_DISPATCH_SECRET=<long random string>
-```
+## Client list, unread state and destinations
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
+- `notificationInbox.ts` uses the existing Supabase recovery owner, membership/session guards, RLS-scoped pagination and exact database unread counts. It catches up after lifecycle/network changes; failed reads retain the previous display and show unavailable/reconnecting.
+- The notification modal now contains the actual database list, independently of push opt-in/preferences. No browser-local increment is the source of truth.
+- Navigation exposes notification unread state separately from message unread state. The PWA badge is refreshed from database unread count while the app is active. Background payload badge counts are snapshots and may be stale until foreground reconciliation.
+- Viewing a connected, key-ready conversation acknowledges that conversation's message notifications through the owner-scoped RPC. Merely switching tabs does not clear all messages. Clicking a list entry acknowledges that record, then routes.
+- Message → `/messages/<conversation-id>?notification=<notification-id>`.
+- Gayze → `/notifications?notification=<notification-id>`, the existing notification-centre destination.
+- Same-origin destinations survive an OAuth/login reload using session storage. Cross-origin/auth-callback destinations are rejected; read acknowledgements remain account-scoped.
+- Worker push still creates a user-visible OS notification, including foreground delivery (important for user-visible-only Web Push/iOS). The focused app may acknowledge a canonical message ID within a bounded MessageChannel handshake: in that case the OS record is `silent: true`, and account-scoped dedup allows at most one in-app toast (none when viewing that room). Background, old or unresponsive clients fall back to normal OS presentation. Actual OS banner behavior remains device-dependent.
+- The app's generic incoming-message toast now works independently of native push configuration/permission and before decryption finishes. Both paths use DB-derived message/conversation/recipient IDs, not plaintext. `PUSH_RECEIVED` acknowledges an already-presented native alert so foreground catch-up does not repeat its toast. Mixed old/new deployed versions lack full correlation; bounded receipts/timeouts are not an exactly-once guarantee. See [the focused chat audit](CHAT_AUDIT_2026-10-01.md) for implementation, tests and deployment/device limits.
+- Discover/Right Now Gayzes use selected stable user IDs, not display-name matching; only confirmed successful sends change to “Gazed.”
 
-### Database (Vault) — used by the dispatch trigger
+## Exact production configuration still required
 
-Dashboard → Project Settings → Vault:
+**Do not deploy as part of this task. These are operator requirements for a later approved release.**
 
-| Name | Value |
-| --- | --- |
-| `gayze_functions_url` | `https://<project-ref>.functions.supabase.co` |
-| `gayze_push_dispatch_secret` | the same value as `PUSH_DISPATCH_SECRET` |
+1. Review actual `messages`, `conversation_members`, `gazes`, `intents`, `safety_checkins`, push tables and matching RPC DDL/RLS. Confirm source-column types, caller ownership, message membership and block/privacy rules. The local fixture is not the production schema. Review existing notification triggers/webhooks for duplicate legacy dispatch paths.
+2. Confirm existing base push and canonical URL migrations are applied. Review/apply the new durable-notification migration transactionally in staging first. Verify its tables/RPC grants and publication membership. Coordinate sender/migration/frontend compatibility; do not replay old migrations out of order over the new bridge.
+3. Supabase Edge Function secrets/environment:
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`; `SUPABASE_ANON_KEY` for legacy authenticated connection action (normally platform-provided).
+   - **Existing** `VAPID_PUBLIC_KEY` and matching `VAPID_PRIVATE_KEY`; `VAPID_SUBJECT` (`mailto:` or HTTPS contact).
+   - `PUSH_DISPATCH_SECRET`: sufficiently random server-only value.
+   - `PUSH_ALLOWED_ORIGINS`: comma-separated exact approved origins; default `https://gayze.co.uk`. Add a staging origin explicitly if needed, not `*`.
+   - Keep `ECE_KEYLOG` unset or `0`. Do not enable cryptographic debug logs.
+4. Vault secrets:
+   - `gayze_functions_url`: existing project URL (the owned bridge normalizes `/functions/v1/send-push`).
+   - `gayze_push_dispatch_secret`: exactly matches `PUSH_DISPATCH_SECRET`.
+5. Build-time public client variables:
+   - `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` for the intended project.
+   - `VITE_VAPID_PUBLIC_KEY` matching the **existing** server public key. Do not rotate/recreate the production pair casually: subscriptions are bound to it.
+   - No service role, VAPID private key, dispatch secret or TURN private credential in any `VITE_*` value. Build guards reject common private-key variables.
+6. Approve a scheduler for `select public.gayze_drain_notifications()` (e.g. once/minute via existing Supabase pg_cron). Confirm the existing expiry/safety schedules too. Scheduling is **not** automatically installed or executed by this work.
+7. Confirm HTTPS/root SW scope, existing Cloudflare `_headers`/SPA fallback and SW v3 update on installed clients. No Cloudflare/Vercel hosting change is needed.
+8. For the test-push button, assign the operator role through trusted Supabase administration. The local UI admin flag is not server authorization.
 
----
+No production VAPID pair, Vault value, deployment setting or device subscription was accessed or changed. Do not send private credentials in chat.
 
-## 4. Apply the database migration
+## Validation
 
-```bash
-supabase db push
-```
+- `npm run test:notifications`: actual checked-in migrations in isolated PGlite, real handler with mocked verified-auth/provider boundaries, ownership/unread/duplicates/failures, real-source browser/worker/UI registration/deep-link tests, and documented TURN contract tests.
+- `npm run check:push-server`: actual Deno typecheck (separate from browser TypeScript).
+- `npm run test:push-hardening`: real-source worker/enrollment regressions for display receipts, visible tagged replay, routing fallbacks, direct permission, Apple host validation, authenticated recovery, interrupted cleanup and account/tab concurrency.
+- `npm run test:push-crypto`: real Web Push library encrypt/decrypt round-trip and ES256 VAPID signature/audience validation with generated test keys; no network permission/provider request.
+- Existing `test:push-sw`, encryption and recovery suites remain intact.
 
-Creates, all with RLS forced on:
+Provider acceptance on a real subscription, APNs/OS delivery, physical iOS foreground/background behavior, Focus settings, permission gestures and lock-screen/cold-start taps require staging credentials and devices. **A passing local test is not evidence of production delivery.**
 
-* `push_subscriptions` — unique on `endpoint`; a user can only select/insert/
-  update/delete **their own** rows. Insert is gated by
-  `with check (user_id = auth.uid())`, which is what stops one user attaching
-  another user's device to their account.
-* `notification_preferences` — master switch plus the five categories.
-* `notification_dispatch_log` — service-role only, no user-facing policies.
-  Used for the "notify once per intent" anti-spam guarantee.
-
-Plus `push_category_enabled()` (server-side preference gate),
-`request_push_dispatch()` (pg_net call into the Edge Function) and an
-`AFTER INSERT` trigger on `messages`.
-
-### The base schema is NOT in this repository
-
-`profiles`, `messages`, `conversations`, `conversation_members`, `intents`,
-`interests` and `safety_checkins` are created outside this repo (see
-`docs/BACKEND_REQUIREMENTS.md`), as is the `submit_interest` RPC. The migration
-therefore never alters them, and:
-
-* **Preflight** — every object it creates carries a `gayze-push:` comment. If a
-  function/table of the same name exists *without* that comment the migration
-  aborts before changing anything, instead of overwriting it. (`touch_updated_at`
-  is deliberately not used; the push tables have their own
-  `gayze_push_set_updated_at()`.)
-* **`messages` trigger** — installed only if `public.messages` is a real table
-  with `id`, `conversation_id`, `sender_id`; otherwise skipped with a `WARNING`.
-  The trigger body can never raise, so it cannot abort a message insert.
-* **Sweeps** — no-op with a `WARNING` if their tables/columns are missing.
-* **No `interests` trigger.** See "Connection notification" below.
-
-Before applying, confirm in the live project (SQL editor):
-
-```sql
-select table_name, column_name from information_schema.columns
-where table_schema = 'public' and (
-  (table_name = 'messages'         and column_name in ('id','conversation_id','sender_id')) or
-  (table_name = 'profiles'         and column_name in ('id','display_name')) or
-  (table_name = 'conversation_members' and column_name in ('conversation_id','user_id')) or
-  (table_name = 'intents'          and column_name in ('id','user_id','expires_at','is_paused')) or
-  (table_name = 'safety_checkins'  and column_name in ('id','user_id','status','expires_at')) or
-  (table_name = 'interests')
-) order by 1, 2;
-```
-
-### Cron sweeps
-
-```sql
-select cron.schedule('gayze-intent-expiry', '*/5 * * * *',
-                     $$select public.sweep_expiring_intents()$$);
-select cron.schedule('gayze-safety-expiry', '* * * * *',
-                     $$select public.sweep_expired_safety_checkins()$$);
-```
-
-The safety sweep only considers check-ins that expired in the last hour, so the
-first run cannot replay old check-ins that were never closed.
-
----
-
-## 5. Deploy the Edge Function
-
-```bash
-supabase functions deploy send-push
-```
-
-`verify_jwt` is **off** for this function (see `supabase/config.toml`) because
-it authenticates callers itself:
-
-* `x-gayze-dispatch-secret` for database-trigger dispatches, or
-* `Authorization: Bearer <user JWT>` for the self-targeted test push.
-
-A user-initiated call can only ever target the verified JWT subject — the
-target user is never read from the request body.
-
----
-
-## 6. Deploy the frontend
-
-```bash
-npm run lint
-npm run build
-npx wrangler deploy
-```
-
-Then verify the three public URLs:
-
-```bash
-curl -I https://gayze.co.uk/manifest.webmanifest   # application/manifest+json
-curl -I https://gayze.co.uk/service-worker.js      # text/javascript
-curl -I https://gayze.co.uk/icons/gayze-192.png    # image/png
-```
-
----
-
-## 7. Notification catalogue
-
-| Type | Producer | Title | Click destination | Wired? |
-| --- | --- | --- | --- | --- |
-| `message` | insert on `messages` (trigger) | New message | `/messages/<conversationId>` | yes |
-| `connection` | `submit_interest` RPC result (client -> `send-push`) | New connection | `/messages/<conversationId>` | yes |
-| `intent_expiring` | `sweep_expiring_intents()` cron | Your intent is ending soon | `/profile` | yes (needs cron) |
-| `safety` | `sweep_expired_safety_checkins()` cron | Gayze safety alert | `/profile` | yes (needs cron) |
-| `intent` ("someone is interested") | none yet | Someone is interested | `/right-now` | **no** — needs the `interests` schema / `submit_interest` body |
-| `test` | admin/dev button | Gayze notifications are working | `/profile` | yes |
-
-Message bodies are **end-to-end encrypted**. The server stores ciphertext only
-and therefore cannot — and does not — put message content in a push payload.
-The body is limited to `"<Sender> sent you a message"`.
-
-### Connection notification (mutual interest)
-
-The transition to "mutual" happens inside `submit_interest`, whose definition is
-not in this repo, so no table trigger is used (it could miss the transition or
-fire on the wrong row). The authoritative signal is the RPC's own result:
-
-1. `submitInterest()` gets `{ mutual: true, conversation_id }`.
-2. It calls `send-push` with `{ action: 'connection', conversationId }` and the
-   caller's JWT (fire-and-forget; never affects the interest flow).
-3. `send-push` verifies the JWT, loads `conversation_members`, requires exactly
-   two members including the caller, and derives the recipient (the *other*
-   member) itself — the request body never names a recipient.
-4. It claims `('connection', conversationId)` in `notification_dispatch_log`
-   (anchored to a canonical member so either side contends for the same slot):
-   exactly one push per conversation, however often or from whichever side it is
-   called.
-5. It then applies the recipient's preferences (`push_category_enabled`).
-
-Limitation: a client that never reports the mutual result (app killed between
-the RPC returning and the follow-up call) sends no push. If you want that
-closed, make `submit_interest` itself call `public.request_push_dispatch(...)`
-at the mutual transition once its body is reviewed.
-
----
-
-## 8. Privacy and security properties
-
-* The VAPID private key exists only in Edge Function secrets.
-* The service-role key is never referenced by frontend code.
-* RLS is `force`d on every new table; no cross-user read path exists.
-* Preferences are enforced **server-side** in `send-push` via
-  `push_category_enabled()`, not only in the UI.
-* Endpoints reported as `404`/`410` by the push service are deleted
-  immediately, so dead devices are not retained.
-* **Shared devices / sign-out.** Before the session is removed, sign-out
-  (1) unsubscribes this browser from `PushManager` and (2) deletes this
-  endpoint's `push_subscriptions` row under the signed-in user's own RLS. Both
-  are bounded (2.5 s), independent and non-fatal: a failure can never block
-  sign-out, and leaves a `gayze_push_pending_revoke` marker so the browser
-  subscription is revoked on the next app start. If a session ends without the
-  sign-out handler (remote/global sign-out), the `SIGNED_OUT` event revokes the
-  browser subscription locally. The next user never claims an old row: if the
-  browser still holds a subscription they do not own, enabling push revokes it
-  and mints a fresh endpoint. RLS is unchanged.
-* The service worker never caches cross-origin traffic (Supabase REST,
-  Realtime, Auth, Storage), never caches non-GET requests, and never caches a
-  request carrying an `Authorization` header.
-* Push payload URLs are resolved against the worker's own origin. A payload
-  cannot navigate Gayze off-origin, and in production cannot resolve to
-  localhost.
-
----
-
-## 9. iOS behaviour
-
-iOS only exposes `PushManager` to a site installed on the Home Screen.
-
-* If Gayze is opened in iOS Safari (not installed), `getPushEnvironment()`
-  returns `blockedBy: 'ios-needs-install'` and the UI explains
-  *"Add Gayze to your Home Screen to enable notifications."*
-* `InstallPrompt` shows a Share → Add to Home Screen nudge. It backs off for a
-  week per dismissal and stops entirely after three dismissals.
-* Permission is never requested on page load — only from the explicit
-  **Enable notifications** tap, which iOS requires.
-
----
-
-## 10. Acceptance test
-
-1. Open https://gayze.co.uk and sign in with Google.
-2. Share → Add to Home Screen.
-3. Launch Gayze from the Home Screen.
-4. Profile → Notifications → **Enable notifications** → Allow.
-5. Confirm a row appears in `push_subscriptions` for your user.
-6. Tap **Send test notification** (dev/admin only).
-7. Lock the device; the notification appears on the Lock Screen.
-8. Tap it — Gayze opens/focuses and routes to the destination.
-9. Send a message from a second account and confirm a real OS notification.
-
-The admin test button is gated by `import.meta.env.DEV` or
-`localStorage.setItem('gayze_admin', 'true')`.
+Current local hardening evidence and remaining release gates: [iPhone push hardening report](IPHONE_PUSH_HARDENING_REPORT_2026-10-01.md). **Release remains HOLD; no physical iPhone lock-screen delivery has been verified.**

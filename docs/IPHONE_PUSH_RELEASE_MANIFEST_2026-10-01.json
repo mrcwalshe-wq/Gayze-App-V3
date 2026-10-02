@@ -1,0 +1,1036 @@
+{
+  "date": "2026-10-01",
+  "branch": "arena/01a0f3ee-gayze-app-v3",
+  "head": "1190d6ab220b2658678b66136f95a21810b2f306",
+  "no_commit_push_deploy_or_project_migration": true,
+  "decision": "HOLD: additional offline push audit findings, private production configuration and physical iPhone proof unresolved",
+  "file_count": 74,
+  "this_pass_files": [
+    "docs/IPHONE_PUSH_RELEASE_CHECKLIST_2026-10-01.md",
+    "docs/IPHONE_PUSH_RELEASE_MANIFEST_2026-10-01.json",
+    "scripts/notification-tests/crypto.deno.ts",
+    "scripts/release-candidate/iphone-push-audit.mjs",
+    "scripts/release-candidate/push-production-preflight.sql"
+  ],
+  "self_hash_note": "This manifest has a null hash to avoid recursive self-hashing. All other hashes include final document content.",
+  "commits": [
+    {
+      "order": 1,
+      "subject": "fix: consolidate recovery, encrypted chat and durable Web Push candidate",
+      "status": "proposed only; hardening/disposition and explicit approval required",
+      "paths": [
+        ".env.example",
+        "eslint.recovery.config.mjs",
+        "package-lock.json",
+        "package.json",
+        "public/service-worker.js",
+        "scripts/chat-intent-tests/fixtures.mjs",
+        "scripts/chat-intent-tests/service.test.mjs",
+        "scripts/chat-intent-tests/ui.test.mjs",
+        "scripts/chat-tests/benchmark.ts",
+        "scripts/chat-tests/client.test.mjs",
+        "scripts/chat-tests/fixtures.ts",
+        "scripts/chat-tests/processing.test.ts",
+        "scripts/notification-tests/client.test.mjs",
+        "scripts/notification-tests/crypto.deno.ts",
+        "scripts/notification-tests/pipeline.test.ts",
+        "scripts/notification-tests/turn-contract.test.ts",
+        "scripts/recovery-tests/load-module.mjs",
+        "scripts/recovery-tests/recovery.test.ts",
+        "scripts/recovery-tests/security.test.mjs",
+        "scripts/recovery-tests/ui.test.mjs",
+        "scripts/recovery-tests/webrtc.test.mjs",
+        "scripts/release-candidate/history.test.ts",
+        "scripts/release-candidate/iphone-push-audit.mjs",
+        "scripts/release-candidate/preflight.sql",
+        "scripts/release-candidate/push-production-preflight.sql",
+        "scripts/release-candidate/trace-chat.mjs",
+        "scripts/release-candidate/traceHarness.ts",
+        "scripts/release-candidate/ui.test.mjs",
+        "src/App.tsx",
+        "src/components/ChatRoomView.tsx",
+        "src/components/DiscoverView.tsx",
+        "src/components/Navbar.tsx",
+        "src/components/NotificationsModal.tsx",
+        "src/components/PeerIntentBanner.tsx",
+        "src/components/RightNowView.tsx",
+        "src/components/SetIntentSheet.tsx",
+        "src/index.css",
+        "src/services/chatHistoryOwnership.ts",
+        "src/services/chatMessageProcessing.ts",
+        "src/services/chatSubscriptions.ts",
+        "src/services/chatTrace.ts",
+        "src/services/conversationRooms.ts",
+        "src/services/directChatRouting.ts",
+        "src/services/iceCredentials.ts",
+        "src/services/intentTiming.ts",
+        "src/services/messageAlerts.ts",
+        "src/services/messageMerge.ts",
+        "src/services/notificationInbox.ts",
+        "src/services/notificationRouting.ts",
+        "src/services/peerIntent.ts",
+        "src/services/profilePhotoService.ts",
+        "src/services/pushService.ts",
+        "src/services/realtimeRecovery.ts",
+        "src/services/supabaseService.ts",
+        "src/services/webrtcService.ts",
+        "src/types.ts",
+        "supabase/functions/deno.json",
+        "supabase/functions/send-push/handler.ts",
+        "supabase/functions/send-push/index.ts",
+        "supabase/migrations/20261002100000_durable_notifications.sql",
+        "vite.config.ts"
+      ]
+    },
+    {
+      "order": 2,
+      "subject": "docs: record release evidence and iPhone push deployment gates",
+      "status": "proposed only; explicit approval required",
+      "paths": [
+        "docs/CHAT_AUDIT_2026-10-01.md",
+        "docs/CHAT_INTENT_FOLLOWUP_2026-10-01.md",
+        "docs/IPHONE_PUSH_RELEASE_CHECKLIST_2026-10-01.md",
+        "docs/IPHONE_PUSH_RELEASE_MANIFEST_2026-10-01.json",
+        "docs/PATCH_1_REVIEW.md",
+        "docs/PUSH_NOTIFICATIONS.md",
+        "docs/RECOVERY_IMPLEMENTATION_REPORT.md",
+        "docs/RELEASE_CANDIDATE_INVENTORY.json",
+        "docs/RELEASE_CANDIDATE_REPORT.md",
+        "docs/RELEASE_READINESS.md",
+        "docs/TURN_CREDENTIAL_CONTRACT.md",
+        "scripts/review-patch-1.mjs"
+      ]
+    }
+  ],
+  "validation": [
+    {
+      "command": "npm run lint",
+      "exit": 0,
+      "seconds": 1.53,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run typecheck",
+      "exit": 0,
+      "seconds": 1.48,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run lint:recovery",
+      "exit": 0,
+      "seconds": 2.39,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:notifications",
+      "exit": 0,
+      "seconds": 9.22,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:push-sw",
+      "exit": 0,
+      "seconds": 0.22,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:chat-intent",
+      "exit": 0,
+      "seconds": 4.5,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:rc",
+      "exit": 0,
+      "seconds": 2.81,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:chat",
+      "exit": 0,
+      "seconds": 3.87,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:recovery",
+      "exit": 0,
+      "seconds": 8.45,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:e2ee",
+      "exit": 0,
+      "seconds": 0.42,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:discovery",
+      "exit": 0,
+      "seconds": 15.36,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:interaction",
+      "exit": 0,
+      "seconds": 6.85,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run check:push-server",
+      "exit": 0,
+      "seconds": 5.95,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:push-crypto",
+      "exit": 0,
+      "seconds": 2.75,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run build",
+      "exit": 0,
+      "seconds": 1.79,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "npm run test:push-sql",
+      "exit": 1,
+      "seconds": 0.22,
+      "classification": "separate-baseline"
+    },
+    {
+      "command": "npm run test:push-e2e",
+      "exit": 1,
+      "seconds": 0.17,
+      "classification": "separate-baseline"
+    },
+    {
+      "command": "npm run test:inspect-script",
+      "exit": 1,
+      "seconds": 3.54,
+      "classification": "separate-baseline"
+    },
+    {
+      "command": "npm run test:profile-migration",
+      "exit": 1,
+      "seconds": 0.22,
+      "classification": "separate-baseline"
+    },
+    {
+      "command": "npm run test:profile",
+      "exit": 1,
+      "seconds": 3.45,
+      "classification": "separate-baseline"
+    },
+    {
+      "command": "npx --yes wrangler@4.145.0 deploy --dry-run --outdir .cache/iphone-readiness/cloudflare",
+      "exit": 0,
+      "seconds": 13.96,
+      "classification": "candidate-validation"
+    },
+    {
+      "command": "node scripts/release-candidate/iphone-push-audit.mjs",
+      "exit": 1,
+      "seconds": 0.92,
+      "classification": "release-audit-findings"
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0,
+      "seconds": 0.02,
+      "classification": "candidate-validation"
+    }
+  ],
+  "offline_audit": {
+    "environment": "offline real-source audit with simulated browser/auth boundaries; no physical iPhone or provider calls",
+    "observations": {
+      "displayFailure": {
+        "firstAttempts": 1,
+        "firstDisplayed": 0,
+        "replayDisplayed": 0
+      },
+      "replayDisplaysVisibleNotification": false,
+      "staleWindowClick": {
+        "clickRejected": true,
+        "fallbackWindows": 0
+      },
+      "appleEndpoints": {
+        "canonical": true,
+        "alternativeSubdomain": false
+      },
+      "expiredSubscriptionMatrix": [
+        {
+          "providerStatus": 404,
+          "response": 200,
+          "pruned": true,
+          "state": "expired",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 410,
+          "response": 200,
+          "pruned": true,
+          "state": "expired",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 401,
+          "response": 200,
+          "pruned": false,
+          "state": "failed",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 403,
+          "response": 200,
+          "pruned": false,
+          "state": "failed",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 429,
+          "response": 200,
+          "pruned": false,
+          "state": "failed",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 500,
+          "response": 200,
+          "pruned": false,
+          "state": "failed",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": "timeout",
+          "response": 200,
+          "pruned": false,
+          "state": "unknown",
+          "attempts": 1,
+          "noticeRetained": true
+        }
+      ],
+      "permissionRequestedBeforeWorkerReady": false,
+      "strictGestureSimulation": {
+        "ok": false,
+        "blockedBy": "permission-denied",
+        "reason": "Notifications are blocked for Gayze. Enable them in your device settings, then try again."
+      },
+      "resyncCallSitesInApp": 1
+    },
+    "findings": [
+      {
+        "id": "display-receipt-order",
+        "severity": "blocker",
+        "evidence": "Receipt survives showNotification rejection; replay after restart never retries display."
+      },
+      {
+        "id": "apple-visible-replay",
+        "severity": "platform-policy-risk",
+        "evidence": "Duplicate push event returns without showNotification. Requires review against Apple userVisibleOnly policy, not an exactly-once claim."
+      },
+      {
+        "id": "click-fallback",
+        "severity": "blocker",
+        "evidence": "A rejecting window.focus aborts click routing without openWindow fallback. Warm routing also has no SPA-ready acknowledgement."
+      },
+      {
+        "id": "apple-host-contract",
+        "severity": "compatibility-risk",
+        "evidence": "Only web.push.apple.com is accepted; official Apple guidance allows any subdomain of push.apple.com. Other such hosts are classified invalid and pruned. No actual device hostname was inspected."
+      },
+      {
+        "id": "permission-gesture",
+        "severity": "device-risk",
+        "evidence": "requestPermission runs only after awaiting serviceWorker.ready. A slow first activation can outlive user activation; strict-gesture simulation fails. Physical Safari behavior untested."
+      },
+      {
+        "id": "rotation-on-launch",
+        "severity": "recovery-gap",
+        "evidence": "Only SW PUSH_SUBSCRIPTION_CHANGED calls resync in App. No authenticated launch/resume call repairs a rotation missed while no window was open. User may need to enable again."
+      }
+    ]
+  },
+  "public_observations": {
+    "method": "read-only fetch_page (raw headers unavailable); direct sandbox HTTPS probes failed TLS EOF",
+    "service_worker": "https://gayze.co.uk/service-worker.js returned gayze-sw-v2",
+    "manifest": "https://gayze.co.uk/manifest.webmanifest returned standalone/root-scope production metadata",
+    "conversation_deep_link": "dummy conversation URL returned sign-in shell; no authenticated conversation accessed",
+    "sender": "https://qdewyupsqmtonkloqxsh.supabase.co/functions/v1/send-push returned {\"error\":\"Method not allowed\"}; configuration/version/delivery not verified"
+  },
+  "files": [
+    {
+      "path": ".env.example",
+      "status": " M",
+      "sha256": "2baeeb4d7eb313b6f199325e7e414e97a760a6c6bec735ff859ad0f5f32282dc",
+      "before_this_pass_sha256": "2baeeb4d7eb313b6f199325e7e414e97a760a6c6bec735ff859ad0f5f32282dc",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/CHAT_AUDIT_2026-10-01.md",
+      "status": "??",
+      "sha256": "98d4429fc89bfd639f231d5a948d339a3aeb41c328604de2909d048415e6ddad",
+      "before_this_pass_sha256": "98d4429fc89bfd639f231d5a948d339a3aeb41c328604de2909d048415e6ddad",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/CHAT_INTENT_FOLLOWUP_2026-10-01.md",
+      "status": "??",
+      "sha256": "f889cbcde6841fcd832899a1c9c8a7f94cea1e1349a60b51346f2da67978c509",
+      "before_this_pass_sha256": "f889cbcde6841fcd832899a1c9c8a7f94cea1e1349a60b51346f2da67978c509",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/IPHONE_PUSH_RELEASE_CHECKLIST_2026-10-01.md",
+      "status": "??",
+      "sha256": "89e4bb747d01fdc503baffb1c689fa28441dce1aca27e0abed478f624f58125b",
+      "before_this_pass_sha256": null,
+      "this_pass": "new",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/IPHONE_PUSH_RELEASE_MANIFEST_2026-10-01.json",
+      "status": "??",
+      "sha256": null,
+      "before_this_pass_sha256": null,
+      "this_pass": "new",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/PATCH_1_REVIEW.md",
+      "status": "??",
+      "sha256": "a248d7ebc3c88c428c7a438d639996d01c2a3495a66479e8a49758dd8668d975",
+      "before_this_pass_sha256": "a248d7ebc3c88c428c7a438d639996d01c2a3495a66479e8a49758dd8668d975",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/PUSH_NOTIFICATIONS.md",
+      "status": " M",
+      "sha256": "3bba43605af2263754cc011260156c807bc18dd0676aab42c5cb58a121dc2e84",
+      "before_this_pass_sha256": "3bba43605af2263754cc011260156c807bc18dd0676aab42c5cb58a121dc2e84",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/RECOVERY_IMPLEMENTATION_REPORT.md",
+      "status": "??",
+      "sha256": "dd6169dbeab0c83d6e42461c5b49a70388478217498aeb58f16de56bc86d522d",
+      "before_this_pass_sha256": "dd6169dbeab0c83d6e42461c5b49a70388478217498aeb58f16de56bc86d522d",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/RELEASE_CANDIDATE_INVENTORY.json",
+      "status": "??",
+      "sha256": "b8e672c9de5e18272a1e5b1aca0aa964ce624eb84bc7ba56c80c645be433d63a",
+      "before_this_pass_sha256": "b8e672c9de5e18272a1e5b1aca0aa964ce624eb84bc7ba56c80c645be433d63a",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/RELEASE_CANDIDATE_REPORT.md",
+      "status": "??",
+      "sha256": "33dbd11a88c1d1fa9447c8a3bbfb24d061747499ab8608fa9588eb2e7dd823b6",
+      "before_this_pass_sha256": "33dbd11a88c1d1fa9447c8a3bbfb24d061747499ab8608fa9588eb2e7dd823b6",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/RELEASE_READINESS.md",
+      "status": "??",
+      "sha256": "aa4f6dcfbdbdd1620fadf527c646973dbbcfebbc10853889c4adffc633f197f5",
+      "before_this_pass_sha256": "aa4f6dcfbdbdd1620fadf527c646973dbbcfebbc10853889c4adffc633f197f5",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "docs/TURN_CREDENTIAL_CONTRACT.md",
+      "status": "??",
+      "sha256": "a7df908559220bdaa75a49b3599b8fef09d23a731c3f386758ea4d8419376de2",
+      "before_this_pass_sha256": "a7df908559220bdaa75a49b3599b8fef09d23a731c3f386758ea4d8419376de2",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "eslint.recovery.config.mjs",
+      "status": "??",
+      "sha256": "56c7a506793e5837e78e6148dc894f20ee1c2bdd64d2b949d8378a73be0e0d2a",
+      "before_this_pass_sha256": "56c7a506793e5837e78e6148dc894f20ee1c2bdd64d2b949d8378a73be0e0d2a",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "package-lock.json",
+      "status": " M",
+      "sha256": "3f9c1042a399a9d86f51d418cff6bbd97d1169d7c88f2c2b6ecd8ae67db77df3",
+      "before_this_pass_sha256": "3f9c1042a399a9d86f51d418cff6bbd97d1169d7c88f2c2b6ecd8ae67db77df3",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "package.json",
+      "status": " M",
+      "sha256": "78483c419d3eae775ccbe751d64a2757c617f69d6e139871af7b4e46a2c95942",
+      "before_this_pass_sha256": "78483c419d3eae775ccbe751d64a2757c617f69d6e139871af7b4e46a2c95942",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "patch 1",
+      "status": "??",
+      "sha256": "c17b00ece307a9ff5da5339271c0ec3e7fb253fc7f7d3bcbe605e8dcc5b1540b",
+      "before_this_pass_sha256": "c17b00ece307a9ff5da5339271c0ec3e7fb253fc7f7d3bcbe605e8dcc5b1540b",
+      "this_pass": "unchanged",
+      "proposed_commit": null,
+      "excluded_reason": "Unapplied patch; not release source"
+    },
+    {
+      "path": "public/service-worker.js",
+      "status": " M",
+      "sha256": "55b107a48177fd6d9993326d4df3dd77ca6db0fe01eee84840e4deb861596a04",
+      "before_this_pass_sha256": "55b107a48177fd6d9993326d4df3dd77ca6db0fe01eee84840e4deb861596a04",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/chat-intent-tests/fixtures.mjs",
+      "status": "??",
+      "sha256": "af3a9ce1b5a0bd263f7f1760b49124689040245ca0886fbc01ce6c4552267e2c",
+      "before_this_pass_sha256": "af3a9ce1b5a0bd263f7f1760b49124689040245ca0886fbc01ce6c4552267e2c",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/chat-intent-tests/service.test.mjs",
+      "status": "??",
+      "sha256": "ae2cc9706a9e51287071e9baaab48ea4085024ccd8c7398fce4086354210e733",
+      "before_this_pass_sha256": "ae2cc9706a9e51287071e9baaab48ea4085024ccd8c7398fce4086354210e733",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/chat-intent-tests/ui.test.mjs",
+      "status": "??",
+      "sha256": "2b23c054800fd8535520d11cf859dc84f4a0f5845e8d488c592491ee510f4bef",
+      "before_this_pass_sha256": "2b23c054800fd8535520d11cf859dc84f4a0f5845e8d488c592491ee510f4bef",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/chat-tests/benchmark.ts",
+      "status": "??",
+      "sha256": "4be876e19091f7e269fef1e4a9e8bbd2078f5763ca33fe625a3c423b3f70b572",
+      "before_this_pass_sha256": "4be876e19091f7e269fef1e4a9e8bbd2078f5763ca33fe625a3c423b3f70b572",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/chat-tests/client.test.mjs",
+      "status": "??",
+      "sha256": "1aae68236dddc1c4ff3b6f6a41a79b821231a3618ca1ea5263074eab3242de7e",
+      "before_this_pass_sha256": "1aae68236dddc1c4ff3b6f6a41a79b821231a3618ca1ea5263074eab3242de7e",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/chat-tests/fixtures.ts",
+      "status": "??",
+      "sha256": "ef7f8bc404e74db6b1c4a054c8e82d8ad10c2d4ced18a3640b30074491eefecd",
+      "before_this_pass_sha256": "ef7f8bc404e74db6b1c4a054c8e82d8ad10c2d4ced18a3640b30074491eefecd",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/chat-tests/processing.test.ts",
+      "status": "??",
+      "sha256": "62fbafb6bed7228ea5fa0b26267a35657833066cd973343012cabd5dcda3bf07",
+      "before_this_pass_sha256": "62fbafb6bed7228ea5fa0b26267a35657833066cd973343012cabd5dcda3bf07",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/notification-tests/client.test.mjs",
+      "status": "??",
+      "sha256": "129bd1facbc8b217f64fe6dfb174a42fc271869ab01bd311b78dfc98cea7b483",
+      "before_this_pass_sha256": "129bd1facbc8b217f64fe6dfb174a42fc271869ab01bd311b78dfc98cea7b483",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/notification-tests/crypto.deno.ts",
+      "status": "??",
+      "sha256": "c85c33b153d2009c068f7f87556d07836f911a456e54f4c999aa1454d080dc1e",
+      "before_this_pass_sha256": "e331080e313c83575365c55db482b85002b197385da1831ad29e050aff31c5c3",
+      "this_pass": "modified",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/notification-tests/pipeline.test.ts",
+      "status": "??",
+      "sha256": "a915fabf70876b556b5e1498d4346fdbed20e53b718fbe69147c8f94eded3428",
+      "before_this_pass_sha256": "a915fabf70876b556b5e1498d4346fdbed20e53b718fbe69147c8f94eded3428",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/notification-tests/turn-contract.test.ts",
+      "status": "??",
+      "sha256": "5a4a03994683df68a6bd72da8fd7dfc84567558a336ad9c9d4df66cdf370eae8",
+      "before_this_pass_sha256": "5a4a03994683df68a6bd72da8fd7dfc84567558a336ad9c9d4df66cdf370eae8",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/recovery-tests/load-module.mjs",
+      "status": "??",
+      "sha256": "7ea9c700b7a3580dbc96e4fd8a773c701348fd0ee68703f2caf4c8b565dff02c",
+      "before_this_pass_sha256": "7ea9c700b7a3580dbc96e4fd8a773c701348fd0ee68703f2caf4c8b565dff02c",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/recovery-tests/recovery.test.ts",
+      "status": "??",
+      "sha256": "6a7f8de4bff4d1a0d629f9709ee9c451e5aa59b5bae21b428eaf2f1a062d13b3",
+      "before_this_pass_sha256": "6a7f8de4bff4d1a0d629f9709ee9c451e5aa59b5bae21b428eaf2f1a062d13b3",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/recovery-tests/security.test.mjs",
+      "status": "??",
+      "sha256": "5d39f4685aefcf78dce05b2049cf9eca02f362cc92f065749f601cabee254408",
+      "before_this_pass_sha256": "5d39f4685aefcf78dce05b2049cf9eca02f362cc92f065749f601cabee254408",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/recovery-tests/ui.test.mjs",
+      "status": "??",
+      "sha256": "d1ffa9e9931f42642ae9742ea217262f6c29b7bdf4e35822c6b363014542627d",
+      "before_this_pass_sha256": "d1ffa9e9931f42642ae9742ea217262f6c29b7bdf4e35822c6b363014542627d",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/recovery-tests/webrtc.test.mjs",
+      "status": "??",
+      "sha256": "8c6e493ed7396b976862f4e96adadf89638d9a2357621322b33191b0d1d5078b",
+      "before_this_pass_sha256": "8c6e493ed7396b976862f4e96adadf89638d9a2357621322b33191b0d1d5078b",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/release-candidate/history.test.ts",
+      "status": "??",
+      "sha256": "4a14b2adadf23b498ce5063a1912d1a410184cc2f6e83018e8fbc1bb5fef290f",
+      "before_this_pass_sha256": "4a14b2adadf23b498ce5063a1912d1a410184cc2f6e83018e8fbc1bb5fef290f",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/release-candidate/iphone-push-audit.mjs",
+      "status": "??",
+      "sha256": "e5d36affc6a15e5b204038e71ab5ca3418877a6c9d04f2166df501a6f5d70231",
+      "before_this_pass_sha256": null,
+      "this_pass": "new",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/release-candidate/preflight.sql",
+      "status": "??",
+      "sha256": "a0cc4314274fe4642124678f8414ca256bc528c434c453d8411e8a08f8b48b0e",
+      "before_this_pass_sha256": "a0cc4314274fe4642124678f8414ca256bc528c434c453d8411e8a08f8b48b0e",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/release-candidate/push-production-preflight.sql",
+      "status": "??",
+      "sha256": "e6984c57c81789f929134342c5f079b0e8dbb27dfe515db3926c4f0cc29a94b9",
+      "before_this_pass_sha256": null,
+      "this_pass": "new",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/release-candidate/trace-chat.mjs",
+      "status": "??",
+      "sha256": "ee82b1bcd4082e7b12be173689e0f4d3f0dd8e41a376bdb53969ad09721efdc3",
+      "before_this_pass_sha256": "ee82b1bcd4082e7b12be173689e0f4d3f0dd8e41a376bdb53969ad09721efdc3",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/release-candidate/traceHarness.ts",
+      "status": "??",
+      "sha256": "1c24589e5694ff6dceb62a2de4390640498f0102917182067582701a8d6179bb",
+      "before_this_pass_sha256": "1c24589e5694ff6dceb62a2de4390640498f0102917182067582701a8d6179bb",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/release-candidate/ui.test.mjs",
+      "status": "??",
+      "sha256": "a69dcc6abc4fad62ff30adac8f7ad090ac935339c42b24645df602134025dcf9",
+      "before_this_pass_sha256": "a69dcc6abc4fad62ff30adac8f7ad090ac935339c42b24645df602134025dcf9",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "scripts/review-patch-1.mjs",
+      "status": "??",
+      "sha256": "ec5c1bb81e85d742299c20c4cd723cbe43d85c49c322eeca3cb087b24667183d",
+      "before_this_pass_sha256": "ec5c1bb81e85d742299c20c4cd723cbe43d85c49c322eeca3cb087b24667183d",
+      "this_pass": "unchanged",
+      "proposed_commit": 2,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/App.tsx",
+      "status": " M",
+      "sha256": "a91644f44a6e63e5e835507ea14fb6efc3f14d7ef17ee5aa83af34044b1a3d86",
+      "before_this_pass_sha256": "a91644f44a6e63e5e835507ea14fb6efc3f14d7ef17ee5aa83af34044b1a3d86",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/components/ChatRoomView.tsx",
+      "status": " M",
+      "sha256": "bd080df27749590476dc684fbdc503bacb6e0893fb352e2fffadb2eebcccea4a",
+      "before_this_pass_sha256": "bd080df27749590476dc684fbdc503bacb6e0893fb352e2fffadb2eebcccea4a",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/components/DiscoverView.tsx",
+      "status": " M",
+      "sha256": "b1e220fc7da1656cac64dfa1699955a0599a950647d89a2620c283b7c2946711",
+      "before_this_pass_sha256": "b1e220fc7da1656cac64dfa1699955a0599a950647d89a2620c283b7c2946711",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/components/Navbar.tsx",
+      "status": " M",
+      "sha256": "45e94c933ab7336a588330690e496ff464881ef32902891df7dfde4a8d90129c",
+      "before_this_pass_sha256": "45e94c933ab7336a588330690e496ff464881ef32902891df7dfde4a8d90129c",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/components/NotificationsModal.tsx",
+      "status": " M",
+      "sha256": "4454e4534e5772ff933f6b1e381ca8f75ab312f5df1d8136398b92b6a9f2d9dd",
+      "before_this_pass_sha256": "4454e4534e5772ff933f6b1e381ca8f75ab312f5df1d8136398b92b6a9f2d9dd",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/components/PeerIntentBanner.tsx",
+      "status": "??",
+      "sha256": "b5bfca78f3f15b0f0652540fd98109a33421ee6dea597475bdc7d15c0937cb8a",
+      "before_this_pass_sha256": "b5bfca78f3f15b0f0652540fd98109a33421ee6dea597475bdc7d15c0937cb8a",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/components/RightNowView.tsx",
+      "status": " M",
+      "sha256": "51da0f6df906d187caef574550da9023a7efbcf3f233c815e8799c85c62715fd",
+      "before_this_pass_sha256": "51da0f6df906d187caef574550da9023a7efbcf3f233c815e8799c85c62715fd",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/components/SetIntentSheet.tsx",
+      "status": " M",
+      "sha256": "4c99a9e55b3be6b3f6315fd848590be7dceb7c410a88e946bf6cf2cc9dea1129",
+      "before_this_pass_sha256": "4c99a9e55b3be6b3f6315fd848590be7dceb7c410a88e946bf6cf2cc9dea1129",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/index.css",
+      "status": " M",
+      "sha256": "c04e9679891eb59542fd6032fb70e613071b9841af3c14b9194fd4bf47ddfa9f",
+      "before_this_pass_sha256": "c04e9679891eb59542fd6032fb70e613071b9841af3c14b9194fd4bf47ddfa9f",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/chatHistoryOwnership.ts",
+      "status": "??",
+      "sha256": "12054b4eb520410e9debc31bbde5073271d3016dc43c0987bca8b7a5f8ed700e",
+      "before_this_pass_sha256": "12054b4eb520410e9debc31bbde5073271d3016dc43c0987bca8b7a5f8ed700e",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/chatMessageProcessing.ts",
+      "status": "??",
+      "sha256": "993b688c25d9077ab3efc41866b3fda64ab528b5e62b26611ee695256e213a6c",
+      "before_this_pass_sha256": "993b688c25d9077ab3efc41866b3fda64ab528b5e62b26611ee695256e213a6c",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/chatSubscriptions.ts",
+      "status": "??",
+      "sha256": "926c0d658e7f9903b0d5cec1c0b23dc379cd2c425caa64d144bae4bdfdbefce9",
+      "before_this_pass_sha256": "926c0d658e7f9903b0d5cec1c0b23dc379cd2c425caa64d144bae4bdfdbefce9",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/chatTrace.ts",
+      "status": "??",
+      "sha256": "680aeb65c182fff45a4ef593277cbd42c8bd24cca8cd304a78790423ae8c20a9",
+      "before_this_pass_sha256": "680aeb65c182fff45a4ef593277cbd42c8bd24cca8cd304a78790423ae8c20a9",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/conversationRooms.ts",
+      "status": " M",
+      "sha256": "edaf45d634f8a52c18a0e5f8e16bd700efe2b0c5a0d7cd182e03e40e2514347a",
+      "before_this_pass_sha256": "edaf45d634f8a52c18a0e5f8e16bd700efe2b0c5a0d7cd182e03e40e2514347a",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/directChatRouting.ts",
+      "status": "??",
+      "sha256": "17acb4eba07744b709b47ee9ab544dc42fb8c7071cfab5c47880737bf1a52433",
+      "before_this_pass_sha256": "17acb4eba07744b709b47ee9ab544dc42fb8c7071cfab5c47880737bf1a52433",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/iceCredentials.ts",
+      "status": "??",
+      "sha256": "3b1aefd020023e20ead0777e520671720d99e71d0769eadb15bfe4139c66dc0f",
+      "before_this_pass_sha256": "3b1aefd020023e20ead0777e520671720d99e71d0769eadb15bfe4139c66dc0f",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/intentTiming.ts",
+      "status": "??",
+      "sha256": "93a28f0566a659348fb8365b4fc523cddb347935892a8e1d21aa0fe1a6f51f49",
+      "before_this_pass_sha256": "93a28f0566a659348fb8365b4fc523cddb347935892a8e1d21aa0fe1a6f51f49",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/messageAlerts.ts",
+      "status": "??",
+      "sha256": "50a92969bab6e6396dc5484804cb667cf5c2192ccc174d4acc4246422be51ceb",
+      "before_this_pass_sha256": "50a92969bab6e6396dc5484804cb667cf5c2192ccc174d4acc4246422be51ceb",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/messageMerge.ts",
+      "status": "??",
+      "sha256": "cda250c746d2d05ea7a5d32f72bf96e999f5c063839b6407be2e02f218fd8b08",
+      "before_this_pass_sha256": "cda250c746d2d05ea7a5d32f72bf96e999f5c063839b6407be2e02f218fd8b08",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/notificationInbox.ts",
+      "status": "??",
+      "sha256": "8c9df0e34d7b2cfe660ecca3459bd9a85129e5ff848839c15387fc72bd3ec4fd",
+      "before_this_pass_sha256": "8c9df0e34d7b2cfe660ecca3459bd9a85129e5ff848839c15387fc72bd3ec4fd",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/notificationRouting.ts",
+      "status": " M",
+      "sha256": "09c3655153ca58f431637eb2f53f48e7811b1f8eea8446dd4e78355a0dc04a17",
+      "before_this_pass_sha256": "09c3655153ca58f431637eb2f53f48e7811b1f8eea8446dd4e78355a0dc04a17",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/peerIntent.ts",
+      "status": "??",
+      "sha256": "cf6c53b793025e99a73c14b90f972b792fd564d0a3b0b69fdfac7b183b05e50c",
+      "before_this_pass_sha256": "cf6c53b793025e99a73c14b90f972b792fd564d0a3b0b69fdfac7b183b05e50c",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/profilePhotoService.ts",
+      "status": " M",
+      "sha256": "1854211c4dd33c0115e213f1c453160119e3b2f780f0d6182b4e7c569075bff7",
+      "before_this_pass_sha256": "1854211c4dd33c0115e213f1c453160119e3b2f780f0d6182b4e7c569075bff7",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/pushService.ts",
+      "status": " M",
+      "sha256": "0d76c145f657b53189578dafc9e0266f0b866b1816d8f7885560af94bd380f4e",
+      "before_this_pass_sha256": "0d76c145f657b53189578dafc9e0266f0b866b1816d8f7885560af94bd380f4e",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/realtimeRecovery.ts",
+      "status": "??",
+      "sha256": "764a5cb0e9e0d2df096f0d67dcbd8209a95983f9db541e2a45868aecc4303994",
+      "before_this_pass_sha256": "764a5cb0e9e0d2df096f0d67dcbd8209a95983f9db541e2a45868aecc4303994",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/supabaseService.ts",
+      "status": " M",
+      "sha256": "e4ef09124acbaea68d186f8d9dfd7fd3dbcd9b2d844ab512f12ae34dafeca817",
+      "before_this_pass_sha256": "e4ef09124acbaea68d186f8d9dfd7fd3dbcd9b2d844ab512f12ae34dafeca817",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/services/webrtcService.ts",
+      "status": " M",
+      "sha256": "20d30b215d7af84926b9d63aa46ffc0e7f400dea5f82f84c885b4edbd14a42a1",
+      "before_this_pass_sha256": "20d30b215d7af84926b9d63aa46ffc0e7f400dea5f82f84c885b4edbd14a42a1",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "src/types.ts",
+      "status": " M",
+      "sha256": "71cbfa30559966c02f61b1d160d7c411a125a485d998f3dcf86a2155e617f7ec",
+      "before_this_pass_sha256": "71cbfa30559966c02f61b1d160d7c411a125a485d998f3dcf86a2155e617f7ec",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "supabase/functions/deno.json",
+      "status": " M",
+      "sha256": "23d47b0e6c10eded7eeec22c5b490d09f866841655ae48850212dea112dcf9dc",
+      "before_this_pass_sha256": "23d47b0e6c10eded7eeec22c5b490d09f866841655ae48850212dea112dcf9dc",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "supabase/functions/send-push/handler.ts",
+      "status": "??",
+      "sha256": "b92249bfa10cc846df983eebf9044cc95651e8720cb3e52dc6663e3c5be9ca8e",
+      "before_this_pass_sha256": "b92249bfa10cc846df983eebf9044cc95651e8720cb3e52dc6663e3c5be9ca8e",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "supabase/functions/send-push/index.ts",
+      "status": " M",
+      "sha256": "3f248881878a9d1fe692d25211adf60280aa1ee3461a79d3d419f71310ff7dd0",
+      "before_this_pass_sha256": "3f248881878a9d1fe692d25211adf60280aa1ee3461a79d3d419f71310ff7dd0",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "supabase/migrations/20261002100000_durable_notifications.sql",
+      "status": "??",
+      "sha256": "5bab93512ccc65fedc45967bbdc9dd8480dcd1a435c80dc285d17152260cc423",
+      "before_this_pass_sha256": "5bab93512ccc65fedc45967bbdc9dd8480dcd1a435c80dc285d17152260cc423",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    },
+    {
+      "path": "vite.config.ts",
+      "status": " M",
+      "sha256": "b29542863a03927ba2ade57bcd2d79082f9d5bc7cd846432bce7a9088eeb0db1",
+      "before_this_pass_sha256": "b29542863a03927ba2ade57bcd2d79082f9d5bc7cd846432bce7a9088eeb0db1",
+      "this_pass": "unchanged",
+      "proposed_commit": 1,
+      "excluded_reason": null
+    }
+  ]
+}
