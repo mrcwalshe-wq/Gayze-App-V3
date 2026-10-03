@@ -59,12 +59,12 @@ export async function markNotificationRead(id?: string, conversationId?: string)
     // notification belongs to the currently authenticated account. The RPC
     // remains owner-scoped as the authoritative server-side check.
     const { data: user, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) return;
+    if (userError || !user?.user?.id) return;
     const { data: owned, error: ownershipError } = await supabase
       .from('gayze_notifications')
       .select('id')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', user.user.id)
       .maybeSingle();
     if (ownershipError || !owned) return;
   }

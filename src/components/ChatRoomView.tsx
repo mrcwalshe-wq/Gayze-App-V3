@@ -29,7 +29,8 @@ import {
   MapPin,
   Coffee,
   Image as ImageIcon,
-  MoreHorizontal
+  MoreHorizontal,
+  Trash2
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
@@ -46,6 +47,8 @@ interface ChatRoomViewProps {
   currentUserId?: string | null;
   onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string, messageId?: string) => Promise<void>;
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
+  /** Removes only the current user's membership; resolves once the backend confirms. */
+  onDeleteChat?: (roomId: string) => Promise<void>;
   onOpenQR?: (peerName?: string) => void;
   onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
@@ -71,6 +74,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   currentUserId,
   onSendMessage,
   onUpdateRoomTtl,
+  onDeleteChat,
   onOpenQR,
   onStartCall,
   onOpenScheduleMeeting,
@@ -112,6 +116,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [attachedMedia, setAttachedMedia] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
+  const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [avatarUrls, setAvatarUrls] = useState<Record<string, string>>({});
   const avatarUrlsRef = useRef(avatarUrls);
   avatarUrlsRef.current = avatarUrls;
@@ -544,6 +551,20 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
                       <span className="text-[12px]">Verify safety code</span>
                     </button>
+                    {onDeleteChat && (
+                      <button
+                        type="button"
+                        className="g-row !min-h-[42px] !rounded-xl"
+                        onClick={() => {
+                          setShowChatActions(false);
+                          setDeleteError(null);
+                          setConfirmDeleteRoomId(currentRoom.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                        <span className="text-[12px] text-red-300">Delete Chat</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -827,6 +848,48 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               alt="Zoomed encrypted attachment"
               className="w-full h-full object-contain"
             />
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteRoomId && onDeleteChat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-chat-title">
+          <div className="w-full max-w-sm bg-[#11131a] border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4">
+            <h3 id="delete-chat-title" className="text-base font-bold text-white">Delete this chat?</h3>
+            <p className="text-[12px] text-zinc-400">
+              This removes the conversation from your account on every device. The other person keeps their copy and is not notified.
+            </p>
+            {deleteError && <p role="alert" className="text-[12px] text-red-300">{deleteError}</p>}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                className="px-3 py-2 rounded-xl text-[12px] text-zinc-300 border border-white/10"
+                disabled={isDeletingChat}
+                onClick={() => setConfirmDeleteRoomId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-3 py-2 rounded-xl text-[12px] font-semibold text-white bg-red-600 disabled:opacity-60"
+                disabled={isDeletingChat}
+                onClick={async () => {
+                  const roomId = confirmDeleteRoomId;
+                  setIsDeletingChat(true);
+                  setDeleteError(null);
+                  try {
+                    await onDeleteChat(roomId);
+                    setConfirmDeleteRoomId(null);
+                  } catch (error: any) {
+                    setDeleteError(error?.message || 'Could not delete this chat.');
+                  } finally {
+                    setIsDeletingChat(false);
+                  }
+                }}
+              >
+                {isDeletingChat ? 'Deleting…' : 'Delete Chat'}
+              </button>
+            </div>
           </div>
         </div>
       )}

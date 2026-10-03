@@ -21,6 +21,7 @@ import {
   ArrowRight,
   AlertTriangle,
   Bell,
+  LogOut,
 } from 'lucide-react';
 import { UserActiveIntent, UserProfile } from '../types';
 import { hapticLight, hapticSensitiveAction, triggerVibration } from '../services/hapticService';
@@ -46,6 +47,9 @@ interface ProfileViewProps {
   isSafetyTimerActive: boolean;
   onOpenMask: () => void;
   onOpenIdentity: () => void;
+  /** Releases push, clears the session and returns to the signed-out state. */
+  onSignOut?: () => void | Promise<void>;
+  signingOut?: boolean;
   onOpenQR: () => void;
   onOpenSafeHavens: () => void;
   onOpenDiscover?: () => void;
@@ -86,6 +90,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   isSafetyTimerActive,
   onOpenMask,
   onOpenIdentity,
+  onSignOut,
+  signingOut = false,
   onOpenQR,
   onOpenSafeHavens,
   onOpenDiscover,
@@ -707,6 +713,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </React.Fragment>
         ))}
       </section>
+
+      {onSignOut && (
+        <button
+          type="button"
+          disabled={signingOut}
+          onClick={() => { hapticLight(); void onSignOut(); }}
+          className="w-full mb-5 h-11 rounded-xl border border-red-400/20 bg-red-400/5 text-red-300 hover:bg-red-400/10 disabled:opacity-50 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
+        >
+          <LogOut className="w-4 h-4" />
+          {signingOut ? 'Signing out…' : 'Sign Out'}
+        </button>
+      )}
 
       {/* Footer */}
       <footer className="flex items-center justify-between px-1 pb-4 opacity-75">

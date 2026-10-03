@@ -121,10 +121,9 @@ export function createPushHandler(store: PushStore, transport: PushTransport, co
       const payload = { type: notice.category, title, body: text, notificationId: id,
         recipientId: notice.user_id,
         messageId: notice.category === 'message' && uuid.test(notice.event_key ?? '') ? notice.event_key : undefined,
-        // The URL is the canonical click route and carries the recipient binding.
-        // The worker will use it when conversationId is absent, preventing a
-        // signed-in account switch from inheriting a foreign conversation route.
-        conversationId: undefined,
+        // The click URL additionally carries the recipient binding, so cold
+        // launches after an account switch cannot open another user's route.
+        conversationId,
         url: routeUrl, tag: `gayze-${id}`, badgeCount: count, renotify: false };
       let delivered = 0;
       for (const subscription of subscriptions) {
