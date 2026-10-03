@@ -14,16 +14,14 @@ const MAX_PHOTOS = 6;
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 
-// In-memory cache for signed URLs to avoid redundant requests on re-renders
+// In-memory cache for signed URLs to avoid redundant requests on re-renders.
+// The cache is keyed by the user's storage path, never by display name.
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
-
 const pendingSignedUrls = new Map<string, Promise<string>>();
 
 export async function signedUrl(path: string): Promise<string> {
   const cached = signedUrlCache.get(path);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.url;
-  }
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
   const pending = pendingSignedUrls.get(path);
   if (pending) return pending;
   const work = requestSignedUrl(path);
@@ -35,21 +33,14 @@ async function requestSignedUrl(path: string): Promise<string> {
   if (!supabase) throw new Error('Supabase is not configured.');
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
   if (error || !data?.signedUrl) throw new Error(error?.message || 'Could not load profile photo.');
-  // Cache for 50 minutes (signed for 60)
   signedUrlCache.set(path, { url: data.signedUrl, expiresAt: Date.now() + 50 * 60 * 1000 });
   return data.signedUrl;
 }
 
 export async function getProfilePhotoUrl(storagePathOrUrl: string | null | undefined): Promise<string | null> {
   if (!storagePathOrUrl || storagePathOrUrl === 'user') return null;
-  if (storagePathOrUrl.startsWith('http://') || storagePathOrUrl.startsWith('https://')) {
-    return storagePathOrUrl;
-  }
-  try {
-    return await signedUrl(storagePathOrUrl);
-  } catch {
-    return null;
-  }
+  if (storagePathOrUrl.startsWith('http://') || storagePathOrUrl.startsWith('https://')) return storagePathOrUrl;
+  try { return await signedUrl(storagePathOrUrl); } catch { return null; }
 }
 
 async function prepareUpload(file: File): Promise<{ file: File; contentType: string; extension: string }> {
@@ -69,29 +60,30 @@ async function prepareUpload(file: File): Promise<{ file: File; contentType: str
       context.drawImage(bitmap, 0, 0);
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
       if (!blob) throw new Error('Could not convert the photo to JPG.');
-      const converted = new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', {
-        type: 'image/jpeg',
-        lastModified: Date.now(),
-      });
+      const converted = new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
       if (converted.size > MAX_BYTES) throw new Error('The converted photo is larger than 5 MB. Please choose a smaller photo.');
       return { file: converted, contentType: 'image/jpeg', extension: 'jpg' };
-    } finally {
-      bitmap.close();
-    }
+    } finally { bitmap.close(); }
   }
 
-  return {
-    file,
-    contentType: type,
-    extension: type === 'image/jpeg' ? 'jpg' : type.split('/')[1] || 'jpg',
-  };
+  return { file, contentType: type, extension: type === 'image/jpeg' ? 'jpg' : type.split('/')[1] || 'jpg' };
 }
 
+/**
+ * Load ONLY the authenticated user's photos.
+ * The previous implementation selected every row in profile_photos. That meant
+ * the profile screen could take another user's primary image as its own avatar.
+ */
 export async function loadProfilePhotos(): Promise<ProfilePhoto[]> {
   if (!supabase) return [];
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  const userId = auth?.user?.id;
+  if (authError || !userId) return [];
+
   const { data, error } = await supabase
     .from('profile_photos')
     .select('id,user_id,storage_path,sort_order,is_primary')
+    .eq('user_id', userId)
     .order('sort_order', { ascending: true });
 
   if (error) {
@@ -103,16 +95,9 @@ export async function loadProfilePhotos(): Promise<ProfilePhoto[]> {
   for (const row of data ?? []) {
     try {
       const url = await signedUrl(row.storage_path);
-      photos.push({
-        id: row.id,
-        userId: row.user_id,
-        storagePath: row.storage_path,
-        sortOrder: row.sort_order,
-        isPrimary: Boolean(row.is_primary),
-        url,
-      });
+      photos.push({ id: row.id, userId: row.user_id, storagePath: row.storage_path, sortOrder: row.sort_order, isPrimary: Boolean(row.is_primary), url });
     } catch {
-      // If one image fails to sign, continue loading remaining photos
+      // If one image fails to sign, continue loading remaining photos.
     }
   }
   return photos;
@@ -121,112 +106,81 @@ export async function loadProfilePhotos(): Promise<ProfilePhoto[]> {
 export async function uploadProfilePhoto(file: File): Promise<ProfilePhoto[]> {
   if (!supabase) throw new Error('Supabase is not configured.');
   const prepared = await prepareUpload(file);
-
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth?.user?.id) throw new Error('Please sign in again.');
   const userId = auth.user.id;
-
   const existing = await loadProfilePhotos();
   if (existing.length >= MAX_PHOTOS) throw new Error('You can add up to 6 profile photos.');
 
   const photoId = crypto.randomUUID();
   const path = `${userId}/${photoId}.${prepared.extension}`;
-
-  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, prepared.file, {
-    contentType: prepared.contentType,
-    upsert: false,
-    cacheControl: '3600',
-  });
+  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, prepared.file, { contentType: prepared.contentType, upsert: false, cacheControl: '3600' });
   if (uploadError) throw new Error(uploadError.message);
 
   const isFirst = existing.length === 0;
-  const { error: insertError } = await supabase.from('profile_photos').insert({
-    user_id: userId,
-    storage_path: path,
-    sort_order: existing.length,
-    is_primary: isFirst,
-  });
-
+  const { error: insertError } = await supabase.from('profile_photos').insert({ user_id: userId, storage_path: path, sort_order: existing.length, is_primary: isFirst });
   if (insertError) {
     await supabase.storage.from(BUCKET).remove([path]);
     throw new Error(insertError.message);
   }
-
-  if (isFirst) {
-    await supabase.from('profiles').update({ avatar_path: path }).eq('id', userId);
-  }
-
+  if (isFirst) await supabase.from('profiles').update({ avatar_path: path }).eq('id', userId);
   return loadProfilePhotos();
 }
 
 export async function deleteProfilePhoto(photo: ProfilePhoto): Promise<ProfilePhoto[]> {
   if (!supabase) throw new Error('Supabase is not configured.');
   signedUrlCache.delete(photo.storagePath);
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  const userId = auth?.user?.id;
+  if (authError || !userId || photo.userId !== userId) throw new Error('That photo does not belong to the signed-in account.');
 
-  const { error } = await supabase.from('profile_photos').delete().eq('id', photo.id);
+  const { error } = await supabase.from('profile_photos').delete().eq('id', photo.id).eq('user_id', userId);
   if (error) throw new Error(error.message);
-
   await supabase.storage.from(BUCKET).remove([photo.storagePath]).catch(() => {});
 
   const remaining = await loadProfilePhotos();
   if (remaining.length > 0) {
-    // If deleted photo was primary, or no photo is marked primary, promote the first remaining
-    if (photo.isPrimary || !remaining.some((p) => p.isPrimary)) {
-      return setPrimaryProfilePhoto(remaining[0].id);
-    }
+    if (photo.isPrimary || !remaining.some((p) => p.isPrimary)) return setPrimaryProfilePhoto(remaining[0].id);
   } else {
-    // No remaining photos: clear profiles.avatar_path
-    const { data: auth } = await supabase.auth.getUser();
-    if (auth?.user?.id) {
-      await supabase.from('profiles').update({ avatar_path: null }).eq('id', auth.user.id);
-    }
+    await supabase.from('profiles').update({ avatar_path: null }).eq('id', userId);
   }
-
   return remaining;
 }
 
 export async function setPrimaryProfilePhoto(photoId: string): Promise<ProfilePhoto[]> {
   if (!supabase) throw new Error('Supabase is not configured.');
-  
-  // Try RPC first
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  const userId = auth?.user?.id;
+  if (authError || !userId) throw new Error('Please sign in again.');
+
+  const { data: photo, error: photoError } = await supabase.from('profile_photos').select('id,storage_path,user_id').eq('id', photoId).eq('user_id', userId).maybeSingle();
+  if (photoError || !photo) throw new Error('That photo does not belong to the signed-in account.');
+
   const { error } = await supabase.rpc('mark_primary_profile_photo', { p_photo_id: photoId });
   if (error) {
     console.warn('[GAYZE] mark_primary_profile_photo RPC note:', error.message);
-    const { data: auth } = await supabase.auth.getUser();
-    if (auth?.user?.id) {
-      await supabase.from('profile_photos').update({ is_primary: false }).eq('user_id', auth.user.id);
-      await supabase.from('profile_photos').update({ is_primary: true }).eq('id', photoId);
-    }
+    await supabase.from('profile_photos').update({ is_primary: false }).eq('user_id', userId);
+    await supabase.from('profile_photos').update({ is_primary: true }).eq('id', photoId).eq('user_id', userId);
   }
 
-  // Update profiles.avatar_path immediately so Discovery and Profile sync immediately
-  const { data: photoRow } = await supabase
-    .from('profile_photos')
-    .select('storage_path, user_id')
-    .eq('id', photoId)
-    .maybeSingle();
-
-  if (photoRow?.storage_path && photoRow?.user_id) {
-    await supabase.from('profiles').update({ avatar_path: photoRow.storage_path }).eq('id', photoRow.user_id);
-  }
-
+  await supabase.from('profiles').update({ avatar_path: photo.storage_path }).eq('id', userId);
   return loadProfilePhotos();
 }
 
 export async function reorderProfilePhotos(photoIds: string[]): Promise<ProfilePhoto[]> {
   if (!supabase) throw new Error('Supabase is not configured.');
-  
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  const userId = auth?.user?.id;
+  if (authError || !userId) throw new Error('Please sign in again.');
+  const { data: owned } = await supabase.from('profile_photos').select('id').eq('user_id', userId).in('id', photoIds);
+  if ((owned ?? []).length !== photoIds.length) throw new Error('One or more selected photos do not belong to the signed-in account.');
+
   const { error } = await supabase.rpc('reorder_profile_photos', { p_photo_ids: photoIds });
   if (error) {
     for (let i = 0; i < photoIds.length; i++) {
-      await supabase.from('profile_photos').update({ sort_order: i }).eq('id', photoIds[i]);
+      await supabase.from('profile_photos').update({ sort_order: i }).eq('id', photoIds[i]).eq('user_id', userId);
     }
   }
-
-  // First photo in reordered list is treated as primary unless another is explicitly primary
-  if (photoIds.length > 0) {
-    return setPrimaryProfilePhoto(photoIds[0]);
-  }
-
+  if (photoIds.length > 0) return setPrimaryProfilePhoto(photoIds[0]);
   return loadProfilePhotos();
 }
