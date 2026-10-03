@@ -904,6 +904,22 @@ export function jitterLocation(
   };
 }
 
+/**
+ * Delete a chat for the current user only: removes the caller's own
+ * conversation_members row via a membership-checked RPC.
+ */
+export async function leaveConversation(conversationId: string): Promise<void> {
+  if (!supabase) throw new Error('Chat deletion is unavailable.');
+  const user = await ensureSupabaseSession();
+  if (!user) throw new Error('Sign in to delete this chat.');
+  const { error } = await supabase.rpc('leave_conversation', { p_conversation_id: conversationId });
+  if (error) {
+    // Code + message only: never the conversation id, tokens or payloads.
+    console.warn('[GAYZE] leave_conversation failed:', (error as { code?: string }).code ?? 'unknown', error.message);
+    throw new Error('Could not delete this chat. Please try again.');
+  }
+}
+
 export interface ConversationPeerKey {
   peer_user_id: string;
   peer_public_key: string | null;
@@ -1053,8 +1069,14 @@ export interface ConversationKeyEnvelope {
   created_at: string;
 }
 
-export async function listConversationKeyEnvelopes(conversationId: string): Promise<ConversationKeyEnvelope[]> {
-  if (!supabase) return [];
+export interface ConversationKeyEnvelopeRead {
+  /** False when the read failed; an empty list is then NOT proof of absence. */
+  ok: boolean;
+  envelopes: ConversationKeyEnvelope[];
+}
+
+export async function readConversationKeyEnvelopes(conversationId: string): Promise<ConversationKeyEnvelopeRead> {
+  if (!supabase) return { ok: false, envelopes: [] };
   try {
     const { data, error } = await supabase
       .from('conversation_key_envelopes')
@@ -1062,13 +1084,17 @@ export async function listConversationKeyEnvelopes(conversationId: string): Prom
       .eq('conversation_id', conversationId);
     if (error) {
       console.warn('[GAYZE] Supabase listConversationKeyEnvelopes unavailable:', error.message);
-      return [];
+      return { ok: false, envelopes: [] };
     }
-    return (data ?? []) as ConversationKeyEnvelope[];
+    return { ok: true, envelopes: (data ?? []) as ConversationKeyEnvelope[] };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase listConversationKeyEnvelopes exception:', err?.message || err);
-    return [];
+    return { ok: false, envelopes: [] };
   }
+}
+
+export async function listConversationKeyEnvelopes(conversationId: string): Promise<ConversationKeyEnvelope[]> {
+  return (await readConversationKeyEnvelopes(conversationId)).envelopes;
 }
 
 export async function saveConversationKeyEnvelope(
@@ -1078,17 +1104,28 @@ export async function saveConversationKeyEnvelope(
   try {
     const { data, error } = await supabase
       .from('conversation_key_envelopes')
-      .upsert({
+      // Insert-only: an existing envelope must never be overwritten.
+      .insert({
         conversation_id: envelope.conversation_id,
         user_id: envelope.user_id,
         device_id: envelope.device_id,
         wrapped_key: envelope.wrapped_key,
         nonce: envelope.nonce,
         created_by_device_id: envelope.created_by_device_id,
-      }, { onConflict: 'conversation_id,device_id' })
+      })
       .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
       .single();
     if (error) {
+      if ((error as { code?: string }).code === '23505') {
+        // Already provisioned (concurrent device/retry): keep the existing envelope untouched.
+        const { data: existing } = await supabase
+          .from('conversation_key_envelopes')
+          .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
+          .eq('conversation_id', envelope.conversation_id)
+          .eq('device_id', envelope.device_id)
+          .maybeSingle();
+        return (existing ?? null) as ConversationKeyEnvelope | null;
+      }
       console.warn('[GAYZE] Supabase saveConversationKeyEnvelope unavailable:', error.message);
       return null;
     }
@@ -1099,27 +1136,33 @@ export async function saveConversationKeyEnvelope(
   }
 }
 
-export async function loadConversationPeerDevices(conversationId: string) {
-  if (!supabase) return [];
+export interface ConversationPeerDevice {
+  user_id: string;
+  device_id: string;
+  public_key: string;
+  device_label: string | null;
+  last_seen_at: string;
+}
+
+export async function readConversationPeerDevices(conversationId: string): Promise<{ ok: boolean; devices: ConversationPeerDevice[] }> {
+  if (!supabase) return { ok: false, devices: [] };
   try {
     const { data, error } = await supabase.rpc('get_conversation_peer_devices', {
       p_conversation_id: conversationId,
     });
     if (error) {
       console.warn('[GAYZE] Supabase get_conversation_peer_devices unavailable:', error.message);
-      return [];
+      return { ok: false, devices: [] };
     }
-    return (data ?? []) as Array<{
-      user_id: string;
-      device_id: string;
-      public_key: string;
-      device_label: string | null;
-      last_seen_at: string;
-    }>;
+    return { ok: true, devices: (data ?? []) as ConversationPeerDevice[] };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase get_conversation_peer_devices exception:', err?.message || err);
-    return [];
+    return { ok: false, devices: [] };
   }
+}
+
+export async function loadConversationPeerDevices(conversationId: string): Promise<ConversationPeerDevice[]> {
+  return (await readConversationPeerDevices(conversationId)).devices;
 }
 
 export interface IdentityDevice {
@@ -1381,11 +1424,14 @@ export interface PublicProfileSummary {
 export async function loadPublicProfileSummary(userId: string): Promise<PublicProfileSummary | null> {
   if (!supabase || !userId) return null;
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('display_name,age,bio,pronouns,height_cm,body_type,interests,hobbies,boundaries,my_setup,availability')
-      .eq('id', userId)
-      .maybeSingle();
+    const [{ data, error }, details] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('display_name,age,bio,interests')
+        .eq('id', userId)
+        .maybeSingle(),
+      loadProfileDetails(userId),
+    ]);
     if (error || !data) {
       if (error) console.warn('[GAYZE] Public profile summary unavailable:', error.message);
       return null;
@@ -1394,14 +1440,14 @@ export async function loadPublicProfileSummary(userId: string): Promise<PublicPr
       displayName: data.display_name || 'Gayze member',
       age: data.age != null ? Number(data.age) : undefined,
       bio: data.bio || undefined,
-      pronouns: data.pronouns || undefined,
-      heightCm: data.height_cm != null ? Number(data.height_cm) : undefined,
-      bodyType: data.body_type || undefined,
+      pronouns: details?.pronouns || undefined,
+      heightCm: details?.heightCm,
+      bodyType: details?.bodyType || undefined,
       lookingFor: Array.isArray(data.interests) ? data.interests : [],
-      hobbies: Array.isArray(data.hobbies) ? data.hobbies : [],
-      boundaries: Array.isArray(data.boundaries) ? data.boundaries : [],
-      mySetup: Array.isArray(data.my_setup) ? data.my_setup : [],
-      availability: Array.isArray(data.availability) ? data.availability : [],
+      hobbies: details?.hobbies ?? [],
+      boundaries: details?.boundaries ?? [],
+      mySetup: details?.mySetup ?? [],
+      availability: details?.availability ?? [],
     };
   } catch (err: any) {
     console.warn('[GAYZE] Public profile summary exception:', err?.message || err);

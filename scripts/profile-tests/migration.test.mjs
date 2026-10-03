@@ -67,7 +67,8 @@ function splitStatements(source) {
       if (clean.startsWith(dollarTag, i)) { current += dollarTag.slice(1); i += dollarTag.length - 1; dollarTag = null; }
       continue;
     }
-    if (inString) {+      current += ch;
+    if (inString) {
+      current += ch;
       if (ch === "'") inString = false;
       continue;
     }

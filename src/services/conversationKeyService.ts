@@ -7,17 +7,49 @@ import {
   getOrCreateDeviceIdentity,
 } from './cryptoService';
 import {
-  listConversationKeyEnvelopes,
   loadConversationPeerDevices,
   loadConversationPeerKey,
+  readConversationKeyEnvelopes,
+  readConversationPeerDevices,
   saveConversationKeyEnvelope,
 } from './supabaseService';
+import type { ConversationKeyEnvelopeRead } from './supabaseService';
 
 export interface ConversationKeyResult {
   key: CryptoKey | null;
   status: 'ready' | 'unavailable';
   /** Human-readable, honest reason when a key could not be resolved. */
   reason?: string;
+  /** True when the failure may clear on retry (network/RLS read failure), never permanent absence. */
+  transient?: boolean;
+}
+
+/** Injectable for tests; production uses the Supabase-backed implementations. */
+export interface GroupKeyDeps {
+  readEnvelopes: (conversationId: string) => Promise<ConversationKeyEnvelopeRead>;
+  readDevices: (conversationId: string) => Promise<{ ok: boolean; devices: Array<{ user_id: string; device_id: string; public_key: string }> }>;
+  saveEnvelope: typeof saveConversationKeyEnvelope;
+  createKey: typeof createConversationKey;
+  retryDelayMs: number;
+}
+
+const defaultGroupKeyDeps: GroupKeyDeps = {
+  readEnvelopes: readConversationKeyEnvelopes,
+  readDevices: readConversationPeerDevices,
+  saveEnvelope: saveConversationKeyEnvelope,
+  createKey: createConversationKey,
+  retryDelayMs: 250,
+};
+
+const READ_ATTEMPTS = 3;
+
+async function readWithRetry<T extends { ok: boolean }>(read: () => Promise<T>, delayMs: number): Promise<T> {
+  let result = await read();
+  for (let attempt = 1; !result.ok && attempt < READ_ATTEMPTS; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+    result = await read();
+  }
+  return result;
 }
 
 function parseJwk(value: string | null | undefined): JsonWebKey | null {
@@ -81,11 +113,23 @@ async function resolveDirectKey(room: SwarmRoom): Promise<ConversationKeyResult>
 async function resolveGroupKey(
   room: SwarmRoom,
   currentUserId?: string,
+  deps: GroupKeyDeps = defaultGroupKeyDeps,
 ): Promise<ConversationKeyResult> {
   const identity = await getOrCreateDeviceIdentity();
-  const devices = await loadConversationPeerDevices(room.id);
-
-  const envelopes = await listConversationKeyEnvelopes(room.id);
+  const envelopeRead = await readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs);
+  const deviceRead = await readWithRetry(() => deps.readDevices(room.id), deps.retryDelayMs);
+  // A failed read is NOT proof that no key exists. Never provision (or
+  // overwrite) key material from an unreadable state: report it as transient.
+  if (!envelopeRead.ok || !deviceRead.ok) {
+    return {
+      key: null,
+      status: 'unavailable',
+      transient: true,
+      reason: 'The group key could not be read right now. Retrying will not change any existing key.',
+    };
+  }
+  const envelopes = envelopeRead.envelopes;
+  const devices = deviceRead.devices;
   const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId);
 
   if (mine) {
@@ -102,7 +146,8 @@ async function resolveGroupKey(
       return {
         key: null,
         status: 'unavailable',
-        reason: 'The device that created this group key is no longer registered on this conversation.',
+        transient: true,
+        reason: 'The device that created this group key is not currently available on this conversation.',
       };
     }
     try {
@@ -124,6 +169,7 @@ async function resolveGroupKey(
     return {
       key: null,
       status: 'unavailable',
+      transient: true,
       reason: 'A group key exists for this conversation, but it has not been shared with this device yet.',
     };
   }
@@ -131,7 +177,7 @@ async function resolveGroupKey(
   // Nobody has provisioned a key yet: this device creates one and wraps it for
   // every registered member device (including itself).
   try {
-    const conversationKey = await createConversationKey();
+    const conversationKey = await deps.createKey();
     const recipients: { user_id: string; device_id: string; public_key: string }[] = [
       ...devices,
     ];
@@ -149,7 +195,7 @@ async function resolveGroupKey(
       const deviceJwk = parseJwk(device.public_key);
       if (!deviceJwk) continue;
       const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
-      const stored = await saveConversationKeyEnvelope({
+      const stored = await deps.saveEnvelope({
         conversation_id: room.id,
         user_id: device.user_id,
         device_id: device.device_id,
@@ -184,6 +230,8 @@ async function resolveGroupKey(
     };
   }
 }
+
+export const resolveGroupKeyForTest = resolveGroupKey;
 
 export async function resolveConversationKey(
   room: SwarmRoom,

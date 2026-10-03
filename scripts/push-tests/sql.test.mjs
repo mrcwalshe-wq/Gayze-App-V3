@@ -75,12 +75,11 @@ console.log('\n[4] Message trigger dispatches, and can never block a message ins
   // no vault secrets yet -> warning, insert still fine
   await db.query(`insert into messages(conversation_id,sender_id,ciphertext) values ($1,$2,'x')`, [conv, A]);
   assert((await db.query('select count(*)::int c from __net_calls')).rows[0].c === 0, 'unconfigured vault -> no dispatch, message insert still succeeds');
-    'configured -> one dispatch to /functions/v1/send-push (never the bare /send-push form)');
-  assert(calls.length === 1 && calls[0].url === 'https://x.functions.supabase.co/functions/v1/send-push',
   await db.query(`insert into vault.decrypted_secrets values ('gayze_functions_url','https://x.functions.supabase.co'),('gayze_push_dispatch_secret','s3cret')`);
   await db.query(`insert into messages(conversation_id,sender_id,ciphertext) values ($1,$2,'y')`, [conv, A]);
   const calls = (await db.query('select * from __net_calls')).rows;
-  assert(calls.length === 1 && calls[0].url === 'https://x.functions.supabase.co/send-push', 'configured -> one dispatch to /send-push');
+  assert(calls.length === 1 && calls[0].url === 'https://x.functions.supabase.co/functions/v1/send-push',
+    'configured -> one dispatch to /functions/v1/send-push (never the bare /send-push form)');
   assert(calls[0].body.event === 'message' && calls[0].body.senderName === 'Alex' && !('ciphertext' in calls[0].body), 'payload has sender name + ids, NO ciphertext');
   assert(calls[0].headers['x-gayze-dispatch-secret'] === 's3cret', 'dispatch secret read from vault');
   await db.query(`insert into messages(conversation_id,sender_id,ciphertext) values ($1,$2,'z')`, [conv, B]); // sender without profile
@@ -97,33 +96,36 @@ console.log('\n[4] Message trigger dispatches, and can never block a message ins
   const db3 = await newDb(); await baseSchema(db3); await addUsers(db3, A);
   await db3.exec(migrationSql()); await db3.exec('drop table public.profiles');
   const cv3 = (await db3.query(`insert into conversations default values returning id`)).rows[0].id;
-}+
-      `${why}: ${secret} -> ${expected} (got ${rows[0]?.url ?? 'no dispatch'})`);
-    assert(rows.length === 1 && rows[0].url === expected,
-    const rows = (await db.query('select url from __net_calls')).rows;
-    await db.query(`select public.request_push_dispatch('{"event":"message"}'::jsonb)`);
-    await db.query(`insert into vault.decrypted_secrets values ('gayze_functions_url',$1),('gayze_push_dispatch_secret','s')`, [secret]);
-    await db.exec(migrationSql());
-    const db = await newDb(); await baseSchema(db); await addUsers(db, A);
-  for (const [secret, expected, why] of cases) {
-  ];
-    ['https://x.supabase.co//',                   'https://x.supabase.co/functions/v1/send-push', 'repeated trailing slashes are stripped'],
-    ['https://x.functions.supabase.co/functions/v1/', 'https://x.functions.supabase.co/functions/v1/send-push', 'trailing slash after /functions/v1 is stripped'],
-    ['https://x.supabase.co/',                    'https://x.supabase.co/functions/v1/send-push', 'trailing slash is stripped before joining'],
-    ['https://x.supabase.co/functions/v1',        'https://x.supabase.co/functions/v1/send-push', 'base already ends /functions/v1 -> do not double it'],
-    ['https://x.functions.supabase.co',           'https://x.functions.supabase.co/functions/v1/send-push', 'functions host -> /functions/v1/send-push (same canonical form)'],
-    ['https://x.supabase.co',                     'https://x.supabase.co/functions/v1/send-push', 'project URL -> /functions/v1/send-push (the required form)'],
-  const cases = [
-  // already carries /functions/v1.
-  // never construct the bare '<base>/send-push' form except when the base
-  // The builder must land on a REACHING route for every secret shape, and must
-  //   <fnhost>/functions/v1/send-push             REACHES the function
-  //   <fnhost>/send-push                          REACHES the function
-  //   <project>/send-push                         gateway 404 (the old bug)
-  //   <project>/functions/v1/send-push            REACHES the function
-  // Live-verified routes (unauthenticated probes of the deployed project):
-console.log('\n[4b] Dispatch URL normalisation — every plausible gayze_functions_url value');
   assert((await tryq(() => db3.query(`insert into messages(conversation_id,sender_id,ciphertext) values ($1,$2,'x')`, [cv3, A]))).ok, 'dropped profiles table does NOT abort the message insert');
+}
+
+console.log('\n[4b] Dispatch URL normalisation — every plausible gayze_functions_url value');
+{
+  // Live-verified routes (unauthenticated probes of the deployed project):
+  //   <project>/functions/v1/send-push            REACHES the function
+  //   <project>/send-push                         gateway 404 (the old bug)
+  //   <fnhost>/send-push                          REACHES the function
+  //   <fnhost>/functions/v1/send-push             REACHES the function
+  // The builder must land on a REACHING route for every secret shape, and must
+  // never construct the bare '<base>/send-push' form except when the base
+  // already carries /functions/v1.
+  const cases = [
+    ['https://x.supabase.co',                     'https://x.supabase.co/functions/v1/send-push', 'project URL -> /functions/v1/send-push (the required form)'],
+    ['https://x.functions.supabase.co',           'https://x.functions.supabase.co/functions/v1/send-push', 'functions host -> /functions/v1/send-push (same canonical form)'],
+    ['https://x.supabase.co/functions/v1',        'https://x.supabase.co/functions/v1/send-push', 'base already ends /functions/v1 -> do not double it'],
+    ['https://x.supabase.co/',                    'https://x.supabase.co/functions/v1/send-push', 'trailing slash is stripped before joining'],
+    ['https://x.functions.supabase.co/functions/v1/', 'https://x.functions.supabase.co/functions/v1/send-push', 'trailing slash after /functions/v1 is stripped'],
+    ['https://x.supabase.co//',                   'https://x.supabase.co/functions/v1/send-push', 'repeated trailing slashes are stripped'],
+  ];
+  for (const [secret, expected, why] of cases) {
+    const db = await newDb(); await baseSchema(db); await addUsers(db, A);
+    await db.exec(migrationSql());
+    await db.query(`insert into vault.decrypted_secrets values ('gayze_functions_url',$1),('gayze_push_dispatch_secret','s')`, [secret]);
+    await db.query(`select public.request_push_dispatch('{"event":"message"}'::jsonb)`);
+    const rows = (await db.query('select url from __net_calls')).rows;
+    assert(rows.length === 1 && rows[0].url === expected,
+      `${why}: ${secret} -> ${expected} (got ${rows[0]?.url ?? 'no dispatch'})`);
+  }
 }
 
 console.log('\n[5] RLS: shared-device endpoint ownership (RLS is unchanged)');
