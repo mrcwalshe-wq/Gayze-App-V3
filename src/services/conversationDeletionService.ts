@@ -14,7 +14,7 @@ export async function deleteConversationForMe(conversationId: string): Promise<v
   const userId = auth?.user?.id;
   if (authError || !userId) throw new Error('Please sign in again.');
 
-  const { error: membershipError } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('conversation_members')
     .select('conversation_id')
     .eq('conversation_id', trimmed)
@@ -22,10 +22,10 @@ export async function deleteConversationForMe(conversationId: string): Promise<v
     .maybeSingle();
 
   if (membershipError) throw new Error(membershipError.message);
-  if (!membershipError && !membershipError) {
-    // The RPC performs the authoritative membership check again under RLS.
-  }
+  if (!membership) throw new Error('You are not a member of this conversation.');
 
+  // The RPC performs the authoritative membership check again under RLS and
+  // records the deletion as a user-scoped tombstone.
   const { error } = await supabase.rpc('delete_conversation_for_me', {
     p_conversation_id: trimmed,
   });
