@@ -19,7 +19,6 @@ try {
   vapidConfigured = key.getPublicKey().equals(Buffer.from(publicKey, 'base64url'));
 } catch { /* Invalid configuration stays queued, without consuming delivery claims. */ }
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
-// Missing backend configuration fails closed; no anonymous/service fallback.
 if (!url || !serviceKey) throw new Error('Push backend configuration missing');
 const db = createClient(url, serviceKey, options);
 function checked<T>(result: { data: T; error: unknown }): T {
@@ -32,12 +31,18 @@ const store: PushStore = {
   async eligible(id) { return checked(await db.rpc('gayze_notification_push_allowed', { p_id: id })) === true; },
   async preferences(user) { return checked(await db.from('notification_preferences').select('push_enabled,messages,intent_activity,connections,intent_expiry,safety').eq('user_id', user).maybeSingle()); },
   async subscriptions(user) { return checked(await db.from('push_subscriptions').select('id,user_id,endpoint,p256dh,auth').eq('user_id', user)) ?? []; },
-  async claim(id, subscription) { return checked(await db.rpc('gayze_claim_notification_delivery', { p_id: id, p_subscription: subscription })) === true; },
+  async claim(id, subscription, endpoint) { return checked(await db.rpc('gayze_claim_notification_delivery', { p_id: id, p_subscription: subscription, p_endpoint: endpoint })) === true; },
   async finish(id, endpoint, state, status) {
     checked(await db.from('gayze_notification_deliveries').update({ state, status_code: status ?? null }).eq('notification_id', id).eq('endpoint', endpoint));
   },
   async prune(subscription) {
-    checked(await db.from('push_subscriptions').delete().eq('id', subscription.id).eq('user_id', subscription.user_id).eq('endpoint', subscription.endpoint));
+    checked(await db.rpc('gayze_prune_push_subscription', {
+      p_id: subscription.id,
+      p_user_id: subscription.user_id,
+      p_endpoint: subscription.endpoint,
+      p_p256dh: subscription.p256dh,
+      p_auth: subscription.auth,
+    }));
   },
   async complete(id) { checked(await db.from('gayze_notifications').update({ push_processed_at: new Date().toISOString() }).eq('id', id)); },
   async unread(user) {

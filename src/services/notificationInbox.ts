@@ -51,8 +51,23 @@ export function watchNotificationInbox(userId: string, receive: (inbox: Notifica
   });
   return { stop: () => recovery.stop(), refresh: () => recovery.resync() };
 }
+
 export async function markNotificationRead(id?: string, conversationId?: string): Promise<void> {
   if (!supabase) throw new Error('Notification inbox unavailable');
+  if (id) {
+    // Defence in depth: do not even invoke the acknowledgement RPC unless the
+    // notification belongs to the currently authenticated account. The RPC
+    // remains owner-scoped as the authoritative server-side check.
+    const { data: user, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) return;
+    const { data: owned, error: ownershipError } = await supabase
+      .from('gayze_notifications')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (ownershipError || !owned) return;
+  }
   const { error } = await supabase.rpc('gayze_mark_notification_read', { p_id: id ?? null, p_conversation: conversationId ?? null });
   if (error) throw new Error('Could not mark the notification as read');
 }
