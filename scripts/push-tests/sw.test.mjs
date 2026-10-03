@@ -30,13 +30,27 @@ const opened = [];       // clients.openWindow(url)
 const focused = [];      // client.focus()
 
 const clientList = [];
+let rejectNextShowNotification = false;
+const pushDiagnostics = [];
+const nativeConsoleInfo = console.info;
+console.info = (...args) => {
+  if (args[0] === '[GAYZE push diagnostic]') pushDiagnostics.push(args.slice(1));
+  else nativeConsoleInfo(...args);
+};
 const fakeSelf = {
   location: new URL(SW_URL),
   addEventListener: (type, fn) => { (listeners.get(type) ?? listeners.set(type, []).get(type)).push(fn); },
   skipWaiting: async () => {},
   registration: {
     navigationPreload: null,
-    showNotification: async (title, options) => { shown.push({ title, options }); },
+    showNotification: async (title, options) => {
+      if (rejectNextShowNotification) {
+        const error = new Error('simulated system notification rejection');
+        error.name = 'NotAllowedError';
+        throw error;
+      }
+      shown.push({ title, options });
+    },
   },
   clients: {
     matchAll: async () => clientList,
@@ -126,7 +140,30 @@ console.log('\n=== [2] payload hardening ===');
 }
 
 // ---------------------------------------------------------------------------
-console.log('\n=== [3] notificationclick routing ===');
+console.log('\n=== [3] showNotification failure is reported without payload content ===');
+// ---------------------------------------------------------------------------
+{
+  const start = pushDiagnostics.length;
+  rejectNextShowNotification = true;
+  let rejected = false;
+  try {
+    await fire('push', { data: { json: () => ({ title: 'Gayze Test', body: 'Push notification test' }) } });
+  } catch {
+    rejected = true;
+  }
+  rejectNextShowNotification = false;
+  const diagnostics = pushDiagnostics.slice(start);
+  assert(rejected, 'showNotification rejection propagates through waitUntil');
+  assert(diagnostics.some(([stage]) => stage === 'push-received'), 'push receipt is logged');
+  assert(diagnostics.some(([stage]) => stage === 'payload-parsed'), 'payload parse is logged');
+  assert(diagnostics.some(([stage]) => stage === 'showNotification-called'), 'showNotification call is logged');
+  assert(diagnostics.some(([stage, detail]) => stage === 'showNotification-rejected'
+    && detail?.errorName === 'NotAllowedError'), 'showNotification rejection is logged by safe error name');
+  assert(!JSON.stringify(diagnostics).includes('Push notification test'), 'diagnostics never log notification text');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n=== [4] notificationclick routing ===');
 // ---------------------------------------------------------------------------
 {
   // With an open Gayze window: focus it and route in-place (session preserved).
@@ -183,7 +220,7 @@ console.log('\n=== [3] notificationclick routing ===');
 }
 
 // ---------------------------------------------------------------------------
-console.log('\n=== [4] fetch handler stays narrow (never intercepts API traffic) ===');
+console.log('\n=== [5] fetch handler stays narrow (never intercepts API traffic) ===');
 // ---------------------------------------------------------------------------
 {
   const fetchFn = (listeners.get('fetch') ?? [])[0];
@@ -203,6 +240,7 @@ console.log('\n=== [4] fetch handler stays narrow (never intercepts API traffic)
     'Authorization-bearing requests are never intercepted');
 }
 
+console.info = nativeConsoleInfo;
 console.log('');
 if (failures > 0) {
   console.error(`SERVICE WORKER TESTS: ${failures} FAILED`);
