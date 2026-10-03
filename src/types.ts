@@ -117,6 +117,8 @@ export interface EncryptedMessage {
   roomId: string;
   senderKey: string;
   senderName: string;
+  /** Server-enforced expiry, retained during reconnect/catch-up. */
+  expiresAt?: number;
   timestamp: number;
   cipherText: string;
   nonceHex: string;

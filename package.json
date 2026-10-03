@@ -20,7 +20,18 @@
     "test:e2ee": "tsx scripts/e2ee-tests/e2ee.test.mjs",
     "test:discovery": "node scripts/discovery-tests/public-wrapper.test.mjs",
     "test:inspect-script": "node scripts/discovery-tests/inspect-script.test.mjs",
-    "test:interaction": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/interaction-tests/interaction.test.tsx"
+    "test:interaction": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/interaction-tests/interaction.test.tsx",
+    "lint:recovery": "eslint --config eslint.recovery.config.mjs src/App.tsx src/components/ChatRoomView.tsx src/services/{realtimeRecovery,chatSubscriptions,messageMerge,chatMessageProcessing,chatHistoryOwnership,chatTrace,messageAlerts,profilePhotoService,iceCredentials,webrtcService,supabaseService,conversationRooms}.ts vite.config.ts src/services/{notificationInbox,notificationRouting,pushService}.ts src/components/NotificationsModal.tsx supabase/functions/send-push/*.ts public/service-worker.js src/components/{DiscoverView,RightNowView,Navbar}.tsx src/components/SetIntentSheet.tsx src/services/{directChatRouting,peerIntent,intentTiming}.ts src/components/PeerIntentBanner.tsx",
+    "test:recovery": "tsx --test scripts/recovery-tests/recovery.test.ts && node --test scripts/recovery-tests/webrtc.test.mjs scripts/recovery-tests/ui.test.mjs scripts/recovery-tests/security.test.mjs",
+    "test:notifications": "tsx --test scripts/notification-tests/*.test.ts && node --test scripts/notification-tests/client.test.mjs",
+    "check:push-server": "npx --yes deno@2.9.6 check --no-lock --node-modules-dir=none --config supabase/functions/deno.json supabase/functions/send-push/index.ts",
+    "test:push-crypto": "ECE_KEYLOG=0 npx --yes deno@2.9.6 test --no-lock --node-modules-dir=none --allow-env --config supabase/functions/deno.json scripts/notification-tests/crypto.deno.ts",
+    "test:chat": "tsx --test scripts/chat-tests/*.test.ts && node --test scripts/chat-tests/*.test.mjs",
+    "bench:chat": "tsx scripts/chat-tests/benchmark.ts",
+    "test:rc": "tsx --test scripts/release-candidate/*.test.ts && node --test scripts/release-candidate/*.test.mjs",
+    "bench:rc": "node scripts/release-candidate/trace-chat.mjs",
+    "test:chat-intent": "node --test scripts/chat-intent-tests/*.test.mjs",
+    "test:push-hardening": "node --test scripts/push-hardening-tests/*.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -40,6 +51,8 @@
     "vite": "^8.3.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/eslint-parser": "^7.29.9",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/qrcode": "^1.5.6",
@@ -47,6 +60,7 @@
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.0",
+    "eslint": "^9.39.5",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"

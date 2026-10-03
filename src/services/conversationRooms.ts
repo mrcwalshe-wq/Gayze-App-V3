@@ -19,6 +19,11 @@ export function buildRoomsFromSupabase(
     result.profiles.map((profile) => [profile.userId, profile.avatarPath]),
   );
 
+  const lastSeenByUser = new Map(result.profiles.map((profile) => {
+    const time = profile.lastSeenAt ? Date.parse(profile.lastSeenAt) : NaN;
+    return [profile.userId, Number.isFinite(time) ? time : undefined];
+  }));
+
   return result.summaries.map((summary) => {
     const memberIds = result.members
       .filter((member) => member.conversationId === summary.id)
@@ -35,14 +40,21 @@ export function buildRoomsFromSupabase(
 
     // One other member = direct message. Anything else is a real group.
     if (memberIds.length <= 2 && others.length === 1) {
-      const peerName = memberNames[others[0]];
+      const peerId = others[0];
+      const peerAvatarPath = avatarByUser.get(peerId) || null;
+      // Keep the peer identity attached to the avatar cache key. This prevents
+      // a stale signed-URL cache entry from ever being reused for another user
+      // when two profiles happen to expose the same/legacy avatar_path value.
+      const peerAvatar = peerAvatarPath ? `gayze-user-avatar:${peerId}:${peerAvatarPath}` : 'user';
+      const peerName = memberNames[peerId];
       return {
         id: summary.id,
         name: peerName,
         type: 'direct' as const,
-        peerUserId: others[0],
+        peerUserId: peerId,
         peerName,
-        peerAvatar: avatarByUser.get(others[0]) || 'user',
+        peerLastSeenAt: lastSeenByUser.get(peerId) || undefined,
+        peerAvatar,
         safetyNumber: '',
         swarmSecretKeyHex: '',
         lastMessage: '',
@@ -85,23 +97,32 @@ export function mergeBackendRooms(
       byId.set(room.id, room);
       continue;
     }
-    byId.set(room.id, {
+    const candidate: SwarmRoom = {
       ...local,
       name: room.name,
       type: room.type,
       peerUserId: room.peerUserId ?? local.peerUserId,
       peerName: room.peerName ?? local.peerName,
+      // An updated/removed server avatar must not leave the previous photo.
+      peerAvatar: room.peerAvatar,
+      // A newly hidden/absent server value must clear stale presence metadata.
+      peerLastSeenAt: room.peerLastSeenAt,
       memberIds: room.memberIds?.length ? room.memberIds : local.memberIds,
       memberNames: room.memberNames && Object.keys(room.memberNames).length
         ? room.memberNames
         : local.memberNames,
-    });
+    };
+    // Polling identical metadata must not invalidate every row/avatar effect.
+    const unchanged = Object.keys(candidate).every((key) =>
+      JSON.stringify(candidate[key as keyof SwarmRoom]) === JSON.stringify(local[key as keyof SwarmRoom]));
+    byId.set(room.id, unchanged ? local : candidate);
   }
 
-  return Array.from(byId.values())
+  const result = Array.from(byId.values())
     .filter((room) => Boolean(room.id))
     // A backend room must include the authenticated user; anything else is a
     // stale placeholder and is dropped rather than shown.
     .filter((room) => !room.memberIds?.length || room.memberIds.includes(currentUserId))
     .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+  return result.length === existing.length && result.every((room, index) => room === existing[index]) ? existing : result;
 }

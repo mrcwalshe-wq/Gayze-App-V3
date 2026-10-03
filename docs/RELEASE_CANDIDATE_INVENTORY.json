@@ -1,0 +1,1081 @@
+{
+  "date": "2026-10-01",
+  "branch": "arena/01a0f3ee-gayze-app-v3",
+  "head": "1190d6ab220b2658678b66136f95a21810b2f306",
+  "main": "acb974890946ef87f72263ddbc7305a824888321",
+  "main_only_commit": "acb9748 adds only patch 1; local file is identical and unapplied",
+  "initial_file_count": 52,
+  "final_file_count": 62,
+  "initial_files": [
+    {
+      "path": ".env.example",
+      "status": "M .env.example",
+      "sha256": "2baeeb4d7eb313b6f199325e7e414e97a760a6c6bec735ff859ad0f5f32282dc"
+    },
+    {
+      "path": "docs/CHAT_AUDIT_2026-10-01.md",
+      "status": "?? docs/CHAT_AUDIT_2026-10-01.md",
+      "sha256": "1798b77b02b00fab20c6deb992ed1e92aa5e1a964f64b92f8094e668995392a0"
+    },
+    {
+      "path": "docs/PATCH_1_REVIEW.md",
+      "status": "?? docs/PATCH_1_REVIEW.md",
+      "sha256": "a248d7ebc3c88c428c7a438d639996d01c2a3495a66479e8a49758dd8668d975"
+    },
+    {
+      "path": "docs/PUSH_NOTIFICATIONS.md",
+      "status": "M docs/PUSH_NOTIFICATIONS.md",
+      "sha256": "9bf632190cd511efdcef0b6af33a3981cca58b85b13a7b789381d62b13acd9bb"
+    },
+    {
+      "path": "docs/RECOVERY_IMPLEMENTATION_REPORT.md",
+      "status": "?? docs/RECOVERY_IMPLEMENTATION_REPORT.md",
+      "sha256": "dd6169dbeab0c83d6e42461c5b49a70388478217498aeb58f16de56bc86d522d"
+    },
+    {
+      "path": "docs/RELEASE_READINESS.md",
+      "status": "?? docs/RELEASE_READINESS.md",
+      "sha256": "8bea13527e980ee587016ae7932df298940944766a18f7a2d030a6c591420fd7"
+    },
+    {
+      "path": "docs/TURN_CREDENTIAL_CONTRACT.md",
+      "status": "?? docs/TURN_CREDENTIAL_CONTRACT.md",
+      "sha256": "a7df908559220bdaa75a49b3599b8fef09d23a731c3f386758ea4d8419376de2"
+    },
+    {
+      "path": "eslint.recovery.config.mjs",
+      "status": "?? eslint.recovery.config.mjs",
+      "sha256": "913dc6b9238191c7b4ae47071c292f866f971801cea737f06bdc7d6fa93bcf01"
+    },
+    {
+      "path": "package-lock.json",
+      "status": "M package-lock.json",
+      "sha256": "3f9c1042a399a9d86f51d418cff6bbd97d1169d7c88f2c2b6ecd8ae67db77df3"
+    },
+    {
+      "path": "package.json",
+      "status": "M package.json",
+      "sha256": "b1c1cd862747d8d38d2a0dadea2c17c5a48b96897b4c6339f772fbe71918a519"
+    },
+    {
+      "path": "patch 1",
+      "status": "?? \"patch 1\"",
+      "sha256": "c17b00ece307a9ff5da5339271c0ec3e7fb253fc7f7d3bcbe605e8dcc5b1540b"
+    },
+    {
+      "path": "public/service-worker.js",
+      "status": "M public/service-worker.js",
+      "sha256": "55b107a48177fd6d9993326d4df3dd77ca6db0fe01eee84840e4deb861596a04"
+    },
+    {
+      "path": "scripts/chat-tests/benchmark.ts",
+      "status": "?? scripts/chat-tests/benchmark.ts",
+      "sha256": "4be876e19091f7e269fef1e4a9e8bbd2078f5763ca33fe625a3c423b3f70b572"
+    },
+    {
+      "path": "scripts/chat-tests/client.test.mjs",
+      "status": "?? scripts/chat-tests/client.test.mjs",
+      "sha256": "1aae68236dddc1c4ff3b6f6a41a79b821231a3618ca1ea5263074eab3242de7e"
+    },
+    {
+      "path": "scripts/chat-tests/fixtures.ts",
+      "status": "?? scripts/chat-tests/fixtures.ts",
+      "sha256": "ef7f8bc404e74db6b1c4a054c8e82d8ad10c2d4ced18a3640b30074491eefecd"
+    },
+    {
+      "path": "scripts/chat-tests/processing.test.ts",
+      "status": "?? scripts/chat-tests/processing.test.ts",
+      "sha256": "62fbafb6bed7228ea5fa0b26267a35657833066cd973343012cabd5dcda3bf07"
+    },
+    {
+      "path": "scripts/notification-tests/client.test.mjs",
+      "status": "?? scripts/notification-tests/client.test.mjs",
+      "sha256": "129bd1facbc8b217f64fe6dfb174a42fc271869ab01bd311b78dfc98cea7b483"
+    },
+    {
+      "path": "scripts/notification-tests/crypto.deno.ts",
+      "status": "?? scripts/notification-tests/crypto.deno.ts",
+      "sha256": "e331080e313c83575365c55db482b85002b197385da1831ad29e050aff31c5c3"
+    },
+    {
+      "path": "scripts/notification-tests/pipeline.test.ts",
+      "status": "?? scripts/notification-tests/pipeline.test.ts",
+      "sha256": "0e83a215cc8d86badd9825a69eb32563879ee8796f49c4b2a99ea0ffbcbc249b"
+    },
+    {
+      "path": "scripts/notification-tests/turn-contract.test.ts",
+      "status": "?? scripts/notification-tests/turn-contract.test.ts",
+      "sha256": "5a4a03994683df68a6bd72da8fd7dfc84567558a336ad9c9d4df66cdf370eae8"
+    },
+    {
+      "path": "scripts/recovery-tests/load-module.mjs",
+      "status": "?? scripts/recovery-tests/load-module.mjs",
+      "sha256": "7ea9c700b7a3580dbc96e4fd8a773c701348fd0ee68703f2caf4c8b565dff02c"
+    },
+    {
+      "path": "scripts/recovery-tests/recovery.test.ts",
+      "status": "?? scripts/recovery-tests/recovery.test.ts",
+      "sha256": "bbfbc6bb2dadfa3c2039fc5f51aaf1eb39cfe33c758d3f68f146ec78b9e6fb6e"
+    },
+    {
+      "path": "scripts/recovery-tests/security.test.mjs",
+      "status": "?? scripts/recovery-tests/security.test.mjs",
+      "sha256": "5d39f4685aefcf78dce05b2049cf9eca02f362cc92f065749f601cabee254408"
+    },
+    {
+      "path": "scripts/recovery-tests/ui.test.mjs",
+      "status": "?? scripts/recovery-tests/ui.test.mjs",
+      "sha256": "d1ffa9e9931f42642ae9742ea217262f6c29b7bdf4e35822c6b363014542627d"
+    },
+    {
+      "path": "scripts/recovery-tests/webrtc.test.mjs",
+      "status": "?? scripts/recovery-tests/webrtc.test.mjs",
+      "sha256": "8c6e493ed7396b976862f4e96adadf89638d9a2357621322b33191b0d1d5078b"
+    },
+    {
+      "path": "scripts/review-patch-1.mjs",
+      "status": "?? scripts/review-patch-1.mjs",
+      "sha256": "ec5c1bb81e85d742299c20c4cd723cbe43d85c49c322eeca3cb087b24667183d"
+    },
+    {
+      "path": "src/App.tsx",
+      "status": "M src/App.tsx",
+      "sha256": "4bede2f64ea073882f19bf857ad33c910f7ec994897b2d2a61d4638dfe67dcbc"
+    },
+    {
+      "path": "src/components/ChatRoomView.tsx",
+      "status": "M src/components/ChatRoomView.tsx",
+      "sha256": "7bf22dd1ee035f2866835b7fea486c433175588eb478b1ac622026e43dafefba"
+    },
+    {
+      "path": "src/components/DiscoverView.tsx",
+      "status": "M src/components/DiscoverView.tsx",
+      "sha256": "b1e220fc7da1656cac64dfa1699955a0599a950647d89a2620c283b7c2946711"
+    },
+    {
+      "path": "src/components/Navbar.tsx",
+      "status": "M src/components/Navbar.tsx",
+      "sha256": "45e94c933ab7336a588330690e496ff464881ef32902891df7dfde4a8d90129c"
+    },
+    {
+      "path": "src/components/NotificationsModal.tsx",
+      "status": "M src/components/NotificationsModal.tsx",
+      "sha256": "fba694487d3309d14fe548f780702610981aaa927aeb2ff44755553439c26959"
+    },
+    {
+      "path": "src/components/RightNowView.tsx",
+      "status": "M src/components/RightNowView.tsx",
+      "sha256": "0e6269ec485e2b88820cdd426975c8a43254d733ab53da3b879d0bb0202d2fc9"
+    },
+    {
+      "path": "src/index.css",
+      "status": "M src/index.css",
+      "sha256": "c06be05c41eb8bfb90e102e8572a1855f17294afa816f547b207d61b8fc1c0c1"
+    },
+    {
+      "path": "src/services/chatMessageProcessing.ts",
+      "status": "?? src/services/chatMessageProcessing.ts",
+      "sha256": "ef75e08d1a7c1501c22c209a097e203e68e8eb4415cbfa9d2f8b48acd6323c83"
+    },
+    {
+      "path": "src/services/chatSubscriptions.ts",
+      "status": "?? src/services/chatSubscriptions.ts",
+      "sha256": "ad7b79e876f085558a0065aafe1593ef7f8a64f0a963072aaa46ba6423bf3a9a"
+    },
+    {
+      "path": "src/services/conversationRooms.ts",
+      "status": "M src/services/conversationRooms.ts",
+      "sha256": "52b8c49324d6347a408616f20d93fe029d9c8a3d5c970e0aec9400051c077a4a"
+    },
+    {
+      "path": "src/services/iceCredentials.ts",
+      "status": "?? src/services/iceCredentials.ts",
+      "sha256": "3b1aefd020023e20ead0777e520671720d99e71d0769eadb15bfe4139c66dc0f"
+    },
+    {
+      "path": "src/services/messageAlerts.ts",
+      "status": "?? src/services/messageAlerts.ts",
+      "sha256": "50a92969bab6e6396dc5484804cb667cf5c2192ccc174d4acc4246422be51ceb"
+    },
+    {
+      "path": "src/services/messageMerge.ts",
+      "status": "?? src/services/messageMerge.ts",
+      "sha256": "cda250c746d2d05ea7a5d32f72bf96e999f5c063839b6407be2e02f218fd8b08"
+    },
+    {
+      "path": "src/services/notificationInbox.ts",
+      "status": "?? src/services/notificationInbox.ts",
+      "sha256": "8c9df0e34d7b2cfe660ecca3459bd9a85129e5ff848839c15387fc72bd3ec4fd"
+    },
+    {
+      "path": "src/services/notificationRouting.ts",
+      "status": "M src/services/notificationRouting.ts",
+      "sha256": "10321751316cb03044a3bcdb4e8fcf5e4e582f8464f807c88cee1ffb25c0e3b6"
+    },
+    {
+      "path": "src/services/profilePhotoService.ts",
+      "status": "M src/services/profilePhotoService.ts",
+      "sha256": "1854211c4dd33c0115e213f1c453160119e3b2f780f0d6182b4e7c569075bff7"
+    },
+    {
+      "path": "src/services/pushService.ts",
+      "status": "M src/services/pushService.ts",
+      "sha256": "36d0ae192e13e1332e8da4546cb87dbc754972126c8c32f1a37a681815f59c93"
+    },
+    {
+      "path": "src/services/realtimeRecovery.ts",
+      "status": "?? src/services/realtimeRecovery.ts",
+      "sha256": "ffc03151212656c66aab0b05d818dbfba31ff98e3d163f07e3f68a568489bc0a"
+    },
+    {
+      "path": "src/services/supabaseService.ts",
+      "status": "M src/services/supabaseService.ts",
+      "sha256": "40653264fa16f8bd864cc0b5efcc6151a9ba3c33bedbaffc028a3bc7f21de2c3"
+    },
+    {
+      "path": "src/services/webrtcService.ts",
+      "status": "M src/services/webrtcService.ts",
+      "sha256": "20d30b215d7af84926b9d63aa46ffc0e7f400dea5f82f84c885b4edbd14a42a1"
+    },
+    {
+      "path": "src/types.ts",
+      "status": "M src/types.ts",
+      "sha256": "71cbfa30559966c02f61b1d160d7c411a125a485d998f3dcf86a2155e617f7ec"
+    },
+    {
+      "path": "supabase/functions/deno.json",
+      "status": "M supabase/functions/deno.json",
+      "sha256": "23d47b0e6c10eded7eeec22c5b490d09f866841655ae48850212dea112dcf9dc"
+    },
+    {
+      "path": "supabase/functions/send-push/handler.ts",
+      "status": "?? supabase/functions/send-push/handler.ts",
+      "sha256": "b92249bfa10cc846df983eebf9044cc95651e8720cb3e52dc6663e3c5be9ca8e"
+    },
+    {
+      "path": "supabase/functions/send-push/index.ts",
+      "status": "M supabase/functions/send-push/index.ts",
+      "sha256": "3f248881878a9d1fe692d25211adf60280aa1ee3461a79d3d419f71310ff7dd0"
+    },
+    {
+      "path": "supabase/migrations/20261002100000_durable_notifications.sql",
+      "status": "?? supabase/migrations/20261002100000_durable_notifications.sql",
+      "sha256": "636f712fda15fca6131c2bb19e8ec4d36a03498ae9f9dc6e2374a938c4f1931f"
+    },
+    {
+      "path": "vite.config.ts",
+      "status": "M vite.config.ts",
+      "sha256": "b29542863a03927ba2ade57bcd2d79082f9d5bc7cd846432bce7a9088eeb0db1"
+    }
+  ],
+  "scope_attribution_note": "Earlier scopes from source/prior reports; exact per-hunk historical authorship unavailable without inter-phase commits. This-request hashes are exact.",
+  "self_hash_note": "Manifest sha256 intentionally null to avoid recursive self-hashing.",
+  "files": [
+    {
+      "path": ".env.example",
+      "status": "M",
+      "earlier_scope": "R / N",
+      "this_request": "same",
+      "initial_sha256": "2baeeb4d7eb313b6f199325e7e414e97a760a6c6bec735ff859ad0f5f32282dc",
+      "sha256": "2baeeb4d7eb313b6f199325e7e414e97a760a6c6bec735ff859ad0f5f32282dc",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 18,
+        "removed_lines": 2
+      }
+    },
+    {
+      "path": "docs/CHAT_AUDIT_2026-10-01.md",
+      "status": "??",
+      "earlier_scope": "C",
+      "this_request": "edited",
+      "initial_sha256": "1798b77b02b00fab20c6deb992ed1e92aa5e1a964f64b92f8094e668995392a0",
+      "sha256": "98d4429fc89bfd639f231d5a948d339a3aeb41c328604de2909d048415e6ddad",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 175,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "docs/PATCH_1_REVIEW.md",
+      "status": "??",
+      "earlier_scope": "R audit",
+      "this_request": "same",
+      "initial_sha256": "a248d7ebc3c88c428c7a438d639996d01c2a3495a66479e8a49758dd8668d975",
+      "sha256": "a248d7ebc3c88c428c7a438d639996d01c2a3495a66479e8a49758dd8668d975",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 215,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "docs/PUSH_NOTIFICATIONS.md",
+      "status": "M",
+      "earlier_scope": "N",
+      "this_request": "edited",
+      "initial_sha256": "9bf632190cd511efdcef0b6af33a3981cca58b85b13a7b789381d62b13acd9bb",
+      "sha256": "3bba43605af2263754cc011260156c807bc18dd0676aab42c5cb58a121dc2e84",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 97,
+        "removed_lines": 249
+      }
+    },
+    {
+      "path": "docs/RECOVERY_IMPLEMENTATION_REPORT.md",
+      "status": "??",
+      "earlier_scope": "R",
+      "this_request": "same",
+      "initial_sha256": "dd6169dbeab0c83d6e42461c5b49a70388478217498aeb58f16de56bc86d522d",
+      "sha256": "dd6169dbeab0c83d6e42461c5b49a70388478217498aeb58f16de56bc86d522d",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 222,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "docs/RELEASE_CANDIDATE_INVENTORY.json",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": null,
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 1081,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "docs/RELEASE_CANDIDATE_REPORT.md",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": "33dbd11a88c1d1fa9447c8a3bbfb24d061747499ab8608fa9588eb2e7dd823b6",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 328,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "docs/RELEASE_READINESS.md",
+      "status": "??",
+      "earlier_scope": "R / N",
+      "this_request": "edited",
+      "initial_sha256": "8bea13527e980ee587016ae7932df298940944766a18f7a2d030a6c591420fd7",
+      "sha256": "aa4f6dcfbdbdd1620fadf527c646973dbbcfebbc10853889c4adffc633f197f5",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 234,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "docs/TURN_CREDENTIAL_CONTRACT.md",
+      "status": "??",
+      "earlier_scope": "R / N audit",
+      "this_request": "same",
+      "initial_sha256": "a7df908559220bdaa75a49b3599b8fef09d23a731c3f386758ea4d8419376de2",
+      "sha256": "a7df908559220bdaa75a49b3599b8fef09d23a731c3f386758ea4d8419376de2",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 63,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "eslint.recovery.config.mjs",
+      "status": "??",
+      "earlier_scope": "R / N / C tooling",
+      "this_request": "edited",
+      "initial_sha256": "913dc6b9238191c7b4ae47071c292f866f971801cea737f06bdc7d6fa93bcf01",
+      "sha256": "2c0062cf2a495197c31b5b7fa63d9b6e3d88c0684730e44b938be2ad62a9d9bc",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 32,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "package-lock.json",
+      "status": "M",
+      "earlier_scope": "R lint tooling",
+      "this_request": "same",
+      "initial_sha256": "3f9c1042a399a9d86f51d418cff6bbd97d1169d7c88f2c2b6ecd8ae67db77df3",
+      "sha256": "3f9c1042a399a9d86f51d418cff6bbd97d1169d7c88f2c2b6ecd8ae67db77df3",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 1554,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "package.json",
+      "status": "M",
+      "earlier_scope": "R / N / C tooling",
+      "this_request": "edited",
+      "initial_sha256": "b1c1cd862747d8d38d2a0dadea2c17c5a48b96897b4c6339f772fbe71918a519",
+      "sha256": "5a6c7c7f01faa859e0d897389e8be95ba632cc3d3a05e79feb211106aa1dfe6f",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 13,
+        "removed_lines": 1
+      }
+    },
+    {
+      "path": "patch 1",
+      "status": "??",
+      "earlier_scope": "pre-existing review input",
+      "this_request": "same",
+      "initial_sha256": "c17b00ece307a9ff5da5339271c0ec3e7fb253fc7f7d3bcbe605e8dcc5b1540b",
+      "sha256": "c17b00ece307a9ff5da5339271c0ec3e7fb253fc7f7d3bcbe605e8dcc5b1540b",
+      "main_delta": {
+        "kind": "identical",
+        "added_lines": 0,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "public/service-worker.js",
+      "status": "M",
+      "earlier_scope": "N / C",
+      "this_request": "same",
+      "initial_sha256": "55b107a48177fd6d9993326d4df3dd77ca6db0fe01eee84840e4deb861596a04",
+      "sha256": "55b107a48177fd6d9993326d4df3dd77ca6db0fe01eee84840e4deb861596a04",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 50,
+        "removed_lines": 5
+      }
+    },
+    {
+      "path": "scripts/chat-tests/benchmark.ts",
+      "status": "??",
+      "earlier_scope": "C",
+      "this_request": "same",
+      "initial_sha256": "4be876e19091f7e269fef1e4a9e8bbd2078f5763ca33fe625a3c423b3f70b572",
+      "sha256": "4be876e19091f7e269fef1e4a9e8bbd2078f5763ca33fe625a3c423b3f70b572",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 49,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/chat-tests/client.test.mjs",
+      "status": "??",
+      "earlier_scope": "C",
+      "this_request": "same",
+      "initial_sha256": "1aae68236dddc1c4ff3b6f6a41a79b821231a3618ca1ea5263074eab3242de7e",
+      "sha256": "1aae68236dddc1c4ff3b6f6a41a79b821231a3618ca1ea5263074eab3242de7e",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 96,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/chat-tests/fixtures.ts",
+      "status": "??",
+      "earlier_scope": "C",
+      "this_request": "same",
+      "initial_sha256": "ef7f8bc404e74db6b1c4a054c8e82d8ad10c2d4ced18a3640b30074491eefecd",
+      "sha256": "ef7f8bc404e74db6b1c4a054c8e82d8ad10c2d4ced18a3640b30074491eefecd",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 34,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/chat-tests/processing.test.ts",
+      "status": "??",
+      "earlier_scope": "C",
+      "this_request": "same",
+      "initial_sha256": "62fbafb6bed7228ea5fa0b26267a35657833066cd973343012cabd5dcda3bf07",
+      "sha256": "62fbafb6bed7228ea5fa0b26267a35657833066cd973343012cabd5dcda3bf07",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 129,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/notification-tests/client.test.mjs",
+      "status": "??",
+      "earlier_scope": "N",
+      "this_request": "same",
+      "initial_sha256": "129bd1facbc8b217f64fe6dfb174a42fc271869ab01bd311b78dfc98cea7b483",
+      "sha256": "129bd1facbc8b217f64fe6dfb174a42fc271869ab01bd311b78dfc98cea7b483",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 149,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/notification-tests/crypto.deno.ts",
+      "status": "??",
+      "earlier_scope": "N",
+      "this_request": "same",
+      "initial_sha256": "e331080e313c83575365c55db482b85002b197385da1831ad29e050aff31c5c3",
+      "sha256": "e331080e313c83575365c55db482b85002b197385da1831ad29e050aff31c5c3",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 30,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/notification-tests/pipeline.test.ts",
+      "status": "??",
+      "earlier_scope": "N",
+      "this_request": "edited",
+      "initial_sha256": "0e83a215cc8d86badd9825a69eb32563879ee8796f49c4b2a99ea0ffbcbc249b",
+      "sha256": "a915fabf70876b556b5e1498d4346fdbed20e53b718fbe69147c8f94eded3428",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 252,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/notification-tests/turn-contract.test.ts",
+      "status": "??",
+      "earlier_scope": "N",
+      "this_request": "same",
+      "initial_sha256": "5a4a03994683df68a6bd72da8fd7dfc84567558a336ad9c9d4df66cdf370eae8",
+      "sha256": "5a4a03994683df68a6bd72da8fd7dfc84567558a336ad9c9d4df66cdf370eae8",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 30,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/recovery-tests/load-module.mjs",
+      "status": "??",
+      "earlier_scope": "R",
+      "this_request": "same",
+      "initial_sha256": "7ea9c700b7a3580dbc96e4fd8a773c701348fd0ee68703f2caf4c8b565dff02c",
+      "sha256": "7ea9c700b7a3580dbc96e4fd8a773c701348fd0ee68703f2caf4c8b565dff02c",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 26,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/recovery-tests/recovery.test.ts",
+      "status": "??",
+      "earlier_scope": "R",
+      "this_request": "edited",
+      "initial_sha256": "bbfbc6bb2dadfa3c2039fc5f51aaf1eb39cfe33c758d3f68f146ec78b9e6fb6e",
+      "sha256": "6a7f8de4bff4d1a0d629f9709ee9c451e5aa59b5bae21b428eaf2f1a062d13b3",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 397,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/recovery-tests/security.test.mjs",
+      "status": "??",
+      "earlier_scope": "R",
+      "this_request": "same",
+      "initial_sha256": "5d39f4685aefcf78dce05b2049cf9eca02f362cc92f065749f601cabee254408",
+      "sha256": "5d39f4685aefcf78dce05b2049cf9eca02f362cc92f065749f601cabee254408",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 65,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/recovery-tests/ui.test.mjs",
+      "status": "??",
+      "earlier_scope": "R",
+      "this_request": "same",
+      "initial_sha256": "d1ffa9e9931f42642ae9742ea217262f6c29b7bdf4e35822c6b363014542627d",
+      "sha256": "d1ffa9e9931f42642ae9742ea217262f6c29b7bdf4e35822c6b363014542627d",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 116,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/recovery-tests/webrtc.test.mjs",
+      "status": "??",
+      "earlier_scope": "R",
+      "this_request": "same",
+      "initial_sha256": "8c6e493ed7396b976862f4e96adadf89638d9a2357621322b33191b0d1d5078b",
+      "sha256": "8c6e493ed7396b976862f4e96adadf89638d9a2357621322b33191b0d1d5078b",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 185,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/release-candidate/history.test.ts",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": "4a14b2adadf23b498ce5063a1912d1a410184cc2f6e83018e8fbc1bb5fef290f",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 74,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/release-candidate/preflight.sql",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": "a0cc4314274fe4642124678f8414ca256bc528c434c453d8411e8a08f8b48b0e",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 60,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/release-candidate/trace-chat.mjs",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": "ee82b1bcd4082e7b12be173689e0f4d3f0dd8e41a376bdb53969ad09721efdc3",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 64,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/release-candidate/traceHarness.ts",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": "1c24589e5694ff6dceb62a2de4390640498f0102917182067582701a8d6179bb",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 8,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/release-candidate/ui.test.mjs",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": "a69dcc6abc4fad62ff30adac8f7ad090ac935339c42b24645df602134025dcf9",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 81,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "scripts/review-patch-1.mjs",
+      "status": "??",
+      "earlier_scope": "R audit",
+      "this_request": "same",
+      "initial_sha256": "ec5c1bb81e85d742299c20c4cd723cbe43d85c49c322eeca3cb087b24667183d",
+      "sha256": "ec5c1bb81e85d742299c20c4cd723cbe43d85c49c322eeca3cb087b24667183d",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 184,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/App.tsx",
+      "status": "M",
+      "earlier_scope": "R / N / C (mixed)",
+      "this_request": "edited",
+      "initial_sha256": "4bede2f64ea073882f19bf857ad33c910f7ec994897b2d2a61d4638dfe67dcbc",
+      "sha256": "cb3288d998ff239474555bec7c77828ced1b862df8ab154ee156828b5afe2178",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 383,
+        "removed_lines": 208
+      }
+    },
+    {
+      "path": "src/components/ChatRoomView.tsx",
+      "status": "M",
+      "earlier_scope": "R / C",
+      "this_request": "edited",
+      "initial_sha256": "7bf22dd1ee035f2866835b7fea486c433175588eb478b1ac622026e43dafefba",
+      "sha256": "557563e8778d579f822dd07aa73d1753c6a6a1969724c7b8e5663d49d5251a7e",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 99,
+        "removed_lines": 25
+      }
+    },
+    {
+      "path": "src/components/DiscoverView.tsx",
+      "status": "M",
+      "earlier_scope": "N targeting",
+      "this_request": "same",
+      "initial_sha256": "b1e220fc7da1656cac64dfa1699955a0599a950647d89a2620c283b7c2946711",
+      "sha256": "b1e220fc7da1656cac64dfa1699955a0599a950647d89a2620c283b7c2946711",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 9,
+        "removed_lines": 5
+      }
+    },
+    {
+      "path": "src/components/Navbar.tsx",
+      "status": "M",
+      "earlier_scope": "N indicators",
+      "this_request": "same",
+      "initial_sha256": "45e94c933ab7336a588330690e496ff464881ef32902891df7dfde4a8d90129c",
+      "sha256": "45e94c933ab7336a588330690e496ff464881ef32902891df7dfde4a8d90129c",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 6,
+        "removed_lines": 4
+      }
+    },
+    {
+      "path": "src/components/NotificationsModal.tsx",
+      "status": "M",
+      "earlier_scope": "N",
+      "this_request": "edited",
+      "initial_sha256": "fba694487d3309d14fe548f780702610981aaa927aeb2ff44755553439c26959",
+      "sha256": "4454e4534e5772ff933f6b1e381ca8f75ab312f5df1d8136398b92b6a9f2d9dd",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 23,
+        "removed_lines": 3
+      }
+    },
+    {
+      "path": "src/components/RightNowView.tsx",
+      "status": "M",
+      "earlier_scope": "N targeting",
+      "this_request": "edited",
+      "initial_sha256": "0e6269ec485e2b88820cdd426975c8a43254d733ab53da3b879d0bb0202d2fc9",
+      "sha256": "51da0f6df906d187caef574550da9023a7efbcf3f233c815e8799c85c62715fd",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 29,
+        "removed_lines": 33
+      }
+    },
+    {
+      "path": "src/components/SetIntentSheet.tsx",
+      "status": "M",
+      "earlier_scope": "UI (tracked base)",
+      "this_request": "newly modified",
+      "initial_sha256": null,
+      "sha256": "abe7b69f8fd6a0a362048ff485e0a1f7a5863c03400f79d9dd90a1dda34ee47d",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 18,
+        "removed_lines": 4
+      }
+    },
+    {
+      "path": "src/index.css",
+      "status": "M",
+      "earlier_scope": "R chat layout",
+      "this_request": "edited",
+      "initial_sha256": "c06be05c41eb8bfb90e102e8572a1855f17294afa816f547b207d61b8fc1c0c1",
+      "sha256": "c04e9679891eb59542fd6032fb70e613071b9841af3c14b9194fd4bf47ddfa9f",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 33,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/chatHistoryOwnership.ts",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": "12054b4eb520410e9debc31bbde5073271d3016dc43c0987bca8b7a5f8ed700e",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 19,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/chatMessageProcessing.ts",
+      "status": "??",
+      "earlier_scope": "C",
+      "this_request": "edited",
+      "initial_sha256": "ef75e08d1a7c1501c22c209a097e203e68e8eb4415cbfa9d2f8b48acd6323c83",
+      "sha256": "993b688c25d9077ab3efc41866b3fda64ab528b5e62b26611ee695256e213a6c",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 94,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/chatSubscriptions.ts",
+      "status": "??",
+      "earlier_scope": "R / C",
+      "this_request": "edited",
+      "initial_sha256": "ad7b79e876f085558a0065aafe1593ef7f8a64f0a963072aaa46ba6423bf3a9a",
+      "sha256": "926c0d658e7f9903b0d5cec1c0b23dc379cd2c425caa64d144bae4bdfdbefce9",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 215,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/chatTrace.ts",
+      "status": "??",
+      "earlier_scope": "RC",
+      "this_request": "new",
+      "initial_sha256": null,
+      "sha256": "680aeb65c182fff45a4ef593277cbd42c8bd24cca8cd304a78790423ae8c20a9",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 24,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/conversationRooms.ts",
+      "status": "M",
+      "earlier_scope": "R / C",
+      "this_request": "edited",
+      "initial_sha256": "52b8c49324d6347a408616f20d93fe029d9c8a3d5c970e0aec9400051c077a4a",
+      "sha256": "edaf45d634f8a52c18a0e5f8e16bd700efe2b0c5a0d7cd182e03e40e2514347a",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 18,
+        "removed_lines": 3
+      }
+    },
+    {
+      "path": "src/services/iceCredentials.ts",
+      "status": "??",
+      "earlier_scope": "R",
+      "this_request": "same",
+      "initial_sha256": "3b1aefd020023e20ead0777e520671720d99e71d0769eadb15bfe4139c66dc0f",
+      "sha256": "3b1aefd020023e20ead0777e520671720d99e71d0769eadb15bfe4139c66dc0f",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 54,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/messageAlerts.ts",
+      "status": "??",
+      "earlier_scope": "C / N",
+      "this_request": "same",
+      "initial_sha256": "50a92969bab6e6396dc5484804cb667cf5c2192ccc174d4acc4246422be51ceb",
+      "sha256": "50a92969bab6e6396dc5484804cb667cf5c2192ccc174d4acc4246422be51ceb",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 21,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/messageMerge.ts",
+      "status": "??",
+      "earlier_scope": "R / C",
+      "this_request": "same",
+      "initial_sha256": "cda250c746d2d05ea7a5d32f72bf96e999f5c063839b6407be2e02f218fd8b08",
+      "sha256": "cda250c746d2d05ea7a5d32f72bf96e999f5c063839b6407be2e02f218fd8b08",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 29,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/notificationInbox.ts",
+      "status": "??",
+      "earlier_scope": "N",
+      "this_request": "same",
+      "initial_sha256": "8c9df0e34d7b2cfe660ecca3459bd9a85129e5ff848839c15387fc72bd3ec4fd",
+      "sha256": "8c9df0e34d7b2cfe660ecca3459bd9a85129e5ff848839c15387fc72bd3ec4fd",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 58,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/notificationRouting.ts",
+      "status": "M",
+      "earlier_scope": "N",
+      "this_request": "edited",
+      "initial_sha256": "10321751316cb03044a3bcdb4e8fcf5e4e582f8464f807c88cee1ffb25c0e3b6",
+      "sha256": "09c3655153ca58f431637eb2f53f48e7811b1f8eea8446dd4e78355a0dc04a17",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 22,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/profilePhotoService.ts",
+      "status": "M",
+      "earlier_scope": "C",
+      "this_request": "same",
+      "initial_sha256": "1854211c4dd33c0115e213f1c453160119e3b2f780f0d6182b4e7c569075bff7",
+      "sha256": "1854211c4dd33c0115e213f1c453160119e3b2f780f0d6182b4e7c569075bff7",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 10,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/pushService.ts",
+      "status": "M",
+      "earlier_scope": "N",
+      "this_request": "edited",
+      "initial_sha256": "36d0ae192e13e1332e8da4546cb87dbc754972126c8c32f1a37a681815f59c93",
+      "sha256": "0d76c145f657b53189578dafc9e0266f0b866b1816d8f7885560af94bd380f4e",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 14,
+        "removed_lines": 8
+      }
+    },
+    {
+      "path": "src/services/realtimeRecovery.ts",
+      "status": "??",
+      "earlier_scope": "R / C",
+      "this_request": "edited",
+      "initial_sha256": "ffc03151212656c66aab0b05d818dbfba31ff98e3d163f07e3f68a568489bc0a",
+      "sha256": "764a5cb0e9e0d2df096f0d67dcbd8209a95983f9db541e2a45868aecc4303994",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 294,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "src/services/supabaseService.ts",
+      "status": "M",
+      "earlier_scope": "R / N integration",
+      "this_request": "edited",
+      "initial_sha256": "40653264fa16f8bd864cc0b5efcc6151a9ba3c33bedbaffc028a3bc7f21de2c3",
+      "sha256": "412948f9cf58bdc03972cfca665103326381e7c9a44285fb213cc482d1ac523b",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 70,
+        "removed_lines": 89
+      }
+    },
+    {
+      "path": "src/services/webrtcService.ts",
+      "status": "M",
+      "earlier_scope": "R",
+      "this_request": "same",
+      "initial_sha256": "20d30b215d7af84926b9d63aa46ffc0e7f400dea5f82f84c885b4edbd14a42a1",
+      "sha256": "20d30b215d7af84926b9d63aa46ffc0e7f400dea5f82f84c885b4edbd14a42a1",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 334,
+        "removed_lines": 339
+      }
+    },
+    {
+      "path": "src/types.ts",
+      "status": "M",
+      "earlier_scope": "R presence",
+      "this_request": "same",
+      "initial_sha256": "71cbfa30559966c02f61b1d160d7c411a125a485d998f3dcf86a2155e617f7ec",
+      "sha256": "71cbfa30559966c02f61b1d160d7c411a125a485d998f3dcf86a2155e617f7ec",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 2,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "supabase/functions/deno.json",
+      "status": "M",
+      "earlier_scope": "N",
+      "this_request": "same",
+      "initial_sha256": "23d47b0e6c10eded7eeec22c5b490d09f866841655ae48850212dea112dcf9dc",
+      "sha256": "23d47b0e6c10eded7eeec22c5b490d09f866841655ae48850212dea112dcf9dc",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 1,
+        "removed_lines": 1
+      }
+    },
+    {
+      "path": "supabase/functions/send-push/handler.ts",
+      "status": "??",
+      "earlier_scope": "N",
+      "this_request": "same",
+      "initial_sha256": "b92249bfa10cc846df983eebf9044cc95651e8720cb3e52dc6663e3c5be9ca8e",
+      "sha256": "b92249bfa10cc846df983eebf9044cc95651e8720cb3e52dc6663e3c5be9ca8e",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 154,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "supabase/functions/send-push/index.ts",
+      "status": "M",
+      "earlier_scope": "N",
+      "this_request": "same",
+      "initial_sha256": "3f248881878a9d1fe692d25211adf60280aa1ee3461a79d3d419f71310ff7dd0",
+      "sha256": "3f248881878a9d1fe692d25211adf60280aa1ee3461a79d3d419f71310ff7dd0",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 64,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "supabase/migrations/20261002100000_durable_notifications.sql",
+      "status": "??",
+      "earlier_scope": "N",
+      "this_request": "edited",
+      "initial_sha256": "636f712fda15fca6131c2bb19e8ec4d36a03498ae9f9dc6e2374a938c4f1931f",
+      "sha256": "5bab93512ccc65fedc45967bbdc9dd8480dcd1a435c80dc285d17152260cc423",
+      "main_delta": {
+        "kind": "added",
+        "added_lines": 277,
+        "removed_lines": 0
+      }
+    },
+    {
+      "path": "vite.config.ts",
+      "status": "M",
+      "earlier_scope": "R secret guards",
+      "this_request": "same",
+      "initial_sha256": "b29542863a03927ba2ade57bcd2d79082f9d5bc7cd846432bce7a9088eeb0db1",
+      "sha256": "b29542863a03927ba2ade57bcd2d79082f9d5bc7cd846432bce7a9088eeb0db1",
+      "main_delta": {
+        "kind": "modified",
+        "added_lines": 19,
+        "removed_lines": 2
+      }
+    }
+  ]
+}

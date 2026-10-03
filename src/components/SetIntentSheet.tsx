@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { intentStartsAt } from '../services/intentTiming';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Check,
@@ -105,11 +106,17 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const initializedDraftRef = useRef<string | null>(null);
+  const safeHavensRef = useRef(safeHavens);
+  safeHavensRef.current = safeHavens;
   const isEditing = Boolean(existingIntent);
   const isPrivateMode = mode === 'private';
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) { initializedDraftRef.current = null; return; }
+    const target = existingIntent?.remoteId ?? (existingIntent ? 'local-edit' : 'new');
+    if (initializedDraftRef.current === target) return;
+    initializedDraftRef.current = target;
     setErrorMessage(null);
     setIsSubmitting(false);
     if (existingIntent) {
@@ -123,7 +130,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       setTravelWillingness(existingIntent.travelWillingness || 'Yes');
       setUseSafeHaven(Boolean(existingIntent.isNearSafeHaven));
       if (existingIntent.safeHavenName) {
-        const match = safeHavens.find((h) => h.name === existingIntent.safeHavenName);
+        const match = safeHavensRef.current.find((h) => h.name === existingIntent.safeHavenName);
         if (match) setSelectedHaven(match);
       }
     } else {
@@ -137,7 +144,15 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       setTravelWillingness('Yes');
       setUseSafeHaven(false);
     }
-  }, [isOpen, existingIntent, defaultWhen, safeHavens]);
+  }, [isOpen, existingIntent, defaultWhen]);
+
+  // Late haven data can fill an unchosen default, but must never reset the
+  // mode/intent/description that the user is currently editing.
+  useEffect(() => {
+    if (!selectedHaven && safeHavens.length) {
+      setSelectedHaven(safeHavens.find((haven) => haven.name === existingIntent?.safeHavenName) ?? safeHavens[0]);
+    }
+  }, [safeHavens, selectedHaven, existingIntent?.safeHavenName]);
 
   if (!isOpen) return null;
 
@@ -169,7 +184,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     setErrorMessage(null);
 
     const durationMs = (duration === '1 hr' ? 1 : 2) * 3600 * 1000;
-    const activatedAt = Date.now();
+    const activatedAt = intentStartsAt(when);
     const expiresAt = activatedAt + durationMs;
 
     const areaText = useSafeHaven && selectedHaven
@@ -336,6 +351,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                       </button>
                     ))}
                   </div>
+                  {when === 'Tonight' && <p className="mt-2 text-[11px] text-zinc-500">From 19:00 local time, or now if it is already later.</p>}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -1850,3 +1850,36 @@ button, input, select, textarea, [role="button"] {
 .g-map-legend__dot--live { background: #a879f1; box-shadow: 0 0 9px rgba(168,121,241,0.85); }
 .g-map-legend__dot--nearby { background: #d8d4dc; box-shadow: 0 0 7px rgba(216,212,220,0.28); }
 .g-map-legend__sep { width: 1px; height: 11px; background: rgba(255,255,255,0.12); }
+
+/* Chat fits the visible viewport (including the iOS keyboard), not an arbitrary
+   minimum height that pushes the composer behind the tab bar. */
+.g-chat-viewport {
+  position: fixed;
+  top: calc(var(--g-visual-top, 0px) + env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  height: max(0px, calc(var(--g-visual-height, 100dvh) - var(--g-tabbar-h) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px)));
+  padding: 0.5rem;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+@media (min-width: 768px) {
+  .g-chat-viewport {
+    top: calc(var(--g-visual-top, 0px) + 3.5rem + env(safe-area-inset-top, 0px));
+    height: max(0px, calc(var(--g-visual-height, 100dvh) - 4.5rem - env(safe-area-inset-top, 0px)));
+    max-width: 64rem;
+    margin-inline: auto;
+  }
+}
+
+/* Expanded discovery detail reserves the SAME nav gap in its height and
+   bottom margin. Unlayered .g-sheet margin otherwise overrides Tailwind's
+   mb-* utilities and the old max-height did not budget that gap. */
+.g-sheet.g-sheet--above-nav {
+  --g-sheet-bottom-gap: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px);
+  margin-bottom: var(--g-sheet-bottom-gap);
+  max-height: max(0px, calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-sheet-bottom-gap) - 14px));
+}
+@media (min-width: 768px) {
+  .g-sheet.g-sheet--above-nav { --g-sheet-bottom-gap: 24px; }
+}

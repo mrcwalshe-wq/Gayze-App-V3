@@ -1,0 +1,1180 @@
+{
+  "date": "2026-10-01",
+  "branch": "arena/01a0f3ee-gayze-app-v3",
+  "head": "1190d6ab220b2658678b66136f95a21810b2f306",
+  "main": "acb974890946ef87f72263ddbc7305a824888321",
+  "decision": "HOLD: six code blockers locally PASS; private production configuration and physical iPhone delivery UNVERIFIED",
+  "no_commit_push_deploy_or_project_migration": true,
+  "patch_1_unapplied": true,
+  "file_count": 80,
+  "tracked_modified": 24,
+  "untracked": 56,
+  "starting_dirty_count": 74,
+  "starting_files_removed": [],
+  "this_pass_files": [
+    "docs/IPHONE_PUSH_HARDENING_MANIFEST_2026-10-01.json",
+    "docs/IPHONE_PUSH_HARDENING_REPORT_2026-10-01.md",
+    "docs/PUSH_NOTIFICATIONS.md",
+    "package.json",
+    "public/service-worker.js",
+    "scripts/chat-tests/client.test.mjs",
+    "scripts/notification-tests/client.test.mjs",
+    "scripts/notification-tests/pipeline.test.ts",
+    "scripts/push-hardening-tests/subscription.test.mjs",
+    "scripts/push-hardening-tests/worker.test.mjs",
+    "scripts/push-hardening-tests/workerFixture.mjs",
+    "scripts/push-tests/sw.test.mjs",
+    "scripts/release-candidate/iphone-push-audit.mjs",
+    "src/App.tsx",
+    "src/components/NotificationsModal.tsx",
+    "src/services/notificationRouting.ts",
+    "src/services/pushService.ts",
+    "supabase/functions/send-push/handler.ts"
+  ],
+  "self_hash_note": "Manifest self SHA-256 is null to avoid recursive hashing. All other hashes use final current content. Previous release documents remain historical.",
+  "commits": [
+    {
+      "order": 1,
+      "subject": "fix: consolidate recovery, encrypted chat and hardened Web Push candidate",
+      "status": "proposed only; explicit authorization and release gates required",
+      "paths": [
+        ".env.example",
+        "eslint.recovery.config.mjs",
+        "package-lock.json",
+        "package.json",
+        "public/service-worker.js",
+        "scripts/chat-intent-tests/fixtures.mjs",
+        "scripts/chat-intent-tests/service.test.mjs",
+        "scripts/chat-intent-tests/ui.test.mjs",
+        "scripts/chat-tests/benchmark.ts",
+        "scripts/chat-tests/client.test.mjs",
+        "scripts/chat-tests/fixtures.ts",
+        "scripts/chat-tests/processing.test.ts",
+        "scripts/notification-tests/client.test.mjs",
+        "scripts/notification-tests/crypto.deno.ts",
+        "scripts/notification-tests/pipeline.test.ts",
+        "scripts/notification-tests/turn-contract.test.ts",
+        "scripts/push-hardening-tests/subscription.test.mjs",
+        "scripts/push-hardening-tests/worker.test.mjs",
+        "scripts/push-hardening-tests/workerFixture.mjs",
+        "scripts/push-tests/sw.test.mjs",
+        "scripts/recovery-tests/load-module.mjs",
+        "scripts/recovery-tests/recovery.test.ts",
+        "scripts/recovery-tests/security.test.mjs",
+        "scripts/recovery-tests/ui.test.mjs",
+        "scripts/recovery-tests/webrtc.test.mjs",
+        "scripts/release-candidate/history.test.ts",
+        "scripts/release-candidate/iphone-push-audit.mjs",
+        "scripts/release-candidate/preflight.sql",
+        "scripts/release-candidate/push-production-preflight.sql",
+        "scripts/release-candidate/trace-chat.mjs",
+        "scripts/release-candidate/traceHarness.ts",
+        "scripts/release-candidate/ui.test.mjs",
+        "src/App.tsx",
+        "src/components/ChatRoomView.tsx",
+        "src/components/DiscoverView.tsx",
+        "src/components/Navbar.tsx",
+        "src/components/NotificationsModal.tsx",
+        "src/components/PeerIntentBanner.tsx",
+        "src/components/RightNowView.tsx",
+        "src/components/SetIntentSheet.tsx",
+        "src/index.css",
+        "src/services/chatHistoryOwnership.ts",
+        "src/services/chatMessageProcessing.ts",
+        "src/services/chatSubscriptions.ts",
+        "src/services/chatTrace.ts",
+        "src/services/conversationRooms.ts",
+        "src/services/directChatRouting.ts",
+        "src/services/iceCredentials.ts",
+        "src/services/intentTiming.ts",
+        "src/services/messageAlerts.ts",
+        "src/services/messageMerge.ts",
+        "src/services/notificationInbox.ts",
+        "src/services/notificationRouting.ts",
+        "src/services/peerIntent.ts",
+        "src/services/profilePhotoService.ts",
+        "src/services/pushService.ts",
+        "src/services/realtimeRecovery.ts",
+        "src/services/supabaseService.ts",
+        "src/services/webrtcService.ts",
+        "src/types.ts",
+        "supabase/functions/deno.json",
+        "supabase/functions/send-push/handler.ts",
+        "supabase/functions/send-push/index.ts",
+        "supabase/migrations/20261002100000_durable_notifications.sql",
+        "vite.config.ts"
+      ]
+    },
+    {
+      "order": 2,
+      "subject": "docs: record push hardening evidence and remaining iPhone release gates",
+      "status": "proposed only",
+      "paths": [
+        "docs/CHAT_AUDIT_2026-10-01.md",
+        "docs/CHAT_INTENT_FOLLOWUP_2026-10-01.md",
+        "docs/IPHONE_PUSH_HARDENING_MANIFEST_2026-10-01.json",
+        "docs/IPHONE_PUSH_HARDENING_REPORT_2026-10-01.md",
+        "docs/IPHONE_PUSH_RELEASE_CHECKLIST_2026-10-01.md",
+        "docs/IPHONE_PUSH_RELEASE_MANIFEST_2026-10-01.json",
+        "docs/PATCH_1_REVIEW.md",
+        "docs/PUSH_NOTIFICATIONS.md",
+        "docs/RECOVERY_IMPLEMENTATION_REPORT.md",
+        "docs/RELEASE_CANDIDATE_INVENTORY.json",
+        "docs/RELEASE_CANDIDATE_REPORT.md",
+        "docs/RELEASE_READINESS.md",
+        "docs/TURN_CREDENTIAL_CONTRACT.md",
+        "scripts/review-patch-1.mjs"
+      ]
+    }
+  ],
+  "code_blockers": {
+    "post-display-receipt": "PASS_LOCAL",
+    "click-fallback-stable-conversation": "PASS_LOCAL",
+    "user-visible-tagged-replay": "PASS_LOCAL",
+    "direct-permission-ordering": "PASS_LOCAL",
+    "apple-subdomain-validation": "PASS_LOCAL",
+    "authenticated-launch-resume-reconciliation": "PASS_LOCAL"
+  },
+  "background_push": {
+    "local_code": "CODE READY",
+    "production": "UNVERIFIED",
+    "physical_iphone": "UNVERIFIED"
+  },
+  "validation": [
+    {
+      "name": "hardening",
+      "command": "npm run test:push-hardening",
+      "exit": 0,
+      "seconds": 5.34,
+      "log": ".cache/push-hardening/hardening.log",
+      "log_sha256": "855b3a39d8cb4e2d6a4a1e6d1d9f5b8a0318d2a17afed399fab2b43a77081bd6",
+      "tap_passes": 37
+    },
+    {
+      "name": "audit",
+      "command": "node scripts/release-candidate/iphone-push-audit.mjs",
+      "exit": 0,
+      "seconds": 1.48,
+      "log": ".cache/push-hardening/audit.log",
+      "log_sha256": "fcedc9706e1105bcf68544e97283011d7589dcc9a2393abb223c8c1f28d106f1"
+    },
+    {
+      "name": "notifications",
+      "command": "npm run test:notifications",
+      "exit": 0,
+      "seconds": 7.702,
+      "log": ".cache/push-hardening/notifications.log",
+      "log_sha256": "c3fdfdab072cd3989241926985706c3b4e4fd5428a8cc0614120a43a69fb037e",
+      "tap_passes": 32,
+      "note": "Rerun after adding connection payload identity assertions; 32 PASS."
+    },
+    {
+      "name": "chat-intent",
+      "command": "npm run test:chat-intent",
+      "exit": 0,
+      "seconds": 6.31,
+      "log": ".cache/push-hardening/chat-intent.log",
+      "log_sha256": "9f79837a5e7be4ce0c7230757ab223b60ecfe550e57f969ca589439680fefb83",
+      "tap_passes": 21
+    },
+    {
+      "name": "rc",
+      "command": "npm run test:rc",
+      "exit": 0,
+      "seconds": 3.82,
+      "log": ".cache/push-hardening/rc.log",
+      "log_sha256": "fa8652267a8385a7a4e0453ce0a91b1b27dc7171195c2fa8a26b217108c9bd25",
+      "tap_passes": 11
+    },
+    {
+      "name": "chat",
+      "command": "npm run test:chat",
+      "exit": 0,
+      "seconds": 5.95,
+      "log": ".cache/push-hardening/chat.log",
+      "log_sha256": "6ed97c0b4c072dc2391a5a632d73fb5d5aa36892080cd76f8b6d8729636f5ba6",
+      "tap_passes": 15
+    },
+    {
+      "name": "recovery",
+      "command": "npm run test:recovery",
+      "exit": 0,
+      "seconds": 12.89,
+      "log": ".cache/push-hardening/recovery.log",
+      "log_sha256": "b5e4ecae2765a5704373ded6330679a2941bd7e558ea11ee629a6559cb332b09",
+      "tap_passes": 45
+    },
+    {
+      "name": "push-sw",
+      "command": "npm run test:push-sw",
+      "exit": 0,
+      "seconds": 0.59,
+      "log": ".cache/push-hardening/push-sw.log",
+      "log_sha256": "5b55e870c321dd673f827a27c2bf322db7c5d68025ba5b4649ca8fe826806a65"
+    },
+    {
+      "name": "e2ee",
+      "command": "npm run test:e2ee",
+      "exit": 0,
+      "seconds": 0.7,
+      "log": ".cache/push-hardening/e2ee.log",
+      "log_sha256": "788fe96462ad4178f0ab83ff7cdd58a92d947cf06bb8cda7ba9d3b7d30f590e5"
+    },
+    {
+      "name": "discovery",
+      "command": "npm run test:discovery",
+      "exit": 0,
+      "seconds": 22.4,
+      "log": ".cache/push-hardening/discovery.log",
+      "log_sha256": "4638a8f3506363a2bbc134049ae6e9d6aae8a87f90d74383a9964e2d5e512317"
+    },
+    {
+      "name": "interaction",
+      "command": "npm run test:interaction",
+      "exit": 0,
+      "seconds": 9.22,
+      "log": ".cache/push-hardening/interaction.log",
+      "log_sha256": "41e2e2e6ce7499a52e0a88430ad9a11fe10f42e48ea5a342cf6511f2e7eacab9"
+    },
+    {
+      "name": "push-server",
+      "command": "npm run check:push-server",
+      "exit": 0,
+      "seconds": 1.81,
+      "log": ".cache/push-hardening/push-server.log",
+      "log_sha256": "090d4b7f4af0109241ccb36bcf4d906934e031e67b5514078606c0885d608697"
+    },
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "exit": 0,
+      "seconds": 3.01,
+      "log": ".cache/push-hardening/lint.log",
+      "log_sha256": "a6b21efd55cdba93c857a8b986c6aa67f41a33d644c5aa05f06a0a0ec4bcb73d"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "exit": 0,
+      "seconds": 3.76,
+      "log": ".cache/push-hardening/typecheck.log",
+      "log_sha256": "a0f4c382657c0160d152cea949eb6980ef37666add416ac799f5c1698fc25742"
+    },
+    {
+      "name": "eslint",
+      "command": "npm run lint:recovery",
+      "exit": 0,
+      "seconds": 4.08,
+      "log": ".cache/push-hardening/eslint.log",
+      "log_sha256": "eeeb9be12bfecc3d97c7cdc58fc10bfa47133e4560b8f38c0f09b9e955db95cf"
+    },
+    {
+      "name": "bench-chat",
+      "command": "npm run bench:chat",
+      "exit": 0,
+      "seconds": 2.65,
+      "log": ".cache/push-hardening/bench-chat.log",
+      "log_sha256": "a454b747f259204a1e35dd528219643c92c34d320f84652e85ecf303089e9094"
+    },
+    {
+      "name": "bench-rc",
+      "command": "npm run bench:rc",
+      "exit": 0,
+      "seconds": 7.79,
+      "log": ".cache/push-hardening/bench-rc.log",
+      "log_sha256": "75b949766324f146a3867534b7ef0623b8e4f0bb79750795962e7ff2591f4533"
+    },
+    {
+      "name": "baseline-push-sql",
+      "command": "npm run test:push-sql",
+      "exit": 1,
+      "seconds": 0.43,
+      "log": ".cache/push-hardening/baseline-push-sql.log",
+      "log_sha256": "ee76e81e62b4c9a83b87f31c6b66dbbf2a3db932fd0fa6cd56931b8c32513355",
+      "classification": "pre-existing failing suite; test source untouched"
+    },
+    {
+      "name": "baseline-push-e2e",
+      "command": "npm run test:push-e2e",
+      "exit": 1,
+      "seconds": 0.44,
+      "log": ".cache/push-hardening/baseline-push-e2e.log",
+      "log_sha256": "75658aaaaa8679f742edc61c842097e5bb09c23a23de49753375b5431447d7d5",
+      "classification": "pre-existing failing suite; test source untouched"
+    },
+    {
+      "name": "baseline-inspect",
+      "command": "npm run test:inspect-script",
+      "exit": 1,
+      "seconds": 5.27,
+      "log": ".cache/push-hardening/baseline-inspect.log",
+      "log_sha256": "a1561efa7a9f66398a4dd70275d87eb548755328a3145a9fe31da76ebd7b4a57",
+      "classification": "pre-existing failing suite; test source untouched"
+    },
+    {
+      "name": "baseline-profile-migration",
+      "command": "npm run test:profile-migration",
+      "exit": 1,
+      "seconds": 0.27,
+      "log": ".cache/push-hardening/baseline-profile-migration.log",
+      "log_sha256": "90362555f44738ca41a93cf9c3a8f9d0e152a85a9910df637e1bbe1bb4d4af7e",
+      "classification": "pre-existing failing suite; test source untouched"
+    },
+    {
+      "name": "baseline-profile",
+      "command": "npm run test:profile",
+      "exit": 1,
+      "seconds": 3.02,
+      "log": ".cache/push-hardening/baseline-profile.log",
+      "log_sha256": "ebf48f860d550d22b4e75ff5adf462a13d26a933ecf72e87aeab41c1ece54a9e",
+      "classification": "pre-existing failing suite; test source untouched"
+    },
+    {
+      "name": "push-crypto",
+      "command": "npm run test:push-crypto",
+      "exit": 0,
+      "seconds": 1.08,
+      "log": ".cache/push-hardening/push-crypto.log",
+      "log_sha256": "0bfc5c7d049ae3fb6efc2c5ec1923d0a736a94fe5ee0e5800da5e2ab54a810f1"
+    },
+    {
+      "name": "build",
+      "command": "npm run build",
+      "exit": 0,
+      "seconds": 1.38,
+      "log": ".cache/push-hardening/build.log",
+      "log_sha256": "678cdd5b8f505ac9c1313f830e73717e89661ce9888b6b5a567a6d5a6b0efac9"
+    },
+    {
+      "name": "wrangler-dry-run",
+      "command": "npx --yes wrangler@4.145.0 deploy --dry-run --outdir .cache/push-hardening/wrangler",
+      "exit": 0,
+      "seconds": 2.33,
+      "log": ".cache/push-hardening/wrangler-dry-run.log",
+      "log_sha256": "5985304ad12268d903ecc79aab3810e66383457fdbb2b24dcd8f4a729f7795b2"
+    }
+  ],
+  "offline_audit": {
+    "environment": "offline real-source audit with simulated browser/auth boundaries; no physical iPhone or provider calls",
+    "observations": {
+      "noReceiptAfterFailedDisplay": true,
+      "displayFailure": {
+        "firstAttempts": 1,
+        "firstDisplayed": 0,
+        "replayDisplayed": 1
+      },
+      "replayDisplaysVisibleNotification": true,
+      "replayQuietStableTag": true,
+      "staleWindowClick": {
+        "clickRejected": false,
+        "fallbackWindows": 1
+      },
+      "appleEndpoints": {
+        "canonical": true,
+        "alternativeSubdomain": true
+      },
+      "expiredSubscriptionMatrix": [
+        {
+          "providerStatus": 404,
+          "response": 200,
+          "pruned": true,
+          "state": "expired",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 410,
+          "response": 200,
+          "pruned": true,
+          "state": "expired",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 401,
+          "response": 200,
+          "pruned": false,
+          "state": "failed",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 403,
+          "response": 200,
+          "pruned": false,
+          "state": "failed",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 429,
+          "response": 200,
+          "pruned": false,
+          "state": "failed",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": 500,
+          "response": 200,
+          "pruned": false,
+          "state": "failed",
+          "attempts": 1,
+          "noticeRetained": true
+        },
+        {
+          "providerStatus": "timeout",
+          "response": 200,
+          "pruned": false,
+          "state": "unknown",
+          "attempts": 1,
+          "noticeRetained": true
+        }
+      ],
+      "permissionRequestedBeforeWorkerReady": true,
+      "strictGestureSimulation": {
+        "ok": true
+      },
+      "resyncCallSitesInApp": 1,
+      "authenticatedLifecycleHook": true,
+      "ownershipAndLifecycleBehaviorSuite": "npm run test:push-hardening (must pass separately)"
+    },
+    "findings": []
+  },
+  "local_public_build_variable_presence": {
+    "VITE_SUPABASE_URL": false,
+    "VITE_SUPABASE_PUBLISHABLE_KEY": false,
+    "VITE_VAPID_PUBLIC_KEY": false
+  },
+  "benchmark_chat": {
+    "fixture": "300 real AES-GCM messages; simulated 4ms key discovery; no production calls",
+    "baseline": {
+      "totalMs": 1576,
+      "newestVisibleMs": 1576,
+      "keyLookups": 300,
+      "stateMerges": 300
+    },
+    "optimized": {
+      "totalMs": 105,
+      "newestVisibleMs": 23,
+      "keyLookups": 1,
+      "decryptions": 300,
+      "stateMerges": 5
+    },
+    "reopen": {
+      "last50Ms": 0.23,
+      "additionalKeyLookups": 0,
+      "additionalDecryptions": 0
+    },
+    "equality": "All 300 plaintexts and chronological IDs identical"
+  },
+  "benchmark_rc": {
+    "environment": "jsdom commits; synthetic 1000-message DB, 10ms REST, 20ms channel ACK, 4ms key discovery; real AES-GCM",
+    "traces": [
+      {
+        "label": "cold",
+        "sequence": 1,
+        "stagesMs": {
+          "shell-commit": 96.21,
+          "subscription-requested": 99.55,
+          "realtime-subscribed": 272.57,
+          "first-page": 282.79,
+          "first-message-commit": 436.44,
+          "first-decrypted-commit": 436.47,
+          "history-complete": 4232.71
+        },
+        "pages": 7,
+        "rows": 1000,
+        "renders": 29,
+        "queries": 7,
+        "keyLookups": 1,
+        "decrypts": 1000,
+        "joins": 1
+      },
+      {
+        "label": "warm-previous-full-scan",
+        "sequence": 2,
+        "stagesMs": {
+          "shell-commit": 221.71,
+          "first-message-commit": 221.72,
+          "first-decrypted-commit": 221.72,
+          "subscription-requested": 223.04,
+          "realtime-subscribed": 398.54,
+          "first-page": 400.14,
+          "history-complete": 778
+        },
+        "pages": 7,
+        "rows": 1000,
+        "renders": 1,
+        "queries": 7,
+        "keyLookups": 0,
+        "decrypts": 488,
+        "joins": 1
+      },
+      {
+        "label": "warm-controlled-recent",
+        "sequence": 3,
+        "stagesMs": {
+          "shell-commit": 131.35,
+          "first-message-commit": 131.36,
+          "first-decrypted-commit": 131.36,
+          "subscription-requested": 132.57,
+          "first-page": 293.81,
+          "realtime-subscribed": 303.01,
+          "history-complete": 308.67
+        },
+        "pages": 1,
+        "rows": 50,
+        "renders": 1,
+        "queries": 1,
+        "keyLookups": 0,
+        "decrypts": 0,
+        "joins": 1
+      }
+    ]
+  },
+  "tooling_note": "Initial concurrent npx Deno bootstrap returned exit 127 (deno not found) for crypto. Sequential retry and final validation pass both real crypto tests. Not counted as a baseline failure.",
+  "production_observations": "No new authenticated production checks or physical iPhone test; previous public observations are historical only.",
+  "files": [
+    {
+      "path": ".env.example",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "2baeeb4d7eb313b6f199325e7e414e97a760a6c6bec735ff859ad0f5f32282dc",
+      "sha256": "2baeeb4d7eb313b6f199325e7e414e97a760a6c6bec735ff859ad0f5f32282dc"
+    },
+    {
+      "path": "docs/CHAT_AUDIT_2026-10-01.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "98d4429fc89bfd639f231d5a948d339a3aeb41c328604de2909d048415e6ddad",
+      "sha256": "98d4429fc89bfd639f231d5a948d339a3aeb41c328604de2909d048415e6ddad"
+    },
+    {
+      "path": "docs/CHAT_INTENT_FOLLOWUP_2026-10-01.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "f889cbcde6841fcd832899a1c9c8a7f94cea1e1349a60b51346f2da67978c509",
+      "sha256": "f889cbcde6841fcd832899a1c9c8a7f94cea1e1349a60b51346f2da67978c509"
+    },
+    {
+      "path": "docs/IPHONE_PUSH_HARDENING_MANIFEST_2026-10-01.json",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": true,
+      "start_sha256": null,
+      "sha256": null
+    },
+    {
+      "path": "docs/IPHONE_PUSH_HARDENING_REPORT_2026-10-01.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": true,
+      "start_sha256": null,
+      "sha256": "d2bea90b6ef74d5b0a3bcb9a9b2c3422f280bf2fc1860c357181e3de89f2a632"
+    },
+    {
+      "path": "docs/IPHONE_PUSH_RELEASE_CHECKLIST_2026-10-01.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "89e4bb747d01fdc503baffb1c689fa28441dce1aca27e0abed478f624f58125b",
+      "sha256": "89e4bb747d01fdc503baffb1c689fa28441dce1aca27e0abed478f624f58125b"
+    },
+    {
+      "path": "docs/IPHONE_PUSH_RELEASE_MANIFEST_2026-10-01.json",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "cb0b76bcc32ccc74f7134f93ffa45ace65842d2da8450311f691211b4ed68af7",
+      "sha256": "cb0b76bcc32ccc74f7134f93ffa45ace65842d2da8450311f691211b4ed68af7"
+    },
+    {
+      "path": "docs/PATCH_1_REVIEW.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "a248d7ebc3c88c428c7a438d639996d01c2a3495a66479e8a49758dd8668d975",
+      "sha256": "a248d7ebc3c88c428c7a438d639996d01c2a3495a66479e8a49758dd8668d975"
+    },
+    {
+      "path": "docs/PUSH_NOTIFICATIONS.md",
+      "status": " M",
+      "group": "documentation-provenance",
+      "changed_this_pass": true,
+      "start_sha256": "3bba43605af2263754cc011260156c807bc18dd0676aab42c5cb58a121dc2e84",
+      "sha256": "f965fd42364e122c3dfa7e8298fea29ff2f4839033167be3153076b737af9540"
+    },
+    {
+      "path": "docs/RECOVERY_IMPLEMENTATION_REPORT.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "dd6169dbeab0c83d6e42461c5b49a70388478217498aeb58f16de56bc86d522d",
+      "sha256": "dd6169dbeab0c83d6e42461c5b49a70388478217498aeb58f16de56bc86d522d"
+    },
+    {
+      "path": "docs/RELEASE_CANDIDATE_INVENTORY.json",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "b8e672c9de5e18272a1e5b1aca0aa964ce624eb84bc7ba56c80c645be433d63a",
+      "sha256": "b8e672c9de5e18272a1e5b1aca0aa964ce624eb84bc7ba56c80c645be433d63a"
+    },
+    {
+      "path": "docs/RELEASE_CANDIDATE_REPORT.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "33dbd11a88c1d1fa9447c8a3bbfb24d061747499ab8608fa9588eb2e7dd823b6",
+      "sha256": "33dbd11a88c1d1fa9447c8a3bbfb24d061747499ab8608fa9588eb2e7dd823b6"
+    },
+    {
+      "path": "docs/RELEASE_READINESS.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "aa4f6dcfbdbdd1620fadf527c646973dbbcfebbc10853889c4adffc633f197f5",
+      "sha256": "aa4f6dcfbdbdd1620fadf527c646973dbbcfebbc10853889c4adffc633f197f5"
+    },
+    {
+      "path": "docs/TURN_CREDENTIAL_CONTRACT.md",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "a7df908559220bdaa75a49b3599b8fef09d23a731c3f386758ea4d8419376de2",
+      "sha256": "a7df908559220bdaa75a49b3599b8fef09d23a731c3f386758ea4d8419376de2"
+    },
+    {
+      "path": "eslint.recovery.config.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "56c7a506793e5837e78e6148dc894f20ee1c2bdd64d2b949d8378a73be0e0d2a",
+      "sha256": "56c7a506793e5837e78e6148dc894f20ee1c2bdd64d2b949d8378a73be0e0d2a"
+    },
+    {
+      "path": "package-lock.json",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "3f9c1042a399a9d86f51d418cff6bbd97d1169d7c88f2c2b6ecd8ae67db77df3",
+      "sha256": "3f9c1042a399a9d86f51d418cff6bbd97d1169d7c88f2c2b6ecd8ae67db77df3"
+    },
+    {
+      "path": "package.json",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "78483c419d3eae775ccbe751d64a2757c617f69d6e139871af7b4e46a2c95942",
+      "sha256": "902d4bfda185a1693384d31c2b31ab43c610d13a594644f157c67e5bae92a1d9"
+    },
+    {
+      "path": "patch 1",
+      "status": "??",
+      "group": "excluded-patch",
+      "changed_this_pass": false,
+      "start_sha256": "c17b00ece307a9ff5da5339271c0ec3e7fb253fc7f7d3bcbe605e8dcc5b1540b",
+      "sha256": "c17b00ece307a9ff5da5339271c0ec3e7fb253fc7f7d3bcbe605e8dcc5b1540b"
+    },
+    {
+      "path": "public/service-worker.js",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "55b107a48177fd6d9993326d4df3dd77ca6db0fe01eee84840e4deb861596a04",
+      "sha256": "cb56cb728e60536cf427a2ebb48877cf6e1aec8e43b2dc515e18bee01e9ffb79"
+    },
+    {
+      "path": "scripts/chat-intent-tests/fixtures.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "af3a9ce1b5a0bd263f7f1760b49124689040245ca0886fbc01ce6c4552267e2c",
+      "sha256": "af3a9ce1b5a0bd263f7f1760b49124689040245ca0886fbc01ce6c4552267e2c"
+    },
+    {
+      "path": "scripts/chat-intent-tests/service.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "ae2cc9706a9e51287071e9baaab48ea4085024ccd8c7398fce4086354210e733",
+      "sha256": "ae2cc9706a9e51287071e9baaab48ea4085024ccd8c7398fce4086354210e733"
+    },
+    {
+      "path": "scripts/chat-intent-tests/ui.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "2b23c054800fd8535520d11cf859dc84f4a0f5845e8d488c592491ee510f4bef",
+      "sha256": "2b23c054800fd8535520d11cf859dc84f4a0f5845e8d488c592491ee510f4bef"
+    },
+    {
+      "path": "scripts/chat-tests/benchmark.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "4be876e19091f7e269fef1e4a9e8bbd2078f5763ca33fe625a3c423b3f70b572",
+      "sha256": "4be876e19091f7e269fef1e4a9e8bbd2078f5763ca33fe625a3c423b3f70b572"
+    },
+    {
+      "path": "scripts/chat-tests/client.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "1aae68236dddc1c4ff3b6f6a41a79b821231a3618ca1ea5263074eab3242de7e",
+      "sha256": "c578409046ff81792258068486947174273587367d3df6abf576c16e5af6cc51"
+    },
+    {
+      "path": "scripts/chat-tests/fixtures.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "ef7f8bc404e74db6b1c4a054c8e82d8ad10c2d4ced18a3640b30074491eefecd",
+      "sha256": "ef7f8bc404e74db6b1c4a054c8e82d8ad10c2d4ced18a3640b30074491eefecd"
+    },
+    {
+      "path": "scripts/chat-tests/processing.test.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "62fbafb6bed7228ea5fa0b26267a35657833066cd973343012cabd5dcda3bf07",
+      "sha256": "62fbafb6bed7228ea5fa0b26267a35657833066cd973343012cabd5dcda3bf07"
+    },
+    {
+      "path": "scripts/notification-tests/client.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "129bd1facbc8b217f64fe6dfb174a42fc271869ab01bd311b78dfc98cea7b483",
+      "sha256": "98567a6a5f7219cbba92ee450413aeb02a3a77682cf0499f40e7d3787c530a4f"
+    },
+    {
+      "path": "scripts/notification-tests/crypto.deno.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "c85c33b153d2009c068f7f87556d07836f911a456e54f4c999aa1454d080dc1e",
+      "sha256": "c85c33b153d2009c068f7f87556d07836f911a456e54f4c999aa1454d080dc1e"
+    },
+    {
+      "path": "scripts/notification-tests/pipeline.test.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "a915fabf70876b556b5e1498d4346fdbed20e53b718fbe69147c8f94eded3428",
+      "sha256": "f37d90072dc87dea06fa63c3e3abaac33aeda61fd0ca0ceaa0c97f715f991115"
+    },
+    {
+      "path": "scripts/notification-tests/turn-contract.test.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "5a4a03994683df68a6bd72da8fd7dfc84567558a336ad9c9d4df66cdf370eae8",
+      "sha256": "5a4a03994683df68a6bd72da8fd7dfc84567558a336ad9c9d4df66cdf370eae8"
+    },
+    {
+      "path": "scripts/push-hardening-tests/subscription.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": null,
+      "sha256": "72f8aecc00e9601b871ef03b0e1dba4a73f7d642de1da0228e2f6848d3fe30f5"
+    },
+    {
+      "path": "scripts/push-hardening-tests/worker.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": null,
+      "sha256": "c726bd5d9db29e3354a8d3d257e81bcdf2f13f11a59a45a197b4aecd0e00c097"
+    },
+    {
+      "path": "scripts/push-hardening-tests/workerFixture.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": null,
+      "sha256": "70bbc02342b13f4112c963df3e4dabb5783bd8189af1bfd412f70c643591eda9"
+    },
+    {
+      "path": "scripts/push-tests/sw.test.mjs",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "a3ca6be9e17d907b049e70ae80a2c60b447b60c45d438569f78779705fff9f6b",
+      "sha256": "7c092b579425275f6cda401a0c4b7454b4d25dab36ef2c382b7a6bfcfb0f9858"
+    },
+    {
+      "path": "scripts/recovery-tests/load-module.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "7ea9c700b7a3580dbc96e4fd8a773c701348fd0ee68703f2caf4c8b565dff02c",
+      "sha256": "7ea9c700b7a3580dbc96e4fd8a773c701348fd0ee68703f2caf4c8b565dff02c"
+    },
+    {
+      "path": "scripts/recovery-tests/recovery.test.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "6a7f8de4bff4d1a0d629f9709ee9c451e5aa59b5bae21b428eaf2f1a062d13b3",
+      "sha256": "6a7f8de4bff4d1a0d629f9709ee9c451e5aa59b5bae21b428eaf2f1a062d13b3"
+    },
+    {
+      "path": "scripts/recovery-tests/security.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "5d39f4685aefcf78dce05b2049cf9eca02f362cc92f065749f601cabee254408",
+      "sha256": "5d39f4685aefcf78dce05b2049cf9eca02f362cc92f065749f601cabee254408"
+    },
+    {
+      "path": "scripts/recovery-tests/ui.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "d1ffa9e9931f42642ae9742ea217262f6c29b7bdf4e35822c6b363014542627d",
+      "sha256": "d1ffa9e9931f42642ae9742ea217262f6c29b7bdf4e35822c6b363014542627d"
+    },
+    {
+      "path": "scripts/recovery-tests/webrtc.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "8c6e493ed7396b976862f4e96adadf89638d9a2357621322b33191b0d1d5078b",
+      "sha256": "8c6e493ed7396b976862f4e96adadf89638d9a2357621322b33191b0d1d5078b"
+    },
+    {
+      "path": "scripts/release-candidate/history.test.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "4a14b2adadf23b498ce5063a1912d1a410184cc2f6e83018e8fbc1bb5fef290f",
+      "sha256": "4a14b2adadf23b498ce5063a1912d1a410184cc2f6e83018e8fbc1bb5fef290f"
+    },
+    {
+      "path": "scripts/release-candidate/iphone-push-audit.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "e5d36affc6a15e5b204038e71ab5ca3418877a6c9d04f2166df501a6f5d70231",
+      "sha256": "2b1bb8e7383e0cdcbc0c0d956f8738077f8c46760cd42075f115a49bcc2bc376"
+    },
+    {
+      "path": "scripts/release-candidate/preflight.sql",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "a0cc4314274fe4642124678f8414ca256bc528c434c453d8411e8a08f8b48b0e",
+      "sha256": "a0cc4314274fe4642124678f8414ca256bc528c434c453d8411e8a08f8b48b0e"
+    },
+    {
+      "path": "scripts/release-candidate/push-production-preflight.sql",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "e6984c57c81789f929134342c5f079b0e8dbb27dfe515db3926c4f0cc29a94b9",
+      "sha256": "e6984c57c81789f929134342c5f079b0e8dbb27dfe515db3926c4f0cc29a94b9"
+    },
+    {
+      "path": "scripts/release-candidate/trace-chat.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "ee82b1bcd4082e7b12be173689e0f4d3f0dd8e41a376bdb53969ad09721efdc3",
+      "sha256": "ee82b1bcd4082e7b12be173689e0f4d3f0dd8e41a376bdb53969ad09721efdc3"
+    },
+    {
+      "path": "scripts/release-candidate/traceHarness.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "1c24589e5694ff6dceb62a2de4390640498f0102917182067582701a8d6179bb",
+      "sha256": "1c24589e5694ff6dceb62a2de4390640498f0102917182067582701a8d6179bb"
+    },
+    {
+      "path": "scripts/release-candidate/ui.test.mjs",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "a69dcc6abc4fad62ff30adac8f7ad090ac935339c42b24645df602134025dcf9",
+      "sha256": "a69dcc6abc4fad62ff30adac8f7ad090ac935339c42b24645df602134025dcf9"
+    },
+    {
+      "path": "scripts/review-patch-1.mjs",
+      "status": "??",
+      "group": "documentation-provenance",
+      "changed_this_pass": false,
+      "start_sha256": "ec5c1bb81e85d742299c20c4cd723cbe43d85c49c322eeca3cb087b24667183d",
+      "sha256": "ec5c1bb81e85d742299c20c4cd723cbe43d85c49c322eeca3cb087b24667183d"
+    },
+    {
+      "path": "src/App.tsx",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "a91644f44a6e63e5e835507ea14fb6efc3f14d7ef17ee5aa83af34044b1a3d86",
+      "sha256": "a470674b55a74a587603601675103c34de0b39d1b839eb94ff1bb3af2b07a6ff"
+    },
+    {
+      "path": "src/components/ChatRoomView.tsx",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "bd080df27749590476dc684fbdc503bacb6e0893fb352e2fffadb2eebcccea4a",
+      "sha256": "bd080df27749590476dc684fbdc503bacb6e0893fb352e2fffadb2eebcccea4a"
+    },
+    {
+      "path": "src/components/DiscoverView.tsx",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "b1e220fc7da1656cac64dfa1699955a0599a950647d89a2620c283b7c2946711",
+      "sha256": "b1e220fc7da1656cac64dfa1699955a0599a950647d89a2620c283b7c2946711"
+    },
+    {
+      "path": "src/components/Navbar.tsx",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "45e94c933ab7336a588330690e496ff464881ef32902891df7dfde4a8d90129c",
+      "sha256": "45e94c933ab7336a588330690e496ff464881ef32902891df7dfde4a8d90129c"
+    },
+    {
+      "path": "src/components/NotificationsModal.tsx",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "4454e4534e5772ff933f6b1e381ca8f75ab312f5df1d8136398b92b6a9f2d9dd",
+      "sha256": "97b4cc9a828971a8862c3f6cc434c24fd2820083ef14456775f19e79081dc792"
+    },
+    {
+      "path": "src/components/PeerIntentBanner.tsx",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "b5bfca78f3f15b0f0652540fd98109a33421ee6dea597475bdc7d15c0937cb8a",
+      "sha256": "b5bfca78f3f15b0f0652540fd98109a33421ee6dea597475bdc7d15c0937cb8a"
+    },
+    {
+      "path": "src/components/RightNowView.tsx",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "51da0f6df906d187caef574550da9023a7efbcf3f233c815e8799c85c62715fd",
+      "sha256": "51da0f6df906d187caef574550da9023a7efbcf3f233c815e8799c85c62715fd"
+    },
+    {
+      "path": "src/components/SetIntentSheet.tsx",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "4c99a9e55b3be6b3f6315fd848590be7dceb7c410a88e946bf6cf2cc9dea1129",
+      "sha256": "4c99a9e55b3be6b3f6315fd848590be7dceb7c410a88e946bf6cf2cc9dea1129"
+    },
+    {
+      "path": "src/index.css",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "c04e9679891eb59542fd6032fb70e613071b9841af3c14b9194fd4bf47ddfa9f",
+      "sha256": "c04e9679891eb59542fd6032fb70e613071b9841af3c14b9194fd4bf47ddfa9f"
+    },
+    {
+      "path": "src/services/chatHistoryOwnership.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "12054b4eb520410e9debc31bbde5073271d3016dc43c0987bca8b7a5f8ed700e",
+      "sha256": "12054b4eb520410e9debc31bbde5073271d3016dc43c0987bca8b7a5f8ed700e"
+    },
+    {
+      "path": "src/services/chatMessageProcessing.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "993b688c25d9077ab3efc41866b3fda64ab528b5e62b26611ee695256e213a6c",
+      "sha256": "993b688c25d9077ab3efc41866b3fda64ab528b5e62b26611ee695256e213a6c"
+    },
+    {
+      "path": "src/services/chatSubscriptions.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "926c0d658e7f9903b0d5cec1c0b23dc379cd2c425caa64d144bae4bdfdbefce9",
+      "sha256": "926c0d658e7f9903b0d5cec1c0b23dc379cd2c425caa64d144bae4bdfdbefce9"
+    },
+    {
+      "path": "src/services/chatTrace.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "680aeb65c182fff45a4ef593277cbd42c8bd24cca8cd304a78790423ae8c20a9",
+      "sha256": "680aeb65c182fff45a4ef593277cbd42c8bd24cca8cd304a78790423ae8c20a9"
+    },
+    {
+      "path": "src/services/conversationRooms.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "edaf45d634f8a52c18a0e5f8e16bd700efe2b0c5a0d7cd182e03e40e2514347a",
+      "sha256": "edaf45d634f8a52c18a0e5f8e16bd700efe2b0c5a0d7cd182e03e40e2514347a"
+    },
+    {
+      "path": "src/services/directChatRouting.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "17acb4eba07744b709b47ee9ab544dc42fb8c7071cfab5c47880737bf1a52433",
+      "sha256": "17acb4eba07744b709b47ee9ab544dc42fb8c7071cfab5c47880737bf1a52433"
+    },
+    {
+      "path": "src/services/iceCredentials.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "3b1aefd020023e20ead0777e520671720d99e71d0769eadb15bfe4139c66dc0f",
+      "sha256": "3b1aefd020023e20ead0777e520671720d99e71d0769eadb15bfe4139c66dc0f"
+    },
+    {
+      "path": "src/services/intentTiming.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "93a28f0566a659348fb8365b4fc523cddb347935892a8e1d21aa0fe1a6f51f49",
+      "sha256": "93a28f0566a659348fb8365b4fc523cddb347935892a8e1d21aa0fe1a6f51f49"
+    },
+    {
+      "path": "src/services/messageAlerts.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "50a92969bab6e6396dc5484804cb667cf5c2192ccc174d4acc4246422be51ceb",
+      "sha256": "50a92969bab6e6396dc5484804cb667cf5c2192ccc174d4acc4246422be51ceb"
+    },
+    {
+      "path": "src/services/messageMerge.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "cda250c746d2d05ea7a5d32f72bf96e999f5c063839b6407be2e02f218fd8b08",
+      "sha256": "cda250c746d2d05ea7a5d32f72bf96e999f5c063839b6407be2e02f218fd8b08"
+    },
+    {
+      "path": "src/services/notificationInbox.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "8c9df0e34d7b2cfe660ecca3459bd9a85129e5ff848839c15387fc72bd3ec4fd",
+      "sha256": "8c9df0e34d7b2cfe660ecca3459bd9a85129e5ff848839c15387fc72bd3ec4fd"
+    },
+    {
+      "path": "src/services/notificationRouting.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "09c3655153ca58f431637eb2f53f48e7811b1f8eea8446dd4e78355a0dc04a17",
+      "sha256": "6f585d206c9b157e0d2d6997fde9f065a1d3c2ea5bde9df528423091c53c9cd2"
+    },
+    {
+      "path": "src/services/peerIntent.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "cf6c53b793025e99a73c14b90f972b792fd564d0a3b0b69fdfac7b183b05e50c",
+      "sha256": "cf6c53b793025e99a73c14b90f972b792fd564d0a3b0b69fdfac7b183b05e50c"
+    },
+    {
+      "path": "src/services/profilePhotoService.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "1854211c4dd33c0115e213f1c453160119e3b2f780f0d6182b4e7c569075bff7",
+      "sha256": "1854211c4dd33c0115e213f1c453160119e3b2f780f0d6182b4e7c569075bff7"
+    },
+    {
+      "path": "src/services/pushService.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "0d76c145f657b53189578dafc9e0266f0b866b1816d8f7885560af94bd380f4e",
+      "sha256": "e799b857eff9f2c2f150dee8a1445156bb7598a369e97bc70a68cc0b55929c1b"
+    },
+    {
+      "path": "src/services/realtimeRecovery.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "764a5cb0e9e0d2df096f0d67dcbd8209a95983f9db541e2a45868aecc4303994",
+      "sha256": "764a5cb0e9e0d2df096f0d67dcbd8209a95983f9db541e2a45868aecc4303994"
+    },
+    {
+      "path": "src/services/supabaseService.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "e4ef09124acbaea68d186f8d9dfd7fd3dbcd9b2d844ab512f12ae34dafeca817",
+      "sha256": "e4ef09124acbaea68d186f8d9dfd7fd3dbcd9b2d844ab512f12ae34dafeca817"
+    },
+    {
+      "path": "src/services/webrtcService.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "20d30b215d7af84926b9d63aa46ffc0e7f400dea5f82f84c885b4edbd14a42a1",
+      "sha256": "20d30b215d7af84926b9d63aa46ffc0e7f400dea5f82f84c885b4edbd14a42a1"
+    },
+    {
+      "path": "src/types.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "71cbfa30559966c02f61b1d160d7c411a125a485d998f3dcf86a2155e617f7ec",
+      "sha256": "71cbfa30559966c02f61b1d160d7c411a125a485d998f3dcf86a2155e617f7ec"
+    },
+    {
+      "path": "supabase/functions/deno.json",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "23d47b0e6c10eded7eeec22c5b490d09f866841655ae48850212dea112dcf9dc",
+      "sha256": "23d47b0e6c10eded7eeec22c5b490d09f866841655ae48850212dea112dcf9dc"
+    },
+    {
+      "path": "supabase/functions/send-push/handler.ts",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": true,
+      "start_sha256": "b92249bfa10cc846df983eebf9044cc95651e8720cb3e52dc6663e3c5be9ca8e",
+      "sha256": "46f7d9249746ff495098d30f5d5150ca790aa309069c45ad9ed20d87d9c83a06"
+    },
+    {
+      "path": "supabase/functions/send-push/index.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "3f248881878a9d1fe692d25211adf60280aa1ee3461a79d3d419f71310ff7dd0",
+      "sha256": "3f248881878a9d1fe692d25211adf60280aa1ee3461a79d3d419f71310ff7dd0"
+    },
+    {
+      "path": "supabase/migrations/20261002100000_durable_notifications.sql",
+      "status": "??",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "5bab93512ccc65fedc45967bbdc9dd8480dcd1a435c80dc285d17152260cc423",
+      "sha256": "5bab93512ccc65fedc45967bbdc9dd8480dcd1a435c80dc285d17152260cc423"
+    },
+    {
+      "path": "vite.config.ts",
+      "status": " M",
+      "group": "runtime-config-tests",
+      "changed_this_pass": false,
+      "start_sha256": "b29542863a03927ba2ade57bcd2d79082f9d5bc7cd846432bce7a9088eeb0db1",
+      "sha256": "b29542863a03927ba2ade57bcd2d79082f9d5bc7cd846432bce7a9088eeb0db1"
+    }
+  ]
+}

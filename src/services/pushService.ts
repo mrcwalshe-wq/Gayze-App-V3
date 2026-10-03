@@ -20,7 +20,15 @@ export const SERVICE_WORKER_URL = '/service-worker.js';
 /** Public VAPID application server key (safe to expose to the browser). */
 const VAPID_PUBLIC_KEY = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined)?.trim() || '';
 
+// Presence remains the UI capability contract; validate encoding before any
+// enrollment/permission mutation rather than changing legacy onboarding state.
 export const isVapidConfigured = VAPID_PUBLIC_KEY.length > 0;
+const hasValidVapidKey = (() => {
+  try {
+    const key = base64UrlToUint8Array(VAPID_PUBLIC_KEY);
+    return key.length === 65 && key[0] === 4;
+  } catch { return false; }
+})();
 
 // ---------------------------------------------------------------------------
 // Preferences
@@ -161,7 +169,7 @@ export function registerServiceWorker(): Promise<ServiceWorkerRegistration | nul
     .register(SERVICE_WORKER_URL, { scope: '/' })
     .then(async (registration) => {
       // Make sure we are talking to an active worker before subscribing.
-      await navigator.serviceWorker.ready;
+      if (!await withTimeout(navigator.serviceWorker.ready, 10_000, null)) throw new Error('Service worker readiness timed out');
       return registration;
     })
     .catch((error) => {
@@ -198,12 +206,12 @@ function arrayBufferToBase64Url(buffer: ArrayBuffer | null): string {
 // Subscription persistence
 // ---------------------------------------------------------------------------
 
-async function persistSubscription(subscription: PushSubscription): Promise<void> {
+async function persistSubscription(subscription: PushSubscription, expectedUserId?: string): Promise<void> {
   if (!supabase) throw new Error('Supabase is not configured');
 
   const { data: sessionData } = await supabase.auth.getSession();
   const userId = sessionData.session?.user?.id;
-  if (!userId) throw new Error('You need to be signed in to enable notifications.');
+  if (!userId || (expectedUserId && userId !== expectedUserId)) throw new Error('Sign in to enable notifications for this account.');
 
   const p256dh = arrayBufferToBase64Url(subscription.getKey('p256dh'));
   const auth = arrayBufferToBase64Url(subscription.getKey('auth'));
@@ -278,129 +286,256 @@ export interface SubscribeResult {
   blockedBy?: PushBlockReason;
 }
 
-/**
- * Full opt-in flow. MUST be called from a user gesture (iOS requires it).
- *
- *   1. capability check -> 2. register SW -> 3. request permission
- *   -> 4. subscribe with VAPID -> 5. persist to Supabase
+// Registration mutations are serialized, including across tabs where Web Locks
+// is available. Recovery never asks permission. Only a user's Enable action can.
+let operations: Promise<unknown> = Promise.resolve();
+let optInFlight: { owner?: string; work: Promise<SubscribeResult> } | null = null;
+let permissionFlight: Promise<NotificationPermission> | null = null;
+let authEpoch = 0;
+// SIGNED_OUT invalidates enrollment but must NOT cancel the revoke initiated by
+// App's earlier auth listener. Only a newer revoke/login invalidates that work.
+let revocationEpoch = 0;
+let authObserved = false;
+let observedUser: string | null = null;
+const ENROLLMENT_KEY = 'gayze_push_enrollment_v1';
+type Enrollment = { userId: string; rowId: string };
+function enrollment(userId: string): Enrollment | null {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(ENROLLMENT_KEY) || 'null');
+    return value?.userId === userId && typeof value.rowId === 'string' ? value : null;
+  } catch { return null; }
+}
+function clearEnrollment() { try { window.localStorage.removeItem(ENROLLMENT_KEY); } catch { /* fail closed */ } }
+function rememberEnrollment(userId: string, rowId: string) {
+  // Opaque owner + DB row reference only. Never persist endpoint/auth/key material.
+  try { window.localStorage.setItem(ENROLLMENT_KEY, JSON.stringify({ userId, rowId })); } catch { /* Recovery will require explicit enable if ownership is lost. */ }
+}
+function observePushAuth() {
+  if (authObserved || !supabase?.auth.onAuthStateChange) return;
+  authObserved = true;
+  supabase.auth.onAuthStateChange((event, session) => {
+    const next = session?.user.id ?? null;
+    if (event !== 'INITIAL_SESSION' && next && next !== observedUser) revocationEpoch++;
+    if (event === 'SIGNED_OUT' || (event !== 'INITIAL_SESSION' && next !== observedUser)) {
+      authEpoch++;
+      if (event === 'SIGNED_OUT' || !next || !enrollment(next)) clearEnrollment();
+    }
+    observedUser = next;
+  });
+}
+function exclusive<T>(work: () => Promise<T>): Promise<T> {
+  const next = operations.catch(() => {}).then(() => navigator.locks?.request
+    ? navigator.locks.request('gayze-push-registration', work) : work());
+  operations = next.catch(() => {});
+  return next;
+}
+class PushAccountChanged extends Error {}
+async function pushOwner(expected?: string, current: () => boolean = () => true) {
+  observePushAuth();
+  const epoch = authEpoch;
+  const session = await supabase!.auth.getSession();
+  const userId = session.data.session?.user.id;
+  if (session.error || !userId || (expected && expected !== userId) || epoch !== authEpoch || !current()) throw new PushAccountChanged();
+  const check = async () => {
+    const latest = await supabase!.auth.getSession();
+    if (latest.error || latest.data.session?.user.id !== userId || epoch !== authEpoch || !current()) throw new PushAccountChanged();
+  };
+  return { userId, check };
+}
+type PushOwner = Awaited<ReturnType<typeof pushOwner>>;
+type StoredSubscription = { id: string; endpoint?: string; p256dh?: string; auth?: string };
+async function ownedRow(owner: PushOwner, field: 'id' | 'endpoint', value: string): Promise<StoredSubscription | null> {
+  await owner.check();
+  const result = await supabase!.from('push_subscriptions').select('id,endpoint,p256dh,auth')
+    .eq(field, value).eq('user_id', owner.userId).maybeSingle();
+  await owner.check();
+  // An outage is NOT evidence that an endpoint belongs to another account.
+  if (result.error) throw new Error('Notification registration unavailable. Try again.');
+  return result.data;
+}
+function keyMatches(subscription: PushSubscription): boolean {
+  const key = subscription.options?.applicationServerKey;
+  return !key || arrayBufferToBase64Url(key) === VAPID_PUBLIC_KEY.replace(/=+$/, '');
+}
+async function persistOwned(subscription: PushSubscription, owner: PushOwner) {
+  await owner.check();
+  await persistSubscription(subscription, owner.userId);
+  await owner.check();
+  const row = await ownedRow(owner, 'endpoint', subscription.endpoint);
+  if (!row) throw new Error('Notification registration was not confirmed.');
+  return row;
+}
+async function deleteOwnedRow(owner: PushOwner, rowId: string) {
+  await owner.check();
+  const { error } = await supabase!.from('push_subscriptions').delete().eq('id', rowId).eq('user_id', owner.userId);
+  if (error) throw new Error('Old notification registration could not be removed. Retry reconciliation.');
+}
+
+/** Must be invoked directly by Enable. Permission is requested synchronously,
+ * BEFORE any auth/lock/SW await; already-granted permission is never re-asked.
  */
-export async function subscribeToPush(): Promise<SubscribeResult> {
+export function subscribeToPush(expectedUserId?: string): Promise<SubscribeResult> {
   const env = getPushEnvironment();
-
-  if (!env.supported) {
-    return env.isIos
-      ? { ok: false, blockedBy: 'ios-needs-install', reason: 'Add Gayze to your Home Screen to enable notifications.' }
-      : { ok: false, blockedBy: 'unsupported', reason: 'This browser does not support push notifications.' };
-  }
-  if (env.blockedBy === 'ios-needs-install') {
-    return { ok: false, blockedBy: 'ios-needs-install', reason: 'Add Gayze to your Home Screen to enable notifications.' };
-  }
-  if (env.blockedBy === 'permission-denied') {
-    return {
-      ok: false,
-      blockedBy: 'permission-denied',
-      reason: 'Notifications are blocked for Gayze. Enable them in your device settings, then try again.',
-    };
-  }
-  if (!isVapidConfigured) {
-    return { ok: false, blockedBy: 'not-configured', reason: 'Push notifications are not configured for this build.' };
-  }
-  if (!isSupabaseConfigured || !supabase) {
-    return { ok: false, reason: 'Gayze cannot reach its backend right now.' };
-  }
-
+  if (env.canSubscribe && !hasValidVapidKey) return Promise.resolve({ ok: false, blockedBy: 'not-configured',
+    reason: 'Push notification configuration is invalid for this build.' });
+  if (!env.canSubscribe || !supabase || !isSupabaseConfigured) return Promise.resolve({ ok: false, blockedBy: env.blockedBy,
+    reason: env.blockedBy === 'ios-needs-install' ? 'Add Gayze to your Home Screen to enable notifications.'
+      : env.blockedBy === 'permission-denied' ? 'Notifications are blocked for Gayze. Enable them in your device settings, then try again.'
+      : env.blockedBy === 'not-configured' ? 'Push notifications are not configured for this build.' : 'Push notifications are unavailable.' });
+  if (optInFlight?.owner === expectedUserId && optInFlight) return optInFlight.work;
+  let permission: Promise<NotificationPermission>;
   try {
-    const registration = await registerServiceWorker();
-    if (!registration) return { ok: false, reason: 'Gayze could not start its notification service.' };
-
-    // Step 3 — permission (user gesture required on iOS).
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      return {
-        ok: false,
-        blockedBy: permission === 'denied' ? 'permission-denied' : null,
-        reason: permission === 'denied'
-          ? 'Notifications are blocked for Gayze. Enable them in your device settings, then try again.'
-          : 'Notification permission was not granted.',
-      };
-    }
-
-    // Step 4 — subscribe. Reuse the browser's existing subscription ONLY when
-    // the signed-in user already owns it. A subscription left behind by another
-    // account (sign-out cleanup could not run) is revoked and replaced with a
-    // fresh endpoint, so the previous account's row can never receive this
-    // user's notifications and this user never has to claim someone else's row.
-    let subscription = await registration.pushManager.getSubscription();
-    if (subscription && !(await ownsSubscriptionRow(subscription.endpoint))) {
-      const revoked = await subscription.unsubscribe();
-      if (!revoked) {
-        return { ok: false, reason: 'Gayze could not reset this device\u2019s notification registration. Try again.' };
+    permission = Notification.permission === 'granted' ? Promise.resolve('granted')
+      : permissionFlight ?? (permissionFlight = Notification.requestPermission().finally(() => { permissionFlight = null; }));
+  } catch { return Promise.resolve({ ok: false, reason: 'Could not request notification permission.' }); }
+  const work = permission.then(async granted => {
+    if (granted !== 'granted') return { ok: false, blockedBy: granted === 'denied' ? 'permission-denied' as const : null,
+      reason: 'Notification permission was not granted. Check your device settings.' };
+    return exclusive(async () => {
+      const owner = await pushOwner(expectedUserId);
+      const registration = await registerServiceWorker();
+      if (!registration) throw new Error('Gayze could not start its notification service. Try again.');
+      await owner.check();
+      let subscription = await registration.pushManager.getSubscription();
+      let created: PushSubscription | null = null;
+      const old = subscription ? await ownedRow(owner, 'endpoint', subscription.endpoint) : null;
+      const marker = enrollment(owner.userId);
+      const pending = marker && marker.rowId !== old?.id ? await ownedRow(owner, 'id', marker.rowId) : null;
+      // Finish an interrupted rotation before starting another one. A failed
+      // cleanup keeps its old opaque pointer for the next launch/Enable retry.
+      if (pending && old) await deleteOwnedRow(owner, pending.id);
+      const prior = old || pending;
+      if (prior) rememberEnrollment(owner.userId, prior.id);
+      let persisted = false;
+      if (subscription && (!old || !keyMatches(subscription))) {
+        await owner.check();
+        if (!await subscription.unsubscribe()) throw new Error('Could not reset this notification registration. Try again.');
+        subscription = null;
       }
-      subscription = null;
-    }
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
-      });
-    }
-
-    // Step 5 — persist.
-    await persistSubscription(subscription);
-    return { ok: true };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Enabling notifications failed.';
-    console.warn('[GAYZE] Push subscribe failed:', error);
-    return { ok: false, reason: message };
-  }
+      try {
+        if (!subscription) {
+          await owner.check();
+          created = subscription = await registration.pushManager.subscribe({ userVisibleOnly: true,
+            applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY) as BufferSource });
+        }
+        const row = await persistOwned(subscription, owner);
+        persisted = true;
+        if (prior && prior.id !== row.id) await deleteOwnedRow(owner, prior.id);
+        await owner.check();
+        rememberEnrollment(owner.userId, row.id);
+        setPendingRevoke(false);
+        return { ok: true };
+      } catch (error) {
+        if (created && !persisted) await created.unsubscribe().catch(() => false);
+        throw error;
+      }
+    });
+  }).catch(error => ({ ok: false, reason: error instanceof PushAccountChanged ? 'Account changed. Enable notifications for the current account.'
+    : 'Notification registration could not be confirmed. Please try again.' }));
+  const entry = { owner: expectedUserId, work };
+  optInFlight = entry;
+  void work.finally(() => { if (optInFlight === entry) optInFlight = null; });
+  return work;
 }
 
-/** Turn push off on this device and forget the endpoint server-side. */
-export async function unsubscribeFromPush(): Promise<boolean> {
-  try {
-    const subscription = await getExistingSubscription();
-    if (!subscription) return true;
-    const { endpoint } = subscription;
-    await subscription.unsubscribe();
-    await removeSubscriptionRow(endpoint);
-    return true;
-  } catch (error) {
-    console.warn('[GAYZE] Push unsubscribe failed:', error);
-    return false;
-  }
+/** Turn push off and invalidate any in-flight recovery before its next mutation. */
+export async function unsubscribeFromPush(expectedUserId?: string): Promise<boolean> {
+  observePushAuth();
+  const epoch = ++authEpoch; clearEnrollment();
+  return exclusive(async () => {
+    try {
+      const owner = await pushOwner(expectedUserId, () => epoch === authEpoch);
+      const subscription = await getExistingSubscription();
+      await owner.check();
+      if (!subscription) return true;
+      const revoked = await subscription.unsubscribe();
+      const removed = await removeSubscriptionRow(subscription.endpoint);
+      return revoked && removed;
+    } catch { return false; }
+  });
 }
 
-/**
- * Re-subscribe after the browser rotated the endpoint
- * (`pushsubscriptionchange`) and replace the stored row.
+export type PushRecoveryState = 'ready' | 'needs-enable' | 'unavailable' | 'cancelled';
+/** Reconcile only proven owner enrollment. An opaque local marker is a pointer,
+ * NOT authority: the saved row must still exist under the current user's RLS.
  */
-export async function resyncSubscription(oldEndpoint?: string | null): Promise<void> {
-  if (!isVapidConfigured || !supabase) return;
-  try {
-    const registration = await registerServiceWorker();
-    if (!registration) return;
-    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') return;
+export async function resyncSubscription(oldEndpoint?: string | null, expectedUserId?: string,
+  current: () => boolean = () => true): Promise<PushRecoveryState> {
+  if (!supabase || !hasValidVapidKey || !isPushSupported()) return 'unavailable';
+  return exclusive(async () => {
+    let created: PushSubscription | null = null;
+    let persisted = false;
+    try {
+      const owner = await pushOwner(expectedUserId, current);
+      if (Notification.permission !== 'granted' || pendingPushRevoke()) return 'needs-enable';
+      const registration = await registerServiceWorker();
+      if (!registration) return 'unavailable';
+      await owner.check();
+      let subscription = await registration.pushManager.getSubscription();
+      const existing = subscription ? await ownedRow(owner, 'endpoint', subscription.endpoint) : null;
+      const marker = enrollment(owner.userId);
+      const prior = oldEndpoint ? await ownedRow(owner, 'endpoint', oldEndpoint)
+        : marker ? await ownedRow(owner, 'id', marker.rowId) : null;
+      if (!existing && !prior) return 'needs-enable';
+      if (!existing) {
+        const preferences = await supabase!.from('notification_preferences').select('push_enabled').eq('user_id', owner.userId).maybeSingle();
+        await owner.check();
+        if (preferences.error) throw new Error('Notification preferences unavailable');
+        if (preferences.data?.push_enabled === false) return 'needs-enable';
+      }
+      if (subscription && !keyMatches(subscription)) return 'needs-enable'; // Never silently rotate VAPID keys.
+      if (!subscription) {
+        await owner.check();
+        created = subscription = await registration.pushManager.subscribe({ userVisibleOnly: true,
+          applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY) as BufferSource });
+      }
+      await owner.check();
+      // Retain prior cleanup evidence until replacement AND cleanup succeed.
+      if (prior) rememberEnrollment(owner.userId, prior.id);
+      let row = existing;
+      // No-op healthy resumes; repair changed endpoint/keys before removing old row.
+      if (!existing || existing.p256dh !== arrayBufferToBase64Url(subscription.getKey('p256dh'))
+        || existing.auth !== arrayBufferToBase64Url(subscription.getKey('auth'))) {
+        row = await persistOwned(subscription, owner);
+      }
+      persisted = true;
+      if (prior && prior.id !== row!.id) await deleteOwnedRow(owner, prior.id);
+      await owner.check();
+      rememberEnrollment(owner.userId, row!.id);
+      return 'ready';
+    } catch (error) {
+      if (created && !persisted) await created.unsubscribe().catch(() => false);
+      return error instanceof PushAccountChanged ? 'cancelled' : 'unavailable';
+    }
+  });
+}
 
-    // Only re-register a device this user actually opted in. Browser permission
-    // is per-device, not per-account, so on a shared device a different signed-in
-    // user must not be silently enrolled just because permission was granted.
-    const existing = await registration.pushManager.getSubscription();
-    const ownsOld = oldEndpoint ? await ownsSubscriptionRow(oldEndpoint) : false;
-    const ownsCurrent = existing ? await ownsSubscriptionRow(existing.endpoint) : false;
-    if (!ownsOld && !ownsCurrent) return;
-
-    const subscription =
-      existing ??
-      (await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
-      }));
-
-    if (oldEndpoint && oldEndpoint !== subscription.endpoint) await removeSubscriptionRow(oldEndpoint);
-    await persistSubscription(subscription);
-  } catch (error) {
-    console.warn('[GAYZE] Push resync failed:', error);
-  }
+/** Auth-scoped launch/resume owner; no permission prompts, no polling/socket. */
+export function watchPushSubscriptionRecovery(userId: string, receive: (state: PushRecoveryState) => void = () => {}) {
+  let stopped = false, running = false, again = false;
+  const recover = async () => {
+    if (stopped || document.visibilityState === 'hidden' || navigator.onLine === false) return;
+    if (running) { again = true; return; }
+    running = true;
+    do {
+      again = false;
+      const state = await resyncSubscription(null, userId, () => !stopped);
+      if (!stopped) {
+        receive(state);
+        window.dispatchEvent(new window.CustomEvent('gayze-push-recovery', { detail: { userId, state } }));
+      }
+    } while (!stopped && again);
+    running = false;
+  };
+  const event = () => { void recover(); };
+  document.addEventListener('visibilitychange', event);
+  for (const name of ['pageshow', 'online', 'focus']) window.addEventListener(name, event);
+  event();
+  return () => {
+    stopped = true;
+    document.removeEventListener('visibilitychange', event);
+    for (const name of ['pageshow', 'online', 'focus']) window.removeEventListener(name, event);
+  };
 }
 
 /** True when this device currently has a live, persisted subscription. */
@@ -410,7 +545,7 @@ export async function isDeviceSubscribed(): Promise<boolean> {
   if (!subscription) return false;
   // A browser subscription registered to a different account is not "on" for
   // the current user.
-  return ownsSubscriptionRow(subscription.endpoint);
+  return keyMatches(subscription) && ownsSubscriptionRow(subscription.endpoint);
 }
 
 // ---------------------------------------------------------------------------
@@ -424,6 +559,9 @@ export async function isDeviceSubscribed(): Promise<boolean> {
  * anyone) is signed in.
  */
 const PUSH_PENDING_REVOKE_KEY = 'gayze_push_pending_revoke';
+function pendingPushRevoke(): boolean {
+  try { return window.localStorage.getItem(PUSH_PENDING_REVOKE_KEY) === '1'; } catch { return false; }
+}
 
 function withTimeout<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> {
   return new Promise<T>((resolve) => {
@@ -464,10 +602,14 @@ function setPendingRevoke(pending: boolean): void {
  * subscription is revoked on the next app start.
  */
 export async function releasePushOnSignOut(timeoutMs = 2500): Promise<void> {
+  observePushAuth();
+  authEpoch++;
+  const epoch = ++revocationEpoch; clearEnrollment();
   if (typeof window === 'undefined') return;
 
   const work = async (): Promise<boolean> => {
     const subscription = await currentBrowserSubscription();
+    if (epoch !== revocationEpoch) return false;
     if (!subscription) return true; // nothing on this device to release
     const { endpoint } = subscription;
 
@@ -481,9 +623,10 @@ export async function releasePushOnSignOut(timeoutMs = 2500): Promise<void> {
   };
 
   try {
-    const clean = await withTimeout(work(), timeoutMs, false);
-    // Only a confirmed-clean release clears the retry marker.
-    setPendingRevoke(!clean);
+    setPendingRevoke(true);
+    const clean = await withTimeout(exclusive(work), timeoutMs, false);
+    // A late release must not overwrite a subsequent account's enrollment.
+    if (epoch === revocationEpoch) setPendingRevoke(!clean);
   } catch (error) {
     console.warn('[GAYZE] Push release on sign-out failed:', error);
     setPendingRevoke(true);
@@ -498,17 +641,23 @@ export async function releasePushOnSignOut(timeoutMs = 2500): Promise<void> {
  * next 404/410.
  */
 export async function revokeLocalPushSubscription(): Promise<void> {
-  try {
-    const subscription = await currentBrowserSubscription();
-    if (subscription) {
-      const ok = await subscription.unsubscribe();
-      if (!ok) { setPendingRevoke(true); return; }
+  observePushAuth();
+  authEpoch++;
+  const epoch = ++revocationEpoch; clearEnrollment();
+  setPendingRevoke(true);
+  return exclusive(async () => {
+    try {
+      const subscription = await currentBrowserSubscription();
+      if (epoch !== revocationEpoch) return;
+      if (subscription) {
+        const ok = await subscription.unsubscribe();
+        if (!ok) return;
+      }
+      if (epoch === revocationEpoch) setPendingRevoke(false);
+    } catch (error) {
+      console.warn('[GAYZE] Local push revoke failed:', error);
     }
-    setPendingRevoke(false);
-  } catch (error) {
-    console.warn('[GAYZE] Local push revoke failed:', error);
-    setPendingRevoke(true);
-  }
+  });
 }
 
 /** Run once at startup: finish any revoke a previous sign-out could not confirm. */
@@ -526,17 +675,17 @@ export async function finishPendingPushRevoke(): Promise<void> {
 /**
  * Tell the backend that the signed-in user's `submit_interest` call just made a
  * mutual connection, so the OTHER member can be notified. The recipient is never
- * sent from here: `send-push` derives it from `conversation_members`, verifies
- * the caller belongs to that two-person conversation, enforces the recipient's
- * notification preferences, and claims a once-per-conversation ledger slot.
+ * sent from here: the authenticated notification RPC derives it from
+ * conversation_members and persists a unique recipient/conversation record.
+ * The server sender separately enforces preferences and per-endpoint claims.
  * Fire-and-forget: it never throws and never affects the interest flow.
  */
 export async function requestConnectionPush(conversationId: string): Promise<void> {
   if (!supabase || !conversationId) return;
   try {
-    const { error } = await supabase.functions.invoke('send-push', {
-      body: { action: 'connection', conversationId },
-    });
+    // Persist independently of HTTP/provider availability. RPC derives recipient
+    // and verifies the caller's membership; the notification INSERT dispatches.
+    const { error } = await supabase.rpc('gayze_connection_notification', { p_conversation: conversationId });
     if (error) console.warn('[GAYZE] Connection push request failed:', error.message);
   } catch (error) {
     console.warn('[GAYZE] Connection push request failed:', error);
@@ -575,11 +724,11 @@ export async function loadNotificationPreferences(): Promise<NotificationPrefere
   };
 }
 
-export async function saveNotificationPreferences(prefs: NotificationPreferences): Promise<boolean> {
+export async function saveNotificationPreferences(prefs: NotificationPreferences, expectedUserId?: string): Promise<boolean> {
   if (!supabase) return false;
   const { data: sessionData } = await supabase.auth.getSession();
   const userId = sessionData.session?.user?.id;
-  if (!userId) return false;
+  if (!userId || (expectedUserId && userId !== expectedUserId)) return false;
 
   const { error } = await supabase.from('notification_preferences').upsert(
     {
@@ -612,10 +761,16 @@ export async function sendTestNotification(): Promise<{ ok: boolean; reason?: st
     const { data, error } = await supabase.functions.invoke('send-push', {
       body: { action: 'test' },
     });
-    if (error) return { ok: false, reason: error.message };
+    if (error) {
+      const status = (error as { context?: { status?: number } }).context?.status;
+      return { ok: false, reason: status === 403
+        ? 'Server policy refused the test. Operator access and an allowed app origin are required.'
+        : status === 503 ? 'The server Web Push configuration is unavailable.' : 'The push test request failed. Check the server diagnostics.' };
+    }
+    if ((data as { skipped?: string } | null)?.skipped === 'preferences') return { ok: false, reason: 'Push notifications are disabled in your preferences.' };
     const delivered = (data as { delivered?: number } | null)?.delivered ?? 0;
     if (delivered === 0) {
-      return { ok: false, reason: 'No subscribed device found for your account on the server.' };
+      return { ok: false, reason: 'No provider accepted this test. Check device registration and server diagnostics. Repeated tests within one minute are deduplicated.' };
     }
     return { ok: true };
   } catch (error) {

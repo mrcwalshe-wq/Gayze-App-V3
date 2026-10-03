@@ -24,7 +24,7 @@ interface DiscoverViewProps {
   currentUser?: UserProfile;
   onOpenDirectChat: (pulse: Pulse) => void;
   onOpenDirectChatWithProfile: (profile: DatingProfile) => void;
-  onGazeAtPeer?: (peerName: string) => void;
+  onGazeAtPeer?: (peerName: string, peerId?: string, intentId?: string) => boolean | void | Promise<boolean | void>;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenQRWithPeer?: (profile: DatingProfile) => void;
   onOpenSetIntent?: () => void;
@@ -168,11 +168,15 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
 
   const liveCount = rows.filter((r) => r.live).length;
 
-  const handleGaze = (row: DiscoverRow) => {
+  const handleGaze = async (row: DiscoverRow) => {
     const peerName = row.kind === 'pulse' ? row.item.peerName : row.item.name;
     hapticLight();
-    setGazedNames((prev) => new Set(prev).add(peerName));
-    onGazeAtPeer?.(peerName);
+    const peerId = row.kind === 'pulse' ? row.item.peerId : row.item.id;
+    const intentId = row.kind === 'pulse' && row.item.id.startsWith('supabase_') ? row.item.id.slice('supabase_'.length) : undefined;
+    try {
+      const sent = await onGazeAtPeer?.(peerName, peerId, intentId);
+      if (sent === true) setGazedNames((prev) => new Set(prev).add(peerId));
+    } catch { /* A failed send must not become a confirmed Gaze. */ }
   };
 
   const handleMessage = (row: DiscoverRow) => {
@@ -413,7 +417,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             <div className="g-sheet__foot">
               <button type="button" className="g-btn g-btn--quiet !px-3" onClick={() => handleGaze(selected)} aria-label="Gaze">
                 <Eye className="w-4 h-4" />
-                {gazedNames.has(selected.kind === 'pulse' ? selected.item.peerName : selected.item.name) ? 'Gazed' : 'Gaze'}
+                {gazedNames.has(selected.kind === 'pulse' ? selected.item.peerId : selected.item.id) ? 'Gazed' : 'Gaze'}
               </button>
               <button
                 type="button"

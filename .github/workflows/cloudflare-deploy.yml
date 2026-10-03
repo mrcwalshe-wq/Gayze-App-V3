@@ -33,7 +33,15 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo "VITE_SUPABASE_URL is missing from GitHub Actions variables"; exit 1; }
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY" || { echo "VITE_SUPABASE_PUBLISHABLE_KEY is missing from GitHub Actions variables"; exit 1; }
+          test -n "$VITE_VAPID_PUBLIC_KEY" || { echo "VITE_VAPID_PUBLIC_KEY is missing from GitHub Actions variables"; exit 1; }
+          npm run build
 
       - name: Verify Cloudflare credentials are configured
         env:
