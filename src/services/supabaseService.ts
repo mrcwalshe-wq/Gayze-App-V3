@@ -913,7 +913,11 @@ export async function leaveConversation(conversationId: string): Promise<void> {
   const user = await ensureSupabaseSession();
   if (!user) throw new Error('Sign in to delete this chat.');
   const { error } = await supabase.rpc('leave_conversation', { p_conversation_id: conversationId });
-  if (error) throw new Error('Could not delete this chat. Please try again.');
+  if (error) {
+    // Code + message only: never the conversation id, tokens or payloads.
+    console.warn('[GAYZE] leave_conversation failed:', (error as { code?: string }).code ?? 'unknown', error.message);
+    throw new Error('Could not delete this chat. Please try again.');
+  }
 }
 
 export interface ConversationPeerKey {

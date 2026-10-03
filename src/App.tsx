@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { DeletedRoomTracker } from './services/deletedRooms';
 import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
 import type { ChatConnectionState } from './services/realtimeRecovery';
 import type { MessageDelivery } from './services/chatSubscriptions';
@@ -677,18 +678,31 @@ export default function App() {
     viewingRoom: activeTabRef.current === 'swarms' ? visibleChatRoomRef.current : null,
     userId: supabaseUserIdRef.current, recipientId,
   }, () => { showToast('New GAYZE message'); hapticMessageDecrypted(); });
+  // Delete-chat bookkeeping. A list load that STARTED before a delete was
+  // confirmed may still contain the deleted room and must not resurrect it;
+  // any load started afterwards reflects server truth (so a genuinely
+  // recreated conversation becomes visible again). Entries are not permanent.
+  const conversationLoadEpochs = useRef(new WeakMap<object, number>()).current;
+  const deletedRooms = useRef(new DeletedRoomTracker()).current;
   const conversationLoadRef = useRef<{ userId: string; work: ReturnType<typeof loadMyConversations> } | null>(null);
   const loadConversationListOnce = (userId: string) => {
     const pending = conversationLoadRef.current;
     if (pending?.userId === userId) return pending.work;
-    const entry = { userId, work: loadMyConversations() };
+    const startEpoch = deletedRooms.currentEpoch;
+    const entry = {
+      userId,
+      work: loadMyConversations().then((result) => {
+        if (result) conversationLoadEpochs.set(result, startEpoch);
+        return result;
+      }),
+    };
     conversationLoadRef.current = entry;
     void entry.work.finally(() => { if (conversationLoadRef.current === entry) conversationLoadRef.current = null; }).catch(() => {});
     return entry.work;
   };
 
   function clearChatAccount() {
-    deletedRoomIdsRef.current.clear();
+    deletedRooms.clear();
     clearMessageWork();
     messageAlertsRef.current.clear();
     conversationLoadRef.current = null;
@@ -720,11 +734,8 @@ export default function App() {
   const activeUserIntentRef = useRef<UserActiveIntent | null>(activeUserIntent);
   useEffect(() => { activeUserIntentRef.current = activeUserIntent; }, [activeUserIntent]);
 
-  // Conversations the user deleted this session; stale in-flight list loads
-  // must not resurrect them.
-  const deletedRoomIdsRef = useRef<Set<string>>(new Set());
-  const withoutDeletedRooms = (loaded: SwarmRoom[]) =>
-    loaded.filter((room) => !deletedRoomIdsRef.current.has(room.id));
+  const withoutDeletedRooms = (loaded: SwarmRoom[], result: object) =>
+    deletedRooms.filter(loaded, conversationLoadEpochs.get(result) ?? -1);
 
   const refreshDiscoveryRef = useRef<() => Promise<void>>(async () => undefined);
   const refreshConversationListRef = useRef<() => Promise<void>>(async () => undefined);
@@ -934,7 +945,7 @@ export default function App() {
     if (!viewerId) return;
     const result = await loadConversationListOnce(viewerId);
     if (!result || isSigningOutRef.current || supabaseUserIdRef.current !== viewerId) return;
-    const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, viewerId));
+    const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, viewerId), result);
     setRooms((prev) => mergeBackendRooms(prev, loaded, viewerId));
   };
 
@@ -981,7 +992,7 @@ export default function App() {
           const result = await loadConversationListOnce(supabaseUserId);
           if (disposed || !delivery.current()) return;
           if (result) {
-            const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, supabaseUserIdRef.current || ''));
+            const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, supabaseUserIdRef.current || ''), result);
             setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserIdRef.current || ''));
             room = loaded.find((candidate) => candidate.id === row.conversation_id);
           }
@@ -1381,7 +1392,7 @@ export default function App() {
             loadRooms: async () => {
               const result = await loadConversationListOnce(account!);
               if (!result || !current()) return null;
-              const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, account!));
+              const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, account!), result);
               setRooms(previous => mergeBackendRooms(previous, loaded, account!));
               return loaded;
             },
@@ -2141,14 +2152,18 @@ export default function App() {
   const handleDeleteChat = async (roomId: string) => {
     const account = supabaseUserIdRef.current;
     if (!account || !isConversationId(roomId)) throw new Error('This conversation is unavailable.');
-    deletedRoomIdsRef.current.add(roomId);
+    // Until the delete is confirmed, drop every list load for this room.
+    deletedRooms.begin(roomId);
     conversationLoadRef.current = null;
     try {
       await leaveConversation(roomId);
     } catch (error) {
-      deletedRoomIdsRef.current.delete(roomId);
+      deletedRooms.fail(roomId);
       throw error;
     }
+    deletedRooms.confirm(roomId);
+    conversationLoadRef.current = null;
+    messageProcessorRef.current.forgetConversation(roomId);
     setRooms((prev) => prev.filter((room) => room.id !== roomId));
     setMessages((prev) => {
       if (!(roomId in prev)) return prev;

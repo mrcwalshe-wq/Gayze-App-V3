@@ -14,6 +14,15 @@ export class ChatMessageProcessor {
     private now = Date.now,
   ) {}
   clear() { this.generation++; this.keys.clear(); this.texts.clear(); }
+  /** Drop cached keys/plaintext for one conversation only; unrelated rooms keep their warm state. */
+  forgetConversation(roomId: string) {
+    for (const [id] of this.keys) {
+      try { if (JSON.parse(id)[1] === roomId) this.keys.delete(id); } catch { this.keys.delete(id); }
+    }
+    for (const [id] of this.texts) {
+      if (id.split(':')[1] === roomId) this.texts.delete(id);
+    }
+  }
   private keyId(room: SwarmRoom, userId: string) {
     return JSON.stringify([userId, room.id, room.type, room.peerKey, [...(room.memberIds ?? [])].sort()]);
   }

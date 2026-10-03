@@ -119,6 +119,36 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteDialogRef = useRef<HTMLDivElement | null>(null);
+  const isDeletingRef = useRef(false);
+  isDeletingRef.current = isDeletingChat;
+
+  // Delete dialog: focus moves in, Tab is trapped, Escape cancels (unless busy),
+  // and focus returns to whatever opened it.
+  useEffect(() => {
+    if (!confirmDeleteRoomId) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const dialog = deleteDialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? []);
+    focusable()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (!isDeletingRef.current) { event.preventDefault(); setConfirmDeleteRoomId(null); }
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) { event.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!dialog?.contains(active)) { event.preventDefault(); first.focus(); }
+      else if (event.shiftKey && active === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); opener?.focus?.(); };
+  }, [confirmDeleteRoomId]);
   const [avatarUrls, setAvatarUrls] = useState<Record<string, string>>({});
   const avatarUrlsRef = useRef(avatarUrls);
   avatarUrlsRef.current = avatarUrls;
@@ -854,7 +884,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
       {confirmDeleteRoomId && onDeleteChat && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-chat-title">
-          <div className="w-full max-w-sm bg-[#11131a] border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4">
+          <div ref={deleteDialogRef} className="w-full max-w-sm bg-[#11131a] border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4">
             <h3 id="delete-chat-title" className="text-base font-bold text-white">Delete this chat?</h3>
             <p className="text-[12px] text-zinc-400">
               This removes the conversation from your account on every device. The other person keeps their copy and is not notified.
