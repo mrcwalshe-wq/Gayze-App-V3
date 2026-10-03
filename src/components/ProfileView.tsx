@@ -23,6 +23,11 @@ import {
   Bell,
   LogOut,
 } from 'lucide-react';
+import {
+  type EditSectionKey,
+  INTIMACY_VISIBILITY_OPTIONS,
+  computeProfileCompletion,
+} from '../config/profileOptions';
 import { UserActiveIntent, UserProfile } from '../types';
 import { hapticLight, hapticSensitiveAction, triggerVibration } from '../services/hapticService';
 import {
@@ -53,7 +58,8 @@ interface ProfileViewProps {
   onOpenQR: () => void;
   onOpenSafeHavens: () => void;
   onOpenDiscover?: () => void;
-  onOpenProfileEdit?: (section?: string) => void;
+  /** Opens the sectioned profile editor (the "Edit profile" pencil). */
+  onOpenProfileEdit?: (section?: EditSectionKey) => void;
   onAvatarUpdated?: (url: string | undefined) => void;
   /** Opens the Web Push opt-in / notification preferences sheet. */
   onOpenNotifications?: () => void;
@@ -110,17 +116,33 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
 
+  // The promotional card is an ONBOARDING prompt, not a second notification
+  // system: it shows only while notifications are off AND the user has not
+  // dismissed it (dismissal is permanent), and it disappears for good the
+  // moment this device is subscribed. The permanent Notifications row below is
+  // the single entry point into the existing notification settings sheet.
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
+    const checkReminder = async () => {
       try {
         const env = getPushEnvironment();
-        if (env.blockedBy === 'unsupported' || env.blockedBy === 'not-configured') return;
+        if (env.blockedBy === 'unsupported' || env.blockedBy === 'not-configured') {
+          if (!cancelled) setShowNotificationReminder(false);
+          return;
+        }
         const subscribed = await isDeviceSubscribed();
-        if (cancelled || subscribed) return;
+        if (cancelled) return;
+        if (subscribed) {
+          // Enabled — the prompt has done its job; hide it immediately.
+          setShowNotificationReminder(false);
+          return;
+        }
         try {
           const dismissedAt = Number(window.localStorage.getItem('gayze_notification_reminder_dismissed_at')) || 0;
-          if (dismissedAt && Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return;
+          if (dismissedAt) {
+            setShowNotificationReminder(false);
+            return;
+          }
         } catch {
           // Continue if local storage is unavailable.
         }
@@ -128,9 +150,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       } catch {
         // Notification setup is optional and must never affect the profile view.
       }
-    })();
+    };
+    // Own heartbeat (independent of the intent countdown, which only runs with
+    // a live intent) + focus/visibility, so a subscription started elsewhere —
+    // e.g. from the Notifications sheet or the OS settings — retires the prompt.
+    void checkReminder();
+    const id = window.setInterval(() => { void checkReminder(); }, 30000);
+    const onWake = () => { void checkReminder(); };
+    window.addEventListener('focus', onWake);
+    document.addEventListener('visibilitychange', onWake);
     return () => {
       cancelled = true;
+      window.clearInterval(id);
+      window.removeEventListener('focus', onWake);
+      document.removeEventListener('visibilitychange', onWake);
     };
   }, []);
 
@@ -302,6 +335,35 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     : tone === 'purple' ? 'text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40'
     : 'text-zinc-400 bg-white/[0.05] border-white/10';
 
+  // Profile completion — the checklist that materially improves matching.
+  const completion = computeProfileCompletion({
+    hasPhoto: photos.length > 0 || Boolean(currentUser.avatarUrl),
+    lookingForCount: currentUser.interests.length,
+    interestCount: currentUser.hobbies?.length ?? 0,
+    hasIntimacy: Boolean(
+      currentUser.intimacy?.role
+      || (currentUser.intimacy?.preferences.length ?? 0) > 0
+      || (currentUser.intimacy?.experience && currentUser.intimacy.experience !== 'Not specified'),
+    ),
+    setupCount: currentUser.mySetup?.length ?? 0,
+    hasBio: Boolean(currentUser.bio && currentUser.bio.trim()),
+  });
+  const intimacyVisibilityLabel = currentUser.intimacy
+    ? INTIMACY_VISIBILITY_OPTIONS.find((option) => option.value === currentUser.intimacy?.visibility)?.label
+    : undefined;
+  const factTags = [
+    currentUser.pronouns,
+    currentUser.heightCm ? `${currentUser.heightCm} cm` : undefined,
+    currentUser.bodyType,
+  ].filter((value): value is string => Boolean(value));
+  const hasIntimacySection = Boolean(
+    currentUser.intimacy && (
+      currentUser.intimacy.role
+      || currentUser.intimacy.preferences.length > 0
+      || (currentUser.intimacy.experience && currentUser.intimacy.experience !== 'Not specified')
+    ),
+  );
+
   const emptySlotsCount = Math.max(0, MAX_PHOTOS - photos.length);
 
   return (
@@ -343,7 +405,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             )}
           </div>
           <div className="text-[12px] text-zinc-400 mt-1 truncate">
-            {areaLabel || currentUser.neighborhood} · approximate area
+            {[currentUser.age ? String(currentUser.age) : null, currentUser.pronouns || null, areaLabel || currentUser.neighborhood]
+              .filter(Boolean)
+              .join(' · ')}{' '}
+            · approximate area
           </div>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className="g-badge g-badge--trust">
@@ -356,13 +421,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
         <button
           type="button"
-          onClick={() => { hapticLight(); onOpenProfileEdit?.('identity'); }}
+          onClick={() => {
+            hapticLight();
+            if (onOpenProfileEdit) onOpenProfileEdit('identity');
+            else onOpenIdentity();
+          }}
           className="g-icon-btn shrink-0"
           aria-label="Edit profile"
         >
           <Edit3 className="w-4 h-4" />
         </button>
       </section>
+
+      {/* Profile completion — a quiet nudge, never a blocking checklist */}
+      {completion.missing.length > 0 && (
+        <button
+          type="button"
+          onClick={() => { hapticLight(); onOpenProfileEdit?.(completion.missing[0].section as EditSectionKey); }}
+          className="w-full text-left rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 mb-4 hover:bg-white/[0.04] transition-colors"
+          aria-label="Improve your profile"
+        >
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-zinc-500 font-semibold">
+              Profile · {completion.percent}% complete
+            </div>
+            <div className="text-[12.5px] text-zinc-300 mt-0.5 truncate">
+              Make your profile more useful — {completion.missing.length} quick {completion.missing.length === 1 ? 'thing' : 'things'} to add
+            </div>
+          </div>
+          <div className="mt-2 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D]"
+              style={{ width: `${completion.percent}%` }}
+            />
+          </div>
+        </button>
+      )}
 
       {/* Profile photos — first-class gallery with reordering, primary designation, and full-screen view */}
       <section className="g-panel p-4 mb-5">
@@ -585,7 +679,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <button
                 type="button"
                 className="g-btn g-btn--primary mt-3 w-full sm:w-auto"
-                onClick={() => { hapticLight(); onOpenNotifications(); }}
+                onClick={() => {
+                  hapticLight();
+                  // Engaging the prompt retires it — the permanent Notifications
+                  // row below remains the single entry point from here on.
+                  onOpenNotifications();
+                  setShowNotificationReminder(false);
+                }}
               >
                 <Bell className="w-4 h-4" />
                 Start notifications
@@ -659,13 +759,87 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         )}
       </section>
 
-      {/* Attributes */}
-      {currentUser.interests.length > 0 && (
+      {/* ---------------- Profile summary — only sections with content ---------------- */}
+      {((currentUser.bio && currentUser.bio.trim()) || factTags.length > 0) && (
         <section className="mb-5">
           <span className="g-label">About you</span>
+          {(currentUser.bio && currentUser.bio.trim()) && (
+            <p className="mt-2 text-[13.5px] leading-relaxed text-zinc-200">“{currentUser.bio.trim()}”</p>
+          )}
+          {factTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {factTags.map((tag) => (
+                <span key={tag} className="g-tag">{tag}</span>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {currentUser.interests.length > 0 && (
+        <section className="mb-5">
+          <span className="g-label">Looking for</span>
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             {currentUser.interests.map((interest) => (
               <span key={interest} className="g-tag">{interest}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(currentUser.hobbies?.length ?? 0) > 0 && (
+        <section className="mb-5">
+          <span className="g-label">Interests</span>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {currentUser.hobbies!.map((hobby) => (
+              <span key={hobby} className="g-tag">{hobby}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {hasIntimacySection && currentUser.intimacy && (
+        <section className="mb-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="g-label">Intimacy</span>
+            {intimacyVisibilityLabel && (
+              <span className="g-badge g-badge--quiet">{intimacyVisibilityLabel}</span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {currentUser.intimacy.role && (
+              <span className="g-chip g-chip--private">{currentUser.intimacy.role}</span>
+            )}
+            {currentUser.intimacy.preferences.map((preference) => (
+              <span key={preference} className="g-tag">{preference}</span>
+            ))}
+            {currentUser.intimacy.experience && currentUser.intimacy.experience !== 'Not specified' && (
+              <span className="g-tag">{currentUser.intimacy.experience}</span>
+            )}
+          </div>
+        </section>
+      )}
+
+      {((currentUser.mySetup?.length ?? 0) > 0 || (currentUser.availability?.length ?? 0) > 0) && (
+        <section className="mb-5">
+          <span className="g-label">My setup</span>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {(currentUser.mySetup ?? []).map((setup) => (
+              <span key={setup} className="g-tag">{setup}</span>
+            ))}
+            {(currentUser.availability ?? []).map((when) => (
+              <span key={when} className="g-chip g-chip--quiet">{when}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(currentUser.boundaries?.length ?? 0) > 0 && (
+        <section className="mb-5">
+          <span className="g-label">Boundaries</span>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {currentUser.boundaries!.map((boundary) => (
+              <span key={boundary} className="g-tag">{boundary}</span>
             ))}
           </div>
         </section>
