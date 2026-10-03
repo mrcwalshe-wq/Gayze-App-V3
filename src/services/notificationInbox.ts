@@ -58,7 +58,7 @@ export async function markNotificationRead(id?: string, conversationId?: string)
     // Defence in depth: do not even invoke the acknowledgement RPC unless the
     // notification belongs to the currently authenticated account. The RPC
     // remains owner-scoped as the authoritative server-side check.
-    const { data: user, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) return;
     const { data: owned, error: ownershipError } = await supabase
       .from('gayze_notifications')

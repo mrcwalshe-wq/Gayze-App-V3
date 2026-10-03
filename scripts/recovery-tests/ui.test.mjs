@@ -79,6 +79,20 @@ test('chat consumes keyboard-sized visual viewport and removes layout listeners 
   assert.equal(document.documentElement.style.getPropertyValue('--g-visual-height'), '');
 });
 
+test('sign-out revocation and remote sign-out failures cannot prevent local logout and reload', async () => {
+  const { finishSignOut } = await loadModule('src/services/signOut.ts');
+  const events = [];
+  const started = Date.now();
+  await finishSignOut({
+    releasePush() { events.push('push'); return new Promise(() => {}); },
+    clearLocalSession() { events.push('clear'); throw new Error('storage unavailable'); },
+    signOut() { events.push('supabase'); return new Promise(() => {}); },
+    reload() { events.push('reload'); },
+  }, 20);
+  assert.deepEqual(events, ['push', 'clear', 'supabase', 'reload']);
+  assert(Date.now() - started < 500, 'local logout and reload are bounded by the remote sign-out timeout');
+});
+
 // Actual presence wrapper with a fake Supabase transport and real DOM lifecycle events.
 test('incognito never tracks; visible presence leaves on background and tracks again after resume', async () => {
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });

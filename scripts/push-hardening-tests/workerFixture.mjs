@@ -5,7 +5,7 @@ export const noticeId = '10000000-0000-4000-8000-000000000001';
 export const roomId = '20000000-0000-4000-8000-000000000001';
 export const recipientId = '30000000-0000-4000-8000-000000000001';
 export const payload = { type: 'message', notificationId: noticeId, conversationId: roomId, recipientId,
-  messageId: '40000000-0000-4000-8000-000000000001', url: `/messages/${roomId}?notification=${noticeId}` };
+  messageId: '40000000-0000-4000-8000-000000000001', url: `/messages/${roomId}?notification=${noticeId}&recipient=${recipientId}` };
 export function worker({ receipts = new Map(), notifications = new Map(), clients = [] } = {}) {
   const events = {}, displays = [], opens = [], writes = [];
   let failDisplay = false, failStorage = false, failClients = false;
@@ -25,7 +25,7 @@ export function worker({ receipts = new Map(), notifications = new Map(), client
     async keys() { return [...receipts.keys()]; }, async delete(key) { return receipts.delete(key); } };
   vm.runInNewContext(readFileSync('public/service-worker.js', 'utf8'), { self,
     caches: { async open() { if (failStorage) throw new Error('storage unavailable'); return cache; } },
-    URL, Request, Response, MessageChannel, setTimeout, clearTimeout, console });
+    URL, URLSearchParams, Request, Response, MessageChannel, setTimeout, clearTimeout, console });
   return { displays, opens, writes, receipts, notifications, events,
     set failDisplay(value) { failDisplay = value; }, set failStorage(value) { failStorage = value; }, set failClients(value) { failClients = value; },
     async fire(type, data) { let work; events[type]({ waitUntil(value) { work = value; }, ...data }); await work; },

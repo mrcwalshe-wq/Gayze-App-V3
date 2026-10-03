@@ -252,7 +252,12 @@ async function displayReceipt(id, write = false) {
 
 function notificationTarget(data) {
   if ((data.type === 'message' || data.type === 'connection') && validId(data.conversationId)) {
-    return `/messages/${data.conversationId}${validId(data.notificationId) ? `?notification=${data.notificationId}` : ''}`;
+    const query = new URLSearchParams();
+    if (validId(data.notificationId)) query.set('notification', data.notificationId);
+    if (validId(data.recipientId)) query.set('recipient', data.recipientId);
+    const params = query.toString();
+    const suffix = params ? `?${params}` : '';
+    return `/messages/${data.conversationId}${suffix}`;
   }
   return safePath(data.url, (DEFAULT_COPY[data.type] || DEFAULT_COPY.message).url);
 }

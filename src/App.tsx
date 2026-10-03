@@ -11,6 +11,7 @@ import { ChatMessageProcessor, MessageBatcher } from './services/chatMessageProc
 import { beginChatTrace, clearChatTrace } from './services/chatTrace';
 import { ChatHistoryOwnership } from './services/chatHistoryOwnership';
 import { MessageAlerts } from './services/messageAlerts';
+import { finishSignOut } from './services/signOut';
 
 
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
@@ -3007,59 +3008,12 @@ export default function App() {
           setIsSigningOut(true);
           isSigningOutRef.current = true;
 
-          // Invalidate every in-flight auth/bootstrap operation immediately.
-          // The UI must never wait for a network round-trip to show the signed-out state.
+          // Invalidate in-flight work and leave the authenticated shell immediately.
           authGenerationRef.current += 1;
           clearChatAccount();
           locationWatchStopRef.current?.();
           locationWatchStopRef.current = null;
           recoverySessionRef.current = false;
-
-          // Release this device's push subscription while the session is still
-          // valid (the row delete needs the user's JWT to pass RLS). Bounded and
-          // never throws: a failed cleanup can not block sign-out. If it cannot
-          // be confirmed, the subscription is revoked on next app start.
-          await releasePushOnSignOut();
-
-          // Remove the persisted browser session first. This is the authoritative
-          // local logout path and also works when Supabase's network sign-out is
-          // unavailable or slow.
-          try {
-            window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-            window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-            for (const storage of [window.localStorage, window.sessionStorage]) {
-              for (let index = storage.length - 1; index >= 0; index -= 1) {
-                const key = storage.key(index);
-                if (key && (
-                  key.startsWith('sb-') ||
-                  key.includes('supabase.auth') ||
-                  key.includes('supabase-auth-token')
-                )) {
-                  storage.removeItem(key);
-                }
-              }
-            }
-          } catch (error) {
-            console.warn('[GAYZE] Could not clear browser auth storage:', error);
-          }
-
-          // Clear local application state synchronously. Device identity keys are
-          // deliberately kept (they belong to the device, not the account) but
-          // every account-derived cache is removed.
-          for (const key of [
-            'gayze_messages',
-            'gayze_active_user_intent',
-            'gayze_user',
-            'gayze_rooms',
-            'gayze_pulses',
-            'gayze_gatherings',
-            'gayze_stories',
-            'gayze_intent_posts',
-            'gayze_checkin',
-            'gayze_verified_rooms',
-          ]) {
-            localStorage.removeItem(key);
-          }
           setActiveUserIntent(null);
           setSupabaseRightNowPulses([]);
           setSupabaseReady(false);
@@ -3073,27 +3027,43 @@ export default function App() {
           setIsAuthenticated(false);
           setAuthReady(true);
 
-          // Close the modal immediately so the sign-out action cannot be obscured by
-          // the authenticated shell while Supabase finishes its own session cleanup.
-          setIsIdentityOpen(false);
+          await finishSignOut({
+            releasePush: releasePushOnSignOut,
+            clearLocalSession: () => {
+              for (const storage of [window.localStorage, window.sessionStorage]) {
+                try {
+                  storage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+                  for (let index = storage.length - 1; index >= 0; index -= 1) {
+                    const key = storage.key(index);
+                    if (key && (
+                      key.startsWith('sb-') ||
+                      key.includes('supabase.auth') ||
+                      key.includes('supabase-auth-token')
+                    )) storage.removeItem(key);
+                  }
+                } catch (error) {
+                  console.warn('[GAYZE] Could not clear browser auth storage:', error);
+                }
+              }
 
-          // Server-side session invalidation. Bound the wait so a network
-          // failure can never trap the user in the authenticated shell.
-          if (supabase) {
-            try {
-              await Promise.race([
-                supabase.auth.signOut({ scope: 'global' }),
-                new Promise((resolve) => window.setTimeout(resolve, 1500)),
-              ]);
-            } catch (error) {
-              console.warn('[GAYZE] Supabase local sign-out failed:', error);
-            }
-          }
-
-          // Reload into a clean document after local credentials and application
-          // state have already been cleared. This prevents a stale Supabase
-          // bootstrap callback or browser auth refresh from restoring the shell.
-          window.location.replace(window.location.origin + '/?signed_out=1');
+              for (const key of [
+                'gayze_messages',
+                'gayze_active_user_intent',
+                'gayze_user',
+                'gayze_rooms',
+                'gayze_pulses',
+                'gayze_gatherings',
+                'gayze_stories',
+                'gayze_intent_posts',
+                'gayze_checkin',
+                'gayze_verified_rooms',
+              ]) {
+                try { window.localStorage.removeItem(key); } catch { /* Storage is optional. */ }
+              }
+            },
+            signOut: () => supabase?.auth.signOut({ scope: 'global' }),
+            reload: () => window.location.replace(window.location.origin + '/?signed_out=1'),
+          });
         }}
       />
       </div>{/* /g-shell */}

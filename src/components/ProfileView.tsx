@@ -70,6 +70,7 @@ const formatRemaining = (ms: number): string => {
 };
 
 const MAX_PHOTOS = 6;
+const PHOTO_URL_REFRESH_MS = 50 * 60 * 1000;
 
 /**
  * Profile — authentic identity surface in Obsidian Velvet.
@@ -130,20 +131,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    void loadProfilePhotos()
-      .then((items) => {
+    let loading = false;
+    let lastRefreshAt = 0;
+    const refreshPhotos = async () => {
+      if (cancelled || loading) return;
+      loading = true;
+      try {
+        const items = await loadProfilePhotos();
         if (cancelled) return;
         setPhotos(items);
         const primary = items.find((p) => p.isPrimary) || items[0];
-        if (primary && onAvatarUpdated) {
-          onAvatarUpdated(primary.url);
-        }
-      })
-      .catch(() => {
+        onAvatarUpdated?.(primary?.url);
+        lastRefreshAt = Date.now();
+      } catch {
         if (!cancelled) setPhotoMessage('Profile photos are unavailable right now.');
-      });
+      } finally {
+        loading = false;
+      }
+    };
+    void refreshPhotos();
+    const timer = window.setInterval(() => { void refreshPhotos(); }, PHOTO_URL_REFRESH_MS);
+    const resume = () => {
+      if (document.visibilityState !== 'hidden' && Date.now() - lastRefreshAt >= PHOTO_URL_REFRESH_MS) {
+        void refreshPhotos();
+      }
+    };
+    window.addEventListener('pageshow', resume);
+    window.addEventListener('online', resume);
+    document.addEventListener('visibilitychange', resume);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('pageshow', resume);
+      window.removeEventListener('online', resume);
+      document.removeEventListener('visibilitychange', resume);
     };
   }, [onAvatarUpdated]);
 

@@ -62,6 +62,20 @@ test('notification destinations survive login reload and reject off-origin/auth 
   window.history.replaceState({},'','/');
 });
 
+test('message notification destination remains recipient-scoped across account switching',async()=>{
+  let authListener;
+  const backend={auth:{
+    async getSession(){return {data:{session:{user:{id:user}}}};},
+    onAuthStateChange(listener){authListener=listener;return {data:{subscription:{unsubscribe(){}}}};},
+  }};
+  const routes=await loadModule('src/services/notificationRouting.ts',backend);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  const path=`/messages/${room}?notification=${id}&recipient=${user}`;
+  assert.deepEqual(routes.routeFromPath(path),{tab:'swarms',conversationId:room});
+  authListener('SIGNED_IN',{user:{id:'00000000-0000-4000-8000-000000000002'}});
+  assert.deepEqual(routes.routeFromPath(path),{tab:'right_now'});
+});
+
 test('notification list renders database unread state and opens the selected stable record',async()=>{
   const backend={auth:{async getSession(){return {data:{session:null}};}}};
   const {NotificationsModal}=await loadModule('src/components/NotificationsModal.tsx',backend);

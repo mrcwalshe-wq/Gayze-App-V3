@@ -9,7 +9,7 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'https
 for (const key of ['window', 'document', 'navigator', 'HTMLElement', 'localStorage']) Object.defineProperty(globalThis, key, { configurable: true, value: dom.window[key] });
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const React = await import('react');
-const { render, cleanup, fireEvent } = await import('@testing-library/react');
+const { render, cleanup, fireEvent, waitFor } = await import('@testing-library/react');
 const { ChatRoomView } = await loadModule('src/components/ChatRoomView.tsx');
 afterEach(cleanup);
 const room = { id: 'room', name: 'Peer', peerName: 'Peer', peerUserId: 'peer', type: 'direct', ephemeralTtlSeconds: 0 };
@@ -57,6 +57,118 @@ test('parallel/repeated avatar signing requests coalesce; failures are retryable
   fail = false; assert(await getProfilePhotoUrl('missing/path')); assert.equal(requests, 3);
 });
 
+test('profile photos upload, display from signed storage URLs, replace primary, and delete cleanly', async () => {
+  const owner = '30000000-0000-4000-8000-000000000001';
+  const rows = [], objects = new Map(), profile = { avatar_path: null };
+  let signedRequests = 0;
+  const backend = {
+    auth: { async getUser() { return { data: { user: { id: owner } }, error: null }; } },
+    storage: { from(bucket) {
+      assert.equal(bucket, 'profile-photos');
+      return {
+        async upload(path, file, options) {
+          objects.set(path, { file, options }); return { error: null };
+        },
+        async createSignedUrl(path, expiresIn) {
+          signedRequests++;
+          assert.equal(expiresIn, 3600);
+          assert(objects.has(path), `signed URL path exists in storage: ${path}`);
+          return { data: { signedUrl: `https://signed.test/${path}?signature=${signedRequests}` }, error: null };
+        },
+        async remove(paths) {
+          for (const path of paths) objects.delete(path);
+          return { error: null };
+        },
+      };
+    } },
+    from(table) {
+      let operation = 'select', values, filters = {};
+      const query = {
+        select() { operation = 'select'; return query; },
+        insert(value) { operation = 'insert'; values = value; return query; },
+        update(value) { operation = 'update'; values = value; return query; },
+        delete() { operation = 'delete'; return query; },
+        eq(column, value) { filters[column] = value; return query; },
+        order() { return query; },
+        async maybeSingle() {
+          const data = table === 'profile_photos'
+            ? rows.find((row) => Object.entries(filters).every(([key, value]) => row[key] === value)) ?? null
+            : null;
+          return { data, error: null };
+        },
+        then(resolve, reject) {
+          let data = null;
+          if (table === 'profile_photos') {
+            if (operation === 'insert') {
+              rows.push({ id: crypto.randomUUID(), ...values });
+            } else if (operation === 'delete') {
+              for (let i = rows.length - 1; i >= 0; i--) {
+                if (Object.entries(filters).every(([key, value]) => rows[i][key] === value)) rows.splice(i, 1);
+              }
+            } else if (operation === 'update') {
+              for (const row of rows) {
+                if (Object.entries(filters).every(([key, value]) => row[key] === value)) Object.assign(row, values);
+              }
+            } else {
+              data = rows.filter((row) => row.user_id === filters.user_id)
+                .sort((a, b) => a.sort_order - b.sort_order).map((row) => ({ ...row }));
+            }
+          } else if (table === 'profiles' && operation === 'update' && filters.id === owner) {
+            Object.assign(profile, values);
+          }
+          return Promise.resolve({ data, error: null }).then(resolve, reject);
+        },
+      };
+      return query;
+    },
+    rpc: async () => ({ error: new Error('exercise owner-scoped fallback updates') }),
+  };
+  const photos = await loadModule('src/services/profilePhotoService.ts', backend);
+  const first = await photos.uploadProfilePhoto(new dom.window.File(['first'], 'first.jpg', { type: 'image/jpeg' }));
+  assert.equal(first.length, 1);
+  assert.equal(objects.size, 1);
+  assert.equal(profile.avatar_path, first[0].storagePath);
+  assert.match(first[0].url, new RegExp(first[0].storagePath));
+
+  const { ProfileView } = await loadModule('src/components/ProfileView.tsx', backend);
+  const props = {
+    currentUser: { displayName: 'Owner', handle: 'owner', privacySetting: 'ghost', interests: [] },
+    onOpenSafetyTimer() {}, isSafetyTimerActive: false, onOpenMask() {}, onOpenIdentity() {}, onOpenQR() {}, onOpenSafeHavens() {},
+  };
+  let ui = render(React.createElement(ProfileView, props));
+  await waitFor(() => assert(ui.container.querySelector(`img[src*="${first[0].storagePath}"]`)));
+  const initialSignedUrl = ui.container.querySelector('img')?.src;
+  const realNow = Date.now;
+  Date.now = () => realNow() + 51 * 60 * 1000;
+  const requestsBeforeRefresh = signedRequests;
+  window.dispatchEvent(new window.Event('pageshow'));
+  await waitFor(() => assert(signedRequests > requestsBeforeRefresh));
+  assert.notEqual(ui.container.querySelector('img')?.src, initialSignedUrl);
+  Date.now = realNow;
+
+  const twoPhotos = await photos.uploadProfilePhoto(new dom.window.File(['second'], 'second.jpg', { type: 'image/jpeg' }));
+  assert.equal(twoPhotos.length, 2);
+  assert.equal(profile.avatar_path, first[0].storagePath);
+  const replaced = await photos.setPrimaryProfilePhoto(twoPhotos[1].id);
+  assert.equal(replaced.find((photo) => photo.isPrimary).storagePath, twoPhotos[1].storagePath);
+  assert.equal(profile.avatar_path, twoPhotos[1].storagePath);
+  assert.equal(objects.has(twoPhotos[1].storagePath), true);
+  ui.unmount();
+  ui = render(React.createElement(ProfileView, props));
+  await waitFor(() => assert(ui.container.querySelector(`img[src*="${twoPhotos[1].storagePath}"]`)));
+
+  const afterDelete = await photos.deleteProfilePhoto(replaced.find((photo) => photo.isPrimary));
+  assert.equal(afterDelete.length, 1);
+  assert.equal(afterDelete[0].isPrimary, true);
+  assert.equal(profile.avatar_path, first[0].storagePath);
+  assert.equal(objects.has(twoPhotos[1].storagePath), false);
+  ui.unmount();
+  ui = render(React.createElement(ProfileView, props));
+  await waitFor(() => assert(ui.container.querySelector(`img[src*="${first[0].storagePath}"]`)));
+  assert(signedRequests >= 4, 'profile image URLs are freshly signed rather than served from a public bucket');
+  ui.unmount();
+});
+
 function worker({ focused = false, acknowledge = false, respond = true } = {}) {
   const handlers = {}, shown = [], posted = [], receipts = new Map();
   const self = { location: new URL('https://gayze.co.uk/service-worker.js'), navigator: {},
@@ -68,7 +180,7 @@ function worker({ focused = false, acknowledge = false, respond = true } = {}) {
   };
   const cache = { async match(key) { return receipts.get(key); }, async put(key, value) { receipts.set(key, value); },
     async keys() { return [...receipts.keys()]; }, async delete(key) { receipts.delete(key); } };
-  vm.runInNewContext(readFileSync('public/service-worker.js', 'utf8'), { self, caches: { open: async () => cache }, URL, Request, Response, MessageChannel, setTimeout, clearTimeout, console });
+  vm.runInNewContext(readFileSync('public/service-worker.js', 'utf8'), { self, caches: { open: async () => cache }, URL, URLSearchParams, Request, Response, MessageChannel, setTimeout, clearTimeout, console });
   return { shown, posted, async push(payload) { let pending; handlers.push({ data: { json: () => payload }, waitUntil(work) { pending = work; } }); await pending; } };
 }
 const payload = { type: 'message', notificationId: '10000000-0000-4000-8000-000000000001', messageId: '20000000-0000-4000-8000-000000000001',
