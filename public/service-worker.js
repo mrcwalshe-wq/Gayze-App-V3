@@ -20,7 +20,7 @@
  *   - Only content-hashed build output and static brand assets are cached.
  */
 
-const SW_VERSION = 'gayze-sw-v4';
+const SW_VERSION = 'gayze-sw-v5';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 
@@ -225,6 +225,17 @@ function safePath(rawUrl, fallback) {
   }
 }
 
+// Temporary, content-free diagnostics for tracing iOS Web Push presentation.
+// Never log notification text, IDs, URLs, endpoints, tokens or subscription keys.
+function pushDiagnostic(stage, details = {}) {
+  try { console.info('[GAYZE push diagnostic]', stage, details); } catch { /* Diagnostics must never affect delivery. */ }
+}
+
+function diagnosticErrorName(error) {
+  const name = error && typeof error.name === 'string' ? error.name : 'UnknownError';
+  return name.slice(0, 64);
+}
+
 // Presentation receipts are NOT backend delivery claims. Always display a
 // user-visible notification for every push event (Apple userVisibleOnly).
 // A replay quietly replaces the SAME tagged record, without another toast.
@@ -281,17 +292,31 @@ async function presentInFocusedApp(data) {
 }
 
 self.addEventListener('push', (event) => {
-  event.waitUntil(
-    (pushQueue = pushQueue.catch(() => {}).then(async () => {
+  // Never log the payload itself: it can contain app-specific routing data.
+  pushDiagnostic('push-received', { hasData: Boolean(event.data) });
+
+  const work = pushQueue.then(async () => {
+    let stage = 'payload-parse';
+    try {
       let payload = {};
+      let payloadFormat = 'empty';
       if (event.data) {
         try {
           payload = event.data.json();
+          payloadFormat = 'json';
         } catch {
           payload = { body: event.data.text() };
+          payloadFormat = 'text-fallback';
         }
       }
+      pushDiagnostic('payload-parsed', {
+        format: payloadFormat,
+        objectPayload: payload !== null && typeof payload === 'object' && !Array.isArray(payload),
+        hasTitle: typeof payload?.title === 'string',
+        hasBody: typeof payload?.body === 'string',
+      });
 
+      stage = 'receipt-check';
       let replay = await displayReceipt(payload.notificationId);
       const type = typeof payload.type === 'string' ? payload.type : 'message';
       const defaults = DEFAULT_COPY[type] || DEFAULT_COPY.message;
@@ -320,9 +345,13 @@ self.addEventListener('push', (event) => {
 
       let foregroundHandled = false;
       if (!replay) {
+        stage = 'foreground-handshake';
         try { foregroundHandled = await presentInFocusedApp(data); }
         catch { /* App handshake is optional; native display must still run. */ }
       }
+
+      stage = 'showNotification';
+      pushDiagnostic('showNotification-called');
       await self.registration.showNotification(title, {
         body,
         tag,
@@ -335,19 +364,31 @@ self.addEventListener('push', (event) => {
         silent: replay || foregroundHandled,
         timestamp: Date.now(),
       });
+      pushDiagnostic('showNotification-resolved');
 
       // Only successful display earns a receipt. Rejection leaves retry safe.
+      stage = 'receipt-write';
       await displayReceipt(payload.notificationId, true);
 
       if (typeof payload.badgeCount === 'number') applyBadge(payload.badgeCount);
 
       // Let any open Gayze window refresh its own unread state.
+      stage = 'app-notify';
       const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true }).catch(() => []);
       for (const client of clientList) {
         try { client.postMessage({ source: 'gayze-sw', type: 'PUSH_RECEIVED', payload: data }); } catch { /* A stale app cannot invalidate display success. */ }
       }
-    })),
-  );
+    } catch (error) {
+      const stageName = stage === 'showNotification' ? 'showNotification-rejected' : 'push-processing-rejected';
+      pushDiagnostic(stageName, { stage, errorName: diagnosticErrorName(error) });
+      throw error;
+    }
+  });
+
+  // Keep later push events independent, while the current event still carries
+  // a rejected promise to waitUntil after recording the failure above.
+  pushQueue = work.catch(() => {});
+  event.waitUntil(work);
 });
 
 function bounded(work, ms) {
