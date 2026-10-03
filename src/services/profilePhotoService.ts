@@ -20,8 +20,13 @@ const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 const pendingSignedUrls = new Map<string, Promise<string>>();
 
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+const SIGNED_URL_REFRESH_MARGIN_MS = 5 * 60 * 1000;
+
+// Storage paths are `<ownerId>/<file>`. When the caller does not pass an
+// explicit identity, scope by the owner segment so the key is never path-only.
 function cacheKey(path: string, userId?: string): string {
-  return userId ? `${userId}::${path}` : path;
+  return `${userId || path.split('/')[0] || 'unknown'}::${path}`;
 }
 
 export async function signedUrl(path: string, userId?: string): Promise<string> {
@@ -30,14 +35,17 @@ export async function signedUrl(path: string, userId?: string): Promise<string> 
   if (cached && cached.expiresAt > Date.now()) return cached.url;
   const pending = pendingSignedUrls.get(key);
   if (pending) return pending;
-  const work = requestSignedUrl(path);
+  const work = requestSignedUrl(path).then((url) => {
+    signedUrlCache.set(key, { url, expiresAt: Date.now() + SIGNED_URL_TTL_SECONDS * 1000 - SIGNED_URL_REFRESH_MARGIN_MS });
+    return url;
+  });
   pendingSignedUrls.set(key, work);
   try { return await work; } finally { if (pendingSignedUrls.get(key) === work) pendingSignedUrls.delete(key); }
 }
 
 async function requestSignedUrl(path: string): Promise<string> {
   if (!supabase) throw new Error('Supabase is not configured.');
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
   if (error || !data?.signedUrl) throw new Error(error?.message || 'Could not load profile photo.');
   return data.signedUrl;
 }

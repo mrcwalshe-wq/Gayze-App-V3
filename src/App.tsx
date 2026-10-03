@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { DeletedRoomTracker } from './services/deletedRooms';
 import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
 import type { ChatConnectionState } from './services/realtimeRecovery';
 import type { MessageDelivery } from './services/chatSubscriptions';
@@ -124,6 +125,7 @@ import {
   initPresence,
   createStoryFromIntent,
   loadMyConversations,
+  leaveConversation,
   loadConversationPeerKey,
   jitterLocation,
   privacyRadiusMeters,
@@ -676,17 +678,31 @@ export default function App() {
     viewingRoom: activeTabRef.current === 'swarms' ? visibleChatRoomRef.current : null,
     userId: supabaseUserIdRef.current, recipientId,
   }, () => { showToast('New GAYZE message'); hapticMessageDecrypted(); });
+  // Delete-chat bookkeeping. A list load that STARTED before a delete was
+  // confirmed may still contain the deleted room and must not resurrect it;
+  // any load started afterwards reflects server truth (so a genuinely
+  // recreated conversation becomes visible again). Entries are not permanent.
+  const conversationLoadEpochs = useRef(new WeakMap<object, number>()).current;
+  const deletedRooms = useRef(new DeletedRoomTracker()).current;
   const conversationLoadRef = useRef<{ userId: string; work: ReturnType<typeof loadMyConversations> } | null>(null);
   const loadConversationListOnce = (userId: string) => {
     const pending = conversationLoadRef.current;
     if (pending?.userId === userId) return pending.work;
-    const entry = { userId, work: loadMyConversations() };
+    const startEpoch = deletedRooms.currentEpoch;
+    const entry = {
+      userId,
+      work: loadMyConversations().then((result) => {
+        if (result) conversationLoadEpochs.set(result, startEpoch);
+        return result;
+      }),
+    };
     conversationLoadRef.current = entry;
     void entry.work.finally(() => { if (conversationLoadRef.current === entry) conversationLoadRef.current = null; }).catch(() => {});
     return entry.work;
   };
 
   function clearChatAccount() {
+    deletedRooms.clear();
     clearMessageWork();
     messageAlertsRef.current.clear();
     conversationLoadRef.current = null;
@@ -717,6 +733,9 @@ export default function App() {
 
   const activeUserIntentRef = useRef<UserActiveIntent | null>(activeUserIntent);
   useEffect(() => { activeUserIntentRef.current = activeUserIntent; }, [activeUserIntent]);
+
+  const withoutDeletedRooms = (loaded: SwarmRoom[], result: object) =>
+    deletedRooms.filter(loaded, conversationLoadEpochs.get(result) ?? -1);
 
   const refreshDiscoveryRef = useRef<() => Promise<void>>(async () => undefined);
   const refreshConversationListRef = useRef<() => Promise<void>>(async () => undefined);
@@ -926,7 +945,7 @@ export default function App() {
     if (!viewerId) return;
     const result = await loadConversationListOnce(viewerId);
     if (!result || isSigningOutRef.current || supabaseUserIdRef.current !== viewerId) return;
-    const loaded = buildRoomsFromSupabase(result, viewerId);
+    const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, viewerId), result);
     setRooms((prev) => mergeBackendRooms(prev, loaded, viewerId));
   };
 
@@ -973,7 +992,7 @@ export default function App() {
           const result = await loadConversationListOnce(supabaseUserId);
           if (disposed || !delivery.current()) return;
           if (result) {
-            const loaded = buildRoomsFromSupabase(result, supabaseUserIdRef.current || '');
+            const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, supabaseUserIdRef.current || ''), result);
             setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserIdRef.current || ''));
             room = loaded.find((candidate) => candidate.id === row.conversation_id);
           }
@@ -1373,7 +1392,7 @@ export default function App() {
             loadRooms: async () => {
               const result = await loadConversationListOnce(account!);
               if (!result || !current()) return null;
-              const loaded = buildRoomsFromSupabase(result, account!);
+              const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, account!), result);
               setRooms(previous => mergeBackendRooms(previous, loaded, account!));
               return loaded;
             },
@@ -2034,6 +2053,129 @@ export default function App() {
         );
       }, 1500);
     }
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    isSigningOutRef.current = true;
+
+    // Invalidate every in-flight auth/bootstrap operation immediately.
+    // The UI must never wait for a network round-trip to show the signed-out state.
+    authGenerationRef.current += 1;
+    clearChatAccount();
+    locationWatchStopRef.current?.();
+    locationWatchStopRef.current = null;
+    recoverySessionRef.current = false;
+
+    // Release this device's push subscription while the session is still
+    // valid (the row delete needs the user's JWT to pass RLS). Bounded and
+    // never throws: a failed cleanup can not block sign-out. If it cannot
+    // be confirmed, the subscription is revoked on next app start.
+    await releasePushOnSignOut();
+
+    // Remove the persisted browser session first. This is the authoritative
+    // local logout path and also works when Supabase's network sign-out is
+    // unavailable or slow.
+    try {
+      window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+      window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+      for (const storage of [window.localStorage, window.sessionStorage]) {
+        for (let index = storage.length - 1; index >= 0; index -= 1) {
+          const key = storage.key(index);
+          if (key && (
+            key.startsWith('sb-') ||
+            key.includes('supabase.auth') ||
+            key.includes('supabase-auth-token')
+          )) {
+            storage.removeItem(key);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('[GAYZE] Could not clear browser auth storage:', error);
+    }
+
+    // Clear local application state synchronously. Device identity keys are
+    // deliberately kept (they belong to the device, not the account) but
+    // every account-derived cache is removed.
+    for (const key of [
+      'gayze_messages',
+      'gayze_active_user_intent',
+      'gayze_user',
+      'gayze_rooms',
+      'gayze_pulses',
+      'gayze_gatherings',
+      'gayze_stories',
+      'gayze_intent_posts',
+      'gayze_checkin',
+      'gayze_verified_rooms',
+    ]) {
+      localStorage.removeItem(key);
+    }
+    setActiveUserIntent(null);
+    setSupabaseRightNowPulses([]);
+    setSupabaseReady(false);
+    setSupabaseUserId(null);
+    setIdentityDevices([]);
+    setCurrentDeviceFingerprint(null);
+    setOnlineUserIds(new Set());
+    setUserLocation(null);
+    setLocationError(null);
+    setIsIdentityOpen(false);
+    setIsAuthenticated(false);
+    setAuthReady(true);
+
+    // Close the modal immediately so the sign-out action cannot be obscured by
+    // the authenticated shell while Supabase finishes its own session cleanup.
+    setIsIdentityOpen(false);
+
+    // Server-side session invalidation. Bound the wait so a network
+    // failure can never trap the user in the authenticated shell.
+    if (supabase) {
+      try {
+        await Promise.race([
+          supabase.auth.signOut({ scope: 'global' }),
+          new Promise((resolve) => window.setTimeout(resolve, 1500)),
+        ]);
+      } catch (error) {
+        console.warn('[GAYZE] Supabase local sign-out failed:', error);
+      }
+    }
+
+    // Reload into a clean document after local credentials and application
+    // state have already been cleared. This prevents a stale Supabase
+    // bootstrap callback or browser auth refresh from restoring the shell.
+    window.location.replace(window.location.origin + '/?signed_out=1');
+  };
+
+  const handleDeleteChat = async (roomId: string) => {
+    const account = supabaseUserIdRef.current;
+    if (!account || !isConversationId(roomId)) throw new Error('This conversation is unavailable.');
+    // Until the delete is confirmed, drop every list load for this room.
+    deletedRooms.begin(roomId);
+    conversationLoadRef.current = null;
+    try {
+      await leaveConversation(roomId);
+    } catch (error) {
+      deletedRooms.fail(roomId);
+      throw error;
+    }
+    deletedRooms.confirm(roomId);
+    conversationLoadRef.current = null;
+    messageProcessorRef.current.forgetConversation(roomId);
+    setRooms((prev) => prev.filter((room) => room.id !== roomId));
+    setMessages((prev) => {
+      if (!(roomId in prev)) return prev;
+      const { [roomId]: _removed, ...rest } = prev;
+      return rest;
+    });
+    if (activeRoomIdRef.current === roomId) {
+      setActiveRoomId('');
+      setChatOpenRequest(null);
+      reportVisibleChatRoom(null);
+    }
+    showToast('Chat deleted');
   };
 
   const handleUpdateRoomTtl = (roomId: string, ttl: number) => {
@@ -2784,6 +2926,8 @@ export default function App() {
               isSafetyTimerActive={checkinState.isActive}
               onOpenMask={() => setIsMaskActive(true)}
               onOpenIdentity={() => setIsIdentityOpen(true)}
+              onSignOut={handleSignOut}
+              signingOut={isSigningOut}
               onOpenQR={() => handleOpenQRModal()}
               onOpenSafeHavens={() => setActiveTab('safe_havens')}
               onOpenDiscover={() => setActiveTab('dating')}
@@ -2853,6 +2997,7 @@ export default function App() {
               currentUserId={supabaseUserId}
               onSendMessage={handleSendMessage}
               onUpdateRoomTtl={handleUpdateRoomTtl}
+              onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
               onOpenQR={(peerName) => {
                 const matchedPeer = datingProfiles.find(
                   (p) => p.name.toLowerCase() === peerName?.toLowerCase()
@@ -3002,99 +3147,7 @@ export default function App() {
         currentDeviceFingerprint={currentDeviceFingerprint}
         onRevokeDevice={handleRevokeDevice}
         signingOut={isSigningOut}
-        onSignOut={async () => {
-          if (isSigningOut) return;
-          setIsSigningOut(true);
-          isSigningOutRef.current = true;
-
-          // Invalidate every in-flight auth/bootstrap operation immediately.
-          // The UI must never wait for a network round-trip to show the signed-out state.
-          authGenerationRef.current += 1;
-          clearChatAccount();
-          locationWatchStopRef.current?.();
-          locationWatchStopRef.current = null;
-          recoverySessionRef.current = false;
-
-          // Release this device's push subscription while the session is still
-          // valid (the row delete needs the user's JWT to pass RLS). Bounded and
-          // never throws: a failed cleanup can not block sign-out. If it cannot
-          // be confirmed, the subscription is revoked on next app start.
-          await releasePushOnSignOut();
-
-          // Remove the persisted browser session first. This is the authoritative
-          // local logout path and also works when Supabase's network sign-out is
-          // unavailable or slow.
-          try {
-            window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-            window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-            for (const storage of [window.localStorage, window.sessionStorage]) {
-              for (let index = storage.length - 1; index >= 0; index -= 1) {
-                const key = storage.key(index);
-                if (key && (
-                  key.startsWith('sb-') ||
-                  key.includes('supabase.auth') ||
-                  key.includes('supabase-auth-token')
-                )) {
-                  storage.removeItem(key);
-                }
-              }
-            }
-          } catch (error) {
-            console.warn('[GAYZE] Could not clear browser auth storage:', error);
-          }
-
-          // Clear local application state synchronously. Device identity keys are
-          // deliberately kept (they belong to the device, not the account) but
-          // every account-derived cache is removed.
-          for (const key of [
-            'gayze_messages',
-            'gayze_active_user_intent',
-            'gayze_user',
-            'gayze_rooms',
-            'gayze_pulses',
-            'gayze_gatherings',
-            'gayze_stories',
-            'gayze_intent_posts',
-            'gayze_checkin',
-            'gayze_verified_rooms',
-          ]) {
-            localStorage.removeItem(key);
-          }
-          setActiveUserIntent(null);
-          setSupabaseRightNowPulses([]);
-          setSupabaseReady(false);
-          setSupabaseUserId(null);
-          setIdentityDevices([]);
-          setCurrentDeviceFingerprint(null);
-          setOnlineUserIds(new Set());
-          setUserLocation(null);
-          setLocationError(null);
-          setIsIdentityOpen(false);
-          setIsAuthenticated(false);
-          setAuthReady(true);
-
-          // Close the modal immediately so the sign-out action cannot be obscured by
-          // the authenticated shell while Supabase finishes its own session cleanup.
-          setIsIdentityOpen(false);
-
-          // Server-side session invalidation. Bound the wait so a network
-          // failure can never trap the user in the authenticated shell.
-          if (supabase) {
-            try {
-              await Promise.race([
-                supabase.auth.signOut({ scope: 'global' }),
-                new Promise((resolve) => window.setTimeout(resolve, 1500)),
-              ]);
-            } catch (error) {
-              console.warn('[GAYZE] Supabase local sign-out failed:', error);
-            }
-          }
-
-          // Reload into a clean document after local credentials and application
-          // state have already been cleared. This prevents a stale Supabase
-          // bootstrap callback or browser auth refresh from restoring the shell.
-          window.location.replace(window.location.origin + '/?signed_out=1');
-        }}
+        onSignOut={handleSignOut}
       />
       </div>{/* /g-shell */}
 
