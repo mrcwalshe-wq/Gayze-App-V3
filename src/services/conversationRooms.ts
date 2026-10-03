@@ -40,15 +40,21 @@ export function buildRoomsFromSupabase(
 
     // One other member = direct message. Anything else is a real group.
     if (memberIds.length <= 2 && others.length === 1) {
-      const peerName = memberNames[others[0]];
+      const peerId = others[0];
+      const peerAvatarPath = avatarByUser.get(peerId) || null;
+      // Keep the peer identity attached to the avatar cache key. This prevents
+      // a stale signed-URL cache entry from ever being reused for another user
+      // when two profiles happen to expose the same/legacy avatar_path value.
+      const peerAvatar = peerAvatarPath ? `gayze-user-avatar:${peerId}:${peerAvatarPath}` : 'user';
+      const peerName = memberNames[peerId];
       return {
         id: summary.id,
         name: peerName,
         type: 'direct' as const,
-        peerUserId: others[0],
+        peerUserId: peerId,
         peerName,
-        peerLastSeenAt: lastSeenByUser.get(others[0]) || undefined,
-        peerAvatar: avatarByUser.get(others[0]) || 'user',
+        peerLastSeenAt: lastSeenByUser.get(peerId) || undefined,
+        peerAvatar,
         safetyNumber: '',
         swarmSecretKeyHex: '',
         lastMessage: '',
