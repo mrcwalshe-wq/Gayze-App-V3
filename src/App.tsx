@@ -21,8 +21,11 @@ import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
-import { EncryptedCallModal } from './components/EncryptedCallModal';
+import { FullScreenCallModal, FullScreenAudioCallModal } from './components/FullScreenCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
+import { initEnhancedPresence, formatLastSeen, type UserPresence } from './services/presenceService';
+import { loadCallHistory, getUnreadCallCount, markCallRecordsAsRead, markCallAsMissed } from './services/callHistoryService';
+import { sendMissedCallNotification, sendIncomingCallNotification, markCallNotificationsAsRead } from './services/callNotificationService';
 import type { EditSectionKey } from './config/profileOptions';
 import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
@@ -581,6 +584,7 @@ export default function App() {
   // Encrypted Calling state
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [callPeerName, setCallPeerName] = useState<string>('Marcus');
+  const [callPeerAvatar, setCallPeerAvatar] = useState<string | undefined>(undefined);
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
   const [callTargetUserId, setCallTargetUserId] = useState<string | undefined>(undefined);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
@@ -589,6 +593,9 @@ export default function App() {
   const [chatConnection, setChatConnection] = useState<{ roomId: string; state: ChatConnectionState }>({ roomId: '', state: 'connecting' });
   const [presenceProfileUserId, setPresenceProfileUserId] = useState<string | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [presenceMap, setPresenceMap] = useState<Map<string, UserPresence>>(new Map());
+  const [callHistory, setCallHistory] = useState<any[]>([]);
+  const [unreadCallCount, setUnreadCallCount] = useState<number>(0);
 
   // Set Intent Sheet state — canonical Right Now intent state.
   // Hydrate once from local storage so Discover / Right Now stay consistent
@@ -1081,12 +1088,31 @@ export default function App() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
-    // Presence privacy is independent of authenticated messaging/call signalling.
-    const unsubPresence = initPresence(supabaseUserId, currentUser.displayName, (onlineIds) => {
-      setOnlineUserIds(onlineIds);
-    }, presenceProfileUserId === supabaseUserId && !currentUser.presenceIncognito && currentUser.privacySetting !== 'ghost');
+    // Use enhanced presence system for both online status and last seen
+    const visible = presenceProfileUserId === supabaseUserId && !currentUser.presenceIncognito && currentUser.privacySetting !== 'ghost';
+    
+    const unsubPresence = initEnhancedPresence(
+      supabaseUserId, 
+      currentUser.displayName, 
+      (presenceMap) => {
+        // Convert presence map to online user IDs for backward compatibility
+        const onlineIds = new Set<string>();
+        presenceMap.forEach((presence, userId) => {
+          if (presence.isOnline) {
+            onlineIds.add(userId);
+          }
+        });
+        setOnlineUserIds(onlineIds);
+        setPresenceMap(presenceMap);
+      },
+      visible
+    );
 
-    return unsubPresence;
+    return () => {
+      unsubPresence();
+      setOnlineUserIds(new Set());
+      setPresenceMap(new Map());
+    };
   }, [supabaseUserId, currentUser.displayName, currentUser.presenceIncognito, currentUser.privacySetting, presenceProfileUserId, isAuthenticated, isSigningOut]);
 
   // Local persistence is limited to local/demo mode (no Supabase configured).
@@ -2409,7 +2435,7 @@ export default function App() {
   };
 
   // Calling & Gaze Handlers
-  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string) => {
+  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
     // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
     primeCallAudio();
     // Live calls must belong to a real mutual conversation. A synthetic room
@@ -2425,11 +2451,13 @@ export default function App() {
         return;
       }
       setCallPeerName(peerName);
+      setCallPeerAvatar(peerAvatar);
       setCallType(type);
       setCallTargetUserId(targetUserId);
       setActiveRoomId(room.id);
     } else {
       setCallPeerName(peerName);
+      setCallPeerAvatar(peerAvatar);
       setCallType(type);
       setCallTargetUserId(targetUserId);
     }
@@ -2441,6 +2469,7 @@ export default function App() {
     primeCallAudio();
     setIncomingCall(null);
     setCallPeerName(call.callerName);
+    setCallPeerAvatar(undefined); // Will be fetched from profile if needed
     setCallType(call.callType);
     setCallTargetUserId(call.callerId);
     setActiveRoomId(call.conversationId);
@@ -2451,6 +2480,7 @@ export default function App() {
       callerId: call.callerId,
       userId: supabaseUserId || currentUser.publicKey,
       callType: call.callType,
+      callerName: call.callerName,
     });
   };
 
@@ -2460,7 +2490,12 @@ export default function App() {
       conversationId: call.conversationId,
       callerId: call.callerId,
       userId: supabaseUserId || currentUser.publicKey,
+      callerName: call.callerName,
     });
+    
+    // Save missed call record and send notification
+    await markCallAsMissed(call.conversationId, call.callerId, call.callType);
+    await sendMissedCallNotification(call);
   };
 
   const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
@@ -3061,21 +3096,43 @@ export default function App() {
         onConfirmMeeting={handleConfirmMeeting}
       />
 
-      {/* Encrypted Audio & Video Call Modal */}
-      <EncryptedCallModal
-        isOpen={isCallModalOpen}
-        onClose={() => {
-          setIsCallModalOpen(false);
-          setIsIncomingCallActive(false);
-        }}
-        peerName={callPeerName}
-        callType={callType}
-        conversationId={activeRoomId}
-        callerId={supabaseUserId || currentUser.publicKey}
-        callerName={currentUser.displayName}
-        targetUserId={callTargetUserId}
-        isIncoming={isIncomingCallActive}
-      />
+      {/* Full Screen Video Call Modal */}
+      {callType === 'video' && (
+        <FullScreenCallModal
+          isOpen={isCallModalOpen}
+          onClose={() => {
+            setIsCallModalOpen(false);
+            setIsIncomingCallActive(false);
+          }}
+          peerName={callPeerName}
+          peerAvatar={callPeerAvatar}
+          callType={callType}
+          conversationId={activeRoomId}
+          callerId={supabaseUserId || currentUser.publicKey}
+          callerName={currentUser.displayName}
+          targetUserId={callTargetUserId}
+          isIncoming={isIncomingCallActive}
+        />
+      )}
+      
+      {/* Full Screen Audio Call Modal */}
+      {callType === 'audio' && (
+        <FullScreenAudioCallModal
+          isOpen={isCallModalOpen}
+          onClose={() => {
+            setIsCallModalOpen(false);
+            setIsIncomingCallActive(false);
+          }}
+          peerName={callPeerName}
+          peerAvatar={callPeerAvatar}
+          callType={callType}
+          conversationId={activeRoomId}
+          callerId={supabaseUserId || currentUser.publicKey}
+          callerName={currentUser.displayName}
+          targetUserId={callTargetUserId}
+          isIncoming={isIncomingCallActive}
+        />
+      )}
 
       {/* Incoming Call Notification Modal */}
       <IncomingCallModal

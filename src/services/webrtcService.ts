@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient';
 import { IceCredentialCache } from './iceCredentials';
 import { RealtimeRecovery, requireRealtimeSession } from './realtimeRecovery';
 import { analytics } from './analyticsService';
+import { saveCallRecord, markCallAsMissed } from './callHistoryService';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type CallState =
@@ -23,6 +24,7 @@ export interface IncomingCall {
   callerName: string;
   callType: CallType;
   timestamp: number;
+  targetUserId?: string;
 }
 
 export interface CallSignalPayload {
@@ -82,6 +84,12 @@ export class WebRTCCallService {
   private ringingTimeoutTimer: number | null = null;
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
   private resolvedIceServers: RTCIceServer[] | null = null;
+  
+  // Call history tracking
+  private callStartTime: number | null = null;
+  private callDirection: 'incoming' | 'outgoing' = 'outgoing';
+  private callerNameForHistory: string | null = null;
+  private targetUserNameForHistory: string | null = null;
 
   private credentialTimer: ReturnType<typeof setTimeout> | null = null;
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
@@ -309,6 +317,10 @@ export class WebRTCCallService {
     this.currentCallType = params.callType;
     this.activeConversationId = params.conversationId;
     this.activeTargetUserId = params.targetUserId;
+    this.callStartTime = Date.now();
+    this.callDirection = 'outgoing';
+    this.callerNameForHistory = params.callerName;
+    this.targetUserNameForHistory = params.targetUserName;
 
     try {
       // 1. Acquire local media stream first to verify permissions
@@ -369,6 +381,7 @@ export class WebRTCCallService {
     callerId: string;
     userId: string;
     callType: CallType;
+    callerName?: string;
   }): Promise<void> {
     this.cleanup();
     const generation = this.callGeneration;
@@ -376,6 +389,10 @@ export class WebRTCCallService {
     this.currentCallType = params.callType;
     this.activeConversationId = params.conversationId;
     this.activeTargetUserId = params.callerId;
+    this.callStartTime = Date.now();
+    this.callDirection = 'incoming';
+    this.callerNameForHistory = params.callerName || 'Unknown';
+    this.targetUserNameForHistory = params.userId;
 
     try {
       // 1. Acquire local media
@@ -417,6 +434,7 @@ export class WebRTCCallService {
     conversationId: string;
     callerId: string;
     userId: string;
+    callerName?: string;
   }): Promise<void> {
     const generation = this.callGeneration;
     try { await this.sendDirectSignal(params.conversationId, {
@@ -772,6 +790,34 @@ export class WebRTCCallService {
       }
     }
 
+    // Save call record to history
+    const callEndTime = Date.now();
+    const durationSeconds = this.callStartTime ? Math.floor((callEndTime - this.callStartTime) / 1000) : 0;
+    const isMissed = explicitState === 'missed' || explicitState === 'declined' || (wasRinging && explicitState === 'ended');
+    
+    if (conversationId && callerId && this.callStartTime) {
+      const callRecord = {
+        conversationId,
+        callerId,
+        callerName: this.callerNameForHistory || 'Unknown',
+        targetUserId: targetUserId || '',
+        targetUserName: this.targetUserNameForHistory || 'Unknown',
+        callType: this.currentCallType,
+        state: explicitState,
+        startedAt: this.callStartTime,
+        endedAt: callEndTime,
+        durationSeconds: durationSeconds > 0 ? durationSeconds : undefined,
+        direction: this.callDirection,
+        isMissed,
+        isRead: !isMissed, // Auto-mark as read if not missed
+      };
+      
+      // Save call record in background
+      void saveCallRecord(callRecord).catch(() => {
+        console.warn('[GAYZE WebRTC] Failed to save call record');
+      });
+    }
+
     if (generation !== this.callGeneration) return;
     this.cleanup();
     this.setState(explicitState);
@@ -782,6 +828,11 @@ export class WebRTCCallService {
         type: 'call-end', conversationId, callerId, timestamp: Date.now(),
       }).catch(() => undefined);
     }
+
+    // Reset call tracking for next call
+    this.callStartTime = null;
+    this.callerNameForHistory = null;
+    this.targetUserNameForHistory = null;
 
     analytics.logEvent('call_completed', { outcome: explicitState });
   }
@@ -806,6 +857,9 @@ export class WebRTCCallService {
     this.callChannel = null;
     this.pendingIceCandidates = [];
     this.activeTargetUserId = null;
+    this.callStartTime = null;
+    this.callerNameForHistory = null;
+    this.targetUserNameForHistory = null;
 
     if (this.ringingTimeoutTimer) {
       clearTimeout(this.ringingTimeoutTimer);

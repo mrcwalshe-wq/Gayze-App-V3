@@ -50,7 +50,7 @@ interface ChatRoomViewProps {
   /** Removes only the current user's membership; resolves once the backend confirms. */
   onDeleteChat?: (roomId: string) => Promise<void>;
   onOpenQR?: (peerName?: string) => void;
-  onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string) => void;
+  onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
@@ -512,7 +512,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             <div className="flex items-center gap-1 shrink-0">
               {currentRoom.type === 'direct' && onStartCall && (
                 <button
-                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId)}
+                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId, currentRoom.peerAvatar)}
                   className="g-icon-btn"
                   title="Video call"
                   aria-label="Start video call"
@@ -540,7 +540,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         className="g-row !min-h-[42px] !rounded-xl"
                         onClick={() => {
                           setShowChatActions(false);
-                          onStartCall(currentRoom.peerName || currentRoom.name, 'audio', currentRoom.peerUserId);
+                          onStartCall(currentRoom.peerName || currentRoom.name, 'audio', currentRoom.peerUserId, currentRoom.peerAvatar);
                         }}
                       >
                         <Phone className="w-4 h-4 text-[#c4a9f7]" />

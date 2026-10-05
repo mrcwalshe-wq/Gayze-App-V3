@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Call audio wave animation */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1); }
+}
+
 /* ==========================================================================
    GAYZE DESIGN SYSTEM FOUNDATION
    Brand colors: Purple #6F3CC3 · Amber #C9A24D
