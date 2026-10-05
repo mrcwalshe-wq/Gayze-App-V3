@@ -1,6 +1,15 @@
-// Portable, dependency-injected handler. No provider credentials or content from
-// a client payload are trusted. index.ts supplies the real Supabase/Web Push adapters.
-export interface Notice { id: string; user_id: string; category: string; event_key?: string; url: string; read_at: string | null; created_at: string; }
+// Portable, dependency-injected handler. No provider credentials or message content from a client payload are trusted.
+export interface Notice {
+  id: string;
+  user_id: string;
+  actor_id?: string | null;
+  actor_display_name?: string | null;
+  category: string;
+  event_key?: string;
+  url: string;
+  read_at: string | null;
+  created_at: string;
+}
 export interface Subscription { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; }
 export interface PushStore {
   user(token: string): Promise<{ id: string; app_metadata?: Record<string, unknown> } | null>;
@@ -28,6 +37,33 @@ const copy: Record<string, [string, string]> = {
   safety: ['Safety check-in', 'Your safety check-in has ended. Confirm you are safe.'],
   test: ['GAYZE notifications', 'Your test notification is ready.'],
 };
+function safeActorName(name?: string | null): string | null {
+  if (typeof name !== 'string') return null;
+  const value = name.trim().replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ');
+  if (!value) return null;
+  return value.slice(0, 80);
+}
+function hasIntentInterest(notice: Notice): boolean {
+  if (notice.category !== 'gaze' || typeof notice.event_key !== 'string') return false;
+  const parts = notice.event_key.split(':');
+  return parts.length >= 3 && uuid.test(parts[2]);
+}
+function notificationCopy(notice: Notice): [string, string] {
+  const actor = safeActorName(notice.actor_display_name);
+  if (notice.category === 'message') {
+    return actor ? [`${actor} sent you a message`, 'Open GAYZE to view it.'] : copy.message;
+  }
+  if (notice.category === 'gaze') {
+    if (hasIntentInterest(notice)) {
+      return actor ? [`${actor} is interested in your intent`, 'Someone is interested in your current intent.'] : ['Someone is interested in your intent', 'Someone is interested in your current intent.'];
+    }
+    return actor ? [`${actor} sent you a Gayze`, 'Someone has Gayzed you.'] : copy.gaze;
+  }
+  if (notice.category === 'connection') {
+    return actor ? [`You have a new connection with ${actor}`, 'Open GAYZE to view your connection.'] : copy.connection;
+  }
+  return copy[notice.category] ?? copy.message;
+}
 export function allowedEndpoint(endpoint: string): boolean {
   try {
     const u = new URL(endpoint);
@@ -111,7 +147,7 @@ export function createPushHandler(store: PushStore, transport: PushTransport, co
       if (!config.configured) return respond(503, { error: 'Web Push server configuration missing' });
       const subscriptions = await store.subscriptions(notice.user_id);
       const count = await store.unread(notice.user_id);
-      const [title, text] = copy[notice.category];
+      const [title, text] = notificationCopy(notice);
       const path = /^\/(notifications|profile|messages\/[0-9a-f-]{36})$/.test(notice.url) ? notice.url : '/notifications';
       const isMessageLike = ['message', 'connection'].includes(notice.category) && path.startsWith('/messages/');
       const conversationId = isMessageLike ? path.slice('/messages/'.length) : undefined;
@@ -121,8 +157,6 @@ export function createPushHandler(store: PushStore, transport: PushTransport, co
       const payload = { type: notice.category, title, body: text, notificationId: id,
         recipientId: notice.user_id,
         messageId: notice.category === 'message' && uuid.test(notice.event_key ?? '') ? notice.event_key : undefined,
-        // The click URL additionally carries the recipient binding, so cold
-        // launches after an account switch cannot open another user's route.
         conversationId,
         url: routeUrl, tag: `gayze-${id}`, badgeCount: count, renotify: false };
       let delivered = 0;
