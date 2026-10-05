@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Album, BadgeCheck, ChevronRight, Clock3, MapPin, MessageCircle, ShieldCheck, X } from 'lucide-react';
 import type { IntimacyProfile } from '../types';
 import { loadIntimacyProfile, loadPublicProfileSummary, type PublicProfileSummary } from '../services/supabaseService';
-import { getProfilePhotoUrl } from '../services/profilePhotoService';
 
 export interface PublicProfileSheetProps {
   userId: string | null;
@@ -17,10 +16,7 @@ export interface PublicProfileSheetProps {
   onAlbum?: () => void;
 }
 
-/**
- * Rich peer profile surface for mobile-first Gayze discovery.
- * Uses the public profile tier and server-enforced intimacy visibility.
- */
+/** Rich, mobile-first public profile surface for Gayze discovery. */
 export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   userId,
   fallbackPhotoUrl,
@@ -35,38 +31,34 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
 }) => {
   const [summary, setSummary] = useState<PublicProfileSummary | null>(null);
   const [intimacy, setIntimacy] = useState<IntimacyProfile | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(fallbackPhotoUrl || null);
   const [loading, setLoading] = useState(Boolean(userId));
 
   useEffect(() => {
     let cancelled = false;
     setSummary(null);
     setIntimacy(null);
-    setAvatarUrl(fallbackPhotoUrl || null);
     if (!userId) {
       setLoading(false);
       return;
     }
     setLoading(true);
     void Promise.all([loadPublicProfileSummary(userId), loadIntimacyProfile(userId)])
-      .then(async ([nextSummary, nextIntimacy]) => {
+      .then(([nextSummary, nextIntimacy]) => {
         if (cancelled) return;
         setSummary(nextSummary);
         setIntimacy(nextIntimacy);
-        const nextAvatar = await getProfilePhotoUrl(nextSummary?.avatarPath || fallbackPhotoUrl || null);
-        if (!cancelled && nextAvatar) setAvatarUrl(nextAvatar);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [userId, fallbackPhotoUrl]);
+  }, [userId]);
 
   const name = summary?.displayName || fallbackName || 'Gayze user';
   const age = summary?.age ?? fallbackAge;
-  const area = summary?.neighborhood || fallbackArea;
-  const intent = summary?.intent || fallbackIntent;
-  const online = summary?.isOnline ?? fallbackOnline;
+  const area = fallbackArea;
+  const intent = fallbackIntent;
+  const online = fallbackOnline;
 
   const groups = useMemo(() => {
     if (!summary) return [];
@@ -98,8 +90,8 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
         </button>
 
         <div className="relative -mx-4 -mt-1 h-[340px] overflow-hidden rounded-t-[24px] bg-[#17131e]">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          {fallbackPhotoUrl ? (
+            <img src={fallbackPhotoUrl} alt="" className="h-full w-full object-cover" />
           ) : (
             <div className="h-full w-full grid place-items-center text-5xl font-semibold text-white/30">{name.charAt(0)}</div>
           )}
@@ -112,10 +104,10 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
                   {summary?.safetyVerified && <BadgeCheck className="w-5 h-5 text-emerald-300" />}
                 </div>
                 <div className="flex items-center gap-2 mt-2 text-[12px] text-white/70">
-                  <span className={`inline-flex items-center gap-1.5 ${online ? 'text-emerald-300' : ''}`}>
+                  {online !== undefined && <span className={`inline-flex items-center gap-1.5 ${online ? 'text-emerald-300' : ''}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-300' : 'bg-white/30'}`} />
                     {online ? 'Online now' : 'Recently active'}
-                  </span>
+                  </span>}
                   {area && <><span>·</span><span>{area}</span></>}
                 </div>
               </div>
@@ -168,20 +160,12 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
                 </div>
               ))}
 
-              <div className="grid grid-cols-2 gap-2">
-                {summary?.reliabilityScore != null && (
-                  <div className="rounded-2xl border border-white/8 bg-white/[.025] p-3">
-                    <span className="g-label">Reliability</span>
-                    <div className="mt-1 text-[18px] font-semibold text-white">{summary.reliabilityScore}%</div>
-                  </div>
-                )}
-                {summary?.verifiedPeersCount != null && (
-                  <div className="rounded-2xl border border-white/8 bg-white/[.025] p-3">
-                    <span className="g-label">Verified peers</span>
-                    <div className="mt-1 text-[18px] font-semibold text-white">{summary.verifiedPeersCount}</div>
-                  </div>
-                )}
-              </div>
+              {summary?.verifiedPeersCount != null && (
+                <div className="rounded-2xl border border-white/8 bg-white/[.025] p-3">
+                  <span className="g-label">Verified peers</span>
+                  <div className="mt-1 text-[18px] font-semibold text-white">{summary.verifiedPeersCount}</div>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 text-[11px] text-zinc-500 pt-1">
                 <MapPin className="w-3.5 h-3.5" /> Approximate location only
