@@ -5,6 +5,7 @@ import {BrandChrome} from './components/BrandChrome';
 import {IntentEdgeGlow} from './components/IntentEdgeGlow';
 import './index.css';
 import './brand-chrome.css';
+import './gayze-premium-intent.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
