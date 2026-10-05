@@ -231,3 +231,33 @@
     max-height: max(0px, calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-sheet-bottom-gap) - 10px));
   }
 }
+
+/* --------------------------------------------------------------------------
+   MOBILE NAVIGATION SCALE / SAFE CLEARANCE
+   Slightly increase the tab bar while keeping the map and floating intent UI
+   above it. The design remains the same; only the touch target/icon scale and
+   reserved vertical space change.
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  :root {
+    --g-tabbar-h: 68px;
+  }
+
+  .g-tabbar__inner {
+    height: var(--g-tabbar-h);
+  }
+
+  .g-tab {
+    min-height: 56px;
+  }
+
+  .g-tab > span:not(.g-tab__ind):not(.g-tab__badge) {
+    line-height: 1.1;
+  }
+
+  /* The compact intent preview gets a little extra breathing room so it can
+     never sit against or underneath the enlarged navigation bar. */
+  .g-preview {
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 24px) !important;
+  }
+}

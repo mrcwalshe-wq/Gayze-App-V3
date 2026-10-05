@@ -1,0 +1,247 @@
+/* GAYZE UI POLISH
+   A restrained product-design layer inspired by shadcn's emphasis on
+   consistent spacing, typography, composable surfaces and clear hierarchy.
+   Keep the existing GAYZE palette; reduce decorative gradients/glow. */
+
+:root {
+  --ui-radius-sm: 10px;
+  --ui-radius-md: 14px;
+  --ui-radius-lg: 18px;
+  --ui-radius-xl: 22px;
+  --ui-surface: rgba(15, 17, 23, 0.96);
+  --ui-surface-raised: rgba(19, 21, 29, 0.98);
+  --ui-line: rgba(255, 255, 255, 0.085);
+  --ui-line-strong: rgba(255, 255, 255, 0.14);
+  --ui-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+/* --------------------------------------------------------------------------
+   Global rhythm
+   -------------------------------------------------------------------------- */
+body {
+  letter-spacing: -0.006em;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile navigation — substantial enough to feel intentional, not oversized
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .g-tabbar {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    border-radius: var(--ui-radius-xl) !important;
+    background: rgba(12, 14, 19, 0.94) !important;
+    box-shadow: 0 18px 42px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.055) !important;
+    backdrop-filter: blur(22px) saturate(1.12) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
+    overflow: hidden;
+  }
+
+  .g-tabbar__inner {
+    height: 68px !important;
+    padding: 4px 5px !important;
+    max-width: none !important;
+  }
+
+  .g-tab {
+    min-height: 58px !important;
+    gap: 3px !important;
+    border-radius: 16px !important;
+    color: rgba(255,255,255,0.52) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    transition: background-color 160ms ease, color 160ms ease, transform 160ms ease !important;
+  }
+
+  .g-tab:active {
+    transform: scale(0.97);
+  }
+
+  .g-tab > span:not(.g-tab__ind):not(.g-tab__badge) {
+    line-height: 1.1 !important;
+  }
+
+  .g-tab svg {
+    width: 23px !important;
+    height: 23px !important;
+    stroke-width: 1.9 !important;
+  }
+
+  .g-tab[data-active='true'] {
+    color: #f7f5f2 !important;
+    background: rgba(255,255,255,0.055) !important;
+  }
+
+  .g-tab[data-active='true'] .g-tab__ind {
+    opacity: 1 !important;
+    width: 24px !important;
+    height: 2px !important;
+    border-radius: 99px !important;
+    background: #8d5de2 !important;
+    box-shadow: none !important;
+  }
+
+  .g-tab[data-tab='right_now'][data-active='true'] {
+    color: #d9c7fa !important;
+    background: rgba(111,60,195,0.13) !important;
+  }
+
+  .g-tab[data-tab='right_now'][data-active='true'] .g-tab__ind {
+    background: #6F3CC3 !important;
+  }
+
+  .g-tab__badge {
+    width: 6px !important;
+    height: 6px !important;
+    top: 8px !important;
+    right: 18px !important;
+    box-shadow: 0 0 0 2px rgba(12,14,19,0.94) !important;
+  }
+
+  /* Intent preview: a quiet floating control, visually separate from nav. */
+  .g-preview {
+    left: 14px !important;
+    right: 14px !important;
+    width: auto !important;
+    max-width: 520px !important;
+    margin-inline: auto !important;
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom,0px) + 20px) !important;
+    border-radius: var(--ui-radius-lg) !important;
+    border: 1px solid rgba(255,255,255,0.11) !important;
+    background: rgba(13,15,21,0.95) !important;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.34) !important;
+    backdrop-filter: blur(18px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Sheets / drawers — solid hierarchy rather than stacked glass effects
+   -------------------------------------------------------------------------- */
+.g-sheet {
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  border-radius: var(--ui-radius-xl) !important;
+  background: var(--ui-surface) !important;
+  box-shadow: var(--ui-shadow), inset 0 1px 0 rgba(255,255,255,0.035) !important;
+  backdrop-filter: blur(20px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.08) !important;
+}
+
+.g-sheet__head {
+  border-bottom: 1px solid rgba(255,255,255,0.075) !important;
+}
+
+.g-sheet__grip {
+  width: 34px !important;
+  height: 4px !important;
+  border-radius: 99px !important;
+  background: rgba(255,255,255,0.20) !important;
+}
+
+.g-label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.105em !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,0.46) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Intent choices — clear selected state, minimal ornament
+   -------------------------------------------------------------------------- */
+.g-opt {
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  border-radius: var(--ui-radius-md) !important;
+  background: rgba(255,255,255,0.025) !important;
+  box-shadow: none !important;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease !important;
+}
+
+.g-opt:hover {
+  border-color: rgba(255,255,255,0.16) !important;
+  background: rgba(255,255,255,0.045) !important;
+}
+
+.g-opt:active {
+  transform: scale(0.985);
+}
+
+.g-opt[data-active='true'][data-tone='social'] {
+  border-color: rgba(201,162,77,0.68) !important;
+  background: rgba(201,162,77,0.105) !important;
+  box-shadow: inset 0 0 0 1px rgba(201,162,77,0.07) !important;
+}
+
+.g-opt[data-active='true'][data-tone='private'] {
+  border-color: rgba(111,60,195,0.72) !important;
+  background: rgba(111,60,195,0.13) !important;
+  box-shadow: inset 0 0 0 1px rgba(111,60,195,0.07) !important;
+}
+
+.g-opt__t {
+  font-weight: 650 !important;
+  letter-spacing: -0.012em !important;
+}
+
+.g-opt__d {
+  color: rgba(255,255,255,0.42) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Core panels / controls — one geometry language across the app
+   -------------------------------------------------------------------------- */
+.g-panel {
+  border-radius: var(--ui-radius-lg) !important;
+  border-color: rgba(255,255,255,0.085) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.20) !important;
+}
+
+.g-btn {
+  border-radius: 12px !important;
+  min-height: 44px;
+  font-weight: 650 !important;
+  letter-spacing: -0.008em !important;
+}
+
+.g-icon-btn {
+  border-radius: 12px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Messaging — flatter, calmer bubbles with stronger reading hierarchy
+   -------------------------------------------------------------------------- */
+.g-bubble--mine {
+  background: #5f35a9 !important;
+  border: 1px solid rgba(171,139,232,0.20) !important;
+  box-shadow: 0 5px 16px rgba(0,0,0,0.16) !important;
+}
+
+.g-bubble--theirs {
+  background: #191c24 !important;
+  border: 1px solid rgba(255,255,255,0.075) !important;
+  box-shadow: 0 5px 16px rgba(0,0,0,0.14) !important;
+}
+
+/* Reduce decorative glow on ordinary interactive surfaces. */
+.g-btn--ghost:hover,
+.g-icon-btn:hover {
+  box-shadow: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-tab,
+  .g-opt {
+    transition: none !important;
+  }
+}

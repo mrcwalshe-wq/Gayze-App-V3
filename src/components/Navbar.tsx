@@ -89,6 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   hapticLight();
                   onTabChange(tab.id);
                 }}
+                data-tab={tab.id}
                 data-active={activeGroup === tab.group}
                 className="g-navpill__btn"
               >
@@ -145,6 +146,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={tab.id}
                 className="g-tab"
+                data-tab={tab.id}
                 data-active={isActive}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
@@ -153,7 +155,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }}
               >
                 <span className="g-tab__ind" />
-                <span className="[&>svg]:w-5 [&>svg]:h-5">{tab.icon}</span>
+                <span className="[&>svg]:w-6 [&>svg]:h-6">{tab.icon}</span>
                 <span>{tab.label}</span>
                 {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
                   <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />

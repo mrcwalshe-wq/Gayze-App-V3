@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
+import { PhotoStudio } from './PhotoStudio';
 
 interface ChatRoomViewProps {
   rooms: SwarmRoom[];
@@ -49,6 +50,9 @@ interface ChatRoomViewProps {
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
   /** Removes only the current user's membership; resolves once the backend confirms. */
   onDeleteChat?: (roomId: string) => Promise<void>;
+  onDeleteMessage?: (messageId: string) => Promise<void>;
+  onUnsendMessage?: (messageId: string) => Promise<void>;
+  onSetMessageExpiry?: (messageId: string, ttlSeconds: number | null) => Promise<void>;
   onOpenQR?: (peerName?: string) => void;
   onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
@@ -75,6 +79,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onSendMessage,
   onUpdateRoomTtl,
   onDeleteChat,
+  onDeleteMessage,
+  onUnsendMessage,
+  onSetMessageExpiry,
   onOpenQR,
   onStartCall,
   onOpenScheduleMeeting,
@@ -114,6 +121,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
   const [inspectedMessageId, setInspectedMessageId] = useState<string | null>(null);
   const [attachedMedia, setAttachedMedia] = useState<string | null>(null);
+  const [photoStudioSource, setPhotoStudioSource] = useState<string | null>(null);
+  const [messageActionId, setMessageActionId] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
@@ -231,7 +240,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     return () => onVisibleRoomChange?.(null);
   }, [visibleRoomId, onVisibleRoomChange]);
   const currentMessages = useMemo(() => (messages[currentRoom?.id || ''] || [])
-    .filter((message) => !message.isBurned && (!message.expiresAt || message.expiresAt > now)), [messages, currentRoom?.id, now]);
+    .filter((message) => !message.deletedForMe && (!message.isBurned || message.deletedForEveryone) && (!message.expiresAt || message.expiresAt > now)), [messages, currentRoom?.id, now]);
   const [historyWindow, setHistoryWindow] = useState({ roomId: activeRoomId, count: 100 });
   const visibleCount = historyWindow.roomId === activeRoomId ? historyWindow.count : 100;
   const visibleMessages = currentMessages.slice(-visibleCount);
@@ -657,6 +666,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   key={msg.id}
                   className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                 >
+                  <div className="flex items-center justify-end mb-1 px-1 text-[11px] text-zinc-500">
+                    <div className="relative">
+                      <button type="button" aria-label="Message actions" className="min-w-[32px] min-h-[32px] text-zinc-500 hover:text-white" onClick={() => setMessageActionId((value) => value === msg.id ? null : msg.id)}>•••</button>
+                      {messageActionId === msg.id && (
+                        <div className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-white/10 bg-[#11131a] p-1.5 shadow-2xl">
+                          {isMe && onUnsendMessage && !msg.deletedForEveryone && <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/5" onClick={async () => { await onUnsendMessage(msg.id); setMessageActionId(null); }}>Unsend for everyone</button>}
+                          {onDeleteMessage && <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onDeleteMessage(msg.id); setMessageActionId(null); }}>Delete for me</button>}
+                          {onSetMessageExpiry && !msg.deletedForEveryone && <div className="border-t border-white/10 mt-1 pt-1"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, 60); setMessageActionId(null); }}>Expire in 1 minute</button><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, 3600); setMessageActionId(null); }}>Expire in 1 hour</button><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, null); setMessageActionId(null); }}>Never expire</button></div>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-zinc-500">
                     <span>{msg.senderName}</span>
                     <span>·</span>
@@ -679,7 +700,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     }`}
                   >
                     {/* Encrypted Photo Attachment if present */}
-                    {msg.mediaUrl && (
+                    {!msg.deletedForEveryone && msg.mediaUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden border border-black/10 bg-black/40 max-h-60">
                         <img
                           src={msg.mediaUrl}
@@ -690,7 +711,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       </div>
                     )}
 
-                    <p className="whitespace-pre-wrap">{msg.plainText}</p>
+                    <p className="whitespace-pre-wrap">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>
 
                     {/* Rich Meeting Proposal Card if present */}
                     {msg.meetingData && (
@@ -786,6 +807,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <div className="text-[11px] pr-2">
                   <span className="text-zinc-200 font-semibold block">Photo attached</span>
                   <span className="text-emerald-400/90 text-[10.5px]">Encrypted on send</span>
+                  <button type="button" onClick={() => setPhotoStudioSource(attachedMedia)} className="text-[#C9A24D] text-[10px] mt-1">Edit in Photo Studio</button>
                 </div>
                 <button
                   type="button"
@@ -862,6 +884,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           </div>
         </div>
       )}
+
+      {photoStudioSource && <PhotoStudio source={photoStudioSource} onCancel={() => setPhotoStudioSource(null)} onDone={(edited) => { setAttachedMedia(edited); setPhotoStudioSource(null); }} />}
 
       {/* Fullscreen Photo Zoom Modal */}
       {zoomedMediaUrl && (
