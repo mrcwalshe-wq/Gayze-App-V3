@@ -275,6 +275,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   }, [activeRoomId, lastMessageId, visibleCount]);
 
   const handleSelectRoom = (roomId: string) => {
+    hapticLight();
     onSelectRoom(roomId);
     setMobileView('chat');
   };
@@ -452,8 +453,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {/* Mobile Back Button */}
               <button
-                onClick={() => setMobileView('list')}
-                className="sm:hidden min-h-[38px] min-w-[38px] -ml-1 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
+                onClick={() => {
+                  hapticLight();
+                  setMobileView('list');
+                }}
+                className="sm:hidden min-h-[44px] min-w-[44px] -ml-1 flex items-center justify-center text-zinc-400 hover:text-white rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer"
                 aria-label="Back to rooms"
               >
                 <ChevronLeft className="w-5 h-5" />

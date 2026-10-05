@@ -1419,6 +1419,8 @@ export interface PublicProfileSummary {
   boundaries: string[];
   mySetup: string[];
   availability: string[];
+  safetyVerified?: boolean;
+  verifiedPeersCount?: number;
 }
 
 export async function loadPublicProfileSummary(userId: string): Promise<PublicProfileSummary | null> {

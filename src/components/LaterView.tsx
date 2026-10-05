@@ -12,6 +12,7 @@ import {
   X, 
   ArrowRight
 } from 'lucide-react';
+import { hapticLight } from '../services/hapticService';
 
 interface LaterViewProps {
   gatherings: Gathering[];
@@ -168,10 +169,13 @@ export const LaterView: React.FC<LaterViewProps> = ({
           ].map((item) => (
             <button
               key={item.id}
-              onClick={() => setTimeFilter(item.id as any)}
-              className={`h-8 px-3 text-[12.5px] rounded-[10px] transition-colors whitespace-nowrap cursor-pointer ${
+              onClick={() => {
+                hapticLight();
+                setTimeFilter(item.id as any);
+              }}
+              className={`min-h-[38px] px-3.5 text-[12.5px] rounded-[10px] transition-colors whitespace-nowrap cursor-pointer flex items-center justify-center ${
                 timeFilter === item.id
-                  ? 'bg-white/[0.06] text-white font-medium shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
+                  ? 'bg-white/[0.08] text-white font-semibold shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]'
                   : 'text-zinc-400 font-normal hover:text-white'
               }`}
             >
@@ -192,10 +196,13 @@ export const LaterView: React.FC<LaterViewProps> = ({
           ].map((cat) => (
             <button
               key={cat.id}
-              onClick={() => setCategoryFilter(cat.id)}
-              className={`h-8 px-3 text-xs font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+              onClick={() => {
+                hapticLight();
+                setCategoryFilter(cat.id);
+              }}
+              className={`min-h-[38px] px-3.5 text-xs font-medium rounded-xl whitespace-nowrap transition-colors cursor-pointer flex items-center justify-center ${
                 categoryFilter === cat.id
-                  ? 'bg-[#1c1f2b] text-white border border-white/10 font-semibold'
+                  ? 'bg-[#1c1f2b] text-white border border-[#C9A24D]/40 font-semibold shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
               }`}
             >
@@ -305,7 +312,10 @@ export const LaterView: React.FC<LaterViewProps> = ({
               <div className="mt-4 pt-3 border-t border-white/[0.07] flex items-center justify-between gap-2.5">
                 {/* RSVP Toggle Button */}
                 <button
-                  onClick={() => onToggleRsvp(gathering.id)}
+                  onClick={() => {
+                    hapticLight();
+                    onToggleRsvp(gathering.id);
+                  }}
                   disabled={busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending)}
                   className={`g-btn !min-h-[44px] ${
                     gathering.isAttending ? 'g-btn--selected' : 'g-btn--quiet'

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SafeHaven } from '../types';
 import { Shield, ShieldCheck, MapPin, Phone, Clock, Sparkles, CheckCircle2, ArrowRight, ChevronLeft } from 'lucide-react';
+import { hapticLight } from '../services/hapticService';
 
 interface SafeHavenViewProps {
   safeHavens: SafeHaven[];
@@ -61,7 +62,10 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
           ].map((item) => (
             <button
               key={item.id}
-              onClick={() => setFilterType(item.id)}
+              onClick={() => {
+                hapticLight();
+                setFilterType(item.id);
+              }}
               className={`h-8 px-3 text-xs font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer ${filterType === item.id
                 ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -157,15 +161,21 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
             {/* Actions */}
             <div className="mt-4 pt-3 border-t border-white/[0.07] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
               <button
-                onClick={() => onStartSafeCheckinWithVenue(haven)}
-                className="h-11 min-h-[44px] px-4 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl border border-white/10 transition-colors cursor-pointer flex items-center justify-center"
+                onClick={() => {
+                  hapticLight();
+                  onStartSafeCheckinWithVenue(haven);
+                }}
+                className="h-11 min-h-[44px] px-4 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl border border-white/10 transition-colors cursor-pointer flex items-center justify-center active:scale-[0.98]"
               >
                 Start Local Check-in Here
               </button>
 
               <button
-                onClick={() => onSelectVenueForPulse(haven)}
-                className="h-11 min-h-[44px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
+                onClick={() => {
+                  hapticLight();
+                  onSelectVenueForPulse(haven);
+                }}
+                className="h-11 min-h-[44px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm active:scale-[0.98]"
               >
                 <span>Broadcast Pulse Here</span>
                 <ArrowRight className="w-3.5 h-3.5" />

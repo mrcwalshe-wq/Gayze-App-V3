@@ -95,6 +95,7 @@ const spreadOverlappingCoordinate = (
 
 import { CountdownPill } from './CountdownPill';
 import { CompatibilitySnapshot } from './CompatibilitySnapshot';
+import { PeerProfileSummary } from './PeerProfileSummary';
 import {
   ShieldCheck,
   Lock,
@@ -1820,6 +1821,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Verified peer profile details if a person or pulse is selected */}
+              {selectedItem.type !== 'haven' && (
+                <PeerProfileSummary
+                  userId={selectedItem.type === 'pulse' ? selectedItem.item.peerId : selectedItem.item.id}
+                />
+              )}
 
               {/* Action Buttons in Expanded Sheet */}
               <div className="pt-2 space-y-2">

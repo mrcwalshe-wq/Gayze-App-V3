@@ -62,6 +62,7 @@ const ChatRoomView = lazy(() => import('./components/ChatRoomView').then((module
 const DiscoverView = lazy(() => import('./components/DiscoverView').then((module) => ({ default: module.DiscoverView })));
 const ProfileView = lazy(() => import('./components/ProfileView').then((module) => ({ default: module.ProfileView })));
 const SwarmQRModal = lazy(() => import('./components/SwarmQRModal').then((module) => ({ default: module.SwarmQRModal })));
+const PublicProfileSheet = lazy(() => import('./components/PublicProfileSheet').then((module) => ({ default: module.PublicProfileSheet })));
 import {
   Pulse,
   Gathering,
@@ -557,6 +558,15 @@ export default function App() {
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [profileEditSection, setProfileEditSection] = useState<EditSectionKey | null>(null);
+  const [viewingPublicProfile, setViewingPublicProfile] = useState<{
+    userId: string | null;
+    fallbackName?: string;
+    fallbackAge?: number;
+    fallbackArea?: string;
+    fallbackIntent?: string;
+    fallbackPhotoUrl?: string;
+    fallbackOnline?: boolean;
+  } | null>(null);
   const knownIncomingInterestIdsRef = useRef<Set<string>>(new Set());
   const [notificationInbox, setNotificationInbox] = useState<NotificationInbox | null>(null);
   const [notificationInboxStatus, setNotificationInboxStatus] = useState<ChatConnectionState>('connecting');
@@ -2911,6 +2921,9 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
+              onOpenPublicProfile={(userId, fallback) => {
+                setViewingPublicProfile({ userId, ...fallback });
+              }}
             />
           )}
 
@@ -3096,6 +3109,35 @@ export default function App() {
             initialSection={profileEditSection}
             onOpenIdentity={() => setIsIdentityOpen(true)}
             onOpenSetIntent={handleOpenIntentSheet}
+          />
+        </Suspense>
+      )}
+
+      {/* Public Profile View Sheet */}
+      {viewingPublicProfile && (
+        <Suspense fallback={null}>
+          <PublicProfileSheet
+            userId={viewingPublicProfile.userId}
+            fallbackName={viewingPublicProfile.fallbackName}
+            fallbackAge={viewingPublicProfile.fallbackAge}
+            fallbackArea={viewingPublicProfile.fallbackArea}
+            fallbackIntent={viewingPublicProfile.fallbackIntent}
+            fallbackPhotoUrl={viewingPublicProfile.fallbackPhotoUrl}
+            fallbackOnline={viewingPublicProfile.fallbackOnline}
+            onClose={() => setViewingPublicProfile(null)}
+            onMessage={() => {
+              const peerId = viewingPublicProfile.userId;
+              setViewingPublicProfile(null);
+              if (peerId) {
+                const targetRoom = rooms.find(
+                  (r) => r.peerUserId === peerId || r.id === `room_${peerId}` || r.id.includes(peerId)
+                );
+                if (targetRoom) {
+                  requestConversationOpen(targetRoom.id);
+                  setActiveTab('swarms');
+                }
+              }
+            }}
           />
         </Suspense>
       )}

@@ -9,6 +9,7 @@ import {
   MessageSquare,
   UserRound,
 } from 'lucide-react';
+import { hapticLight } from '../services/hapticService';
 
 export type NavTab = 'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens' | 'profile';
 
@@ -84,7 +85,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => {
+                  hapticLight();
+                  onTabChange(tab.id);
+                }}
                 data-active={activeGroup === tab.group}
                 className="g-navpill__btn"
               >
@@ -143,7 +147,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="g-tab"
                 data-active={isActive}
                 aria-current={isActive ? 'page' : undefined}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => {
+                  hapticLight();
+                  onTabChange(tab.id);
+                }}
               >
                 <span className="g-tab__ind" />
                 <span className="[&>svg]:w-5 [&>svg]:h-5">{tab.icon}</span>

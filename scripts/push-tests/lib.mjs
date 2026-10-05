@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import fs from 'node:fs';
-
 import { fileURLToPath } from 'node:url';
+
 export const REPO = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 export const MIGRATION = `${REPO}/supabase/migrations/20260929120000_push_notifications.sql`;
 export const MIGRATION_URL_FIX = `${REPO}/supabase/migrations/20261002090000_push_dispatch_url_fix.sql`;
@@ -9,10 +9,10 @@ export const MIGRATION_URL_FIX = `${REPO}/supabase/migrations/20261002090000_pus
 // The sandbox DB has no pgcrypto/pg_net extension binaries wired up: the two
 // `create extension` lines are stripped and replaced by stubs in `bootstrap`.
 export function migrationSql() {
-  // Applied in filename order, exactly as Supabase applies them.
   const clean = (file) => fs.readFileSync(file, 'utf8')
     .replace(/^create extension if not exists pgcrypto;$/m, '-- (stubbed in test)')
     .replace(/^create extension if not exists pg_net with schema extensions;$/m, '-- (stubbed in test)');
+  // Applied in filename order, exactly as Supabase applies them.
   return clean(MIGRATION) + '\n' + clean(MIGRATION_URL_FIX);
 }
 
