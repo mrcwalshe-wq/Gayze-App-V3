@@ -1,4 +1,4 @@
-/* GAYZE mobile UI final alignment pass — one geometry system for all tabs. */
+/* GAYZE mobile UI — final geometry and navigation surface. */
 
 @media (max-width: 767px) {
   :root { --g-tabbar-h: 82px; }
@@ -7,7 +7,7 @@
     left: 10px !important;
     right: 10px !important;
     height: var(--g-tabbar-h) !important;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
     border-radius: 24px !important;
     box-sizing: border-box !important;
     overflow: visible !important;
@@ -15,6 +15,7 @@
 
   .g-tabbar__inner {
     height: 100% !important;
+    width: 100% !important;
     padding: 7px !important;
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     gap: 4px !important;
@@ -22,7 +23,14 @@
     box-sizing: border-box !important;
   }
 
-  /* Four standard tabs share identical dimensions and vertical centring. */
+  /* All five cells use the same column geometry; Discover is raised only by
+     its own visual action, never by changing the grid itself. */
+  .g-tab {
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
   .g-tab:not(.g-tab--discover) {
     height: 66px !important;
     min-height: 66px !important;
@@ -32,7 +40,6 @@
     border-radius: 17px !important;
     border: 1px solid transparent !important;
     background: transparent !important;
-    box-sizing: border-box !important;
     justify-content: center !important;
     gap: 5px !important;
   }
@@ -48,9 +55,10 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 5px 18px rgba(111,60,195,.12) !important;
   }
 
-  /* Discover is the only raised action and stays mathematically centred in
-     the five-column grid. Its logo has a transparent background, so there is
-     no rectangular black image box. */
+  /* Discover is a premium raised action. The button itself is a dark glass
+     circle with a gradient ring; the GAYZE eye is transparent and fills the
+     button horizontally. There is deliberately NO gradient fill behind the
+     logo and NO rectangular image background. */
   .g-tab--discover {
     z-index: 10 !important;
     height: 88px !important;
@@ -71,44 +79,63 @@
   }
 
   .g-tab--discover .g-discover-action {
-    width: 74px !important;
-    height: 74px !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    width: 72px !important;
+    height: 72px !important;
     margin: 0 0 1px !important;
     padding: 0 !important;
     border-radius: 50% !important;
-    background:
-      linear-gradient(transparent, transparent) padding-box,
-      conic-gradient(from 215deg, #6f3cc3, #b84dff 34%, #e04abf 60%, #c9a24d 82%, #6f3cc3) border-box !important;
+    background: rgba(10,11,17,.96) !important;
     border: 2px solid transparent !important;
+    background-image:
+      linear-gradient(rgba(10,11,17,.96), rgba(10,11,17,.96)),
+      conic-gradient(from 215deg, #6f3cc3, #b84dff 34%, #e04abf 60%, #c9a24d 82%, #6f3cc3) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
     box-shadow:
       0 0 0 1px rgba(255,255,255,.10),
-      0 12px 28px rgba(111,60,195,.40),
-      0 0 34px rgba(157,74,255,.25) !important;
+      0 10px 26px rgba(111,60,195,.34),
+      0 0 28px rgba(157,74,255,.20) !important;
     box-sizing: border-box !important;
   }
 
   .g-tab--discover .g-discover-action::before {
-    inset: -8px !important;
-    background: radial-gradient(circle, rgba(111,60,195,.24) 0%, rgba(201,162,77,.08) 42%, transparent 70%) !important;
-    filter: blur(8px) !important;
+    content: "" !important;
+    position: absolute !important;
+    inset: -7px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle, rgba(111,60,195,.20) 0%, rgba(201,162,77,.06) 42%, transparent 70%) !important;
+    filter: blur(7px) !important;
+    z-index: -1 !important;
+    pointer-events: none !important;
   }
 
   .g-tab--discover .g-discover-action::after {
+    content: "" !important;
+    position: absolute !important;
     inset: 2px !important;
-    border: 1px solid rgba(255,255,255,.13) !important;
+    border-radius: inherit !important;
+    border: 1px solid rgba(255,255,255,.12) !important;
     background: transparent !important;
+    pointer-events: none !important;
   }
 
   .g-tab--discover .g-discover-logo-image {
     position: relative !important;
     z-index: 1 !important;
     display: block !important;
-    width: 64px !important;
+    width: 68px !important;
     height: auto !important;
-    max-width: calc(100% - 8px) !important;
+    max-width: calc(100% - 2px) !important;
     object-fit: contain !important;
-    filter: drop-shadow(0 0 9px rgba(185,94,255,.36)) !important;
+    background: transparent !important;
+    filter: drop-shadow(0 0 7px rgba(185,94,255,.30)) !important;
     mix-blend-mode: normal !important;
+    flex: 0 0 auto !important;
   }
 
   .g-tab__discover-label {
@@ -121,19 +148,20 @@
     bottom: -9px !important;
   }
 
+  /* Keep content clear of the floating navigation and its safe-area inset. */
   .g-chat-viewport {
-    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 8px) !important;
-    height: max(0px, calc(100dvh - var(--g-tabbar-h) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 8px)) !important;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 10px) !important;
+    height: max(0px, calc(100dvh - var(--g-tabbar-h) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 10px)) !important;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .g-chat-viewport .g-chat-composer,
   .g-chat-viewport [class*="composer"] {
-    margin-bottom: 8px !important;
+    margin-bottom: 10px !important;
   }
 
   .g-sheet.g-sheet--above-nav {
-    --g-sheet-bottom-gap: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px) !important;
+    --g-sheet-bottom-gap: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 16px) !important;
     margin-bottom: var(--g-sheet-bottom-gap) !important;
     max-height: max(0px, calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-sheet-bottom-gap) - 14px)) !important;
     overflow-y: auto !important;
@@ -145,10 +173,9 @@
   }
 
   .g-map-bar {
-    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px) !important;
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 16px) !important;
   }
 
-  /* Consistent mobile controls: no narrow, awkward tap targets. */
   .g-btn,
   .g-icon-btn {
     min-height: 44px;
@@ -196,6 +223,6 @@
   }
 
   .g-tab--discover .g-discover-logo-image {
-    width: 59px !important;
+    width: 64px !important;
   }
 }
