@@ -8,7 +8,7 @@ export interface InboxNotification {
 export interface NotificationInbox { rows: InboxNotification[]; unread: number; messageUnread: number; }
 export const notificationCopy: Record<string, string> = {
   gaze: 'Someone sent you a Gayze', message: 'You have a new message', connection: 'You have a new connection',
-  intent_expiring: 'Your intent is ending soon', safety: 'Your safety check-in has ended', test: 'GAYZE test notification',
+  call: 'Incoming call', missed_call: 'Missed call', intent_expiring: 'Your intent is ending soon', safety: 'Your safety check-in has ended', test: 'GAYZE test notification',
 };
 
 export function watchNotificationInbox(userId: string, receive: (inbox: NotificationInbox) => void,
@@ -55,9 +55,6 @@ export function watchNotificationInbox(userId: string, receive: (inbox: Notifica
 export async function markNotificationRead(id?: string, conversationId?: string): Promise<void> {
   if (!supabase) throw new Error('Notification inbox unavailable');
   if (id) {
-    // Defence in depth: do not even invoke the acknowledgement RPC unless the
-    // notification belongs to the currently authenticated account. The RPC
-    // remains owner-scoped as the authoritative server-side check.
     const { data: user, error: userError } = await supabase.auth.getUser();
     if (userError || !user?.user?.id) return;
     const { data: owned, error: ownershipError } = await supabase
