@@ -113,16 +113,16 @@
     display: none !important;
   }
 
-  /* Discover is the actual GAYZE eye/G mark. No circular button, ring,
-     inset panel or stretched background is applied to the brand asset. */
+  /* Raised GAYZE Discover control: a clean circular glass button with the
+     real transparent eye/G mark centred inside. No rectangular logo box. */
   .g-tab--discover {
-    z-index: 10 !important;
-    transform: translateY(-12px) !important;
+    z-index: 20 !important;
+    transform: translateY(-18px) !important;
     overflow: visible !important;
-    height: 88px !important;
-    min-height: 88px !important;
+    height: 104px !important;
+    min-height: 104px !important;
     padding: 0 !important;
-    gap: 5px !important;
+    gap: 6px !important;
     justify-content: flex-end !important;
     border: 0 !important;
     background: transparent !important;
@@ -131,38 +131,66 @@
   }
 
   .g-tab--discover:active {
-    transform: translateY(-10px) scale(.985) !important;
+    transform: translateY(-16px) scale(.985) !important;
   }
 
   .g-tab--discover .g-discover-action {
     flex: 0 0 auto !important;
     position: relative !important;
-    width: 74px !important;
-    height: 42px !important;
-    margin: 0 0 1px !important;
+    width: 84px !important;
+    height: 84px !important;
+    margin: 0 !important;
     padding: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
+    border-radius: 999px !important;
+    background:
+      radial-gradient(circle at 38% 28%, rgba(111,60,195,.40), rgba(18,11,30,.96) 62%, rgba(8,8,13,.99) 100%) !important;
+    border: 1.5px solid transparent !important;
+    box-shadow:
+      0 0 0 1px rgba(111,60,195,.28),
+      0 0 22px rgba(111,60,195,.34),
+      0 12px 30px rgba(0,0,0,.58),
+      inset 0 1px 0 rgba(255,255,255,.12) !important;
     box-sizing: border-box !important;
+    isolation: isolate !important;
   }
 
-  .g-tab--discover .g-discover-action::before,
+  .g-tab--discover .g-discover-action::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: -1.5px !important;
+    border-radius: inherit !important;
+    padding: 1.5px !important;
+    background: linear-gradient(135deg, #7B2CFF 0%, #D43BDE 40%, #FF5C9D 68%, #FF9E2C 100%) !important;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+    -webkit-mask-composite: xor !important;
+    mask-composite: exclude !important;
+    pointer-events: none !important;
+    z-index: -1 !important;
+  }
+
   .g-tab--discover .g-discover-action::after {
-    content: none !important;
-    display: none !important;
+    content: "" !important;
+    position: absolute !important;
+    inset: -10px !important;
+    border-radius: 999px !important;
+    background: radial-gradient(circle, rgba(139,92,246,.22), rgba(139,92,246,0) 68%) !important;
+    filter: blur(5px) !important;
+    pointer-events: none !important;
+    z-index: -2 !important;
   }
 
   .g-tab--discover .g-discover-logo-image {
-    position: relative !important;
-    z-index: 1 !important;
+    position: absolute !important;
+    z-index: 2 !important;
     display: block !important;
-    width: 70px !important;
+    width: 53px !important;
     height: auto !important;
-    max-width: 100% !important;
+    max-width: none !important;
     object-fit: contain !important;
-    filter: drop-shadow(0 0 7px rgba(185,94,255,.22)) !important;
+    filter: drop-shadow(0 0 8px rgba(212,59,222,.30)) !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
     flex: 0 0 auto !important;
   }
 
@@ -225,12 +253,16 @@
     height: 22px !important;
   }
 
+  .g-tab--discover {
+    transform: translateY(-17px) !important;
+  }
+
   .g-tab--discover .g-discover-action {
-    width: 72px !important;
-    height: 40px !important;
+    width: 78px !important;
+    height: 78px !important;
   }
 
   .g-tab--discover .g-discover-logo-image {
-    width: 66px !important;
+    width: 49px !important;
   }
 }
