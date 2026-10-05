@@ -48,7 +48,6 @@
     box-sizing: border-box !important;
   }
 
-  /* All four standard destinations share exactly the same cell geometry. */
   .g-tab {
     position: relative !important;
     min-width: 0 !important;
@@ -114,11 +113,11 @@
     display: none !important;
   }
 
-  /* Discover is a raised primary action, centred independently of the four
-     normal cells. The logo itself is transparent — no rectangular image box. */
+  /* Discover is the actual GAYZE eye/G mark. No circular button, ring,
+     inset panel or stretched background is applied to the brand asset. */
   .g-tab--discover {
     z-index: 10 !important;
-    transform: translateY(-20px) !important;
+    transform: translateY(-12px) !important;
     overflow: visible !important;
     height: 88px !important;
     min-height: 88px !important;
@@ -132,57 +131,38 @@
   }
 
   .g-tab--discover:active {
-    transform: translateY(-18px) scale(.985) !important;
+    transform: translateY(-10px) scale(.985) !important;
   }
 
   .g-tab--discover .g-discover-action {
     flex: 0 0 auto !important;
     position: relative !important;
     width: 74px !important;
-    height: 74px !important;
+    height: 42px !important;
     margin: 0 0 1px !important;
     padding: 0 !important;
-    border-radius: 999px !important;
-    background:
-      linear-gradient(rgba(10,11,17,.94), rgba(10,11,17,.94)) padding-box,
-      conic-gradient(from 215deg, #6f3cc3, #b84dff 35%, #e04abf 61%, #c9a24d 82%, #6f3cc3) border-box !important;
-    border: 2px solid transparent !important;
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,.08),
-      0 12px 28px rgba(111,60,195,.42),
-      0 0 34px rgba(157,74,255,.28) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
     box-sizing: border-box !important;
   }
 
-  .g-tab--discover .g-discover-action::before {
-    content: "";
-    position: absolute;
-    inset: -8px;
-    border-radius: 999px;
-    background: radial-gradient(circle, rgba(111,60,195,.27) 0%, rgba(201,162,77,.08) 43%, transparent 70%);
-    filter: blur(7px);
-    z-index: -1;
-    pointer-events: none;
-  }
-
+  .g-tab--discover .g-discover-action::before,
   .g-tab--discover .g-discover-action::after {
-    content: "";
-    position: absolute;
-    inset: 1px;
-    border-radius: inherit;
-    border: 1px solid rgba(255,255,255,.13);
-    pointer-events: none;
+    content: none !important;
+    display: none !important;
   }
 
   .g-tab--discover .g-discover-logo-image {
     position: relative !important;
     z-index: 1 !important;
     display: block !important;
-    width: 64px !important;
+    width: 70px !important;
     height: auto !important;
-    max-width: calc(100% - 8px) !important;
+    max-width: 100% !important;
     object-fit: contain !important;
-    filter: drop-shadow(0 0 9px rgba(185,94,255,.36)) !important;
+    filter: drop-shadow(0 0 7px rgba(185,94,255,.22)) !important;
     flex: 0 0 auto !important;
   }
 
@@ -246,11 +226,11 @@
   }
 
   .g-tab--discover .g-discover-action {
-    width: 68px !important;
-    height: 68px !important;
+    width: 72px !important;
+    height: 40px !important;
   }
 
   .g-tab--discover .g-discover-logo-image {
-    width: 59px !important;
+    width: 66px !important;
   }
 }
