@@ -1,5 +1,5 @@
 import { webrtcCallService } from './webrtcService';
-import { enqueueCallNotification, type CallNotificationType } from './callNotificationService';
+import { enqueueCallNotification } from './callNotificationService';
 
 let callAudioContext: AudioContext | null = null;
 
@@ -26,10 +26,8 @@ export const closeCallAudio = (): void => {
   if (ctx) void ctx.close().catch(() => undefined);
 };
 
-// The WebRTC service intentionally remains transport-focused. This bridge adds
-// the durable push layer without coupling WebRTC signalling to notification
-// provider details. It is installed once when this module is loaded (App and
-// EncryptedCallModal both import this module).
+// Bridge WebRTC call lifecycle events to the durable push-notification system.
+// This keeps provider/database notification details outside the WebRTC service.
 const bridgeKey = '__gayzeCallNotificationBridgeInstalled__';
 type WindowWithGayzeBridge = Window & { [bridgeKey]?: boolean };
 
@@ -38,12 +36,16 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
 
   const originalStartCall = webrtcCallService.startCall.bind(webrtcCallService);
   const originalEndCall = webrtcCallService.endCall.bind(webrtcCallService);
-
-  const callIds = new Map<string, string>();
+  const activeCall = new Map<string, { callId: string; targetUserId: string; callType: 'audio' | 'video' }>();
 
   webrtcCallService.startCall = async (params) => {
     const callId = crypto.randomUUID();
-    callIds.set(params.conversationId, callId);
+    activeCall.set(params.conversationId, {
+      callId,
+      targetUserId: params.targetUserId,
+      callType: params.callType,
+    });
+
     await originalStartCall(params);
 
     const state = webrtcCallService.getState();
@@ -53,30 +55,29 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
         targetUserId: params.targetUserId,
         callId,
         callType: params.callType,
-        kind: 'call' as CallNotificationType,
+        kind: 'call',
       });
     } else {
-      callIds.delete(params.conversationId);
+      activeCall.delete(params.conversationId);
     }
   };
 
   webrtcCallService.endCall = async (explicitState = 'ended') => {
-    const conversationId = webrtcCallService.getActiveConversationId?.() ?? null;
-    const targetUserId = webrtcCallService.getActiveTargetUserId?.() ?? null;
-    const callId = conversationId ? callIds.get(conversationId) : undefined;
+    const conversationId = activeCall.keys().next().value as string | undefined;
+    const call = conversationId ? activeCall.get(conversationId) : undefined;
 
     await originalEndCall(explicitState);
 
-    if (explicitState === 'missed' && conversationId && targetUserId && callId) {
+    if (explicitState === 'missed' && conversationId && call) {
       await enqueueCallNotification({
         conversationId,
-        targetUserId,
-        callId,
-        callType: webrtcCallService.getCurrentCallType?.() ?? 'video',
-        kind: 'missed_call' as CallNotificationType,
+        targetUserId: call.targetUserId,
+        callId: call.callId,
+        callType: call.callType,
+        kind: 'missed_call',
       });
     }
 
-    if (conversationId) callIds.delete(conversationId);
+    if (conversationId) activeCall.delete(conversationId);
   };
 }
