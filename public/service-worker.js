@@ -2,13 +2,13 @@
  * GAYZE production service worker.
  * Web Push is always user-visible on iOS; no silent/invisible push path.
  */
-const SW_VERSION = 'gayze-sw-v6';
+const SW_VERSION = 'gayze-sw-v8';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 const APP_SHELL_URL = '/index.html';
-const PRECACHE_URLS = ['/', '/manifest.webmanifest', '/apple-touch-icon.png', '/icons/gayze-192.png', '/icons/gayze-512.png'];
-const NOTIFICATION_ICON = '/icons/gayze-192.png';
-const NOTIFICATION_BADGE = '/icons/gayze-192.png';
+const PRECACHE_URLS = ['/', '/manifest.webmanifest', '/apple-touch-icon.png', '/icons/gayze-180.png', '/icons/gayze-192.png', '/icons/gayze-512.png', '/icons/gayze-512-maskable.png'];
+const NOTIFICATION_ICON = '/icons/gayze-180.png';
+const NOTIFICATION_BADGE = '/icons/gayze-180.png';
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -143,9 +143,6 @@ self.addEventListener('push', (event) => {
       };
       stage = 'showNotification';
       pushDiagnostic('showNotification-called');
-      // CRITICAL: iOS Safari/Web Push does not support invisible pushes.
-      // Never set silent=true and never wait for a foreground handshake before
-      // presenting the OS notification. This must remain user-visible.
       await self.registration.showNotification(title, {
         body,
         tag,

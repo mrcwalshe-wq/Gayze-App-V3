@@ -1,0 +1,131 @@
+/* GAYZE profile hero — robust structural layer.
+   Targets the actual profile avatar wrapper (.w-11.h-11) used by RightNowView.
+   This intentionally avoids nth-child selectors so small JSX changes cannot
+   silently disable the hero treatment. */
+
+@media (max-width: 767px) {
+  /* The selected profile header becomes a real hero stage. */
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt]) {
+    position: relative !important;
+    min-height: 360px !important;
+    margin: 0 -20px !important;
+    padding: 0 20px !important;
+    align-items: flex-end !important;
+    overflow: hidden !important;
+    isolation: isolate !important;
+    border-bottom: 1px solid rgba(255,255,255,.07) !important;
+    background: #08090d !important;
+  }
+
+  /* Promote the actual selected user's photo to full-bleed. */
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt])
+    .w-11.h-11 {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 360px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #11131a !important;
+    box-shadow: none !important;
+    z-index: -2 !important;
+  }
+
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt])
+    .w-11.h-11 img {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center 28% !important;
+    display: block !important;
+    filter: saturate(.98) contrast(1.04) brightness(.82) !important;
+    transform: scale(1.02) !important;
+  }
+
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt])
+    .w-11.h-11 > span {
+    display: none !important;
+  }
+
+  /* Cinematic black fade with restrained GAYZE purple/amber atmosphere. */
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt])::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(90% 70% at 8% 18%, rgba(111,60,195,.28), transparent 62%),
+      radial-gradient(80% 65% at 94% 24%, rgba(201,162,77,.11), transparent 64%),
+      linear-gradient(180deg, rgba(4,5,8,.04) 12%, rgba(4,5,8,.12) 38%, rgba(4,5,8,.58) 65%, #08090d 100%);
+  }
+
+  /* Thin brand line across the hero. */
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt])::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg,#6F3CC3,#D43CBE 52%,#C9A24D);
+    opacity: .78;
+    pointer-events: none;
+  }
+
+  /* Move identity information onto the lower photographic fade. */
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt])
+    > .flex.items-start.gap-3.flex-1.min-w-0.text-left.cursor-pointer {
+    position: relative !important;
+    z-index: 3 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 0 22px !important;
+    align-items: flex-end !important;
+  }
+
+  /* The avatar is now the hero; keep the identity text clear and legible. */
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt])
+    > .flex.items-start.gap-3.flex-1.min-w-0.text-left.cursor-pointer
+    > .flex.flex-col {
+    position: relative;
+    z-index: 4;
+    text-shadow: 0 2px 18px rgba(0,0,0,.72);
+  }
+
+  /* Close control remains above the hero. */
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt])
+    .flex.items-start.justify-between.gap-3:has(.w-11.h-11 img[alt]) > button {
+    position: absolute !important;
+    top: 18px !important;
+    right: 16px !important;
+    z-index: 8 !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 15px !important;
+    background: rgba(8,9,13,.48) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    backdrop-filter: blur(18px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
+  }
+
+  /* Keep the body of the card distinct from the photo. */
+  .g-sheet.g-sheet--above-nav:has(.w-11.h-11 img[alt]) .g-panel {
+    background:
+      radial-gradient(130% 130% at 10% 0%, rgba(111,60,195,.08), transparent 58%),
+      linear-gradient(180deg, rgba(18,19,27,.95), rgba(9,10,14,.99)) !important;
+    border-color: rgba(255,255,255,.10) !important;
+    box-shadow: 0 14px 34px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.035) !important;
+  }
+}

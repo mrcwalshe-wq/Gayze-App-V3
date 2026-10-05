@@ -10,6 +10,7 @@ import {
   Plus,
   Radio,
   Lock,
+  User,
 } from 'lucide-react';
 import { Pulse, DatingProfile, UserActiveIntent, UserProfile, SafeHaven } from '../types';
 import { CountdownPill } from './CountdownPill';
@@ -30,6 +31,17 @@ interface DiscoverViewProps {
   onOpenSetIntent?: () => void;
   onOpenMap?: () => void;
   onOpenProfileEdit?: (section?: string) => void;
+  onOpenPublicProfile?: (
+    userId: string,
+    fallback?: {
+      name?: string;
+      age?: number;
+      area?: string;
+      photoUrl?: string;
+      intent?: string;
+      online?: boolean;
+    }
+  ) => void;
 }
 
 /** Distances are approximate by design; unknown distances are never guessed. */
@@ -91,6 +103,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   onOpenQRWithPeer,
   onOpenSetIntent,
   onOpenMap,
+  onOpenPublicProfile,
 }) => {
   const [modeFilter, setModeFilter] = useState<ModeFilter>('All');
   const [selected, setSelected] = useState<DiscoverRow | null>(null);
@@ -415,6 +428,32 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             </div>
 
             <div className="g-sheet__foot">
+              {onOpenPublicProfile && (
+                <button
+                  type="button"
+                  className="g-btn g-btn--quiet !px-3"
+                  onClick={() => {
+                    hapticLight();
+                    const peerId = selected.kind === 'pulse' ? selected.item.peerId : selected.item.id;
+                    const photo = selected.kind === 'profile'
+                      ? selected.item.photoUrl
+                      : (selected.item.peerAvatar && selected.item.peerAvatar !== 'user' ? selected.item.peerAvatar : undefined);
+                    setSelected(null);
+                    onOpenPublicProfile(peerId, {
+                      name: selected.name,
+                      age: selected.age,
+                      area: selected.area,
+                      intent: selected.intentLabel,
+                      photoUrl: photo,
+                      online: selected.live,
+                    });
+                  }}
+                  aria-label="View public profile"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Profile</span>
+                </button>
+              )}
               <button type="button" className="g-btn g-btn--quiet !px-3" onClick={() => handleGaze(selected)} aria-label="Gaze">
                 <Eye className="w-4 h-4" />
                 {gazedNames.has(selected.kind === 'pulse' ? selected.item.peerId : selected.item.id) ? 'Gazed' : 'Gaze'}

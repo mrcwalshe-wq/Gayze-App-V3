@@ -1,0 +1,116 @@
+/* GAYZE premium Intent controls — brand treatment, not a solid colour button. */
+.g-live-cta {
+  position: relative !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  color: #fff !important;
+  background:
+    radial-gradient(120% 170% at 50% -30%, rgba(255,255,255,.16), transparent 48%),
+    linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.025)) !important;
+  backdrop-filter: blur(20px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(145%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.16),
+    inset 0 -1px 0 rgba(0,0,0,.24),
+    0 12px 32px rgba(0,0,0,.34) !important;
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease, filter .22s ease !important;
+}
+
+.g-live-cta::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -55%;
+  background: radial-gradient(ellipse at center, var(--intent-glow, rgba(111,60,195,.38)), transparent 62%);
+  filter: blur(18px);
+  opacity: .8;
+  animation: gayze-premium-intent-breathe 3.4s ease-in-out infinite;
+}
+
+.g-live-cta::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 14%; right: 14%; top: 1px;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.72), transparent);
+  opacity: .7;
+  pointer-events: none;
+}
+
+.g-live-cta--private {
+  --intent-glow: rgba(111,60,195,.58);
+  border-color: rgba(170,132,245,.48) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.17),
+    0 0 0 1px rgba(111,60,195,.08),
+    0 12px 34px rgba(67,35,125,.32),
+    0 0 30px rgba(111,60,195,.16) !important;
+}
+
+.g-live-cta--private:hover {
+  border-color: rgba(194,166,255,.7) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.2),
+    0 14px 38px rgba(67,35,125,.4),
+    0 0 36px rgba(111,60,195,.23) !important;
+}
+
+.g-live-cta--social {
+  --intent-glow: rgba(201,162,77,.48);
+  color: #fff8e5 !important;
+  border-color: rgba(201,162,77,.48) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.18),
+    0 0 0 1px rgba(201,162,77,.07),
+    0 12px 34px rgba(112,84,29,.28),
+    0 0 28px rgba(201,162,77,.14) !important;
+}
+
+.g-live-cta--social:hover {
+  border-color: rgba(240,201,109,.72) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.2),
+    0 14px 38px rgba(112,84,29,.34),
+    0 0 34px rgba(201,162,77,.2) !important;
+}
+
+.g-live-cta:active { transform: scale(.975) !important; }
+
+/* Composer action buttons use the same premium glass treatment. */
+.g-sheet__foot--private .g-btn--intent-private,
+.g-sheet__foot--social .g-btn--intent-social {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 180% at 50% -30%, rgba(255,255,255,.13), transparent 50%),
+    linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.025)) !important;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 10px 28px rgba(0,0,0,.24) !important;
+}
+
+.g-sheet__foot--private .g-btn--intent-private {
+  color: #f2eaff !important;
+  border-color: rgba(170,132,245,.48) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 10px 30px rgba(78,42,143,.28), 0 0 24px rgba(111,60,195,.12) !important;
+}
+
+.g-sheet__foot--social .g-btn--intent-social {
+  color: #fff8e5 !important;
+  border-color: rgba(201,162,77,.5) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 10px 30px rgba(112,84,29,.25), 0 0 24px rgba(201,162,77,.11) !important;
+}
+
+@keyframes gayze-premium-intent-breathe {
+  0%,100% { transform: scale(.94); opacity: .58; }
+  50% { transform: scale(1.07); opacity: .92; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-live-cta::before { animation: none; }
+  .g-live-cta { transition: none !important; }
+}

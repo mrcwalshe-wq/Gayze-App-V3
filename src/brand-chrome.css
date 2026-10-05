@@ -1,0 +1,59 @@
+/* GAYZE structural brand chrome — thin Purple → Magenta → Amber signature lines. */
+.g-brand-topline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 2147483000;
+  pointer-events: none;
+  background: linear-gradient(90deg, #6F3CC3 0%, #D43CBE 52%, #C9A24D 100%);
+  box-shadow: 0 0 14px rgba(111,60,195,.18), 0 0 18px rgba(201,162,77,.10);
+  opacity: .92;
+}
+
+.g-brand-corner {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  width: 42px;
+  height: 42px;
+  z-index: 2147482999;
+  pointer-events: none;
+  opacity: .48;
+}
+
+.g-brand-corner::before,
+.g-brand-corner::after {
+  content: "";
+  position: absolute;
+  display: block;
+  background: linear-gradient(90deg, #6F3CC3, #D43CBE, #C9A24D);
+}
+
+.g-brand-corner::before { width: 42px; height: 1px; top: 0; }
+.g-brand-corner::after { width: 1px; height: 42px; top: 0; }
+.g-brand-corner--left { left: 14px; }
+.g-brand-corner--right { right: 14px; transform: scaleX(-1); }
+
+/* Reusable section rule for profile sheets, drawers and premium cards. */
+.g-brand-rule {
+  width: 100%;
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, #6F3CC3 0%, #D43CBE 52%, #C9A24D 100%);
+  opacity: .72;
+}
+.g-brand-rule--soft { opacity: .30; }
+.g-brand-rule--strong { height: 2px; opacity: .92; }
+
+@media (max-width: 640px) {
+  .g-brand-corner { opacity: .32; width: 30px; height: 30px; }
+  .g-brand-corner::before { width: 30px; }
+  .g-brand-corner::after { height: 30px; }
+  .g-brand-corner--left { left: 10px; }
+  .g-brand-corner--right { right: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-brand-topline { box-shadow: none; }
+}

@@ -100,32 +100,30 @@ console.log('\n[4] Message trigger dispatches, and can never block a message ins
 }
 
 console.log('\n[4b] Dispatch URL normalisation — every plausible gayze_functions_url value');
-{
-  // Live-verified routes (unauthenticated probes of the deployed project):
-  //   <project>/functions/v1/send-push            REACHES the function
-  //   <project>/send-push                         gateway 404 (the old bug)
-  //   <fnhost>/send-push                          REACHES the function
-  //   <fnhost>/functions/v1/send-push             REACHES the function
-  // The builder must land on a REACHING route for every secret shape, and must
-  // never construct the bare '<base>/send-push' form except when the base
-  // already carries /functions/v1.
-  const cases = [
-    ['https://x.supabase.co',                     'https://x.supabase.co/functions/v1/send-push', 'project URL -> /functions/v1/send-push (the required form)'],
-    ['https://x.functions.supabase.co',           'https://x.functions.supabase.co/functions/v1/send-push', 'functions host -> /functions/v1/send-push (same canonical form)'],
-    ['https://x.supabase.co/functions/v1',        'https://x.supabase.co/functions/v1/send-push', 'base already ends /functions/v1 -> do not double it'],
-    ['https://x.supabase.co/',                    'https://x.supabase.co/functions/v1/send-push', 'trailing slash is stripped before joining'],
-    ['https://x.functions.supabase.co/functions/v1/', 'https://x.functions.supabase.co/functions/v1/send-push', 'trailing slash after /functions/v1 is stripped'],
-    ['https://x.supabase.co//',                   'https://x.supabase.co/functions/v1/send-push', 'repeated trailing slashes are stripped'],
-  ];
-  for (const [secret, expected, why] of cases) {
-    const db = await newDb(); await baseSchema(db); await addUsers(db, A);
-    await db.exec(migrationSql());
-    await db.query(`insert into vault.decrypted_secrets values ('gayze_functions_url',$1),('gayze_push_dispatch_secret','s')`, [secret]);
-    await db.query(`select public.request_push_dispatch('{"event":"message"}'::jsonb)`);
-    const rows = (await db.query('select url from __net_calls')).rows;
-    assert(rows.length === 1 && rows[0].url === expected,
-      `${why}: ${secret} -> ${expected} (got ${rows[0]?.url ?? 'no dispatch'})`);
-  }
+// Live-verified routes (unauthenticated probes of the deployed project):
+//   <project>/functions/v1/send-push            REACHES the function
+//   <project>/send-push                         gateway 404 (the old bug)
+//   <fnhost>/send-push                          REACHES the function
+//   <fnhost>/functions/v1/send-push             REACHES the function
+// The builder must land on a REACHING route for every secret shape, and must
+// never construct the bare '<base>/send-push' form except when the base
+// already carries /functions/v1.
+const cases = [
+  ['https://x.supabase.co',                     'https://x.supabase.co/functions/v1/send-push', 'project URL -> /functions/v1/send-push (the required form)'],
+  ['https://x.functions.supabase.co',           'https://x.functions.supabase.co/functions/v1/send-push', 'functions host -> /functions/v1/send-push (same canonical form)'],
+  ['https://x.supabase.co/functions/v1',        'https://x.supabase.co/functions/v1/send-push', 'base already ends /functions/v1 -> do not double it'],
+  ['https://x.supabase.co/',                    'https://x.supabase.co/functions/v1/send-push', 'trailing slash is stripped before joining'],
+  ['https://x.functions.supabase.co/functions/v1/', 'https://x.functions.supabase.co/functions/v1/send-push', 'trailing slash after /functions/v1 is stripped'],
+  ['https://x.supabase.co//',                   'https://x.supabase.co/functions/v1/send-push', 'repeated trailing slashes are stripped'],
+];
+for (const [secret, expected, why] of cases) {
+  const db = await newDb(); await baseSchema(db); await addUsers(db, A);
+  await db.exec(migrationSql());
+  await db.query(`insert into vault.decrypted_secrets values ('gayze_functions_url',$1),('gayze_push_dispatch_secret','s')`, [secret]);
+  await db.query(`select public.request_push_dispatch('{"event":"message"}'::jsonb)`);
+  const rows = (await db.query('select url from __net_calls')).rows;
+  assert(rows.length === 1 && rows[0].url === expected,
+    `${why}: ${secret} -> ${expected} (got ${rows[0]?.url ?? 'no dispatch'})`);
 }
 
 console.log('\n[5] RLS: shared-device endpoint ownership (RLS is unchanged)');
@@ -199,3 +197,4 @@ console.log('\n[7] Sweeps use only evidenced columns, are bounded, and fire once
   assert((await db2.query('select public.sweep_expiring_intents() n')).rows[0].n === 0 && (await db2.query('select public.sweep_expired_safety_checkins() n')).rows[0].n === 0, 'missing base tables -> sweeps are safe no-ops');
 }
 console.log(process.exitCode ? '\nSQL TESTS: FAILURES' : '\nSQL TESTS: ALL PASSED');
+process.exit(process.exitCode || 0);
