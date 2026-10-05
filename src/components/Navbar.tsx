@@ -31,7 +31,6 @@ interface TabDef {
   id: NavTab;
   label: string;
   icon: React.ReactNode;
-  /** Nav item that lights up for sub-views (e.g. Safe Havens lives under Profile). */
   group: NavTab;
 }
 
@@ -58,13 +57,35 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSafetyTimerActive,
   userNeighborhood,
 }) => {
-  // Safe Havens is a Profile/safety sub-view — highlight Profile while inside it.
-  const activeGroup =
-    activeTab === 'safe_havens' ? 'profile' : (activeTab as NavTab);
+  const activeGroup = activeTab === 'safe_havens' ? 'profile' : activeTab;
+
+  const renderTabIcon = (tab: TabDef, mobile = false) => {
+    if (tab.id !== 'dating') {
+      return (
+        <span className={mobile ? '[&>svg]:w-6 [&>svg]:h-6' : '[&>svg]:w-[15px] [&>svg]:h-[15px]'}>
+          {tab.icon}
+        </span>
+      );
+    }
+
+    return (
+      <span
+        aria-hidden="true"
+        className={
+          mobile
+            ? 'relative flex h-[42px] w-[42px] items-center justify-center rounded-full bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[2px] shadow-[0_0_22px_rgba(111,60,195,0.42),0_0_12px_rgba(201,162,77,0.18)] transition-transform duration-200 group-active:scale-95'
+            : 'relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[1.5px] shadow-[0_0_14px_rgba(111,60,195,0.30)]'
+        }
+      >
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0b0b11]">
+          <GayzeLogo size={mobile ? 28 : 22} showWordmark={false} className="!w-auto" />
+        </span>
+      </span>
+    );
+  };
 
   return (
     <>
-      {/* ---------------- Desktop top bar ---------------- */}
       <header className="g-desktop-header hidden md:block">
         <div className="g-desktop-header__inner">
           <button
@@ -93,7 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 data-active={activeGroup === tab.group}
                 className="g-navpill__btn"
               >
-                <span className="[&>svg]:w-[15px] [&>svg]:h-[15px]">{tab.icon}</span>
+                {renderTabIcon(tab)}
                 <span>{tab.label}</span>
                 {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
                   <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
@@ -137,26 +158,27 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* ---------------- Mobile bottom tab bar ---------------- */}
       <nav className="g-tabbar md:hidden" aria-label="Primary">
         <div className="g-tabbar__inner">
           {TABS.map((tab) => {
             const isActive = activeGroup === tab.group;
+            const isGayzeAction = tab.id === 'dating';
             return (
               <button
                 key={tab.id}
-                className="g-tab"
+                className={`g-tab ${isGayzeAction ? 'group' : ''}`}
                 data-tab={tab.id}
                 data-active={isActive}
                 aria-current={isActive ? 'page' : undefined}
+                aria-label={isGayzeAction ? 'GAYZE Discover' : tab.label}
                 onClick={() => {
                   hapticLight();
                   onTabChange(tab.id);
                 }}
               >
                 <span className="g-tab__ind" />
-                <span className="[&>svg]:w-6 [&>svg]:h-6">{tab.icon}</span>
-                <span>{tab.label}</span>
+                {renderTabIcon(tab, true)}
+                <span className={isGayzeAction ? 'mt-0.5 font-semibold tracking-[0.01em]' : ''}>{tab.label}</span>
                 {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
                   <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
                 )}
