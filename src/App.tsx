@@ -132,6 +132,7 @@ import {
   privacyRadiusMeters,
 } from './services/supabaseService';
 import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';
+import { deleteMessageForMe, unsendMessage, setMessageExpiry } from './services/messageLifecycleService';
 import { resolveConversationKey } from './services/conversationKeyService';
 import {
   hapticQRHandshake,
@@ -2065,6 +2066,20 @@ export default function App() {
     }
   };
 
+  const handleDeleteMessageForMe = async (messageId: string) => {
+    await deleteMessageForMe(messageId);
+    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.filter((message) => message.id !== messageId)])));
+  };
+  const handleUnsendMessage = async (messageId: string) => {
+    await unsendMessage(messageId);
+    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.map((message) => message.id === messageId ? { ...message, deletedForEveryone: true, isBurned: false, plainText: 'Message unsent', cipherText: '' } : message)])));
+  };
+  const handleSetMessageExpiry = async (messageId: string, ttlSeconds: number | null) => {
+    const expiresAt = ttlSeconds == null ? null : new Date(Date.now() + ttlSeconds * 1000);
+    await setMessageExpiry(messageId, expiresAt);
+    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.map((message) => message.id === messageId ? { ...message, expiresAt: expiresAt?.getTime() } : message)])));
+  };
+
   const handleSignOut = async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
@@ -3011,6 +3026,9 @@ export default function App() {
               onSendMessage={handleSendMessage}
               onUpdateRoomTtl={handleUpdateRoomTtl}
               onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
+              onDeleteMessage={IS_LIVE_BACKEND ? handleDeleteMessageForMe : undefined}
+              onUnsendMessage={IS_LIVE_BACKEND ? handleUnsendMessage : undefined}
+              onSetMessageExpiry={IS_LIVE_BACKEND ? handleSetMessageExpiry : undefined}
               onOpenQR={(peerName) => {
                 const matchedPeer = datingProfiles.find(
                   (p) => p.name.toLowerCase() === peerName?.toLowerCase()
