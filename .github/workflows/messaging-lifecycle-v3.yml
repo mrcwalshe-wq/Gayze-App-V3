@@ -1,0 +1,51 @@
+name: Messaging lifecycle integration v3
+
+on:
+  push:
+    branches: [feature/messaging-media-lifecycle]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, ref: feature/messaging-media-lifecycle}
+      - name: Apply safe UI integration
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          def patch(path, old, new):
+              p=Path(path); s=p.read_text()
+              if new in s: return
+              if old not in s: raise SystemExit(f'MISSING: {path}: {old[:100]!r}')
+              p.write_text(s.replace(old,new,1))
+          patch('src/types.ts', "  mediaType?: 'image';\n", "  mediaType?: 'image' | 'video' | 'audio';\n  scheduledFor?: number;\n  deletedForMe?: boolean;\n  deletedForEveryone?: boolean;\n  mediaDurationSeconds?: number;\n  albumId?: string;\n")
+          patch('src/App.tsx', "import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';\n", "import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';\nimport { deleteMessageForMe, unsendMessage, setMessageExpiry } from './services/messageLifecycleService';\n")
+          patch('src/App.tsx', "  const handleSignOut = async () => {\n", """  const handleDeleteMessageForMe = async (messageId: string) => {\n    await deleteMessageForMe(messageId);\n    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.filter((message) => message.id !== messageId)])));\n  };\n  const handleUnsendMessage = async (messageId: string) => {\n    await unsendMessage(messageId);\n    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.map((message) => message.id === messageId ? { ...message, deletedForEveryone: true, isBurned: false, plainText: 'Message unsent', cipherText: '' } : message)])));\n  };\n  const handleSetMessageExpiry = async (messageId: string, ttlSeconds: number | null) => {\n    const expiresAt = ttlSeconds == null ? null : new Date(Date.now() + ttlSeconds * 1000);\n    await setMessageExpiry(messageId, expiresAt);\n    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.map((message) => message.id === messageId ? { ...message, expiresAt: expiresAt?.getTime() } : message)])));\n  };\n\n  const handleSignOut = async () => {\n""")
+          patch('src/App.tsx', "              onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}\n", "              onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}\n              onDeleteMessage={IS_LIVE_BACKEND ? handleDeleteMessageForMe : undefined}\n              onUnsendMessage={IS_LIVE_BACKEND ? handleUnsendMessage : undefined}\n              onSetMessageExpiry={IS_LIVE_BACKEND ? handleSetMessageExpiry : undefined}\n")
+          patch('src/components/ChatRoomView.tsx', "import { getProfilePhotoUrl } from '../services/profilePhotoService';\n", "import { getProfilePhotoUrl } from '../services/profilePhotoService';\nimport { PhotoStudio } from './PhotoStudio';\n")
+          patch('src/components/ChatRoomView.tsx', "  onDeleteChat?: (roomId: string) => Promise<void>;\n", "  onDeleteChat?: (roomId: string) => Promise<void>;\n  onDeleteMessage?: (messageId: string) => Promise<void>;\n  onUnsendMessage?: (messageId: string) => Promise<void>;\n  onSetMessageExpiry?: (messageId: string, ttlSeconds: number | null) => Promise<void>;\n")
+          patch('src/components/ChatRoomView.tsx', "  onDeleteChat,\n", "  onDeleteChat,\n  onDeleteMessage,\n  onUnsendMessage,\n  onSetMessageExpiry,\n")
+          patch('src/components/ChatRoomView.tsx', "  const [attachedMedia, setAttachedMedia] = useState<string | null>(null);\n", "  const [attachedMedia, setAttachedMedia] = useState<string | null>(null);\n  const [photoStudioSource, setPhotoStudioSource] = useState<string | null>(null);\n  const [messageActionId, setMessageActionId] = useState<string | null>(null);\n")
+          patch('src/components/ChatRoomView.tsx', ".filter((message) => !message.isBurned && (!message.expiresAt || message.expiresAt > now)),", ".filter((message) => !message.deletedForMe && (!message.isBurned || message.deletedForEveryone) && (!message.expiresAt || message.expiresAt > now)),")
+          patch('src/components/ChatRoomView.tsx', """                  <div className=\"flex items-center gap-2 mb-1 px-1 text-[11px] text-zinc-500\">\n""", """                  <div className=\"flex items-center justify-end mb-1 px-1 text-[11px] text-zinc-500\">\n                    <div className=\"relative\">\n                      <button type=\"button\" aria-label=\"Message actions\" className=\"min-w-[32px] min-h-[32px] text-zinc-500 hover:text-white\" onClick={() => setMessageActionId((value) => value === msg.id ? null : msg.id)}>•••</button>\n                      {messageActionId === msg.id && (\n                        <div className=\"absolute right-0 top-8 z-30 w-48 rounded-xl border border-white/10 bg-[#11131a] p-1.5 shadow-2xl\">\n                          {isMe && onUnsendMessage && !msg.deletedForEveryone && <button type=\"button\" className=\"w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/5\" onClick={async () => { await onUnsendMessage(msg.id); setMessageActionId(null); }}>Unsend for everyone</button>}\n                          {onDeleteMessage && <button type=\"button\" className=\"w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5\" onClick={async () => { await onDeleteMessage(msg.id); setMessageActionId(null); }}>Delete for me</button>}\n                          {onSetMessageExpiry && !msg.deletedForEveryone && <div className=\"border-t border-white/10 mt-1 pt-1\"><button type=\"button\" className=\"w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5\" onClick={async () => { await onSetMessageExpiry(msg.id, 60); setMessageActionId(null); }}>Expire in 1 minute</button><button type=\"button\" className=\"w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5\" onClick={async () => { await onSetMessageExpiry(msg.id, 3600); setMessageActionId(null); }}>Expire in 1 hour</button><button type=\"button\" className=\"w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5\" onClick={async () => { await onSetMessageExpiry(msg.id, null); setMessageActionId(null); }}>Never expire</button></div>}\n                        </div>\n                      )}\n                    </div>\n                  </div>\n                  <div className=\"flex items-center gap-2 mb-1 px-1 text-[11px] text-zinc-500\">\n""")
+          patch('src/components/ChatRoomView.tsx', "                    {msg.mediaUrl && (", "                    {!msg.deletedForEveryone && msg.mediaUrl && (")
+          patch('src/components/ChatRoomView.tsx', "                    <p className=\"whitespace-pre-wrap\">{msg.plainText}</p>", "                    <p className=\"whitespace-pre-wrap\">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>")
+          patch('src/components/ChatRoomView.tsx', """                <div className=\"text-[11px] pr-2\">\n                  <span className=\"text-zinc-200 font-semibold block\">Photo attached</span>\n                  <span className=\"text-emerald-400/90 text-[10.5px]\">Encrypted on send</span>\n                </div>\n""", """                <div className=\"text-[11px] pr-2\">\n                  <span className=\"text-zinc-200 font-semibold block\">Photo attached</span>\n                  <span className=\"text-emerald-400/90 text-[10.5px]\">Encrypted on send</span>\n                  <button type=\"button\" onClick={() => setPhotoStudioSource(attachedMedia)} className=\"text-[#C9A24D] text-[10px] mt-1\">Edit in Photo Studio</button>\n                </div>\n""")
+          patch('src/components/ChatRoomView.tsx', "      {/* Fullscreen Photo Zoom Modal */}\n", "      {photoStudioSource && <PhotoStudio source={photoStudioSource} onCancel={() => setPhotoStudioSource(null)} onDone={(edited) => { setAttachedMedia(edited); setPhotoStudioSource(null); }} />}\n\n      {/* Fullscreen Photo Zoom Modal */}\n")
+          PYCODE
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: Commit
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/types.ts src/App.tsx src/components/ChatRoomView.tsx
+          git commit -m 'feat: integrate messaging lifecycle controls'
+          git push origin HEAD:feature/messaging-media-lifecycle
