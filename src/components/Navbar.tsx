@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="g-discover-action relative flex h-[72px] w-[72px] items-center justify-center rounded-full transition-transform duration-200 group-active:scale-95"
         >
           <img
-            src="/gayze-discover-logo.svg"
+            src="/gayze-discover-logo.svg?v=20261005-3"
             alt=""
             className="g-discover-logo-image"
             draggable={false}
