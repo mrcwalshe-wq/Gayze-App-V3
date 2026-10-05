@@ -1,0 +1,74 @@
+/* Premium GAYZE intent controls — shared visual language */
+.gayze-intent-button {
+  --intent-rgb: 111, 60, 195;
+  --intent-accent: #6f3cc3;
+  --intent-accent-2: #d43cbe;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(var(--intent-rgb), .48);
+  background:
+    radial-gradient(120% 180% at 50% 0%, rgba(var(--intent-rgb), .18), transparent 58%),
+    linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.13),
+    inset 0 -1px 0 rgba(0,0,0,.24),
+    0 8px 26px rgba(var(--intent-rgb), .16);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, filter .22s ease;
+}
+
+.gayze-intent-button::before {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  z-index: -1;
+  background: radial-gradient(ellipse at center, rgba(var(--intent-rgb), .26), transparent 62%);
+  filter: blur(18px);
+  opacity: .78;
+  animation: gayze-intent-breathe 3.2s ease-in-out infinite;
+}
+
+.gayze-intent-button::after {
+  content: "";
+  position: absolute;
+  left: 12%; right: 12%; top: 1px;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--intent-accent-2), var(--intent-accent), transparent);
+  opacity: .9;
+}
+
+.gayze-intent-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(var(--intent-rgb), .72);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.16),
+    0 10px 34px rgba(var(--intent-rgb), .24);
+}
+
+.gayze-intent-button:active { transform: translateY(0) scale(.985); }
+
+.gayze-intent-button[data-intent="social"] {
+  --intent-rgb: 201, 162, 77;
+  --intent-accent: #c9a24d;
+  --intent-accent-2: #f0c96d;
+}
+
+.gayze-intent-button[data-intent="spicy"],
+.gayze-intent-button[data-intent="private"] {
+  --intent-rgb: 111, 60, 195;
+  --intent-accent: #6f3cc3;
+  --intent-accent-2: #d43cbe;
+}
+
+@keyframes gayze-intent-breathe {
+  0%, 100% { transform: scale(.94); opacity: .62; }
+  50% { transform: scale(1.06); opacity: .92; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gayze-intent-button::before { animation: none; }
+  .gayze-intent-button { transition: none; }
+}
