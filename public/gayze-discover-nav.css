@@ -1,0 +1,171 @@
+/* GAYZE Discover navigation — premium mobile treatment
+   Loaded last so the navigation has one authoritative visual layer. */
+
+@media (max-width: 767px) {
+  .g-tabbar {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
+    height: 76px !important;
+    border-radius: 27px !important;
+    background:
+      radial-gradient(80% 140% at 50% -25%, rgba(111,60,195,.16), transparent 62%),
+      linear-gradient(180deg, rgba(14,15,24,.94), rgba(8,9,15,.97)) !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    box-shadow:
+      0 18px 50px rgba(0,0,0,.58),
+      0 0 0 1px rgba(111,60,195,.08),
+      inset 0 1px 0 rgba(255,255,255,.07) !important;
+    backdrop-filter: blur(28px) saturate(145%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(145%) !important;
+    overflow: visible !important;
+    z-index: 1200 !important;
+  }
+
+  .g-tabbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(111,60,195,.18), transparent 25%, transparent 75%, rgba(201,162,77,.10));
+    opacity: .85;
+  }
+
+  .g-tabbar__inner {
+    position: relative !important;
+    height: 76px !important;
+    max-width: none !important;
+    padding: 4px 6px !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    overflow: visible !important;
+  }
+
+  .g-tab {
+    position: relative !important;
+    min-width: 0 !important;
+    height: 68px !important;
+    gap: 4px !important;
+    padding: 8px 3px 7px !important;
+    border-radius: 21px !important;
+    color: #a98de4 !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: .01em !important;
+    transition: color .18s ease, transform .18s ease !important;
+  }
+
+  .g-tab > span:not(.g-tab__ind):not(.g-tab__badge) {
+    color: inherit !important;
+  }
+
+  .g-tab:not(.g-tab--discover) svg {
+    color: #a879ec !important;
+    stroke: currentColor !important;
+    filter: drop-shadow(0 0 7px rgba(111,60,195,.18));
+  }
+
+  .g-tab[data-active="true"]:not(.g-tab--discover) {
+    color: #d8c7fa !important;
+    background: rgba(111,60,195,.08) !important;
+  }
+
+  .g-tab[data-active="true"]:not(.g-tab--discover) svg {
+    color: #c18cff !important;
+    filter: drop-shadow(0 0 10px rgba(155,92,246,.42));
+  }
+
+  .g-tab__ind {
+    display: none !important;
+  }
+
+  /* The centre Discover action floats above the dock like the reference. */
+  .g-tab--discover {
+    z-index: 10 !important;
+    transform: translateY(-20px) !important;
+    overflow: visible !important;
+    padding-top: 0 !important;
+    justify-content: flex-end !important;
+    color: #cba8ff !important;
+  }
+
+  .g-tab--discover:active {
+    transform: translateY(-18px) scale(.98) !important;
+  }
+
+  .g-tab--discover .g-discover-action {
+    flex: 0 0 auto;
+    position: relative;
+    margin-bottom: 3px;
+    background: conic-gradient(from 215deg, #6f3cc3, #b84dff 35%, #e04abf 61%, #c9a24d 82%, #6f3cc3) !important;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.10),
+      0 12px 28px rgba(111,60,195,.42),
+      0 0 34px rgba(157,74,255,.28) !important;
+  }
+
+  .g-tab--discover .g-discover-action::before {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(111,60,195,.30) 0%, rgba(201,162,77,.10) 42%, transparent 70%);
+    filter: blur(7px);
+    z-index: -1;
+  }
+
+  .g-tab--discover .g-discover-action::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: inherit;
+    border: 1px solid rgba(255,255,255,.13);
+    pointer-events: none;
+  }
+
+  .g-tab--discover .g-discover-action > span {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.09);
+  }
+
+  .g-tab--discover .g-discover-action img {
+    filter: drop-shadow(0 0 9px rgba(185,94,255,.42)) !important;
+  }
+
+  .g-tab__discover-label {
+    position: relative;
+    margin-top: 1px !important;
+    color: #e5d5ff !important;
+    text-shadow: 0 0 12px rgba(150,85,240,.22);
+  }
+
+  .g-tab--discover[data-active="true"] .g-tab__discover-label::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -10px;
+    width: 24px;
+    height: 3px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: linear-gradient(90deg, #8f4cff, #d64bc5, #c9a24d);
+    box-shadow: 0 0 12px rgba(151,77,255,.55);
+  }
+
+  .g-tab__badge {
+    position: absolute !important;
+    top: 12px !important;
+    right: 20% !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    background: #c9a24d !important;
+    box-shadow: 0 0 10px rgba(201,162,77,.7) !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .g-tabbar { left: 8px !important; right: 8px !important; }
+  .g-tab { font-size: 9px !important; }
+  .g-tab--discover .g-discover-action { transform: scale(.93); }
+}
