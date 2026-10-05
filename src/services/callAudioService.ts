@@ -1,5 +1,5 @@
 import { webrtcCallService } from './webrtcService';
-import { enqueueCallNotification } from './callNotificationService';
+import { enqueueCallNotification, markCallNotificationRead } from './callNotificationService';
 
 let callAudioContext: AudioContext | null = null;
 
@@ -36,6 +36,8 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
 
   const originalStartCall = webrtcCallService.startCall.bind(webrtcCallService);
   const originalEndCall = webrtcCallService.endCall.bind(webrtcCallService);
+  const originalAcceptCall = webrtcCallService.acceptCall.bind(webrtcCallService);
+  const originalDeclineCall = webrtcCallService.declineCall.bind(webrtcCallService);
   const activeCall = new Map<string, { callId: string; targetUserId: string; callType: 'audio' | 'video' }>();
 
   webrtcCallService.startCall = async (params) => {
@@ -61,6 +63,32 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
       activeCall.delete(params.conversationId);
     }
   };
+
+  webrtcCallService.acceptCall = async (params) => {
+    await originalAcceptCall(params);
+    await markCallNotificationReadByConversation(params.conversationId);
+  };
+
+  webrtcCallService.declineCall = async (params) => {
+    await originalDeclineCall(params);
+    await markCallNotificationReadByConversation(params.conversationId);
+  };
+
+  async function markCallNotificationReadByConversation(conversationId: string) {
+    // The server-side acknowledgement is owner-scoped and clears only the
+    // authenticated user's call notification for this conversation.
+    try {
+      const { supabase } = await import('./supabaseClient');
+      if (!supabase) return;
+      const { error } = await supabase.rpc('gayze_mark_notification_read', {
+        p_id: null,
+        p_conversation: conversationId,
+      });
+      if (error) console.warn('[GAYZE] Could not clear call notification:', error.message);
+    } catch (error) {
+      console.warn('[GAYZE] Could not clear call notification:', error);
+    }
+  }
 
   webrtcCallService.endCall = async (explicitState = 'ended') => {
     const conversationId = activeCall.keys().next().value as string | undefined;
