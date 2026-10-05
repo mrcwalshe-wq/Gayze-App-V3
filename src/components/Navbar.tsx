@@ -34,10 +34,12 @@ interface TabDef {
   group: NavTab;
 }
 
+// Mobile navigation deliberately keeps Discover in the visual centre so the
+// GAYZE eye is the primary action, matching the premium brand direction.
 const TABS: TabDef[] = [
-  { id: 'dating', label: 'Discover', icon: <Compass />, group: 'dating' },
-  { id: 'right_now', label: 'Right Now', icon: <Radio />, group: 'right_now' },
   { id: 'later', label: 'Later', icon: <Clock />, group: 'later' },
+  { id: 'right_now', label: 'Right Now', icon: <Radio />, group: 'right_now' },
+  { id: 'dating', label: 'Discover', icon: <Compass />, group: 'dating' },
   { id: 'swarms', label: 'Messages', icon: <MessageSquare />, group: 'swarms' },
   { id: 'profile', label: 'Profile', icon: <UserRound />, group: 'profile' },
 ];
@@ -73,12 +75,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         aria-hidden="true"
         className={
           mobile
-            ? 'relative flex h-[42px] w-[42px] items-center justify-center rounded-full bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[2px] shadow-[0_0_22px_rgba(111,60,195,0.42),0_0_12px_rgba(201,162,77,0.18)] transition-transform duration-200 group-active:scale-95'
+            ? 'g-discover-action relative flex h-[68px] w-[68px] items-center justify-center rounded-full p-[2px] transition-transform duration-200 group-active:scale-95'
             : 'relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[1.5px] shadow-[0_0_14px_rgba(111,60,195,0.30)]'
         }
       >
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0b0b11]">
-          <GayzeLogo size={mobile ? 28 : 22} showWordmark={false} className="!w-auto" />
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#090a10]">
+          <GayzeLogo size={mobile ? 43 : 22} showWordmark={false} className="!w-auto" />
         </span>
       </span>
     );
@@ -166,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             return (
               <button
                 key={tab.id}
-                className={`g-tab ${isGayzeAction ? 'group' : ''}`}
+                className={`g-tab ${isGayzeAction ? 'g-tab--discover group' : ''}`}
                 data-tab={tab.id}
                 data-active={isActive}
                 aria-current={isActive ? 'page' : undefined}
@@ -178,7 +180,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <span className="g-tab__ind" />
                 {renderTabIcon(tab, true)}
-                <span className={isGayzeAction ? 'mt-0.5 font-semibold tracking-[0.01em]' : ''}>{tab.label}</span>
+                <span className={isGayzeAction ? 'g-tab__discover-label' : ''}>{tab.label}</span>
                 {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
                   <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
                 )}
