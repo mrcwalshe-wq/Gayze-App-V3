@@ -70,17 +70,26 @@ export const Navbar: React.FC<NavbarProps> = ({
       );
     }
 
+    if (mobile) {
+      return (
+        <span
+          aria-hidden="true"
+          className="g-discover-action relative flex h-[72px] w-[72px] items-center justify-center rounded-full transition-transform duration-200 group-active:scale-95"
+        >
+          <img
+            src="/gayze-discover-logo.svg"
+            alt=""
+            className="g-discover-logo-image"
+            draggable={false}
+          />
+        </span>
+      );
+    }
+
     return (
-      <span
-        aria-hidden="true"
-        className={
-          mobile
-            ? 'g-discover-action relative flex h-[72px] w-[72px] items-center justify-center rounded-full p-[2px] transition-transform duration-200 group-active:scale-95'
-            : 'relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[1.5px] shadow-[0_0_14px_rgba(111,60,195,0.30)]'
-        }
-      >
+      <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[1.5px] shadow-[0_0_14px_rgba(111,60,195,0.30)]">
         <span className="g-discover-logo flex h-full w-full items-center justify-center rounded-full bg-transparent p-0">
-          <GayzeLogo size={mobile ? 56 : 22} showWordmark={false} className="!w-auto" />
+          <GayzeLogo size={22} showWordmark={false} className="!w-auto" />
         </span>
       </span>
     );
