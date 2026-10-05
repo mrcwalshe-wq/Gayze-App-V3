@@ -1,4 +1,4 @@
-import { supabase } from './supabaseService';
+import { supabase } from './supabaseClient';
 
 async function requireSession() {
   if (!supabase) throw new Error('Messaging backend unavailable.');
