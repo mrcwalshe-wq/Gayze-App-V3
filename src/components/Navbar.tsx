@@ -9,6 +9,7 @@ import {
   MessageSquare,
   UserRound,
 } from 'lucide-react';
+import { hapticLight } from '../services/hapticService';
 
 export type NavTab = 'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens' | 'profile';
 
@@ -16,6 +17,7 @@ interface NavbarProps {
   activeTab: NavTab;
   onTabChange: (tab: NavTab) => void;
   unreadCount: number;
+  notificationCount?: number;
   onOpenMask: () => void;
   onOpenIdentity: () => void;
   onOpenSafetyTimer: () => void;
@@ -50,6 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   unreadCount,
+  notificationCount = 0,
   onOpenMask,
   onOpenSafetyTimer,
   isSafetyTimerActive,
@@ -82,14 +85,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => {
+                  hapticLight();
+                  onTabChange(tab.id);
+                }}
                 data-active={activeGroup === tab.group}
                 className="g-navpill__btn"
               >
                 <span className="[&>svg]:w-[15px] [&>svg]:h-[15px]">{tab.icon}</span>
                 <span>{tab.label}</span>
-                {tab.id === 'swarms' && unreadCount > 0 && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" />
+                {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
                 )}
               </button>
             ))}
@@ -141,13 +147,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="g-tab"
                 data-active={isActive}
                 aria-current={isActive ? 'page' : undefined}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => {
+                  hapticLight();
+                  onTabChange(tab.id);
+                }}
               >
                 <span className="g-tab__ind" />
                 <span className="[&>svg]:w-5 [&>svg]:h-5">{tab.icon}</span>
                 <span>{tab.label}</span>
-                {tab.id === 'swarms' && unreadCount > 0 && (
-                  <span className="g-tab__badge" aria-label={`${unreadCount} unread`} />
+                {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
+                  <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
                 )}
               </button>
             );

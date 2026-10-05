@@ -1,0 +1,5 @@
+/** Register the shared Vite `import.meta.env` shim as an ESM load hook. */
+import { register } from 'node:module';
+import { pathToFileURL } from 'node:url';
+
+register('../interaction-tests/vite-env-hook.mjs', pathToFileURL(new URL('./', import.meta.url).pathname).href);

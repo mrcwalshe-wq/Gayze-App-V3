@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Cloudflare Wrangler local state
+.wrangler/
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/

@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { supabase } from '../services/supabaseClient';
+import { getProfilePhotoUrl } from '../services/profilePhotoService';
 import L from 'leaflet';
 import {
   Pulse,
@@ -17,6 +19,9 @@ const fallbackMapCenter: [number, number] = [FALLBACK_MAP_CENTER.lat, FALLBACK_M
 
 /** Published privacy radius for other people's intent positions. */
 const PRIVACY_RADIUS_METERS = 300;
+
+// Re-exported so callers/tests can read the ceiling from either module.
+export { MAX_TRAVEL_DISTANCE_KM, clampTravelDistanceKm };
 
 /** Great-circle distance in km — computed on the device, never invented. */
 /**
@@ -90,6 +95,7 @@ const spreadOverlappingCoordinate = (
 
 import { CountdownPill } from './CountdownPill';
 import { CompatibilitySnapshot } from './CompatibilitySnapshot';
+import { PeerProfileSummary } from './PeerProfileSummary';
 import {
   ShieldCheck,
   Lock,
@@ -118,7 +124,14 @@ import {
   Radio
 } from 'lucide-react';
 import { MAP_PROVIDERS, tileLayerOptions } from '../config/mapProviders';
-import { FALLBACK_MAP_CENTER, FALLBACK_MAP_ZOOM, LOCATED_MAP_ZOOM, resolveAreaLabel } from '../config/mapDefaults';
+import {
+  FALLBACK_MAP_CENTER,
+  FALLBACK_MAP_ZOOM,
+  LOCATED_MAP_ZOOM,
+  MAX_TRAVEL_DISTANCE_KM,
+  clampTravelDistanceKm,
+  resolveAreaLabel,
+} from '../config/mapDefaults';
 import { analytics } from '../services/analyticsService';
 import {
   hapticLight,
@@ -139,7 +152,7 @@ interface RightNowViewProps {
   onOpenDirectChat: (pulse: Pulse) => void;
   onOpenDirectChatWithProfile?: (profile: DatingProfile) => void;
   onSelectHaven: (haven: SafeHaven) => void;
-  onGazeAtPeer?: (peerName: string) => void;
+  onGazeAtPeer?: (peerName: string, peerId?: string, intentId?: string) => boolean | void | Promise<boolean | void>;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
@@ -147,6 +160,13 @@ interface RightNowViewProps {
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
   onSwitchToLater?: () => void;
   onRequestLocation?: () => void;
+  /**
+   * Reports the travel distance the user selected (always 1..5 km) so App can
+   * pass it to the live `discover_right_now` RPC instead of a fixed radius.
+   */
+  onMaxDistanceKmChange?: (km: number) => void;
+  /** Signed/public URL for the current user's primary profile photo. */
+  userAvatarUrl?: string;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -169,6 +189,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onSubmitGaze,
   onSwitchToLater,
   onRequestLocation,
+  onMaxDistanceKmChange,
+  userAvatarUrl,
 }) => {
   // 1. The active Right Now signal is owned by App (Supabase in live mode).
   //    Right Now renders it and routes every change through
@@ -212,6 +234,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const mapTileRetryRef = useRef<(() => void) | null>(null);
   const mapControlsRef = useRef<{ zoomIn: () => void; zoomOut: () => void; recenter: () => void } | null>(null);
   const userLocationRef = useRef(userLocation);
+  // Whether the camera has already been placed on a real device fix. Only the
+  // first fix moves the camera — later `watchPosition` updates must never steal
+  // the viewport back from the user mid-pan.
+  const hasCentredOnUserRef = useRef<boolean>(false);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [mapTilesUnavailable, setMapTilesUnavailable] = useState<boolean>(false);
   const [currentProviderIndex, setCurrentProviderIndex] = useState<number>(0);
@@ -227,8 +253,19 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [isNearbyOpen, setIsNearbyOpen] = useState<boolean>(false);
   const [activeCategory, setActiveCategory] = useState<'all' | 'people' | 'coffee' | 'drinks' | 'active' | 'havens'>('all');
   const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social' | 'Private'>('All');
+  const [selectedSubIntent, setSelectedSubIntent] = useState<string | null>(null);
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
-  const [maxDistanceKm, setMaxDistanceKm] = useState<number>(5);
+  const [maxDistanceKm, setMaxDistanceKmState] = useState<number>(MAX_TRAVEL_DISTANCE_KM);
+  /** Every write goes through the clamp, so 10 km / 25 km can never be set. */
+  const setMaxDistanceKm = (value: number | ((prev: number) => number)) => {
+    setMaxDistanceKmState((prev) => clampTravelDistanceKm(typeof value === 'function' ? value(prev) : value));
+  };
+
+  // Tell App whenever the selected travel distance changes so live discovery is
+  // re-run at that radius. The value is already clamped to the 5 km ceiling.
+  useEffect(() => {
+    onMaxDistanceKmChange?.(maxDistanceKm);
+  }, [maxDistanceKm]);
 
   // 4. Selected Discovery Item (Docked Compact Bottom Card & Expanded Sheet)
   // Start with a clean map. Discovery details appear only after the user
@@ -245,21 +282,81 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
   // 6. Countdown timer for active user intent
   const [remainingMinutes, setRemainingMinutes] = useState<number>(0);
+  const [resolvedUserAvatarUrl, setResolvedUserAvatarUrl] = useState<string | null>(userAvatarUrl || null);
+
+  // Resolve the current user's latest primary profile photo for the live map marker.
+  // The profile photo bucket is private, so avatar_path must be converted to a
+  // short-lived signed URL before it can be rendered inside Leaflet's HTML icon.
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveCurrentAvatar = async () => {
+      if (!supabase) {
+        if (!cancelled) setResolvedUserAvatarUrl(userAvatarUrl || null);
+        return;
+      }
+
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData.user?.id;
+        if (!userId) {
+          if (!cancelled) setResolvedUserAvatarUrl(userAvatarUrl || null);
+          return;
+        }
+
+        const { data } = await supabase
+          .from('profiles')
+          .select('avatar_path')
+          .eq('id', userId)
+          .maybeSingle();
+
+        const signedUrl = await getProfilePhotoUrl((data?.avatar_path as string | null) || null);
+        if (!cancelled) setResolvedUserAvatarUrl(signedUrl || userAvatarUrl || null);
+      } catch (error) {
+        console.warn('[GAYZE] Could not resolve current map avatar:', error);
+        if (!cancelled) setResolvedUserAvatarUrl(userAvatarUrl || null);
+      }
+    };
+
+    void resolveCurrentAvatar();
+    return () => {
+      cancelled = true;
+    };
+  }, [userAvatarUrl]);
 
   useEffect(() => {
     if (!activeUserIntent) {
       setRemainingMinutes(0);
       return;
     }
-    // Display-only countdown. Expiry itself is handled where the signal lives
-    // (App / Supabase), so this never mutates intent state.
+
+    // The backend expiry timestamp is authoritative. Recalculate frequently
+    // enough that the map CTA and management sheet never get stuck on "0m"
+    // while the signal is still live.
     const updateRemaining = () => {
-      setRemainingMinutes(Math.max(0, Math.round((activeUserIntent.expiresAt - Date.now()) / 60000)));
+      const expiresAt = Number(activeUserIntent.expiresAt);
+      const remaining = Number.isFinite(expiresAt)
+        ? Math.max(0, Math.ceil((expiresAt - Date.now()) / 60000))
+        : 0;
+
+      setRemainingMinutes(remaining);
+
+      // Once the authoritative expiry has passed, immediately remove the stale
+      // local signal. Supabase already filters expired rows from discovery.
+      if (remaining <= 0 && expiresAt <= Date.now() && !activeUserIntent.isPaused) {
+        onUpdateActiveUserIntent?.(null);
+      }
     };
+
     updateRemaining();
-    const interval = window.setInterval(updateRemaining, 30000);
+    const interval = window.setInterval(updateRemaining, 10000);
     return () => window.clearInterval(interval);
-  }, [activeUserIntent?.remoteId, activeUserIntent?.expiresAt, activeUserIntent?.isPaused]);
+  }, [
+    activeUserIntent?.remoteId,
+    activeUserIntent?.expiresAt,
+    activeUserIntent?.isPaused,
+    onUpdateActiveUserIntent,
+  ]);
 
   // A slow tick keeps expired intents off the map even between discovery refreshes.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -267,8 +364,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     const interval = window.setInterval(() => setNowTick(Date.now()), 30000);
     return () => window.clearInterval(interval);
   }, []);
+  // Only genuinely live signals reach the map, the counters and the nearby
+  // drawer: a real, finite, still-in-the-future expiry, and not paused. This
+  // matches `isItemLive` exactly — a pulse with no expiry is NOT live, so it
+  // can never render a marker for an intent that has ended or been paused.
   const livePulses = useMemo(
-    () => pulses.filter((pulse) => !pulse.expiresAt || pulse.expiresAt > nowTick),
+    () => pulses.filter((pulse) => (
+      !pulse.isPaused
+      && Number.isFinite(pulse.expiresAt)
+      && pulse.expiresAt > nowTick
+    )),
     [pulses, nowTick],
   );
 
@@ -346,21 +451,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
   };
 
-  const handleGazeAtPerson = async (name: string, pulseObj?: Pulse) => {
+  const handleGazeAtPerson = async (name: string, peerId: string, pulseObj?: Pulse) => {
     triggerVibration([40, 80]);
-    setGazedPeerNames((prev) => new Set(prev).add(name));
-
-    if (pulseObj && onSubmitGaze) {
-      try {
-        await onSubmitGaze(pulseObj);
-        showStatusMessage(`Gaze sent to ${name}`, 2200);
-      } catch (error) {
-        console.error('[GAYZE] Gaze submission failed', error);
-        showStatusMessage('Gaze could not be sent — try again');
-      }
-    }
-
-    if (onGazeAtPeer) onGazeAtPeer(name);
+    try {
+      const sent = pulseObj && onSubmitGaze
+        ? (await onSubmitGaze(pulseObj)).sent
+        : await onGazeAtPeer?.(name, peerId);
+      if (sent === true) setGazedPeerNames((prev) => new Set(prev).add(peerId));
+      else showStatusMessage('Gaze could not be sent — try again');
+    } catch { showStatusMessage('Gaze could not be sent — try again'); }
   };
 
   const formatRemainingTime = (mins: number) => {
@@ -404,10 +503,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     category: 'pulse' | 'haven' | 'profile';
     activityCategory?: string;
     hasIntent?: boolean;
+    specificIntent?: string;
   }): boolean => {
-    const { category, isPrivate, km, activityCategory } = input;
+    const { category, isPrivate, km, activityCategory, specificIntent } = input;
     if (activeIntentMode === 'Social' && isPrivate) return false;
     if (activeIntentMode === 'Private' && !isPrivate) return false;
+    if (selectedSubIntent && specificIntent && specificIntent !== selectedSubIntent) return false;
     if (!withinDistance(km, maxDistanceKm)) return false;
     if (category === 'haven') return activeCategory === 'all' || activeCategory === 'havens';
     if (category === 'profile') return activeCategory === 'all' || activeCategory === 'people';
@@ -471,7 +572,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (activeCategory !== 'all') num += 1;
     if (activeIntentMode !== 'All') num += 1;
     if (!showJitterCircles) num += 1;
-    if (maxDistanceKm < 5) num += 1;
+    if (maxDistanceKm < MAX_TRAVEL_DISTANCE_KM) num += 1;
     return num;
   }, [activeCategory, activeIntentMode, showJitterCircles, maxDistanceKm]);
 
@@ -558,7 +659,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setActiveCategory('all');
     setActiveIntentMode('All');
     setShowJitterCircles(true);
-    setMaxDistanceKm(5);
+    setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
   };
 
   // Retry the same provider/fallback pipeline used by the live map.
@@ -604,6 +705,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       : firstVisiblePulse
         ? [firstVisiblePulse.lat, firstVisiblePulse.lng]
         : fallbackMapCenter;
+    // The map was built already centred on the device fix, so the one-shot
+    // camera move below is no longer needed for this session.
+    if (userLocationRef.current) hasCentredOnUserRef.current = true;
     const initialZoom = userLocationRef.current
       ? LOCATED_MAP_ZOOM
       : firstVisiblePulse
@@ -788,15 +892,24 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     };
   }, []);
 
-  // Once the real device location arrives, move the live map to it.
+  // Once the FIRST real device location arrives, move the live map to it.
   // This replaces the previous behaviour where the map could remain centred
   // on a fallback location after permission was granted.
+  //
+  // It deliberately fires only once. `watchCurrentLocation` emits a new object
+  // on every GPS callback, so an unconditional `[userLocation]` effect used to
+  // re-fly the camera on each fix — yanking the viewport back while the user
+  // was panning. Later fixes still update the marker; only the explicit
+  // "recenter" control moves the camera again.
   useEffect(() => {
+    if (hasCentredOnUserRef.current) return;
     if (!userLocation) return;
+    if (!isMapReady) return;
     const map = mapInstanceRef.current;
     if (!map) return;
+    hasCentredOnUserRef.current = true;
     map.flyTo([userLocation.lat, userLocation.lng], LOCATED_MAP_ZOOM, { duration: 0.7 });
-  }, [userLocation]);
+  }, [userLocation, isMapReady]);
 
   // Update map layers on pulses, havens, profiles, or filter changes
   useEffect(() => {
@@ -877,9 +990,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
       const selfIcon = L.divIcon({
         className: 'custom-user-marker',
-        html: `<div class="${isLive ? 'gm-self' : 'gm-user'}${
-          activeUserIntent?.isPaused ? ' gm-self--paused' : ''
-        }"></div>`,
+        html: isLive
+          ? `<div class="gm-self gm-self--${activeUserIntent?.mode === 'private' ? 'private' : 'social'}${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
+              resolvedUserAvatarUrl
+                ? `<img class="gm-self__photo" src="${resolvedUserAvatarUrl.replace(/"/g, '&quot;')}" alt="" />`
+                : ''
+            }</div>`
+          : '<div class="gm-user"></div>',
         iconSize: isLive ? [34, 34] : [14, 14],
         iconAnchor: isLive ? [17, 17] : [7, 7],
       });
@@ -980,7 +1097,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'pulse' && selectedItem.item.id === pulse.id;
         const icon = L.divIcon({
           className: 'custom-pulse-marker',
-          html: `<div class="gm-pulse ${isPrivate ? 'gm-pulse--private' : ''} ${selected ? 'gm-pulse--sel' : ''}">${pulse.peerName ? pulse.peerName.charAt(0) : 'P'}</div>`,
+          html: `<div class="gm-pulse ${isPrivate ? 'gm-pulse--private' : ''} ${selected ? 'gm-pulse--sel' : ''}">${
+            pulse.peerAvatar && /^https?:\/\//i.test(pulse.peerAvatar)
+              ? `<img class="gm-pulse__photo" src="${pulse.peerAvatar.replace(/"/g, '&quot;')}" alt="" />`
+              : (pulse.peerName ? pulse.peerName.charAt(0) : 'P')
+          }</div>`,
           iconSize: [34, 34],
           iconAnchor: [17, 17],
         });
@@ -1006,6 +1127,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     selectedItem,
     userLocation,
     activeUserIntent,
+    resolvedUserAvatarUrl,
   ]);
 
   return (
@@ -1050,7 +1172,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               aria-label="Manage your Right Now signal"
             >
               <span
-                className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
+                className={`g-live-dot g-live-dot--${activeUserIntent.mode === 'private' ? 'private' : 'social'} shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
                 aria-hidden="true"
               />
               <span className="min-w-0 text-left">
@@ -1099,6 +1221,24 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </span>
           )}
         </button>
+      </div>
+
+      {/* Small, persistent key so "visible nearby" is not confused with "live". */}
+      <div
+        className="absolute top-[calc(env(safe-area-inset-top,0px)+104px)] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+        aria-label="Map key"
+      >
+        <div className="g-map-legend">
+          <span className="g-map-legend__item">
+            <span className="g-map-legend__dot g-map-legend__dot--live" aria-hidden="true" />
+            Live · available now
+          </span>
+          <span className="g-map-legend__sep" aria-hidden="true" />
+          <span className="g-map-legend__item">
+            <span className="g-map-legend__dot g-map-legend__dot--nearby" aria-hidden="true" />
+            Nearby · not live
+          </span>
+        </div>
       </div>
 
       {/* Status toast */}
@@ -1185,7 +1325,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {/* =========================================================================
           4.5. EMPTY STATE — honest, compact, map stays visible
          ========================================================================= */}
-      {liveMembersCount === 0 && !selectedItem && (
+      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && (
         <div
           className="absolute left-1/2 -translate-x-1/2 z-30 w-[min(92vw,330px)] pointer-events-auto"
           style={{ bottom: 'calc(var(--g-tabbar-h) + env(safe-area-inset-bottom,0px) + 82px)' }}
@@ -1212,16 +1352,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 Create your intent
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                hapticLight();
-                setMaxDistanceKm((prev) => (prev <= 5 ? 10 : prev <= 10 ? 25 : 5));
-              }}
-              className="g-btn g-btn--ghost w-full !min-h-[34px] text-[12px]"
-            >
-              Widen radius to {maxDistanceKm <= 5 ? '10 km' : maxDistanceKm <= 10 ? '25 km' : '5 km'}
-            </button>
+            {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
+              <button
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
+                }}
+                className="g-btn g-btn--ghost w-full !min-h-[44px] text-[12px]"
+              >
+                Widen radius to {MAX_TRAVEL_DISTANCE_KM} km
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1263,7 +1405,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   hapticLight();
                   setIsUserIntentDrawerOpen(true);
                 }}
-                className="g-live-cta"
+                className={`g-live-cta g-live-cta--${activeUserIntent.mode === 'private' ? 'private' : 'social'}`}
                 aria-label="Your signal is live — manage it"
               >
                 {!activeUserIntent.isPaused && (
@@ -1306,10 +1448,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             >
               {selectedItem.type === 'profile' ? (
                 <div className="relative w-11 h-11 rounded-[14px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
+                  <span className="absolute inset-0 flex items-center justify-center text-sm text-white" aria-hidden="true">{selectedItem.item.name.charAt(0)}</span>
                   <img
                     src={selectedItem.item.photoUrl}
                     alt={selectedItem.item.name}
-                    className="w-full h-full object-cover"
+                    className="relative w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
@@ -1386,7 +1529,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 setSelectedItem(null);
               }}
-              className="g-icon-btn g-icon-btn--bare !w-9 !h-9 shrink-0"
+              className="g-icon-btn g-icon-btn--bare !w-11 !h-11 shrink-0"
               title="Close preview"
               aria-label="Close preview"
             >
@@ -1464,13 +1607,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
+                    onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item.id)}
                     className={`g-btn !px-3 text-[12px] ${
-                      gazedPeerNames.has(selectedItem.item.name) ? 'g-btn--primary' : 'g-btn--quiet'
+                      gazedPeerNames.has(selectedItem.item.id) ? 'g-btn--primary' : 'g-btn--quiet'
                     }`}
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    {gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze'}
+                    {gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}
                   </button>
                 )}
                 <button
@@ -1505,7 +1648,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           onClick={() => setIsCardExpanded(false)}
         >
           <div
-            className="g-sheet mb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+14px)] md:mb-24 pointer-events-auto"
+            className="g-sheet g-sheet--above-nav pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag Handle */}
@@ -1523,11 +1666,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   {selectedItem.type === 'profile' ? (
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-[0_12px_24px_rgba(201,162,77,0.22)]">
+                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-[0_12px_24px_rgba(201,162,77,0.22)]">
+                      <span className="absolute inset-0 flex items-center justify-center text-xl text-white" aria-hidden="true">{selectedItem.item.name.charAt(0)}</span>
                       <img
                         src={selectedItem.item.photoUrl}
                         alt={selectedItem.item.name}
-                        className="w-full h-full object-cover"
+                        className="relative w-full h-full object-cover"
                         onError={(e) => {
                           // No stand-in portrait is substituted: a missing photo
                           // shows the person's initial instead.
@@ -1678,6 +1822,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 </div>
               </div>
 
+              {/* Verified peer profile details if a person or pulse is selected */}
+              {selectedItem.type !== 'haven' && (
+                <PeerProfileSummary
+                  userId={selectedItem.type === 'pulse' ? selectedItem.item.peerId : selectedItem.item.id}
+                />
+              )}
+
               {/* Action Buttons in Expanded Sheet */}
               <div className="pt-2 space-y-2">
                 {selectedItem.type === 'haven' ? (
@@ -1737,14 +1888,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => void handleGazeAtPerson(selectedItem.item.name)}
-                        className={`g-btn !min-h-[46px] !px-2 flex-1 ${gazedPeerNames.has(selectedItem.item.name)
+                        onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item.id)}
+                        className={`g-btn !min-h-[46px] !px-2 flex-1 ${gazedPeerNames.has(selectedItem.item.id)
                           ? 'g-btn--selected'
                           : 'g-btn--quiet'
                           }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
-                        <span>{gazedPeerNames.has(selectedItem.item.name) ? 'Gazed' : 'Gaze'}</span>
+                        <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}</span>
                       </button>
                     )}
 
@@ -1810,7 +1961,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <button
                     type="button"
                     onClick={handleClearFilters}
-                    className="g-btn g-btn--ghost !min-h-[36px] px-3 text-[12px]"
+                    className="g-btn g-btn--ghost !min-h-[44px] px-3 text-[12px]"
                   >
                     Reset
                   </button>
@@ -1818,7 +1969,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsFilterDrawerOpen(false)}
-                  className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                  className="g-icon-btn g-icon-btn--bare !w-11 !h-11"
                   aria-label="Close filters"
                 >
                   <X className="w-4 h-4" />
@@ -1972,7 +2123,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     setIsNearbyOpen(false);
                     setIsFilterDrawerOpen(true);
                   }}
-                  className="g-btn g-btn--quiet !min-h-[36px] px-3 text-[12px]"
+                  className="g-btn g-btn--quiet !min-h-[44px] px-3 text-[12px]"
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
                   Filter
@@ -1980,7 +2131,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsNearbyOpen(false)}
-                  className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                  className="g-icon-btn g-icon-btn--bare !w-11 !h-11"
                   aria-label="Close nearby list"
                 >
                   <X className="w-4 h-4" />
@@ -2150,7 +2301,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsUserIntentDrawerOpen(false)}
-                className="g-icon-btn g-icon-btn--bare !w-9 !h-9"
+                className="g-icon-btn g-icon-btn--bare !w-11 !h-11"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -2246,7 +2397,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button
                 type="button"
                 onClick={() => setMutualMatchPulse(null)}
-                className="g-icon-btn g-icon-btn--bare !w-9 !h-9 shrink-0"
+                className="g-icon-btn g-icon-btn--bare !w-11 !h-11 shrink-0"
                 aria-label="Dismiss"
               >
                 <X className="w-4 h-4" />

@@ -1,0 +1,233 @@
+/* GAYZE premium UI refinement — profile hero + intent composer
+   Loaded after the main design system so this layer is intentionally surgical. */
+
+/* --------------------------------------------------------------------------
+   LIVE INTENT COMPOSER
+   Social is the amber/gold language; Private remains violet.
+   -------------------------------------------------------------------------- */
+.g-sheet:has(.g-opt[data-tone='social'][data-active='true']) .g-optpill[data-active='true'] {
+  color: #fff8df;
+  border-color: rgba(236, 194, 92, 0.92);
+  background:
+    radial-gradient(130% 180% at 12% 0%, rgba(255, 226, 139, 0.18), transparent 52%),
+    linear-gradient(180deg, rgba(201, 162, 77, 0.18), rgba(70, 49, 17, 0.22));
+  box-shadow:
+    0 0 0 1px rgba(236, 194, 92, 0.26),
+    0 0 24px rgba(201, 162, 77, 0.15),
+    inset 0 1px 0 rgba(255, 244, 190, 0.16);
+  text-shadow: 0 0 16px rgba(236, 194, 92, 0.18);
+}
+
+.g-sheet:has(.g-opt[data-tone='social'][data-active='true']) .g-optpill[data-tone='amber'][data-active='true'] {
+  color: #fff8df;
+}
+
+.g-sheet__foot--social .g-btn--intent-social {
+  color: #171108;
+  border: 1px solid rgba(244, 212, 122, 0.78);
+  background:
+    radial-gradient(120% 170% at 12% 0%, rgba(255, 226, 139, 0.28), transparent 50%),
+    linear-gradient(180deg, #d8b45a 0%, #c9a24d 52%, #a97e2f 100%);
+  box-shadow:
+    0 12px 30px rgba(201, 162, 77, 0.28),
+    inset 0 1px 0 rgba(255,255,255,0.28),
+    inset 0 -1px 0 rgba(89, 61, 16, 0.26);
+}
+
+.g-sheet__foot--social .g-btn--intent-social:hover {
+  background:
+    radial-gradient(120% 170% at 12% 0%, rgba(255, 238, 174, 0.34), transparent 50%),
+    linear-gradient(180deg, #e2c06d 0%, #d0a852 52%, #b58938 100%);
+  box-shadow:
+    0 14px 34px rgba(201, 162, 77, 0.34),
+    inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+/* --------------------------------------------------------------------------
+   EXPANDED PROFILE SHEET
+   The selected user's primary photo becomes the visual hero. The existing
+   image node is promoted to a full-bleed layer, so the real profile asset is
+   used rather than a duplicate/background placeholder.
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .g-sheet.g-sheet--above-nav:has(img[alt]) {
+    border-radius: 26px 26px 0 0;
+    overflow: hidden;
+    background: #08090d;
+  }
+
+  /* Reserve a real hero area and stop the header from collapsing into the
+     first card. The fixed nav gap remains governed by .g-sheet--above-nav. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child {
+    position: relative;
+    min-height: 352px;
+    margin: 0 -20px;
+    padding: 0 20px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    isolation: isolate;
+  }
+
+  /* Full-bleed primary photo. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child > div:first-child > div.relative.w-14.h-14 {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 352px !important;
+    max-width: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    z-index: -2;
+    background: #11131a;
+  }
+
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child > div:first-child > div.relative.w-14.h-14 img {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center 28% !important;
+    display: block !important;
+    filter: saturate(0.98) contrast(1.04) brightness(0.84);
+    transform: scale(1.015);
+  }
+
+  /* Hide the initial because the real photo is now the hero. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child > div:first-child > div.relative.w-14.h-14 > span {
+    display: none !important;
+  }
+
+  /* Cinematic colour + black fade. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(90% 70% at 12% 22%, rgba(111, 60, 195, 0.26), transparent 62%),
+      radial-gradient(80% 60% at 92% 30%, rgba(201, 162, 77, 0.10), transparent 62%),
+      linear-gradient(180deg, rgba(5,6,10,0.05) 15%, rgba(5,6,10,0.10) 38%, rgba(5,6,10,0.52) 62%, #08090d 100%);
+  }
+
+  /* Purple/amber hairline remains visible over the hero, not behind it. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, #6F3CC3, #D43CBE 52%, #C9A24D);
+    opacity: 0.75;
+    pointer-events: none;
+  }
+
+  /* Name/status sits directly on the hero's black fade. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child > div:first-child {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0 20px 20px;
+    align-items: flex-end;
+    z-index: 3;
+  }
+
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child > div:first-child > div:last-child {
+    min-width: 0;
+  }
+
+  /* Close control floats over the photo without creating a layout collision. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child > button {
+    position: absolute;
+    top: 18px;
+    right: 16px;
+    z-index: 5;
+    width: 44px;
+    height: 44px;
+    border-radius: 15px;
+    background: rgba(10,11,16,0.48);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  }
+
+  /* Content begins after the hero, with deliberate breathing room. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) {
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, #08090d 0%, #08090d 100%);
+  }
+
+  .g-sheet.g-sheet--above-nav:has(img[alt]) .g-panel {
+    background:
+      radial-gradient(130% 130% at 10% 0%, rgba(111,60,195,0.08), transparent 58%),
+      linear-gradient(180deg, rgba(18,19,27,0.94), rgba(10,11,16,0.98));
+    border-color: rgba(255,255,255,0.10);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.035);
+  }
+
+  /* Profile action row: preserve three equal-width buttons and keep it clear
+     of the fixed bottom navigation. */
+  .g-sheet.g-sheet--above-nav:has(img[alt]) .g-btn {
+    min-height: 48px;
+  }
+
+  .g-sheet.g-sheet--above-nav:has(img[alt]) .g-sheet__grip {
+    position: relative;
+    z-index: 20;
+  }
+}
+
+@media (min-width: 768px) {
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child {
+    position: relative;
+    min-height: 320px;
+    margin: 0 -20px;
+    padding: 0 20px;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child > div:first-child > div.relative.w-14.h-14 {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 320px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    z-index: -2;
+  }
+
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child > div:first-child > div.relative.w-14.h-14 img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    filter: brightness(0.84) contrast(1.04);
+  }
+
+  .g-sheet.g-sheet--above-nav:has(img[alt]) > div:nth-child(2) > div:first-child::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(180deg, transparent 25%, rgba(8,9,13,0.15) 45%, #08090d 100%);
+  }
+}
+
+/* Keep the profile sheet comfortably above the persistent nav on every iPhone
+   viewport; Safari's safe-area inset is part of the available layout budget. */
+@media (max-width: 767px) {
+  .g-sheet.g-sheet--above-nav {
+    --g-sheet-bottom-gap: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px);
+    max-height: max(0px, calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-sheet-bottom-gap) - 10px));
+  }
+}

@@ -2,31 +2,70 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { DeletedRoomTracker } from './services/deletedRooms';
+import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
+import type { ChatConnectionState } from './services/realtimeRecovery';
+import type { MessageDelivery } from './services/chatSubscriptions';
+import { watchNotificationInbox, markNotificationRead, type NotificationInbox, type InboxNotification } from './services/notificationInbox';
+import { mergeMessage, mergeMessages } from './services/messageMerge';
+import { ChatMessageProcessor, MessageBatcher } from './services/chatMessageProcessing';
+import { beginChatTrace, clearChatTrace } from './services/chatTrace';
+import { ChatHistoryOwnership } from './services/chatHistoryOwnership';
+import { MessageAlerts } from './services/messageAlerts';
 
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
 import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
 import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
-import { EncryptedCallModal } from './components/EncryptedCallModal';
+import { FullScreenCallModal, FullScreenAudioCallModal } from './components/FullScreenCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
+import { initEnhancedPresence, formatLastSeen, type UserPresence } from './services/presenceService';
+import { loadCallHistory, getUnreadCallCount, markCallRecordsAsRead, markCallAsMissed } from './services/callHistoryService';
+import { sendMissedCallNotification, sendIncomingCallNotification, markCallNotificationsAsRead } from './services/callNotificationService';
+import type { EditSectionKey } from './config/profileOptions';
+import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { AuthView, type AuthMode } from './components/AuthView';
-import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY } from './services/supabaseClient';
+import { ProfileOnboarding } from './components/ProfileOnboarding';
+import { InstallPrompt } from './components/InstallPrompt';
+import { NotificationsModal } from './components/NotificationsModal';
+import {
+  finishPendingPushRevoke,
+  registerServiceWorker,
+  releasePushOnSignOut,
+  resyncSubscription,
+  watchPushSubscriptionRecovery,
+  revokeLocalPushSubscription,
+  updateAppBadge,
+} from './services/pushService';
+import {
+  isAuthPath,
+  isGayzeServiceWorkerMessage,
+  replacePath,
+  routeFromPath,
+  rememberNotificationPath,
+  consumeNotificationPath,
+} from './services/notificationRouting';
+import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
+import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
-import { FALLBACK_MAP_CENTER, NEUTRAL_AREA_LABEL, resolveAreaLabel } from './config/mapDefaults';
+import { FALLBACK_MAP_CENTER, MAX_TRAVEL_DISTANCE_KM, NEUTRAL_AREA_LABEL, clampTravelDistanceKm, resolveAreaLabel } from './config/mapDefaults';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
 const SafeHavenView = lazy(() => import('./components/SafeHavenView').then((module) => ({ default: module.SafeHavenView })));
+const ProfileEditSheet = lazy(() => import('./components/ProfileEditSheet').then((module) => ({ default: module.ProfileEditSheet })));
 const ChatRoomView = lazy(() => import('./components/ChatRoomView').then((module) => ({ default: module.ChatRoomView })));
 const DiscoverView = lazy(() => import('./components/DiscoverView').then((module) => ({ default: module.DiscoverView })));
 const ProfileView = lazy(() => import('./components/ProfileView').then((module) => ({ default: module.ProfileView })));
 const SwarmQRModal = lazy(() => import('./components/SwarmQRModal').then((module) => ({ default: module.SwarmQRModal })));
+const PublicProfileSheet = lazy(() => import('./components/PublicProfileSheet').then((module) => ({ default: module.PublicProfileSheet })));
 import {
   Pulse,
   Gathering,
@@ -53,6 +92,7 @@ import { encryptPayload, encryptWithConversationKey, decryptWithConversationKey,
 import {
   discoverRightNow,
   discoveryRowsToPulses,
+  resolvePulsesWithAvatars,
   ensureSupabaseSession,
   ensureSupabaseProfile,
   loadSupabaseProfile,
@@ -72,9 +112,15 @@ import {
   subscribeToRightNow,
   submitInterest,
   submitGaze,
-  loadConversationMessages,
+  saveIntimacyProfile,
+  updateProfileDetails,
+  loadIntimacyProfile,
+  loadProfileDetails,
+  loadIncomingInterests,
+  updateSupabaseProfile,
   persistConversationMessage,
   subscribeToConversationMessages,
+  subscribeToAllConversationMessages,
   verifyPeerIdentity,
   registerIdentityDevice,
   listIdentityDevices,
@@ -83,6 +129,7 @@ import {
   initPresence,
   createStoryFromIntent,
   loadMyConversations,
+  leaveConversation,
   loadConversationPeerKey,
   jitterLocation,
   privacyRadiusMeters,
@@ -150,6 +197,12 @@ export default function App() {
   const recoverySessionRef = useRef(false);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  // Travel distance the user picked in the Right Now filter sheet. Always
+  // clamped to the 5 km ceiling and mirrored into a ref so the discovery
+  // refresher can read it without re-subscribing.
+  const [travelDistanceKm, setTravelDistanceKm] = useState<number>(MAX_TRAVEL_DISTANCE_KM);
+  const travelDistanceKmRef = useRef<number>(MAX_TRAVEL_DISTANCE_KM);
+  useEffect(() => { travelDistanceKmRef.current = travelDistanceKm; }, [travelDistanceKm]);
   const requestUserLocation = async () => {
     try {
       setLocationError(null);
@@ -179,6 +232,7 @@ export default function App() {
   const locationPermissionStatusRef = useRef<'granted' | 'denied' | null>(null);
   const lastTrackedTabRef = useRef<string | null>(null);
 
+
   useEffect(() => {
     if (lastTrackedTabRef.current === activeTab) return;
     lastTrackedTabRef.current = activeTab;
@@ -190,6 +244,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
+    const supabaseClient = supabase;
 
     let disposed = false;
 
@@ -197,7 +252,10 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash || '';
       const search = window.location.search || '';
-      const isRecovery = hash.includes('type=recovery') || search.includes('type=recovery');
+      const pathname = window.location.pathname;
+      const isRecovery = pathname === AUTH_REDIRECT_PATHS.resetPassword
+        || hash.includes('type=recovery')
+        || search.includes('type=recovery');
       if (isRecovery) {
         recoverySessionRef.current = true;
         setForcedAuthMode('reset');
@@ -213,6 +271,7 @@ export default function App() {
         setAuthReady(true);
         return;
       }
+      setSessionUserId(data.session?.user?.id ?? null);
       setIsAuthenticated(Boolean(data.session?.user));
       setAuthReady(true);
     });
@@ -234,6 +293,13 @@ export default function App() {
       }
 
       if (event === 'SIGNED_OUT') {
+        // The session ended without the in-app sign-out handler (remote/global
+        // sign-out, invalid refresh token). The JWT is gone so the server row
+        // cannot be deleted under RLS, but this browser's endpoint can still be
+        // revoked so the previous account stops receiving pushes on this device.
+        void revokeLocalPushSubscription();
+        clearChatAccount();
+        setSessionUserId(null);
         authGenerationRef.current += 1;
         recoverySessionRef.current = false;
         setIsAuthenticated(false);
@@ -241,6 +307,11 @@ export default function App() {
         return;
       }
 
+      if (session?.user && supabaseUserIdRef.current && session.user.id !== supabaseUserIdRef.current) {
+        authGenerationRef.current += 1;
+        clearChatAccount();
+      }
+      setSessionUserId(session?.user?.id ?? null);
       const hasUser = Boolean(session?.user);
       if (hasUser && !recoverySessionRef.current) {
         setIsAuthenticated(true);
@@ -449,6 +520,22 @@ export default function App() {
   }, [isAuthenticated]);
 
   const [activeRoomId, setActiveRoomId] = useState<string>(() => (IS_LIVE_BACKEND ? '' : 'room_marcus'));
+  const directChatRequestRef = useRef(0);
+  const [chatOpenRequest, setChatOpenRequest] = useState<{ roomId: string; sequence: number } | null>(null);
+  const [visibleChatRoomId, setVisibleChatRoomId] = useState<string | null>(null);
+  const visibleChatRoomRef = useRef<string | null>(null);
+  const reportVisibleChatRoom = useCallback((id: string | null) => {
+    visibleChatRoomRef.current = id;
+    setVisibleChatRoomId(id);
+  }, []);
+  function requestConversationOpen(roomId: string) {
+    directChatRequestRef.current++;
+    beginChatTrace(roomId);
+    setChatOpenRequest(previous => ({ roomId, sequence: (previous?.sequence ?? 0) + 1 }));
+    setActiveRoomId(roomId);
+    setActiveTab('swarms');
+  }
+
 
   // Local safety check-in timer state
   const [checkinState, setCheckinState] = useState<SafetyCheckin>(() => {
@@ -467,10 +554,27 @@ export default function App() {
   // Modals & Mask
   const [isMaskActive, setIsMaskActive] = useState(false);
   const [isIdentityOpen, setIsIdentityOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSafetyTimerOpen, setIsSafetyTimerOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
+  const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
+  const [profileEditSection, setProfileEditSection] = useState<EditSectionKey | null>(null);
+  const [viewingPublicProfile, setViewingPublicProfile] = useState<{
+    userId: string | null;
+    fallbackName?: string;
+    fallbackAge?: number;
+    fallbackArea?: string;
+    fallbackIntent?: string;
+    fallbackPhotoUrl?: string;
+    fallbackOnline?: boolean;
+  } | null>(null);
+  const knownIncomingInterestIdsRef = useRef<Set<string>>(new Set());
+  const [notificationInbox, setNotificationInbox] = useState<NotificationInbox | null>(null);
+  const [notificationInboxStatus, setNotificationInboxStatus] = useState<ChatConnectionState>('connecting');
+  const notificationRefreshRef = useRef<() => void>(() => {});
+  const unreadMessageCount = notificationInbox?.messageUnread ?? 0;
   const toastTimeoutRef = useRef<number | null>(null);
 
   // Schedule Meeting Modal state
@@ -480,11 +584,18 @@ export default function App() {
   // Encrypted Calling state
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [callPeerName, setCallPeerName] = useState<string>('Marcus');
+  const [callPeerAvatar, setCallPeerAvatar] = useState<string | undefined>(undefined);
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
   const [callTargetUserId, setCallTargetUserId] = useState<string | undefined>(undefined);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [isIncomingCallActive, setIsIncomingCallActive] = useState(false);
+  const [inboxConnection, setInboxConnection] = useState<ChatConnectionState>('connecting');
+  const [chatConnection, setChatConnection] = useState<{ roomId: string; state: ChatConnectionState }>({ roomId: '', state: 'connecting' });
+  const [presenceProfileUserId, setPresenceProfileUserId] = useState<string | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [presenceMap, setPresenceMap] = useState<Map<string, UserPresence>>(new Map());
+  const [callHistory, setCallHistory] = useState<any[]>([]);
+  const [unreadCallCount, setUnreadCallCount] = useState<number>(0);
 
   // Set Intent Sheet state — canonical Right Now intent state.
   // Hydrate once from local storage so Discover / Right Now stay consistent
@@ -514,6 +625,8 @@ export default function App() {
   const [supabaseRightNowPulses, setSupabaseRightNowPulses] = useState<Pulse[]>([]);
   const [supabaseReady, setSupabaseReady] = useState(false);
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [showProfileOnboarding, setShowProfileOnboarding] = useState(false);
   const [identityDevices, setIdentityDevices] = useState<import('./services/supabaseService').IdentityDevice[]>([]);
   const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState<string | null>(null);
 
@@ -528,16 +641,121 @@ export default function App() {
   // ---------------------------------------------------------------------------
 
   const supabaseUserIdRef = useRef<string | null>(null);
+  const messageProcessorRef = useRef(new ChatMessageProcessor(resolveConversationKey, decryptWithConversationKey));
+  const messageAlertsRef = useRef(new MessageAlerts());
+  const loadedMessageIdsRef = useRef(new Set<string>());
+  const historyOwnershipRef = useRef(new ChatHistoryOwnership());
+  const messageBatcherRef = useRef<MessageBatcher | null>(null);
+  if (!messageBatcherRef.current) messageBatcherRef.current = new MessageBatcher((batch) => {
+    const userId = supabaseUserIdRef.current;
+    const generation = authGenerationRef.current;
+    if (!userId) return;
+    const grouped = new Map<string, EncryptedMessage[]>();
+    for (const message of batch) {
+      const rows = grouped.get(message.roomId) ?? [];
+      rows.push(message); grouped.set(message.roomId, rows);
+    }
+    setMessages((prev) => {
+      if (supabaseUserIdRef.current !== userId || authGenerationRef.current !== generation) return prev;
+      let next = prev;
+      for (const [roomId, rows] of grouped) {
+        const merged = mergeMessages(prev[roomId] ?? [], rows);
+        if (merged !== prev[roomId]) { if (next === prev) next = { ...prev }; next[roomId] = merged; }
+      }
+      return next;
+    });
+    setRooms((prev) => {
+      if (supabaseUserIdRef.current !== userId || authGenerationRef.current !== generation) return prev;
+      let changed = false;
+      const next = prev.map((room) => {
+        const latest = (grouped.has(room.id) ? mergeMessages([], grouped.get(room.id)!).at(-1) : undefined);
+        if (!latest || latest.timestamp < room.lastTimestamp) return room;
+        const text = latest.isBurned ? '' : latest.plainText === '[Encrypted message]' && room.lastTimestamp === latest.timestamp ? room.lastMessage : latest.plainText;
+        if (room.lastTimestamp === latest.timestamp && room.lastMessage === text) return room;
+        changed = true;
+        return { ...room, lastTimestamp: latest.timestamp, lastMessage: text };
+      });
+      return changed ? next.sort((a, b) => b.lastTimestamp - a.lastTimestamp) : prev;
+    });
+  });
+  const queueMessage = (message: EncryptedMessage) => {
+    loadedMessageIdsRef.current.add(message.id);
+    messageBatcherRef.current!.add(message);
+  };
+  const clearMessageWork = () => {
+    clearChatTrace();
+    messageProcessorRef.current.clear();
+    messageBatcherRef.current?.clear();
+    loadedMessageIdsRef.current.clear();
+    historyOwnershipRef.current.clear();
+  };
+  useEffect(() => () => { clearMessageWork(); messageAlertsRef.current.clear(); }, []);
+  const presentIncomingMessage = (messageId: string, roomId: string, recipientId: string) => messageAlertsRef.current.present(messageId, roomId, {
+    foreground: document.visibilityState === 'visible' && document.hasFocus(),
+    viewingRoom: activeTabRef.current === 'swarms' ? visibleChatRoomRef.current : null,
+    userId: supabaseUserIdRef.current, recipientId,
+  }, () => { showToast('New GAYZE message'); hapticMessageDecrypted(); });
+  // Delete-chat bookkeeping. A list load that STARTED before a delete was
+  // confirmed may still contain the deleted room and must not resurrect it;
+  // any load started afterwards reflects server truth (so a genuinely
+  // recreated conversation becomes visible again). Entries are not permanent.
+  const conversationLoadEpochs = useRef(new WeakMap<object, number>()).current;
+  const deletedRooms = useRef(new DeletedRoomTracker()).current;
+  const conversationLoadRef = useRef<{ userId: string; work: ReturnType<typeof loadMyConversations> } | null>(null);
+  const loadConversationListOnce = (userId: string) => {
+    const pending = conversationLoadRef.current;
+    if (pending?.userId === userId) return pending.work;
+    const startEpoch = deletedRooms.currentEpoch;
+    const entry = {
+      userId,
+      work: loadMyConversations().then((result) => {
+        if (result) conversationLoadEpochs.set(result, startEpoch);
+        return result;
+      }),
+    };
+    conversationLoadRef.current = entry;
+    void entry.work.finally(() => { if (conversationLoadRef.current === entry) conversationLoadRef.current = null; }).catch(() => {});
+    return entry.work;
+  };
+
+  function clearChatAccount() {
+    deletedRooms.clear();
+    clearMessageWork();
+    messageAlertsRef.current.clear();
+    conversationLoadRef.current = null;
+    supabaseUserIdRef.current = null;
+    setSupabaseUserId(null);
+    setMessages({});
+    setRooms([]);
+    setActiveRoomId('');
+    setChatOpenRequest(null);
+    reportVisibleChatRoom(null);
+    setNotificationInbox(null);
+    initialRouteAppliedRef.current = false;
+    setOnlineUserIds(new Set());
+    setPresenceProfileUserId(null);
+    setIncomingCall(null);
+    setCurrentUser(LIVE_EMPTY_USER);
+  }
+
   const currentUserRef = useRef(currentUser);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
 
   const roomsRef = useRef<SwarmRoom[]>(rooms);
   useEffect(() => { roomsRef.current = rooms; }, [rooms]);
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  const activeRoomIdRef = useRef(activeRoomId);
+  useEffect(() => { activeRoomIdRef.current = activeRoomId; }, [activeRoomId]);
 
   const activeUserIntentRef = useRef<UserActiveIntent | null>(activeUserIntent);
   useEffect(() => { activeUserIntentRef.current = activeUserIntent; }, [activeUserIntent]);
 
+  const withoutDeletedRooms = (loaded: SwarmRoom[], result: object) =>
+    deletedRooms.filter(loaded, conversationLoadEpochs.get(result) ?? -1);
+
   const refreshDiscoveryRef = useRef<() => Promise<void>>(async () => undefined);
+  const refreshConversationListRef = useRef<() => Promise<void>>(async () => undefined);
 
   const refreshDiscovery = async () => {
     if (!IS_LIVE_BACKEND) return;
@@ -545,10 +763,15 @@ export default function App() {
     if (!viewerId || isSigningOutRef.current) return;
     const generation = authGenerationRef.current;
     try {
-      const rows = await discoverRightNow({ radiusMeters: 5000 });
+      // The user's selected travel distance reaches discovery, clamped to the
+      // 5 km ceiling so a wider radius can never be requested.
+      const radiusMeters = Math.round(clampTravelDistanceKm(travelDistanceKmRef.current) * 1000);
+      const rows = await discoverRightNow({ radiusMeters });
       if (generation !== authGenerationRef.current || isSigningOutRef.current) return;
       // The authenticated user is never part of their own nearby list.
-      setSupabaseRightNowPulses(discoveryRowsToPulses(rows, viewerId));
+      const pulsesWithAvatars = await resolvePulsesWithAvatars(discoveryRowsToPulses(rows, viewerId));
+      if (generation !== authGenerationRef.current || isSigningOutRef.current) return;
+      setSupabaseRightNowPulses(pulsesWithAvatars);
       setSupabaseReady(true);
     } catch (error) {
       console.warn('[GAYZE] Discovery refresh failed:', error);
@@ -560,8 +783,15 @@ export default function App() {
   // callbacks below without re-subscribing on every render.
   useEffect(() => { refreshDiscoveryRef.current = refreshDiscovery; });
 
+  // Changing the travel distance re-runs live discovery at the new radius.
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated) return;
+    void refreshDiscoveryRef.current();
+  }, [travelDistanceKm, isAuthenticated]);
+
   // 1. Session, profile and device identity.
   useEffect(() => {
+    setPresenceProfileUserId(null);
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut) return;
     let disposed = false;
     const generation = authGenerationRef.current;
@@ -571,6 +801,8 @@ export default function App() {
       try {
         const user = await ensureSupabaseSession();
         if (!user || isStale()) return;
+        setShowProfileOnboarding(user.user_metadata?.profile_complete !== true);
+        if (supabaseUserIdRef.current !== user.id) { clearMessageWork(); messageAlertsRef.current.clear(); }
         supabaseUserIdRef.current = user.id;
         setSupabaseUserId(user.id);
 
@@ -595,20 +827,71 @@ export default function App() {
           shortKey,
         };
 
-        await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
-        if (isStale()) return;
+        // Publish a complete local user immediately. A brand-new account may
+        // not have a profiles row yet; waiting for the profile round-trip left
+        // the authenticated shell with the empty live fixture and could make
+        // downstream identity-dependent UI render with incomplete state.
+        setCurrentUser(identityUser);
 
-        const savedProfile = await loadSupabaseProfile(user.id);
-        if (isStale()) return;
-        if (savedProfile) {
-          setCurrentUser((prev) => ({
-            ...prev,
-            ...Object.fromEntries(Object.entries(savedProfile).filter(([, value]) => value !== undefined)),
-            // The device identity key is what peers need for E2EE; only this
-            // bootstrap may set it, and it is never overwritten from a fingerprint.
-            publicKey: identity.fingerprint,
-            shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
-          }));
+        // Load the persisted profile first, then merge the additive profile
+        // details and intimacy fields. Each optional layer fails soft so a
+        // missing migration/schema never prevents the authenticated shell.
+        try {
+          const profileRow = await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
+          if (isStale()) return;
+
+          const savedProfile = await loadSupabaseProfile(user.id);
+          if (isStale()) return;
+          if (savedProfile) {
+            setPresenceProfileUserId(user.id);
+            setCurrentUser((prev) => ({
+              ...prev,
+              // Bootstrap already reads our own complete profile row. Honour
+              // a deployed incognito flag without assuming a new DB column or
+              // letting an unknown/failed profile read publish presence.
+              presenceIncognito: !profileRow || profileRow.presence_incognito === true,
+              ...Object.fromEntries(
+                Object.entries(savedProfile).filter(([, value]) => value !== undefined),
+              ),
+              // The device identity key is what peers need for E2EE; only this
+              // bootstrap may set it, and it is never overwritten from a fingerprint.
+              publicKey: identity.fingerprint,
+              shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+            }));
+          }
+        } catch (error) {
+          console.warn('[GAYZE] Profile bootstrap failed:', error);
+        }
+
+        // "About you" details and intimacy are additive and may depend on
+        // migrations being present. Keep them independent and fail soft.
+        try {
+          const savedDetails = await loadProfileDetails(user.id);
+          if (isStale()) return;
+          if (savedDetails) {
+            setCurrentUser((prev) => ({
+              ...prev,
+              availability: savedDetails.availability,
+              mySetup: savedDetails.mySetup,
+              boundaries: savedDetails.boundaries,
+              hobbies: savedDetails.hobbies,
+              bodyType: savedDetails.bodyType ?? undefined,
+              heightCm: savedDetails.heightCm ?? undefined,
+              pronouns: savedDetails.pronouns ?? undefined,
+            }));
+          }
+        } catch (error) {
+          console.warn('[GAYZE] Profile details load skipped:', error);
+        }
+
+        try {
+          const savedIntimacy = await loadIntimacyProfile(user.id);
+          if (isStale()) return;
+          if (savedIntimacy) {
+            setCurrentUser((prev) => ({ ...prev, intimacy: savedIntimacy }));
+          }
+        } catch (error) {
+          console.warn('[GAYZE] Intimacy profile load skipped:', error);
         }
 
         try {
@@ -629,7 +912,7 @@ export default function App() {
     })();
 
     return () => { disposed = true; };
-  }, [isAuthenticated, isSigningOut]);
+  }, [isAuthenticated, isSigningOut, sessionUserId]);
 
   // 2. Active intent: hydrate from Supabase, expire locally when it lapses.
   useEffect(() => {
@@ -673,21 +956,121 @@ export default function App() {
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
   // 4. Conversation list hydration (Supabase is the source of truth).
+  const refreshConversationList = async () => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut) return;
+    const viewerId = supabaseUserIdRef.current;
+    if (!viewerId) return;
+    const result = await loadConversationListOnce(viewerId);
+    if (!result || isSigningOutRef.current || supabaseUserIdRef.current !== viewerId) return;
+    const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, viewerId), result);
+    setRooms((prev) => mergeBackendRooms(prev, loaded, viewerId));
+  };
+
+  useEffect(() => {
+    refreshConversationListRef.current = refreshConversationList;
+  });
+
   useEffect(() => {
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
     let disposed = false;
-    void (async () => {
-      const result = await loadMyConversations();
-      if (disposed || !result || isSigningOutRef.current) return;
-      const loaded = buildRoomsFromSupabase(result, supabaseUserId);
-      setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserId));
-    })();
-    return () => { disposed = true; };
+    void refreshConversationListRef.current();
+    const poll = window.setInterval(() => {
+      if (!disposed) void refreshConversationListRef.current();
+    }, 5000);
+    return () => { disposed = true; window.clearInterval(poll); };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
+  // Global message stream: the inbox receives messages even when the user is
+  // on another destination. The conversation poll also catches newly-created rooms.
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    let disposed = false;
+    const latestHistory = new Map<string, { id: string; timestamp: number }>();
+    const unsubscribe = subscribeToAllConversationMessages(
+      async (row, delivery) => {
+        if (disposed || !delivery.current() || supabaseUserIdRef.current !== supabaseUserId) return;
+        if (delivery.notify && row.sender_id !== supabaseUserId) presentIncomingMessage(row.id, row.conversation_id, supabaseUserId);
+        const previous = latestHistory.get(row.conversation_id);
+        const timestamp = Date.parse(row.created_at);
+        const isLatest = !previous || timestamp > previous.timestamp || (timestamp === previous.timestamp && row.id >= previous.id);
+        if (isLatest) latestHistory.set(row.conversation_id, { id: row.id, timestamp });
+        // Inbox needs recent previews, new arrivals and mutations to rows already
+        // displayed. The active room owns full history; do not decrypt every old
+        // conversation merely to populate a one-line inbox preview.
+        if (!isLatest && !loadedMessageIdsRef.current.has(row.id)) {
+          historyOwnershipRef.current.unseenOlderRow(row.conversation_id);
+          // A newly committed old row in the visible room must still be decoded.
+          // Other rooms lose warm eligibility and do a full read when reopened.
+          if (!delivery.notify && activeRoomIdRef.current !== row.conversation_id) return true;
+        }
+        const processingGeneration = messageProcessorRef.current.generation;
+        let room = roomsRef.current.find((candidate) => candidate.id === row.conversation_id);
+        if (!room) {
+          const result = await loadConversationListOnce(supabaseUserId);
+          if (disposed || !delivery.current()) return;
+          if (result) {
+            const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, supabaseUserIdRef.current || ''), result);
+            setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserIdRef.current || ''));
+            room = loaded.find((candidate) => candidate.id === row.conversation_id);
+          }
+        }
+        if (disposed || !delivery.current()) return;
+        if (!room) throw new Error('Conversation metadata unavailable');
+
+        if (row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())) messageProcessorRef.current.forget(row, supabaseUserId);
+        let plainText = '[Encrypted message]';
+        let mediaUrl: string | undefined;
+        let decryptedOk = false;
+        for (let attempt = 0; attempt < (delivery.notify ? 3 : 1) && row.nonce && !row.burned_at && (!row.expires_at || Date.parse(row.expires_at) > Date.now()) && !decryptedOk; attempt += 1) {
+          try {
+            if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
+            const decrypted = await messageProcessorRef.current.text(room, row, supabaseUserId);
+            if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
+              try {
+                const parsed = JSON.parse(decrypted);
+                plainText = parsed.text || '';
+                mediaUrl = parsed.mediaUrl;
+              } catch { plainText = decrypted; }
+            } else { plainText = decrypted; }
+            decryptedOk = true;
+          } catch (error) {
+            if (attempt < (delivery.notify ? 2 : 0)) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
+            else console.warn('[GAYZE] Global message decryption failed', error);
+          }
+        }
+
+        if (disposed || !delivery.current() || supabaseUserIdRef.current !== supabaseUserId) return;
+        if (processingGeneration !== messageProcessorRef.current.generation) return false;
+        const senderName = row.sender_id === supabaseUserId ? 'You' : room.memberNames?.[row.sender_id] || room.peerName || room.name || 'Gayze member';
+        const message: EncryptedMessage = {
+          id: row.id, roomId: row.conversation_id, senderKey: row.sender_id, senderName,
+          timestamp: new Date(row.created_at).getTime(), cipherText: row.ciphertext,
+          nonceHex: row.nonce || '', plainText, expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
+          isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined,
+        };
+
+        queueMessage(message);
+        return decryptedOk || message.isBurned || !row.nonce;
+      },
+      (status) => {
+        if (disposed) return;
+        historyOwnershipRef.current.inboxState(status);
+        setInboxConnection(status);
+        if (status === 'sign-in-required' && supabaseUserIdRef.current === supabaseUserId) {
+          authGenerationRef.current += 1;
+          clearChatAccount();
+          setSessionUserId(null);
+          setIsAuthenticated(false);
+          void revokeLocalPushSubscription();
+        }
+      },
+      supabaseUserId,
+    );
+    return () => { disposed = true; unsubscribe(); };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
   // WebRTC User Signaling & Truthful Presence
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabaseUserId) return;
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
 
     // 1. Listen for incoming call requests
     const unsubSignaling = webrtcCallService.initUserSignaling(
@@ -700,16 +1083,37 @@ export default function App() {
       }
     );
 
-    // 2. Track truthful Realtime presence
-    const unsubPresence = initPresence(supabaseUserId, currentUser.displayName, (onlineIds) => {
-      setOnlineUserIds(onlineIds);
-    });
+    return unsubSignaling;
+  }, [supabaseUserId, isAuthenticated, isSigningOut]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    // Use enhanced presence system for both online status and last seen
+    const visible = presenceProfileUserId === supabaseUserId && !currentUser.presenceIncognito && currentUser.privacySetting !== 'ghost';
+    
+    const unsubPresence = initEnhancedPresence(
+      supabaseUserId, 
+      currentUser.displayName, 
+      (presenceMap) => {
+        // Convert presence map to online user IDs for backward compatibility
+        const onlineIds = new Set<string>();
+        presenceMap.forEach((presence, userId) => {
+          if (presence.isOnline) {
+            onlineIds.add(userId);
+          }
+        });
+        setOnlineUserIds(onlineIds);
+        setPresenceMap(presenceMap);
+      },
+      visible
+    );
 
     return () => {
-      unsubSignaling();
       unsubPresence();
+      setOnlineUserIds(new Set());
+      setPresenceMap(new Map());
     };
-  }, [supabaseUserId, currentUser.displayName]);
+  }, [supabaseUserId, currentUser.displayName, currentUser.presenceIncognito, currentUser.privacySetting, presenceProfileUserId, isAuthenticated, isSigningOut]);
 
   // Local persistence is limited to local/demo mode (no Supabase configured).
   // In live mode Supabase is the source of truth: nothing here is written from
@@ -815,19 +1219,239 @@ export default function App() {
     if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
   }, []);
 
-  // Handlers for "Right Now"
-  const handleOpenDirectChatFromPulse = async (pulse: Pulse, conversationId?: string) => {
-    const isSupabaseConversation = Boolean(
-      isSupabaseConfigured
-      && conversationId
-      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(conversationId)
-    );
-    // Check if room already exists
-    const existingRoom = rooms.find((r) => r.id === conversationId || (!conversationId && (r.peerUserId === pulse.peerId || r.peerKey?.includes(pulse.peerShortKey) || r.name === pulse.peerName)));
+  // ---------------------------------------------------------------------
+  // PWA / Web Push
+  //
+  // The service worker is what makes Gayze installable and is the only way to
+  // receive a real OS-level push. Registration is independent of auth so the
+  // install prompt and offline shell work before sign-in.
+  // ---------------------------------------------------------------------
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('notification')) {
+      rememberNotificationPath(window.location.pathname + window.location.search);
+    }
+    void registerServiceWorker();
+    // Finish revoking this browser's push subscription if a previous sign-out
+    // could not confirm it (shared-device safety). No-op otherwise.
+    void finishPendingPushRevoke();
+  }, []);
 
+  useEffect(() => {
+    if (!isAuthenticated || isSigningOut || !supabaseUserId) return;
+    return watchPushSubscriptionRecovery(supabaseUserId);
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+
+  // Apply a notification deep link on first authenticated render. Auth
+  // callback paths are skipped so this can never interfere with the Supabase
+  // OAuth/PKCE round trip.
+  const initialRouteAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || initialRouteAppliedRef.current || typeof window === 'undefined') return;
+    initialRouteAppliedRef.current = true;
+
+    const path = consumeNotificationPath() ?? window.location.pathname + window.location.search;
+    if (path === '/' || isAuthPath(path)) return;
+    replacePath(path);
+    const route = routeFromPath(path);
+    setActiveTab(route.tab);
+    if (route.conversationId) requestConversationOpen(route.conversationId);
+    if (route.openNotifications) setIsNotificationsOpen(true);
+  }, [isAuthenticated]);
+
+  // Messages posted by the service worker: notification taps and endpoint
+  // rotation. Routing happens in-place so the authenticated session survives.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      const data: unknown = event.data;
+      if (!isGayzeServiceWorkerMessage(data)) return;
+
+      if (data.type === 'PRESENT_MESSAGE') {
+        const payload = data.payload as { messageId?: string; conversationId?: string; recipientId?: string; presentationExpiresAt?: number } | undefined;
+        const uuid = /^[0-9a-f-]{36}$/i;
+        const handled = Boolean(payload && typeof payload.presentationExpiresAt === 'number' && payload.presentationExpiresAt >= Date.now() && uuid.test(payload.messageId ?? '') && uuid.test(payload.conversationId ?? '') && payload.recipientId
+          && presentIncomingMessage(payload.messageId!, payload.conversationId!, payload.recipientId));
+        event.ports[0]?.postMessage({ handled });
+        return;
+      }
+      if (data.type === 'PUSH_RECEIVED') {
+        const payload = data.payload as { messageId?: string; recipientId?: string } | undefined;
+        if (payload?.messageId && /^[0-9a-f-]{36}$/i.test(payload.messageId) && payload.recipientId) {
+          messageAlertsRef.current.acknowledged(payload.messageId, payload.recipientId, supabaseUserIdRef.current);
+        }
+        notificationRefreshRef.current(); return;
+      }
+      if (data.type === 'NOTIFICATION_CLICK' && data.url) {
+        if (data.navigationExpiresAt && data.navigationExpiresAt < Date.now()) return;
+        const parsed = new URL(data.url, window.location.origin);
+        if (parsed.origin !== window.location.origin) return;
+        if (!supabaseUserIdRef.current) rememberNotificationPath(data.url);
+        const notificationId = parsed.searchParams.get('notification');
+        if (notificationId && /^[0-9a-f-]{36}$/i.test(notificationId) && supabaseUserIdRef.current) {
+          void markNotificationRead(notificationId).then(() => notificationRefreshRef.current()).catch(() => {});
+        }
+        const route = routeFromPath(data.url);
+        setActiveTab(route.tab);
+        if (route.conversationId) requestConversationOpen(route.conversationId);
+        if (route.openNotifications) setIsNotificationsOpen(true);
+        replacePath(data.url);
+        event.ports[0]?.postMessage({ handled: true });
+        return;
+      }
+
+      if (data.type === 'PUSH_SUBSCRIPTION_CHANGED') {
+        const account = supabaseUserIdRef.current;
+        if (account) void resyncSubscription(data.oldEndpoint ?? null, account, () => supabaseUserIdRef.current === account);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+  }, []);
+
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) {
+      setNotificationInbox(null); updateAppBadge(0); return;
+    }
+    let disposed = false;
+    const owner = watchNotificationInbox(supabaseUserId, (inbox) => {
+      if (!disposed && supabaseUserIdRef.current === supabaseUserId) setNotificationInbox(inbox);
+    }, (state) => { if (!disposed) setNotificationInboxStatus(state); });
+    notificationRefreshRef.current = owner.refresh;
+    return () => { disposed = true; owner.stop(); notificationRefreshRef.current = () => {}; };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+
+  // Unread state is read from PostgreSQL, never incremented/cleared by tab clicks.
+  useEffect(() => {
+    if (notificationInbox) updateAppBadge(notificationInbox.unread);
+  }, [notificationInbox]);
+
+  useEffect(() => {
+    if (!supabaseUserId || !isAuthenticated) return;
+    const markVisibleRoom = () => {
+      if (document.visibilityState !== 'visible' || activeTab !== 'swarms' || !activeRoomId || visibleChatRoomId !== activeRoomId) return;
+      if (chatConnection.roomId !== activeRoomId || chatConnection.state !== 'connected' || conversationKeyState.roomId !== activeRoomId || conversationKeyState.status !== 'ready') return;
+      if (!notificationInbox?.rows.some((row) => !row.read_at && row.category === 'message' && row.url === `/messages/${activeRoomId}`)) return;
+      void markNotificationRead(undefined, activeRoomId).then(() => notificationRefreshRef.current()).catch(() => {});
+    };
+    markVisibleRoom(); document.addEventListener('visibilitychange', markVisibleRoom);
+    return () => document.removeEventListener('visibilitychange', markVisibleRoom);
+  }, [notificationInbox, activeTab, activeRoomId, visibleChatRoomId, supabaseUserId, isAuthenticated, chatConnection, conversationKeyState]);
+
+  // Cold-start notification click survives login; the RPC can mark only OUR row.
+  useEffect(() => {
+    if (!isAuthenticated || !supabaseUserId) return;
+    const id = new URLSearchParams(window.location.search).get('notification');
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) {
+      void markNotificationRead(id).then(() => notificationRefreshRef.current()).catch(() => {});
+    }
+  }, [isAuthenticated, supabaseUserId]);
+
+  const openInboxNotification = async (notice: InboxNotification) => {
+    const account = supabaseUserIdRef.current, generation = authGenerationRef.current;
+    try {
+      await markNotificationRead(notice.id);
+      if (account !== supabaseUserIdRef.current || generation !== authGenerationRef.current) return;
+      notificationRefreshRef.current();
+      const route = routeFromPath(notice.url);
+      setActiveTab(route.tab);
+      if (route.conversationId) requestConversationOpen(route.conversationId);
+      setIsNotificationsOpen(Boolean(route.openNotifications));
+      replacePath(notice.url);
+    } catch { showToast('Could not update the notification. Please try again.'); }
+  };
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !isAuthenticated || !supabaseUserId) return;
+    // Bind the non-null client inside this effect. The auth-bootstrap effect has
+    // its own local binding; referencing that one from here was a scope error
+    // that threw a ReferenceError the moment a user authenticated.
+    const supabaseClient = supabase;
+    let disposed = false;
+    let initialised = false;
+
+    const handleInterestChange = async () => {
+      const incoming = await loadIncomingInterests();
+      if (disposed) return;
+
+      const currentIds = new Set(incoming.map((interest) => interest.id));
+      if (!initialised) {
+        knownIncomingInterestIdsRef.current = currentIds;
+        initialised = true;
+        return;
+      }
+
+      const newInterest = incoming.find((interest) => !knownIncomingInterestIdsRef.current.has(interest.id));
+      knownIncomingInterestIdsRef.current = currentIds;
+      if (!newInterest) return;
+
+      triggerVibration([40, 60, 100]);
+      showToast(`New interest from ${newInterest.fromDisplayName}`);
+    };
+
+    void handleInterestChange();
+    const channel = supabaseClient
+      .channel('gayze-incoming-interests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'interests' }, () => {
+        void handleInterestChange();
+      })
+      .subscribe((status, error) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[GAYZE] Incoming interest realtime unavailable:', error);
+        }
+      });
+
+    return () => {
+      disposed = true;
+      void supabaseClient.removeChannel(channel);
+    };
+  }, [isAuthenticated, supabaseUserId]);
+
+
+  // Handlers for "Right Now"
+  const handleOpenDirectChatFromPulse = async (pulse: Pick<Pulse, 'id' | 'peerId' | 'peerName' | 'peerAvatar' | 'neighborhood' | 'title' | 'intentMode'>, conversationId?: string) => {
+    const request = ++directChatRequestRef.current;
+    const account = supabaseUserIdRef.current;
+    const generation = authGenerationRef.current;
+    const current = () => Boolean(request === directChatRequestRef.current && account && account === supabaseUserIdRef.current
+      && generation === authGenerationRef.current && !isSigningOutRef.current);
+    if (isSupabaseConfigured) {
+      if (!isAuthenticated || !current()) { showToast('Sign in to open this conversation.'); return; }
+      if (conversationId && (!isConversationId(conversationId) || !isConversationId(pulse.peerId))) {
+        showToast('This conversation is unavailable.'); return;
+      }
+      if (!conversationId) {
+        try {
+          const target = await resolveLiveDirectChat({
+            peerId: pulse.peerId, rooms: roomsRef.current, current,
+            loadRooms: async () => {
+              const result = await loadConversationListOnce(account!);
+              if (!result || !current()) return null;
+              const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, account!), result);
+              setRooms(previous => mergeBackendRooms(previous, loaded, account!));
+              return loaded;
+            },
+            submitInterest: () => submitInterest(pulse.peerId,
+              pulse.id.startsWith('supabase_') ? pulse.id.slice('supabase_'.length) : undefined),
+          });
+          if (!current()) return;
+          if (target.kind === 'existing') requestConversationOpen(target.room.id);
+          else if (target.kind === 'matched') await handleOpenDirectChatFromPulse(pulse, target.conversationId);
+          else if (target.kind === 'pending') showToast('Interest sent to ' + pulse.peerName);
+        } catch {
+          if (current()) showToast('Could not open this conversation. Please try again.');
+        }
+        return;
+      }
+    }
+    const isSupabaseConversation = Boolean(isSupabaseConfigured && conversationId);
+    const conflictingRoom = conversationId && roomsRef.current.find(room => room.id === conversationId
+      && (room.type !== 'direct' || (room.peerUserId && room.peerUserId !== pulse.peerId)));
+    if (conflictingRoom) { showToast('This conversation does not match the selected person.'); return; }
+    const existingRoom = findDirectRoom(roomsRef.current, pulse.peerId, conversationId);
     if (existingRoom) {
-      setActiveRoomId(existingRoom.id);
-      setActiveTab('swarms');
+      requestConversationOpen(existingRoom.id);
       analytics.logEvent('chat_opened', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
       return;
     }
@@ -854,13 +1478,15 @@ export default function App() {
       peerAvatar: pulse.peerAvatar,
       safetyNumber: demoSafetyNumber,
       swarmSecretKeyHex: demoRoomSecret,
-      connectionContext: `Connected via ${pulse.intentMode || 'social'} intent: ${pulse.title}`,
-      lastMessage: `Connected via pulse: "${pulse.title}"`,
+      connectionContext: pulse.id ? `Connected via ${pulse.intentMode || 'social'} intent: ${pulse.title}` : `Connected via Discover: ${pulse.title}`,
+      lastMessage: pulse.id ? `Connected via pulse: "${pulse.title}"` : 'Connected via Discover',
       lastTimestamp: Date.now(),
       ephemeralTtlSeconds: 3600, // default 1 hr burner
     };
 
-    setRooms((prev) => [newRoom, ...prev]);
+    setRooms((prev) => prev.some(room => room.id === roomId)
+      ? prev.map(room => room.id === roomId ? { ...room, peerUserId: pulse.peerId, peerName: pulse.peerName } : room)
+      : [newRoom, ...prev]);
     if (!isSupabaseConversation) {
       // Demo mode only: the opening line is encrypted with the room secret
       // rather than stored as a hand-written placeholder ciphertext.
@@ -885,8 +1511,7 @@ export default function App() {
       }
     }
 
-    setActiveRoomId(roomId);
-    setActiveTab('swarms');
+    requestConversationOpen(roomId);
     analytics.logEvent('conversation_created', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
     analytics.logEvent('chat_opened', { source: 'right_now', intent_mode: pulse.intentMode || 'social' });
     showToast(`Chat opened with ${pulse.peerName}`);
@@ -907,26 +1532,14 @@ export default function App() {
   };
 
   const handleOpenDirectChatWithProfile = async (profile: DatingProfile) => {
-    // In live mode, Discover profiles are derived from real active intents.
-    // Opening the profile must follow the same mutual-interest path as the map;
-    // never create a synthetic conversation before a match exists.
-    if (isSupabaseConfigured && isAuthenticated) {
+    // Never fall through to demo room creation in a configured live app.
+    if (isSupabaseConfigured) {
       const pulse = supabaseRightNowPulses.find((item) => item.peerId === profile.id);
-      if (pulse?.id.startsWith('supabase_')) {
-        const result = await submitInterest(
-          pulse.peerId,
-          pulse.id.slice('supabase_'.length),
-        );
-        if (result.mutual) {
-          await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
-          showToast(`Mutual interest with ${profile.name} — chat opened`);
-        } else if (result.sent) {
-          showToast(`Interest sent to ${profile.name}`);
-        } else {
-          showToast('Could not send interest. Try again.');
-        }
-        return;
-      }
+      await handleOpenDirectChatFromPulse(pulse || {
+        id: '', peerId: profile.id, peerName: profile.name,
+        peerAvatar: '', neighborhood: profile.neighborhood, title: profile.headline,
+      });
+      return;
     }
 
     const existingRoom = rooms.find(
@@ -934,8 +1547,7 @@ export default function App() {
     );
 
     if (existingRoom) {
-      setActiveRoomId(existingRoom.id);
-      setActiveTab('swarms');
+      requestConversationOpen(existingRoom.id);
       analytics.logEvent('chat_opened', { source: 'discover' });
       return;
     }
@@ -975,8 +1587,7 @@ export default function App() {
       ...prev,
       [roomId]: [initialMsg],
     }));
-    setActiveRoomId(roomId);
-    setActiveTab('swarms');
+    requestConversationOpen(roomId);
     analytics.logEvent('conversation_created', { source: 'discover' });
     analytics.logEvent('chat_opened', { source: 'discover' });
     showToast(`Encrypted chat opened with ${profile.name}`);
@@ -1109,8 +1720,7 @@ export default function App() {
   const handleOpenGatheringChat = (gathering: Gathering) => {
     const existing = rooms.find((r) => r.id === 'room_' + gathering.id);
     if (existing) {
-      setActiveRoomId(existing.id);
-      setActiveTab('swarms');
+      requestConversationOpen(existing.id);
       return;
     }
 
@@ -1132,8 +1742,7 @@ export default function App() {
     };
 
     setRooms((prev) => [newRoom, ...prev]);
-    setActiveRoomId(roomId);
-    setActiveTab('swarms');
+    requestConversationOpen(roomId);
   };
 
   const handleCreateGathering = async (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => {
@@ -1160,10 +1769,11 @@ export default function App() {
   // group conversations resolve a per-device key envelope. When no key can be
   // resolved the chat says so and sending is blocked — nothing is faked.
   useEffect(() => {
-    if (!IS_LIVE_BACKEND || !activeRoomId || !/^[0-9a-f-]{36}$/i.test(activeRoomId)) return;
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId || !activeRoomId || !/^[0-9a-f-]{36}$/i.test(activeRoomId)) return;
     let disposed = false;
 
-    let conversationKey: CryptoKey | null = null;
+    let keyReady = false;
+    let historyHadFailure = false;
     const room = roomsRef.current.find((candidate) => candidate.id === activeRoomId);
 
     const applyRow = async (row: {
@@ -1175,16 +1785,24 @@ export default function App() {
       created_at: string;
       expires_at: string | null;
       burned_at: string | null;
-    }) => {
-      if (disposed) return;
+    }, delivery: MessageDelivery) => {
+      if (disposed || !delivery.current()) return;
+      const processingGeneration = messageProcessorRef.current.generation;
       const targetRoom = roomsRef.current.find((candidate) => candidate.id === activeRoomId);
-      if (!targetRoom) return;
+      if (!targetRoom) throw new Error('Conversation metadata unavailable');
 
       let plainText = '[Encrypted message]';
       let mediaUrl: string | undefined = undefined;
-      if (conversationKey && row.nonce) {
+      let decryptedOk = false;
+
+      // A message can arrive through Realtime before the device identity/key
+      // bootstrap has finished. Resolve the key again and retry a few times so
+      // the recipient never gets stuck with a permanent ciphertext placeholder.
+      for (let attempt = 0; attempt < (delivery.notify ? 3 : 1) && row.nonce && !row.burned_at && (!row.expires_at || Date.parse(row.expires_at) > Date.now()) && !decryptedOk; attempt += 1) {
         try {
-          const decrypted = await decryptWithConversationKey(row.ciphertext, row.nonce, conversationKey);
+          if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
+          const decrypted = await messageProcessorRef.current.text(targetRoom, row, supabaseUserId);
+          keyReady = true;
           if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
             try {
               const parsed = JSON.parse(decrypted);
@@ -1196,11 +1814,18 @@ export default function App() {
           } else {
             plainText = decrypted;
           }
+          decryptedOk = true;
         } catch (error) {
-          console.warn('[GAYZE] Unable to decrypt conversation message', error);
+          keyReady = false;
+          if (attempt < (delivery.notify ? 2 : 0)) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
+          else console.warn('[GAYZE] Unable to decrypt conversation message', error);
         }
       }
 
+      if (disposed || !delivery.current() || supabaseUserIdRef.current !== supabaseUserId) return;
+      if (processingGeneration !== messageProcessorRef.current.generation) return false;
+      if (row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())) messageProcessorRef.current.forget(row, supabaseUserId);
+      if (decryptedOk) setConversationKeyState((prev) => prev.roomId === activeRoomId && prev.status === 'ready' ? prev : { roomId: activeRoomId, status: 'ready' });
       const senderName = row.sender_id === supabaseUserIdRef.current
         ? 'You'
         : targetRoom.memberNames?.[row.sender_id] || targetRoom.peerName || targetRoom.name || 'Gayze member';
@@ -1213,18 +1838,17 @@ export default function App() {
         timestamp: new Date(row.created_at).getTime(),
         cipherText: row.ciphertext,
         nonceHex: row.nonce || '',
+        expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined,
         plainText,
         ephemeralTtlSeconds: targetRoom.ephemeralTtlSeconds,
-        isBurned: Boolean(row.burned_at),
+        isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())),
         mediaUrl,
         mediaType: mediaUrl ? 'image' : undefined,
       };
 
-      setMessages((prev) => {
-        const existing = prev[activeRoomId] || [];
-        if (existing.some((item) => item.id === message.id)) return prev;
-        return { ...prev, [activeRoomId]: [...existing, message] };
-      });
+      if (!decryptedOk && !message.isBurned && row.nonce) historyHadFailure = true;
+      queueMessage(message);
+      return decryptedOk || message.isBurned || !row.nonce;
     };
 
     const hydrate = async () => {
@@ -1238,9 +1862,9 @@ export default function App() {
         return;
       }
       try {
-        const result = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
+        const result = await messageProcessorRef.current.key(room, supabaseUserId);
         if (disposed) return;
-        conversationKey = result.key;
+        keyReady = Boolean(result.key);
         setConversationKeyState({
           roomId: activeRoomId,
           status: result.status,
@@ -1284,18 +1908,35 @@ export default function App() {
         }
       }
 
-      const rows = await loadConversationMessages(activeRoomId);
-      for (const row of rows) await applyRow(row);
     };
 
-    void hydrate();
-    const unsubscribe = subscribeToConversationMessages(activeRoomId, (row) => { void applyRow(row); });
-
-    return () => {
-      disposed = true;
-      unsubscribe();
+    let keyLoad: Promise<void> | null = null;
+    const refreshKeys = () => {
+      if (keyLoad || disposed) return;
+      keyLoad = hydrate().catch(() => {
+        if (!disposed) setConversationKeyState({ roomId: activeRoomId, status: 'unavailable', reason: 'Secure conversation setup is temporarily unavailable.' });
+      }).finally(() => { keyLoad = null; });
     };
-  }, [activeRoomId, supabaseUserId]);
+
+    // Subscribe independently of key/history hydration. A failed initial read
+    // must never prevent the retry owner from being installed.
+    const unsubscribe = subscribeToConversationMessages(
+      activeRoomId,
+      applyRow,
+      (state) => {
+        if (disposed) return;
+        setChatConnection({ roomId: activeRoomId, state });
+        if (state === 'connected') historyOwnershipRef.current.roomComplete(activeRoomId, keyReady && !historyHadFailure);
+        else if (['reconnecting', 'offline', 'suspended', 'sign-in-required'].includes(state)) historyOwnershipRef.current.unseenOlderRow(activeRoomId);
+        if (state === 'connected' && !keyReady) refreshKeys();
+      },
+      supabaseUserId,
+      () => historyOwnershipRef.current.canReuse(activeRoomId),
+    );
+    refreshKeys();
+
+    return () => { disposed = true; unsubscribe(); };
+  }, [activeRoomId, supabaseUserId, isAuthenticated, isSigningOut, rooms.some((room) => room.id === activeRoomId)]);
 
   // Chat message sending with real WebCrypto AES-GCM
   const handleSendMessage = async (
@@ -1304,9 +1945,12 @@ export default function App() {
     ephemeralTtlSeconds?: number,
     meetingData?: MeetingProposal,
     mediaUrl?: string,
+    messageId?: string,
   ) => {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
+    const sendingUserId = supabaseUserIdRef.current;
+    const sendingGeneration = authGenerationRef.current;
 
     const isSupabaseRoom = IS_LIVE_BACKEND && /^[0-9a-f-]{36}$/i.test(roomId);
     let cipherHex: string;
@@ -1316,25 +1960,22 @@ export default function App() {
       : plainText;
 
     if (isSupabaseRoom) {
-      const resolved = await resolveConversationKey(room, supabaseUserIdRef.current ?? undefined);
+      const resolved = await messageProcessorRef.current.key(room, sendingUserId!);
       if (!resolved.key) {
-        showToast(resolved.reason || 'This conversation cannot be encrypted on this device yet');
-        return;
+        throw new Error(resolved.reason || 'This conversation cannot be encrypted on this device yet');
       }
       try {
         ({ cipherHex, nonceHex } = await encryptWithConversationKey(textToEncrypt, resolved.key));
       } catch (error) {
         console.error('[GAYZE] Secure conversation encryption failed', error);
-        showToast('Secure encryption failed. Message not sent.');
-        return;
+        throw new Error('Secure encryption failed. Message not sent.');
       }
     } else {
       try {
         ({ cipherHex, nonceHex } = await encryptPayload(textToEncrypt, room.swarmSecretKeyHex));
       } catch (error) {
         console.error('[GAYZE] Local message encryption failed', error);
-        showToast('Secure encryption is unavailable. Message not sent.');
-        return;
+        throw new Error('Secure encryption is unavailable. Message not sent.');
       }
     }
 
@@ -1360,7 +2001,7 @@ export default function App() {
       }));
     }
 
-    setRooms((prev) =>
+    if (!isSupabaseRoom) setRooms((prev) =>
       prev.map((r) =>
         r.id === roomId
           ? { ...r, lastMessage: plainText, lastTimestamp: Date.now() }
@@ -1375,10 +2016,28 @@ export default function App() {
         const expiresAt = ephemeralTtlSeconds && ephemeralTtlSeconds > 0
           ? new Date(Date.now() + ephemeralTtlSeconds * 1000).toISOString()
           : null;
-        await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt);
+        if (isSigningOutRef.current || supabaseUserIdRef.current !== sendingUserId || authGenerationRef.current !== sendingGeneration) throw new Error('Session changed');
+        const persisted = await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt, messageId, sendingUserId ?? undefined);
+        if (isSigningOutRef.current || supabaseUserIdRef.current !== sendingUserId || authGenerationRef.current !== sendingGeneration) throw new Error('Session changed');
+        setMessages((prev) => ({
+          ...prev,
+          [roomId]: mergeMessage(prev[roomId] || [], {
+            ...newMsg, id: persisted.id, timestamp: new Date(persisted.created_at).getTime(),
+            expiresAt: persisted.expires_at ? Date.parse(persisted.expires_at) : undefined,
+            isBurned: Boolean(persisted.burned_at || (persisted.expires_at && Date.parse(persisted.expires_at) <= Date.now())),
+            senderKey: persisted.sender_id, senderName: 'You', roomId: persisted.conversation_id,
+            cipherText: persisted.ciphertext, nonceHex: persisted.nonce || nonceHex,
+          }),
+        }));
+        const sentAt = Date.parse(persisted.created_at);
+        setRooms((prev) => prev.map((candidate) => candidate.id === roomId && candidate.lastTimestamp <= sentAt
+          ? { ...candidate, lastMessage: persisted.burned_at || (persisted.expires_at && Date.parse(persisted.expires_at) <= Date.now()) ? 'Message expired' : plainText, lastTimestamp: sentAt }
+          : candidate));
+        hapticMessageDecrypted();
       } catch (error) {
         console.error('[GAYZE] Failed to persist encrypted message', error);
-        showToast('Message was not sent — secure sync failed');
+        showToast('Message delivery not confirmed — your draft is kept');
+        throw error;
       }
       return;
     }
@@ -1430,6 +2089,129 @@ export default function App() {
         );
       }, 1500);
     }
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    isSigningOutRef.current = true;
+
+    // Invalidate every in-flight auth/bootstrap operation immediately.
+    // The UI must never wait for a network round-trip to show the signed-out state.
+    authGenerationRef.current += 1;
+    clearChatAccount();
+    locationWatchStopRef.current?.();
+    locationWatchStopRef.current = null;
+    recoverySessionRef.current = false;
+
+    // Release this device's push subscription while the session is still
+    // valid (the row delete needs the user's JWT to pass RLS). Bounded and
+    // never throws: a failed cleanup can not block sign-out. If it cannot
+    // be confirmed, the subscription is revoked on next app start.
+    await releasePushOnSignOut();
+
+    // Remove the persisted browser session first. This is the authoritative
+    // local logout path and also works when Supabase's network sign-out is
+    // unavailable or slow.
+    try {
+      window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+      window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+      for (const storage of [window.localStorage, window.sessionStorage]) {
+        for (let index = storage.length - 1; index >= 0; index -= 1) {
+          const key = storage.key(index);
+          if (key && (
+            key.startsWith('sb-') ||
+            key.includes('supabase.auth') ||
+            key.includes('supabase-auth-token')
+          )) {
+            storage.removeItem(key);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('[GAYZE] Could not clear browser auth storage:', error);
+    }
+
+    // Clear local application state synchronously. Device identity keys are
+    // deliberately kept (they belong to the device, not the account) but
+    // every account-derived cache is removed.
+    for (const key of [
+      'gayze_messages',
+      'gayze_active_user_intent',
+      'gayze_user',
+      'gayze_rooms',
+      'gayze_pulses',
+      'gayze_gatherings',
+      'gayze_stories',
+      'gayze_intent_posts',
+      'gayze_checkin',
+      'gayze_verified_rooms',
+    ]) {
+      localStorage.removeItem(key);
+    }
+    setActiveUserIntent(null);
+    setSupabaseRightNowPulses([]);
+    setSupabaseReady(false);
+    setSupabaseUserId(null);
+    setIdentityDevices([]);
+    setCurrentDeviceFingerprint(null);
+    setOnlineUserIds(new Set());
+    setUserLocation(null);
+    setLocationError(null);
+    setIsIdentityOpen(false);
+    setIsAuthenticated(false);
+    setAuthReady(true);
+
+    // Close the modal immediately so the sign-out action cannot be obscured by
+    // the authenticated shell while Supabase finishes its own session cleanup.
+    setIsIdentityOpen(false);
+
+    // Server-side session invalidation. Bound the wait so a network
+    // failure can never trap the user in the authenticated shell.
+    if (supabase) {
+      try {
+        await Promise.race([
+          supabase.auth.signOut({ scope: 'global' }),
+          new Promise((resolve) => window.setTimeout(resolve, 1500)),
+        ]);
+      } catch (error) {
+        console.warn('[GAYZE] Supabase local sign-out failed:', error);
+      }
+    }
+
+    // Reload into a clean document after local credentials and application
+    // state have already been cleared. This prevents a stale Supabase
+    // bootstrap callback or browser auth refresh from restoring the shell.
+    window.location.replace(window.location.origin + '/?signed_out=1');
+  };
+
+  const handleDeleteChat = async (roomId: string) => {
+    const account = supabaseUserIdRef.current;
+    if (!account || !isConversationId(roomId)) throw new Error('This conversation is unavailable.');
+    // Until the delete is confirmed, drop every list load for this room.
+    deletedRooms.begin(roomId);
+    conversationLoadRef.current = null;
+    try {
+      await leaveConversation(roomId);
+    } catch (error) {
+      deletedRooms.fail(roomId);
+      throw error;
+    }
+    deletedRooms.confirm(roomId);
+    conversationLoadRef.current = null;
+    messageProcessorRef.current.forgetConversation(roomId);
+    setRooms((prev) => prev.filter((room) => room.id !== roomId));
+    setMessages((prev) => {
+      if (!(roomId in prev)) return prev;
+      const { [roomId]: _removed, ...rest } = prev;
+      return rest;
+    });
+    if (activeRoomIdRef.current === roomId) {
+      setActiveRoomId('');
+      setChatOpenRequest(null);
+      reportVisibleChatRoom(null);
+    }
+    showToast('Chat deleted');
   };
 
   const handleUpdateRoomTtl = (roomId: string, ttl: number) => {
@@ -1503,15 +2285,16 @@ export default function App() {
       safetyTimerDurationMinutes: proposal.durationMinutes || 60,
     };
 
-    await handleSendMessage(
+    try {
+      await handleSendMessage(
       targetRoom.id,
       `Safe meetup invitation: let's meet at ${proposal.venueName}, ${proposal.timeStr}.`,
       targetRoom.ephemeralTtlSeconds,
       meetingData
     );
+    } catch { showToast('Meetup invitation was not confirmed. Please try again.'); return; }
 
-    setActiveRoomId(targetRoom.id);
-    setActiveTab('swarms');
+    requestConversationOpen(targetRoom.id);
     showToast(`Meetup proposal sent to ${scheduleMeetingPeerName} at ${proposal.venueName}`);
   };
 
@@ -1543,25 +2326,150 @@ export default function App() {
     });
 
     // Send confirmation in room
-    await handleSendMessage(
+    try {
+      await handleSendMessage(
       activeRoomId,
       `Accepted — see you at ${meeting.venueName}, ${meeting.timeStr}. Local check-in timer started.`
     );
-    showToast(`Local check-in timer started for ${meeting.venueName}.`);
+    } catch { showToast('Acceptance message was not confirmed. Your local safety timer is still active.'); }
+  };
+
+  const handleSaveProfileEdit = async (payload: ProfileSavePayload): Promise<boolean> => {
+    // Persist locally first so profile editing remains useful offline.
+    const intimacy: import('./types').IntimacyProfile = payload.intimacy;
+    setCurrentUser((prev) => ({
+      ...prev,
+      displayName: payload.displayName,
+      handle: payload.handle,
+      bio: payload.bio,
+      age: payload.age,
+      privacySetting: payload.privacySetting,
+      interests: payload.lookingFor,
+      pronouns: payload.pronouns,
+      heightCm: payload.heightCm,
+      bodyType: payload.bodyType,
+      hobbies: payload.hobbies,
+      boundaries: payload.boundaries,
+      mySetup: payload.mySetup,
+      availability: payload.availability,
+      intimacy,
+    }));
+
+    try {
+      localStorage.setItem('gayze_user', JSON.stringify({
+        ...currentUserRef.current,
+        displayName: payload.displayName,
+        handle: payload.handle,
+        bio: payload.bio,
+        age: payload.age,
+        privacySetting: payload.privacySetting,
+        interests: payload.lookingFor,
+        pronouns: payload.pronouns,
+        heightCm: payload.heightCm,
+        bodyType: payload.bodyType,
+        hobbies: payload.hobbies,
+        boundaries: payload.boundaries,
+        mySetup: payload.mySetup,
+        availability: payload.availability,
+        intimacy,
+      }));
+    } catch {
+      // Local persistence is best-effort.
+    }
+
+    if (!supabaseUserId) {
+      showToast('Profile saved');
+      return true;
+    }
+
+    const coreSaved = await updateSupabaseProfile(supabaseUserId, {
+      displayName: payload.displayName,
+      handle: payload.handle,
+      bio: payload.bio,
+      age: payload.age ?? currentUser.age ?? 18,
+      privacySetting: payload.privacySetting,
+      interests: payload.lookingFor,
+    });
+
+    if (!coreSaved) {
+      showToast('Could not save your account profile — changes kept on this device');
+      return false;
+    }
+
+    // These fields are additive and may not exist until the migration is applied.
+    // Fail soft: the core profile save remains successful.
+    const detailsSaved = await updateProfileDetails(supabaseUserId, {
+      pronouns: payload.pronouns,
+      heightCm: payload.heightCm,
+      bodyType: payload.bodyType,
+      hobbies: payload.hobbies,
+      boundaries: payload.boundaries,
+      mySetup: payload.mySetup,
+      availability: payload.availability,
+    });
+
+    const intimacySaved = await saveIntimacyProfile(supabaseUserId, intimacy);
+
+    if (!detailsSaved || !intimacySaved) {
+      showToast('Profile saved — some new details could not sync yet');
+      return true;
+    }
+
+    showToast('Profile saved');
+    return true;
+  };
+
+  const handleSaveProfileOnboarding = async (profile: { displayName: string; handle: string; bio: string; age: number; privacySetting: import('./types').LocationPrivacy; interests: string[] }) => {
+    if (!supabaseUserId || !supabase) return false;
+    const saved = await updateSupabaseProfile(supabaseUserId, profile);
+    if (!saved) return false;
+    const { error } = await supabase.auth.updateUser({ data: { display_name: profile.displayName, profile_complete: true } });
+    if (error) {
+      console.warn('[GAYZE] Profile completion metadata update failed:', error.message);
+      return false;
+    }
+    setCurrentUser((prev) => ({ ...prev, displayName: profile.displayName, handle: profile.handle, bio: profile.bio, privacySetting: profile.privacySetting, interests: profile.interests }));
+    setShowProfileOnboarding(false);
+    showToast('Profile saved — welcome to GAYZE');
+    return true;
   };
 
   // Calling & Gaze Handlers
-  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string) => {
-    setCallPeerName(peerName);
-    setCallType(type);
-    setCallTargetUserId(targetUserId);
+  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
+    // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
+    primeCallAudio();
+    // Live calls must belong to a real mutual conversation. A synthetic room
+    // cannot provide a valid signaling context and would leave the call UI stuck.
+    if (IS_LIVE_BACKEND) {
+      const room = roomsRef.current.find((candidate) =>
+        candidate.type === 'direct'
+        && candidate.peerUserId === targetUserId
+        && /^[0-9a-f-]{36}$/i.test(candidate.id)
+      );
+      if (!room || !targetUserId) {
+        showToast('Calls are available after a mutual conversation is established.');
+        return;
+      }
+      setCallPeerName(peerName);
+      setCallPeerAvatar(peerAvatar);
+      setCallType(type);
+      setCallTargetUserId(targetUserId);
+      setActiveRoomId(room.id);
+    } else {
+      setCallPeerName(peerName);
+      setCallPeerAvatar(peerAvatar);
+      setCallType(type);
+      setCallTargetUserId(targetUserId);
+    }
     setIsIncomingCallActive(false);
     setIsCallModalOpen(true);
   };
 
   const handleAcceptIncomingCall = async (call: IncomingCall) => {
+    primeCallAudio();
     setIncomingCall(null);
     setCallPeerName(call.callerName);
+    setCallPeerAvatar(undefined); // Will be fetched from profile if needed
     setCallType(call.callType);
     setCallTargetUserId(call.callerId);
     setActiveRoomId(call.conversationId);
@@ -1572,6 +2480,7 @@ export default function App() {
       callerId: call.callerId,
       userId: supabaseUserId || currentUser.publicKey,
       callType: call.callType,
+      callerName: call.callerName,
     });
   };
 
@@ -1581,33 +2490,41 @@ export default function App() {
       conversationId: call.conversationId,
       callerId: call.callerId,
       userId: supabaseUserId || currentUser.publicKey,
+      callerName: call.callerName,
     });
+    
+    // Save missed call record and send notification
+    await markCallAsMissed(call.conversationId, call.callerId, call.callType);
+    await sendMissedCallNotification(call);
   };
 
-  const handleGazeAtPeer = (peerName: string) => {
+  const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
     triggerVibration([40, 70]);
 
     if (isSupabaseConfigured && isAuthenticated) {
-      const pulse = supabaseRightNowPulses.find((item) => item.peerName.toLowerCase() === peerName.toLowerCase());
+      const pulse = supabaseRightNowPulses.find((item) => item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`));
       if (!pulse || !pulse.id.startsWith('supabase_')) {
         showToast('That Gaze could not be linked to a live profile.');
-        return;
+        return false;
       }
-      void submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length)).then((result) => {
-        if (result.sent) {
-          showToast(`Gaze sent to ${peerName}`);
-        } else {
-          showToast('Gaze could not be sent. Try again.');
-        }
-      });
-      return;
+      const result = await submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length));
+      if (result.sent) {
+        showToast(`Gaze sent to ${peerName}`);
+      } else {
+        showToast('Gaze could not be sent. Try again.');
+      }
+      return result.sent;
     }
 
     showToast(`You gave a Gaze to ${peerName}.`);
+    return true;
   };
 
   const handleSubmitInterest = async (pulse: Pulse) => {
-    if (!isSupabaseConfigured) {
+    const account = supabaseUserIdRef.current;
+    const generation = authGenerationRef.current;
+    const request = ++directChatRequestRef.current;
+    if (!isSupabaseConfigured || !isAuthenticated || !account || isSigningOutRef.current) {
       return { sent: false, mutual: false, conversation_id: null };
     }
 
@@ -1619,16 +2536,21 @@ export default function App() {
 
     const intentId = pulse.id.slice('supabase_'.length);
     const result = await submitInterest(pulse.peerId, intentId);
+    if (account !== supabaseUserIdRef.current || generation !== authGenerationRef.current
+      || request !== directChatRequestRef.current || isSigningOutRef.current) {
+      return { sent: false, mutual: false, conversation_id: null };
+    }
     if (result.sent) {
       analytics.logEvent('interest_sent', { intent_mode: pulse.intentMode || 'social' });
     }
 
-    if (result.mutual) {
+    if (result.mutual && result.conversation_id && isConversationId(result.conversation_id)) {
       analytics.logEvent('mutual_interest', { intent_mode: pulse.intentMode || 'social' });
-      await handleOpenDirectChatFromPulse(pulse, result.conversation_id || undefined);
-      showToast(`Mutual interest with ${pulse.peerName} — chat opened`);
-    } else {
+      await handleOpenDirectChatFromPulse(pulse, result.conversation_id);
+    } else if (result.sent && !result.mutual) {
       showToast(`Interest sent to ${pulse.peerName}`);
+    } else {
+      showToast('Could not open this conversation. Please try again.');
     }
 
     return result;
@@ -1913,6 +2835,7 @@ export default function App() {
       try {
         const bundle = parseRecoveryBundle(await file.text());
         await restoreRecoveryBundle(bundle, password);
+        clearMessageWork();
         const identity = await getOrCreateDeviceIdentity();
         setCurrentUser((prev) => ({
           ...prev,
@@ -1937,6 +2860,7 @@ export default function App() {
   const handlePurgeLocalCache = () => {
     hapticSensitiveAction();
     localStorage.removeItem('gayze_messages');
+    clearMessageWork();
     setMessages({});
     showToast('Decrypted message cache cleared on this device.');
   };
@@ -1989,8 +2913,9 @@ export default function App() {
       {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
-        unreadCount={0}
+        onTabChange={(tab) => { if (tab === 'swarms') beginChatTrace(activeRoomId); setActiveTab(tab); }}
+        unreadCount={unreadMessageCount}
+        notificationCount={notificationInbox?.unread ?? 0}
         onOpenMask={() => setIsMaskActive(true)}
         onOpenIdentity={() => setIsIdentityOpen(true)}
         onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
@@ -2004,8 +2929,8 @@ export default function App() {
       <main
         className={
           activeTab === 'right_now'
-            ? 'fixed inset-0 md:top-[calc(3.5rem+env(safe-area-inset-top,0px))] overflow-hidden overscroll-none p-0'
-            : 'flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-10 overflow-y-auto overscroll-contain'
+            ? 'fixed left-0 right-0 top-0 bottom-[calc(var(--g-tabbar-h)+env(safe-area-inset-bottom,0px))] md:top-[calc(3.5rem+env(safe-area-inset-top,0px))] overflow-hidden overscroll-none p-0'
+            : activeTab === 'swarms' ? 'g-chat-viewport' : 'flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-10 overflow-y-auto overscroll-contain'
         }
       >
         <Suspense fallback={<div className="flex h-full min-h-[40vh] items-center justify-center text-xs text-zinc-400">Loading view…</div>}>
@@ -2027,6 +2952,13 @@ export default function App() {
               onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
               onOpenSetIntent={handleOpenIntentSheet}
               onOpenMap={() => setActiveTab('right_now')}
+              onOpenProfileEdit={(section) => {
+                setIsProfileEditOpen(true);
+                setProfileEditSection(section ? section as EditSectionKey : null);
+              }}
+              onOpenPublicProfile={(userId, fallback) => {
+                setViewingPublicProfile({ userId, ...fallback });
+              }}
             />
           )}
 
@@ -2042,9 +2974,16 @@ export default function App() {
               isSafetyTimerActive={checkinState.isActive}
               onOpenMask={() => setIsMaskActive(true)}
               onOpenIdentity={() => setIsIdentityOpen(true)}
+              onSignOut={handleSignOut}
+              signingOut={isSigningOut}
               onOpenQR={() => handleOpenQRModal()}
               onOpenSafeHavens={() => setActiveTab('safe_havens')}
               onOpenDiscover={() => setActiveTab('dating')}
+              onOpenProfileEdit={(section) => {
+                setIsProfileEditOpen(true);
+                setProfileEditSection(section ? section as EditSectionKey : null);
+              }}
+              onOpenNotifications={() => setIsNotificationsOpen(true)}
             />
           )}
 
@@ -2057,6 +2996,7 @@ export default function App() {
               userNeighborhood={currentUser.neighborhood}
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
+              userAvatarUrl={currentUser.avatarUrl}
               // Live discovery rows already carry the person's real
               // (privacy-jittered) coordinates. Derived photo-grid profiles are
               // demo-only data and are never mixed into the live map.
@@ -2075,6 +3015,7 @@ export default function App() {
               onSubmitGaze={handleSubmitGaze}
               onSwitchToLater={() => setActiveTab('later')}
               onRequestLocation={requestUserLocation}
+              onMaxDistanceKmChange={(km) => setTravelDistanceKm(clampTravelDistanceKm(km))}
               onUpdateActiveUserIntent={handleUpdateActiveUserIntent}
             />
           )}
@@ -2086,6 +3027,7 @@ export default function App() {
               onOpenGatheringChat={handleOpenGatheringChat}
               onCreateGathering={handleCreateGathering}
               currentUser={currentUser}
+              activeIntentMode={activeUserIntent?.mode}
               currentUserId={supabaseUserId}
               userLocation={userLocation}
             />
@@ -2096,10 +3038,14 @@ export default function App() {
               rooms={rooms}
               messages={messages}
               activeRoomId={activeRoomId}
-              onSelectRoom={(id) => setActiveRoomId(id)}
+              openRequest={chatOpenRequest}
+              onVisibleRoomChange={reportVisibleChatRoom}
+              onSelectRoom={requestConversationOpen}
               currentUser={currentUser}
+              currentUserId={supabaseUserId}
               onSendMessage={handleSendMessage}
               onUpdateRoomTtl={handleUpdateRoomTtl}
+              onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
               onOpenQR={(peerName) => {
                 const matchedPeer = datingProfiles.find(
                   (p) => p.name.toLowerCase() === peerName?.toLowerCase()
@@ -2111,6 +3057,7 @@ export default function App() {
               onAcceptMeeting={handleAcceptMeeting}
               onReturnToDiscovery={() => setActiveTab('right_now')}
               onlineUserIds={onlineUserIds}
+              connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
               conversationKeyUnavailable={
                 Boolean(activeRoomId)
                 && conversationKeyState.roomId === activeRoomId
@@ -2136,6 +3083,10 @@ export default function App() {
         </Suspense>
       </main>
 
+      {showProfileOnboarding && supabaseUserId && (
+        <ProfileOnboarding currentUser={currentUser} onSave={handleSaveProfileOnboarding} />
+      )}
+
       {/* Schedule Meeting & Safe Haven Date Modal */}
       <ScheduleMeetingModal
         isOpen={isScheduleMeetingOpen}
@@ -2145,21 +3096,43 @@ export default function App() {
         onConfirmMeeting={handleConfirmMeeting}
       />
 
-      {/* Encrypted Audio & Video Call Modal */}
-      <EncryptedCallModal
-        isOpen={isCallModalOpen}
-        onClose={() => {
-          setIsCallModalOpen(false);
-          setIsIncomingCallActive(false);
-        }}
-        peerName={callPeerName}
-        callType={callType}
-        conversationId={activeRoomId}
-        callerId={supabaseUserId || currentUser.publicKey}
-        callerName={currentUser.displayName}
-        targetUserId={callTargetUserId}
-        isIncoming={isIncomingCallActive}
-      />
+      {/* Full Screen Video Call Modal */}
+      {callType === 'video' && (
+        <FullScreenCallModal
+          isOpen={isCallModalOpen}
+          onClose={() => {
+            setIsCallModalOpen(false);
+            setIsIncomingCallActive(false);
+          }}
+          peerName={callPeerName}
+          peerAvatar={callPeerAvatar}
+          callType={callType}
+          conversationId={activeRoomId}
+          callerId={supabaseUserId || currentUser.publicKey}
+          callerName={currentUser.displayName}
+          targetUserId={callTargetUserId}
+          isIncoming={isIncomingCallActive}
+        />
+      )}
+      
+      {/* Full Screen Audio Call Modal */}
+      {callType === 'audio' && (
+        <FullScreenAudioCallModal
+          isOpen={isCallModalOpen}
+          onClose={() => {
+            setIsCallModalOpen(false);
+            setIsIncomingCallActive(false);
+          }}
+          peerName={callPeerName}
+          peerAvatar={callPeerAvatar}
+          callType={callType}
+          conversationId={activeRoomId}
+          callerId={supabaseUserId || currentUser.publicKey}
+          callerName={currentUser.displayName}
+          targetUserId={callTargetUserId}
+          isIncoming={isIncomingCallActive}
+        />
+      )}
 
       {/* Incoming Call Notification Modal */}
       <IncomingCallModal
@@ -2178,6 +3151,54 @@ export default function App() {
         userNeighborhood={currentUser.neighborhood}
       />
 
+      {/* Sectioned "About you" profile editor */}
+      {isProfileEditOpen && (
+        <Suspense fallback={null}>
+          <ProfileEditSheet
+            isOpen={isProfileEditOpen}
+            currentUser={currentUser}
+            hasPhoto={Boolean(currentUser.avatarUrl)}
+            onClose={() => {
+              setProfileEditSection(null);
+              setIsProfileEditOpen(false);
+            }}
+            onSave={handleSaveProfileEdit}
+            initialSection={profileEditSection}
+            onOpenIdentity={() => setIsIdentityOpen(true)}
+            onOpenSetIntent={handleOpenIntentSheet}
+          />
+        </Suspense>
+      )}
+
+      {/* Public Profile View Sheet */}
+      {viewingPublicProfile && (
+        <Suspense fallback={null}>
+          <PublicProfileSheet
+            userId={viewingPublicProfile.userId}
+            fallbackName={viewingPublicProfile.fallbackName}
+            fallbackAge={viewingPublicProfile.fallbackAge}
+            fallbackArea={viewingPublicProfile.fallbackArea}
+            fallbackIntent={viewingPublicProfile.fallbackIntent}
+            fallbackPhotoUrl={viewingPublicProfile.fallbackPhotoUrl}
+            fallbackOnline={viewingPublicProfile.fallbackOnline}
+            onClose={() => setViewingPublicProfile(null)}
+            onMessage={() => {
+              const peerId = viewingPublicProfile.userId;
+              setViewingPublicProfile(null);
+              if (peerId) {
+                const targetRoom = rooms.find(
+                  (r) => r.peerUserId === peerId || r.id === `room_${peerId}` || r.id.includes(peerId)
+                );
+                if (targetRoom) {
+                  requestConversationOpen(targetRoom.id);
+                  setActiveTab('swarms');
+                }
+              }
+            }}
+          />
+        </Suspense>
+      )}
+
       {/* Local Safety Check-in Timer Modal */}
       <SafetyTimerModal
         isOpen={isSafetyTimerOpen}
@@ -2188,6 +3209,19 @@ export default function App() {
         onEndCheckin={handleEndCheckin}
         remainingSeconds={remainingSeconds}
       />
+
+      {/* Web Push opt-in, category preferences and device state */}
+      <NotificationsModal key={supabaseUserId || 'signed-out'}
+        currentUserId={supabaseUserId}
+        isOpen={isNotificationsOpen}
+        inbox={notificationInbox}
+        inboxStatus={notificationInboxStatus}
+        onOpenNotification={openInboxNotification}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
+
+      {/* iOS Home Screen install nudge (self-hiding, dismissal-aware) */}
+      <InstallPrompt />
 
       {/* Cryptographic Swarm Identity & Privacy Modal */}
       <IdentityModal
@@ -2212,92 +3246,7 @@ export default function App() {
         currentDeviceFingerprint={currentDeviceFingerprint}
         onRevokeDevice={handleRevokeDevice}
         signingOut={isSigningOut}
-        onSignOut={async () => {
-          if (isSigningOut) return;
-          setIsSigningOut(true);
-          isSigningOutRef.current = true;
-
-          // Invalidate every in-flight auth/bootstrap operation immediately.
-          // The UI must never wait for a network round-trip to show the signed-out state.
-          authGenerationRef.current += 1;
-          locationWatchStopRef.current?.();
-          locationWatchStopRef.current = null;
-          recoverySessionRef.current = false;
-
-          // Remove the persisted browser session first. This is the authoritative
-          // local logout path and also works when Supabase's network sign-out is
-          // unavailable or slow.
-          try {
-            window.localStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-            window.sessionStorage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-            for (const storage of [window.localStorage, window.sessionStorage]) {
-              for (let index = storage.length - 1; index >= 0; index -= 1) {
-                const key = storage.key(index);
-                if (key && (
-                  key.startsWith('sb-') ||
-                  key.includes('supabase.auth') ||
-                  key.includes('supabase-auth-token')
-                )) {
-                  storage.removeItem(key);
-                }
-              }
-            }
-          } catch (error) {
-            console.warn('[GAYZE] Could not clear browser auth storage:', error);
-          }
-
-          // Clear local application state synchronously. Device identity keys are
-          // deliberately kept (they belong to the device, not the account) but
-          // every account-derived cache is removed.
-          for (const key of [
-            'gayze_messages',
-            'gayze_active_user_intent',
-            'gayze_user',
-            'gayze_rooms',
-            'gayze_pulses',
-            'gayze_gatherings',
-            'gayze_stories',
-            'gayze_intent_posts',
-            'gayze_checkin',
-            'gayze_verified_rooms',
-          ]) {
-            localStorage.removeItem(key);
-          }
-          setActiveUserIntent(null);
-          setSupabaseRightNowPulses([]);
-          setSupabaseReady(false);
-          setSupabaseUserId(null);
-          setIdentityDevices([]);
-          setCurrentDeviceFingerprint(null);
-          setOnlineUserIds(new Set());
-          setUserLocation(null);
-          setLocationError(null);
-          setIsIdentityOpen(false);
-          setIsAuthenticated(false);
-          setAuthReady(true);
-
-          // Close the modal immediately so the sign-out action cannot be obscured by
-          // the authenticated shell while Supabase finishes its own session cleanup.
-          setIsIdentityOpen(false);
-
-          // Server-side session invalidation. Bound the wait so a network
-          // failure can never trap the user in the authenticated shell.
-          if (supabase) {
-            try {
-              await Promise.race([
-                supabase.auth.signOut({ scope: 'global' }),
-                new Promise((resolve) => window.setTimeout(resolve, 1500)),
-              ]);
-            } catch (error) {
-              console.warn('[GAYZE] Supabase local sign-out failed:', error);
-            }
-          }
-
-          // Reload into a clean document after local credentials and application
-          // state have already been cleared. This prevents a stale Supabase
-          // bootstrap callback or browser auth refresh from restoring the shell.
-          window.location.replace(window.location.origin + '/?signed_out=1');
-        }}
+        onSignOut={handleSignOut}
       />
       </div>{/* /g-shell */}
 

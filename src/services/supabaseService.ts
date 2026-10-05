@@ -1,5 +1,10 @@
+import { intentWhenLabel } from './intentTiming';
 import { supabase } from './supabaseClient';
-import type { UserActiveIntent, Pulse, SafeHaven, UserProfile } from '../types';
+import { subscribeToRecoveredMessages, type MessageListener } from './chatSubscriptions';
+import { RealtimeRecovery, requireRealtimeSession, type ChatConnectionState } from './realtimeRecovery';
+import type { UserActiveIntent, Pulse, SafeHaven, UserProfile, LocationPrivacy } from '../types';
+import { getProfilePhotoUrl } from './profilePhotoService';
+import { requestConnectionPush } from './pushService';
 
 export interface RightNowDiscoveryRow {
   intent_id: string; user_id: string; display_name: string; age: number | null; bio: string | null;
@@ -297,19 +302,6 @@ const CAN_HOST_VALUES = ['Can host', 'Cannot host', 'Depends'] as const;
 const TRAVEL_VALUES = ['Yes', 'Within reason', 'Car required'] as const;
 const CONTEXT_VALUES = ['Private', 'Public', 'Either'] as const;
 
-/**
- * `intents.when_label` does not exist in the schema, so the composer's timing
- * choice is derived from the activation time on reload. See
- * docs/BACKEND_REQUIREMENTS.md.
- */
-function deriveIntentWhen(activatedAt: number): string {
-  const minutesAgo = (Date.now() - activatedAt) / 60000;
-  if (minutesAgo < 60) return 'Now';
-  if (minutesAgo < 180) return 'Next 1 hour';
-  if (minutesAgo < 360) return 'Next 2 hours';
-  return 'Tonight';
-}
-
 export function intentRowToActiveIntent(row: IntentRow): UserActiveIntent {
   const activatedAt = row.starts_at ? new Date(row.starts_at).getTime() : Date.now();
   const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : activatedAt;
@@ -318,7 +310,7 @@ export function intentRowToActiveIntent(row: IntentRow): UserActiveIntent {
     mode: row.mode === 'private' ? 'private' : 'social',
     intent: (row.intent || 'Meet') as UserActiveIntent['intent'],
     description: row.description || '',
-    when: deriveIntentWhen(activatedAt),
+    when: intentWhenLabel(activatedAt),
     duration: row.duration_label || '2 hrs',
     travelDistance: row.travel_distance_label || 'Within 2 km',
     canHost: CAN_HOST_VALUES.find((value) => value === row.can_host),
@@ -521,6 +513,12 @@ export async function submitInterest(toUserId: string, intentId?: string): Promi
       return { sent: false, mutual: false, conversation_id: null };
     }
     const result = data as { mutual?: boolean; conversation_id?: string | null };
+    // The RPC result is the authoritative "mutual was just created" signal.
+    // Forward it so the other member is notified (server enforces exactly-once
+    // and the recipient's preferences). Fire-and-forget: no effect on the flow.
+    if (result.mutual && result.conversation_id) {
+      void requestConnectionPush(result.conversation_id);
+    }
     return {
       sent: true,
       mutual: Boolean(result.mutual),
@@ -529,6 +527,37 @@ export async function submitInterest(toUserId: string, intentId?: string): Promi
   } catch (err: any) {
     console.warn('[GAYZE] Supabase submit_interest exception:', err?.message || err);
     return { sent: false, mutual: false, conversation_id: null };
+  }
+}
+
+
+export interface IncomingInterest {
+  id: string;
+  fromUserId: string;
+  fromDisplayName: string;
+  createdAt: number;
+  status: 'pending' | 'mutual' | 'declined' | 'withdrawn';
+}
+
+export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('interests')
+      .select('id,from_user_id,created_at,status,from_profile:profiles!interests_from_user_id_fkey(display_name)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      fromUserId: row.from_user_id,
+      fromDisplayName: row.from_profile?.display_name || 'Someone',
+      createdAt: new Date(row.created_at).getTime(),
+      status: row.status,
+    }));
+  } catch (error) {
+    console.warn('[GAYZE] Could not load incoming interests:', error);
+    return [];
   }
 }
 
@@ -559,14 +588,17 @@ export async function persistConversationMessage(
   ciphertext: string,
   nonce: string,
   expiresAt?: string | null,
+  messageId: string = crypto.randomUUID(),
+  expectedUserId?: string,
 ) {
   if (!supabase) throw new Error('Supabase is not configured');
   const user = await ensureSupabaseSession();
-  if (!user) throw new Error('Authentication required');
+  if (!user || (expectedUserId && user.id !== expectedUserId)) throw new Error('Authentication required');
 
   const { data, error } = await supabase
     .from('messages')
     .insert({
+      id: messageId,
       conversation_id: conversationId,
       sender_id: user.id,
       ciphertext,
@@ -576,33 +608,39 @@ export async function persistConversationMessage(
     .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // A timeout can hide a successful commit. Manual retry uses the same
+    // messages primary key, not a new send. Never upsert/update ciphertext.
+    const receipt = await supabase.from('messages')
+      .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
+      .eq('id', messageId).eq('conversation_id', conversationId).eq('sender_id', user.id).maybeSingle();
+    if (!receipt.error && receipt.data) return receipt.data as SupabaseMessageRow;
+    throw error;
+  }
   return data as SupabaseMessageRow;
 }
 
 export function subscribeToConversationMessages(
   conversationId: string,
-  onMessage: (row: SupabaseMessageRow) => void,
+  onMessage: MessageListener,
+  onStatus: ((status: ChatConnectionState) => void) | undefined,
+  userId: string,
+  recentOnly?: () => boolean,
 ) {
   if (!supabase) return () => undefined;
-
-  const channel = supabase
-    .channel(`gayze-conversation-${conversationId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `conversation_id=eq.${conversationId}`,
-      },
-      (payload) => onMessage(payload.new as SupabaseMessageRow),
-    )
-    .subscribe();
-
-  const client = supabase;
-  return () => { void client.removeChannel(channel); };
+  return subscribeToRecoveredMessages(supabase, userId, conversationId, onMessage, onStatus, undefined, recentOnly);
 }
+
+/** RLS limits the inbox scan/stream to this authenticated user's messages. */
+export function subscribeToAllConversationMessages(
+  onMessage: MessageListener,
+  onStatus: ((status: ChatConnectionState) => void) | undefined,
+  userId: string,
+) {
+  if (!supabase) return () => undefined;
+  return subscribeToRecoveredMessages(supabase, userId, undefined, onMessage, onStatus);
+}
+
 
 export async function submitGaze(toUserId: string, intentId?: string) {
   if (!supabase) return { sent: false };
@@ -662,7 +700,7 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('display_name,handle,bio,privacy_setting,reliability_score,verified_peers_count,safety_verified,neighborhood,identity_public_key')
+    .select('display_name,handle,bio,privacy_setting,reliability_score,verified_peers_count,safety_verified,neighborhood,identity_public_key,avatar_path,age,interests')
     .eq('id', userId)
     .maybeSingle();
   if (error) {
@@ -670,10 +708,16 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
     return null;
   }
   if (!data) return null;
+  let avatarUrl: string | undefined = undefined;
+  if (data.avatar_path) {
+    avatarUrl = (await getProfilePhotoUrl(data.avatar_path)) || undefined;
+  }
   return {
     displayName: data.display_name || undefined,
     handle: data.handle || undefined,
     bio: data.bio || '',
+    interests: Array.isArray(data.interests) ? data.interests : [],
+    avatarUrl,
     privacySetting: data.privacy_setting || undefined,
     // Trust signals are shown exactly as stored. A profile with no history reads
     // as 0, never as a fabricated score.
@@ -685,6 +729,26 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
   };
 }
 
+export async function updateSupabaseProfile(userId: string, profile: { displayName: string; handle: string; bio: string; age: number; privacySetting: LocationPrivacy; interests: string[] }) {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('profiles').update({
+      display_name: profile.displayName.trim(),
+      handle: profile.handle.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 32),
+      bio: profile.bio.trim(),
+      age: profile.age,
+      privacy_setting: profile.privacySetting,
+      interests: profile.interests,
+      updated_at: new Date().toISOString(),
+    }).eq('id', userId);
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.warn('[GAYZE] Profile preferences update failed:', error);
+    return false;
+  }
+}
+
 export async function ensureSupabaseProfile(userId: string, sourceUser: UserProfile, identityPublicKey?: string) {
   if (!supabase) return null;
   try {
@@ -694,7 +758,7 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
       .slice(0, 32) || 'gayze-user';
     const uniqueHandle = baseHandle + '-' + userId.slice(0, 8);
 
-    const { data, error } = await supabase.from('profiles').upsert({
+    const { error } = await supabase.from('profiles').upsert({
       id: userId,
       handle: uniqueHandle,
       display_name: sourceUser.displayName || 'Gayze User',
@@ -705,12 +769,20 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
       // wipe a real score, so the columns are left untouched on conflict.
       neighborhood: sourceUser.neighborhood || null,
       identity_public_key: identityPublicKey ?? null,
-    }, { onConflict: 'id' }).select('*').single();
+    }, { onConflict: 'id', ignoreDuplicates: true });
     if (error) {
       console.warn('[GAYZE] Supabase profile upsert unavailable:', error.message);
       return null;
     }
-    return data;
+    // Bootstrap defaults must NEVER overwrite an existing privacy/profile row.
+    // Only the device identity is intentionally rotated by this operation.
+    if (identityPublicKey) {
+      const updated = await supabase.from('profiles').update({ identity_public_key: identityPublicKey }).eq('id', userId);
+      if (updated.error) throw updated.error;
+    }
+    const result = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (result.error) throw result.error;
+    return result.data;
   } catch (err: any) {
     console.warn('[GAYZE] Supabase profile upsert exception:', err?.message || err);
     return null;
@@ -771,6 +843,20 @@ export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserI
 }
 
 /**
+ * Hydrate pulses with signed avatar URLs from the profile-photos bucket.
+ * Uses the in-memory signed URL cache to avoid redundant network calls.
+ */
+export async function resolvePulsesWithAvatars(pulses: Pulse[]): Promise<Pulse[]> {
+  return Promise.all(
+    pulses.map(async (pulse) => {
+      if (!pulse.peerAvatar || pulse.peerAvatar === 'user') return pulse;
+      const url = await getProfilePhotoUrl(pulse.peerAvatar);
+      return url ? { ...pulse, peerAvatar: url } : pulse;
+    }),
+  );
+}
+
+/**
  * Persist the live broadcast.
  *
  * Two privacy rules are enforced here:
@@ -818,6 +904,22 @@ export function jitterLocation(
   };
 }
 
+/**
+ * Delete a chat for the current user only: removes the caller's own
+ * conversation_members row via a membership-checked RPC.
+ */
+export async function leaveConversation(conversationId: string): Promise<void> {
+  if (!supabase) throw new Error('Chat deletion is unavailable.');
+  const user = await ensureSupabaseSession();
+  if (!user) throw new Error('Sign in to delete this chat.');
+  const { error } = await supabase.rpc('leave_conversation', { p_conversation_id: conversationId });
+  if (error) {
+    // Code + message only: never the conversation id, tokens or payloads.
+    console.warn('[GAYZE] leave_conversation failed:', (error as { code?: string }).code ?? 'unknown', error.message);
+    throw new Error('Could not delete this chat. Please try again.');
+  }
+}
+
 export interface ConversationPeerKey {
   peer_user_id: string;
   peer_public_key: string | null;
@@ -838,6 +940,8 @@ export interface ConversationMemberProfile {
   userId: string;
   displayName: string | null;
   neighborhood: string | null;
+  avatarPath: string | null;
+  lastSeenAt?: string | null;
 }
 
 export interface MyConversations {
@@ -857,61 +961,71 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
   if (!supabase) return null;
   const user = await ensureSupabaseSession();
   if (!user) return null;
+
   try {
-    const { data: mine, error: mineError } = await supabase
-      .from('conversation_members')
-      .select('conversation_id,user_id')
-      .eq('user_id', user.id)
-      .limit(50);
-    if (mineError) {
-      console.warn('[GAYZE] Conversation list unavailable:', mineError.message);
+    // conversation_members is intentionally self-readable under RLS, so a
+    // normal table query cannot discover the other member. The scoped RPC
+    // returns only conversations in which auth.uid() is a member.
+    const { data, error } = await supabase.rpc('get_my_conversations');
+    if (error) {
+      console.warn('[GAYZE] Conversation list unavailable:', error.message);
       return null;
     }
-    const conversationIds = Array.from(new Set((mine ?? []).map((row) => row.conversation_id as string)));
+
+    const rows = (data ?? []) as Array<{
+      conversation_id: string;
+      conversation_created_at: string | null;
+      user_id: string;
+      display_name: string | null;
+      neighborhood: string | null;
+      avatar_path: string | null;
+      last_seen_at?: string | null;
+      presence_incognito?: boolean;
+    }>;
+
+    const conversationIds = Array.from(new Set(rows.map((row) => row.conversation_id)));
     if (!conversationIds.length) return { summaries: [], members: [], profiles: [] };
 
-    const { data: summaries, error: summaryError } = await supabase
-      .from('conversations')
-      .select('id,created_at')
-      .in('id', conversationIds);
-    if (summaryError) {
-      console.warn('[GAYZE] Conversation rows unavailable:', summaryError.message);
-    }
+    const summaries: ConversationSummary[] = [];
+    const seenSummaries = new Set<string>();
+    const members: ConversationMemberRecord[] = [];
+    const seenMembers = new Set<string>();
+    const profiles: ConversationMemberProfile[] = [];
+    const seenProfiles = new Set<string>();
 
-    const { data: members, error: memberError } = await supabase
-      .from('conversation_members')
-      .select('conversation_id,user_id')
-      .in('conversation_id', conversationIds);
-    if (memberError) {
-      console.warn('[GAYZE] Conversation members unavailable:', memberError.message);
-    }
-    const memberRows: ConversationMemberRecord[] = (members ?? []).map((row) => ({
-      conversationId: row.conversation_id as string,
-      userId: row.user_id as string,
-    }));
-
-    const memberIds = Array.from(new Set(memberRows.map((row) => row.userId)));
-    let profiles: ConversationMemberProfile[] = [];
-    if (memberIds.length) {
-      const { data: profileRows, error: profileError } = await supabase
-        .from('profiles')
-        .select('id,display_name,neighborhood')
-        .in('id', memberIds);
-      if (profileError) {
-        console.warn('[GAYZE] Conversation member profiles unavailable:', profileError.message);
+    for (const row of rows) {
+      if (!seenSummaries.has(row.conversation_id)) {
+        seenSummaries.add(row.conversation_id);
+        summaries.push({
+          id: row.conversation_id,
+          createdAt: row.conversation_created_at,
+        });
       }
-      profiles = (profileRows ?? []).map((row) => ({
-        userId: row.id as string,
-        displayName: (row.display_name as string) || null,
-        neighborhood: (row.neighborhood as string) || null,
-      }));
+
+      const memberKey = row.conversation_id + ':' + row.user_id;
+      if (!seenMembers.has(memberKey)) {
+        seenMembers.add(memberKey);
+        members.push({
+          conversationId: row.conversation_id,
+          userId: row.user_id,
+        });
+      }
+
+      if (!seenProfiles.has(row.user_id)) {
+        seenProfiles.add(row.user_id);
+        profiles.push({
+          userId: row.user_id,
+          displayName: row.display_name || null,
+          neighborhood: row.neighborhood || null,
+          avatarPath: row.avatar_path || null,
+          // Only use the membership-scoped RPC's value; never infer last seen
+          // from profile creation or fetch unrestricted device activity.
+          lastSeenAt: row.presence_incognito ? null : row.last_seen_at || null,
+        });
+      }
     }
 
-    const summaryRows: ConversationSummary[] = summaryError
-      ? conversationIds.map((id) => ({ id, createdAt: null }))
-      : (summaries ?? []).map((row) => ({ id: row.id as string, createdAt: (row.created_at as string) || null }));
-
-    return { summaries: summaryRows, members: memberRows, profiles };
+    return { summaries, members, profiles };
   } catch (err: any) {
     console.warn('[GAYZE] Conversation load exception:', err?.message || err);
     return null;
@@ -955,8 +1069,14 @@ export interface ConversationKeyEnvelope {
   created_at: string;
 }
 
-export async function listConversationKeyEnvelopes(conversationId: string): Promise<ConversationKeyEnvelope[]> {
-  if (!supabase) return [];
+export interface ConversationKeyEnvelopeRead {
+  /** False when the read failed; an empty list is then NOT proof of absence. */
+  ok: boolean;
+  envelopes: ConversationKeyEnvelope[];
+}
+
+export async function readConversationKeyEnvelopes(conversationId: string): Promise<ConversationKeyEnvelopeRead> {
+  if (!supabase) return { ok: false, envelopes: [] };
   try {
     const { data, error } = await supabase
       .from('conversation_key_envelopes')
@@ -964,13 +1084,17 @@ export async function listConversationKeyEnvelopes(conversationId: string): Prom
       .eq('conversation_id', conversationId);
     if (error) {
       console.warn('[GAYZE] Supabase listConversationKeyEnvelopes unavailable:', error.message);
-      return [];
+      return { ok: false, envelopes: [] };
     }
-    return (data ?? []) as ConversationKeyEnvelope[];
+    return { ok: true, envelopes: (data ?? []) as ConversationKeyEnvelope[] };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase listConversationKeyEnvelopes exception:', err?.message || err);
-    return [];
+    return { ok: false, envelopes: [] };
   }
+}
+
+export async function listConversationKeyEnvelopes(conversationId: string): Promise<ConversationKeyEnvelope[]> {
+  return (await readConversationKeyEnvelopes(conversationId)).envelopes;
 }
 
 export async function saveConversationKeyEnvelope(
@@ -980,17 +1104,28 @@ export async function saveConversationKeyEnvelope(
   try {
     const { data, error } = await supabase
       .from('conversation_key_envelopes')
-      .upsert({
+      // Insert-only: an existing envelope must never be overwritten.
+      .insert({
         conversation_id: envelope.conversation_id,
         user_id: envelope.user_id,
         device_id: envelope.device_id,
         wrapped_key: envelope.wrapped_key,
         nonce: envelope.nonce,
         created_by_device_id: envelope.created_by_device_id,
-      }, { onConflict: 'conversation_id,device_id' })
+      })
       .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
       .single();
     if (error) {
+      if ((error as { code?: string }).code === '23505') {
+        // Already provisioned (concurrent device/retry): keep the existing envelope untouched.
+        const { data: existing } = await supabase
+          .from('conversation_key_envelopes')
+          .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
+          .eq('conversation_id', envelope.conversation_id)
+          .eq('device_id', envelope.device_id)
+          .maybeSingle();
+        return (existing ?? null) as ConversationKeyEnvelope | null;
+      }
       console.warn('[GAYZE] Supabase saveConversationKeyEnvelope unavailable:', error.message);
       return null;
     }
@@ -1001,27 +1136,33 @@ export async function saveConversationKeyEnvelope(
   }
 }
 
-export async function loadConversationPeerDevices(conversationId: string) {
-  if (!supabase) return [];
+export interface ConversationPeerDevice {
+  user_id: string;
+  device_id: string;
+  public_key: string;
+  device_label: string | null;
+  last_seen_at: string;
+}
+
+export async function readConversationPeerDevices(conversationId: string): Promise<{ ok: boolean; devices: ConversationPeerDevice[] }> {
+  if (!supabase) return { ok: false, devices: [] };
   try {
     const { data, error } = await supabase.rpc('get_conversation_peer_devices', {
       p_conversation_id: conversationId,
     });
     if (error) {
       console.warn('[GAYZE] Supabase get_conversation_peer_devices unavailable:', error.message);
-      return [];
+      return { ok: false, devices: [] };
     }
-    return (data ?? []) as Array<{
-      user_id: string;
-      device_id: string;
-      public_key: string;
-      device_label: string | null;
-      last_seen_at: string;
-    }>;
+    return { ok: true, devices: (data ?? []) as ConversationPeerDevice[] };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase get_conversation_peer_devices exception:', err?.message || err);
-    return [];
+    return { ok: false, devices: [] };
   }
+}
+
+export async function loadConversationPeerDevices(conversationId: string): Promise<ConversationPeerDevice[]> {
+  return (await readConversationPeerDevices(conversationId)).devices;
 }
 
 export interface IdentityDevice {
@@ -1121,38 +1262,40 @@ export function initPresence(
   userId: string,
   displayName: string,
   onSync: (onlineUserIds: Set<string>) => void,
+  visible = true,
 ): () => void {
   if (!supabase) return () => undefined;
 
-  const channel = supabase.channel('gayze-presence', {
-    config: {
-      presence: { key: userId },
-    },
-  });
-
-  channel
-    .on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState();
-      const onlineIds = new Set<string>();
-      for (const key of Object.keys(state)) {
-        onlineIds.add(key);
-      }
-      onSync(onlineIds);
-    })
-    .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await channel.track({
-          user_id: userId,
-          display_name: displayName,
-          online_at: new Date().toISOString(),
-        });
-      }
-    });
-
   const client = supabase;
-  return () => {
-    if (client) void client.removeChannel(channel);
-  };
+  let channel: import('@supabase/supabase-js').RealtimeChannel | null = null;
+  const recovery = new RealtimeRecovery({
+    client, userId, topic: 'gayze-presence', syncWhileJoining: false,
+    channelOptions: { config: { presence: { key: userId } } },
+    session: (signal) => requireRealtimeSession(client, userId, signal),
+    build: (next, current) => {
+      channel = next;
+      return next.on('presence', { event: 'sync' }, () => {
+        if (!current()) return;
+        const ids = new Set<string>();
+        for (const entries of Object.values(next.presenceState<{ user_id: string }>())) {
+          for (const entry of entries) if (entry.user_id) ids.add(entry.user_id);
+        }
+        onSync(ids);
+      });
+    },
+    reconcile: async (_signal, current) => {
+      if (!channel || !current() || channel.state !== 'joined') return;
+      if (visible) {
+        const result = await channel.track({ user_id: userId, online_at: new Date().toISOString() });
+        if (result !== 'ok') throw new Error('Presence tracking unavailable');
+      } else {
+        await channel.untrack();
+      }
+    },
+    // Never keep showing peers as online from a disconnected/hidden snapshot.
+    status: (state) => { if (state !== 'connected' && state !== 'syncing') onSync(new Set()); },
+  });
+  return () => { recovery.stop(); onSync(new Set()); };
 }
 
 /**
@@ -1239,4 +1382,201 @@ export async function createStoryFromIntent(intent: UserActiveIntent, photoUrl?:
     return null;
   }
   return data?.id ?? null;
+}
+
+
+/**
+ * Load the additive public "About you" profile fields.
+ * These fields were introduced by 20261001090000_profile_about_you.sql.
+ * Fail soft so older environments remain usable until the migration is applied.
+ */
+export interface ProfileDetails {
+  pronouns?: string;
+  heightCm?: number;
+  bodyType?: string;
+  hobbies: string[];
+  boundaries: string[];
+  mySetup: string[];
+  availability: string[];
+}
+
+export interface IntimacyProfile {
+  role?: string;
+  preferences: string[];
+  experience?: string;
+  visibility: 'everyone' | 'connections' | 'private';
+}
+
+export interface PublicProfileSummary {
+  displayName: string;
+  age?: number;
+  bio?: string;
+  pronouns?: string;
+  heightCm?: number;
+  bodyType?: string;
+  lookingFor: string[];
+  hobbies: string[];
+  boundaries: string[];
+  mySetup: string[];
+  availability: string[];
+  safetyVerified?: boolean;
+  verifiedPeersCount?: number;
+}
+
+export async function loadPublicProfileSummary(userId: string): Promise<PublicProfileSummary | null> {
+  if (!supabase || !userId) return null;
+  try {
+    const [{ data, error }, details] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('display_name,age,bio,interests')
+        .eq('id', userId)
+        .maybeSingle(),
+      loadProfileDetails(userId),
+    ]);
+    if (error || !data) {
+      if (error) console.warn('[GAYZE] Public profile summary unavailable:', error.message);
+      return null;
+    }
+    return {
+      displayName: data.display_name || 'Gayze member',
+      age: data.age != null ? Number(data.age) : undefined,
+      bio: data.bio || undefined,
+      pronouns: details?.pronouns || undefined,
+      heightCm: details?.heightCm,
+      bodyType: details?.bodyType || undefined,
+      lookingFor: Array.isArray(data.interests) ? data.interests : [],
+      hobbies: details?.hobbies ?? [],
+      boundaries: details?.boundaries ?? [],
+      mySetup: details?.mySetup ?? [],
+      availability: details?.availability ?? [],
+    };
+  } catch (err: any) {
+    console.warn('[GAYZE] Public profile summary exception:', err?.message || err);
+    return null;
+  }
+}
+
+export async function loadProfileDetails(userId: string): Promise<ProfileDetails | null> {
+  if (!supabase || !userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('pronouns,height_cm,body_type,hobbies,boundaries,my_setup,availability')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[GAYZE] Profile details load unavailable:', error.message);
+      return null;
+    }
+    if (!data) return null;
+
+    return {
+      pronouns: data.pronouns ?? undefined,
+      heightCm: data.height_cm != null ? Number(data.height_cm) : undefined,
+      bodyType: data.body_type ?? undefined,
+      hobbies: Array.isArray(data.hobbies) ? data.hobbies : [],
+      boundaries: Array.isArray(data.boundaries) ? data.boundaries : [],
+      mySetup: Array.isArray(data.my_setup) ? data.my_setup : [],
+      availability: Array.isArray(data.availability) ? data.availability : [],
+    };
+  } catch (err: any) {
+    console.warn('[GAYZE] Profile details load exception:', err?.message || err);
+    return null;
+  }
+}
+
+export async function updateProfileDetails(
+  userId: string,
+  details: Partial<ProfileDetails>,
+): Promise<boolean> {
+  if (!supabase || !userId) return false;
+  try {
+    const values: Record<string, unknown> = {};
+    if (details.pronouns !== undefined) values.pronouns = details.pronouns || null;
+    if (details.heightCm !== undefined) values.height_cm = details.heightCm ?? null;
+    if (details.bodyType !== undefined) values.body_type = details.bodyType || null;
+    if (details.hobbies !== undefined) values.hobbies = details.hobbies;
+    if (details.boundaries !== undefined) values.boundaries = details.boundaries;
+    if (details.mySetup !== undefined) values.my_setup = details.mySetup;
+    if (details.availability !== undefined) values.availability = details.availability;
+
+    if (!Object.keys(values).length) return true;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(values)
+      .eq('id', userId);
+
+    if (error) {
+      console.warn('[GAYZE] Profile details update unavailable:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('[GAYZE] Profile details update exception:', err?.message || err);
+    return false;
+  }
+}
+
+export async function loadIntimacyProfile(userId: string): Promise<IntimacyProfile | null> {
+  if (!supabase || !userId) return null;
+  try {
+    // This RPC is the deliberate read path for sensitive profile data. It
+    // applies intimacy_visibility server-side and never exposes the table via
+    // a normal client select.
+    const { data, error } = await supabase.rpc('get_profile_intimacy', {
+      p_user_id: userId,
+    });
+    if (error) {
+      console.warn('[GAYZE] Intimacy profile load unavailable:', error.message);
+      return null;
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+
+    return {
+      role: row.intimacy_role ?? undefined,
+      preferences: Array.isArray(row.intimacy_prefs) ? row.intimacy_prefs : [],
+      experience: row.intimacy_experience ?? undefined,
+      visibility: (row.intimacy_visibility === 'everyone' ||
+        row.intimacy_visibility === 'private' ||
+        row.intimacy_visibility === 'connections')
+        ? row.intimacy_visibility
+        : 'connections',
+    };
+  } catch (err: any) {
+    console.warn('[GAYZE] Intimacy profile load exception:', err?.message || err);
+    return null;
+  }
+}
+
+export async function saveIntimacyProfile(
+  userId: string,
+  intimacy: IntimacyProfile,
+): Promise<boolean> {
+  if (!supabase || !userId) return false;
+  try {
+    const { error } = await supabase
+      .from('profile_intimacy')
+      .upsert({
+        user_id: userId,
+        intimacy_role: intimacy.role || null,
+        intimacy_prefs: Array.isArray(intimacy.preferences) ? intimacy.preferences : [],
+        intimacy_experience: intimacy.experience || null,
+        intimacy_visibility: intimacy.visibility || 'connections',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.warn('[GAYZE] Intimacy profile save unavailable:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('[GAYZE] Intimacy profile save exception:', err?.message || err);
+    return false;
+  }
 }

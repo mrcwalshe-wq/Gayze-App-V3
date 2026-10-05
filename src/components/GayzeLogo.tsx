@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const GAYZE_LOGO_PATH = '/gayze-logo.jpg';
+export const GAYZE_LOGO_PATH = '/gayze-official-logo.webp';
 
 interface GayzeLogoProps {
   size?: number;
@@ -24,7 +24,7 @@ export const GayzeLogo: React.FC<GayzeLogoProps> = ({
         alt="GAYZE"
         width={size}
         height={height}
-        className="block object-contain"
+        className="block object-contain mix-blend-screen"
         draggable={false}
       />
       {showWordmark && (

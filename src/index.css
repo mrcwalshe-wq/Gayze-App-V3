@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Call audio wave animation */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1); }
+}
+
 /* ==========================================================================
    GAYZE DESIGN SYSTEM FOUNDATION
    Brand colors: Purple #6F3CC3 · Amber #C9A24D
@@ -706,7 +712,7 @@ button, input, select, textarea, [role="button"] {
 }
 .g-seg__btn {
   flex: 1;
-  min-height: 36px;
+  min-height: 40px;
   border: none;
   border-radius: 10px;
   background: transparent;
@@ -885,7 +891,7 @@ button, input, select, textarea, [role="button"] {
 .g-map-state__meta { font-family: var(--font-mono); font-size: 10px; font-weight: 500; color: var(--text-muted); }
 
 .g-map-rail { display: flex; flex-direction: column; gap: 8px; }
-.g-map-rail .g-icon-btn { width: 42px; height: 42px; border-radius: var(--g-r-md); }
+.g-map-rail .g-icon-btn { width: 44px; height: 44px; border-radius: var(--g-r-md); }
 
 .g-map-bar {
   position: absolute;
@@ -925,6 +931,8 @@ button, input, select, textarea, [role="button"] {
   transition: transform var(--g-dur-fast) var(--g-spring), box-shadow var(--g-dur-med) ease;
   -webkit-tap-highlight-color: transparent;
 }
+.g-live-cta--social { background: linear-gradient(180deg, #d8b45a, #b8872d); border-color: rgba(244, 212, 122, 0.72); color: #171108; box-shadow: 0 10px 28px rgba(201, 162, 77, 0.28), inset 0 1px 0 rgba(255,255,255,0.22); }
+.g-live-cta--private { background: linear-gradient(180deg, #7b48d1, var(--brand-purple)); }
 .g-live-cta:active { transform: scale(0.97); }
 .g-live-cta--idle {
   background: var(--g-glass-strong);
@@ -1100,6 +1108,8 @@ button, input, select, textarea, [role="button"] {
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.55);
   flex: none;
 }
+.g-live-dot--social { background: #C9A24D; box-shadow: 0 0 0 4px rgba(201, 162, 77, 0.14), 0 0 14px rgba(201, 162, 77, 0.34); }
+.g-live-dot--private { background: #8b5cf6; }
 .g-live-dot::after {
   content: "";
   position: absolute;
@@ -1382,6 +1392,14 @@ button, input, select, textarea, [role="button"] {
   box-shadow: 0 0 0 4px var(--g-violet-06), inset 0 0 0 1px rgba(111, 60, 195, 0.5), 0 8px 20px rgba(0, 0, 0, 0.5);
 }
 /* Selected: amber emphasis, thin and refined */
+.gm-pulse__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
 .gm-pulse--sel {
   transform: scale(1.14);
   border-color: rgba(201, 162, 77, 0.9);
@@ -1415,6 +1433,30 @@ button, input, select, textarea, [role="button"] {
   border: 1.5px solid rgba(226, 214, 255, 0.9);
   box-shadow: 0 0 0 8px var(--g-violet-18), 0 0 22px rgba(139, 92, 246, 0.5), 0 10px 24px rgba(0, 0, 0, 0.55);
 }
+
+/* The user's live marker follows the same mode language as every other
+   discovery signal: Social = amber, Private = violet. */
+.gm-self--social {
+  background: radial-gradient(circle at 50% 38%, #fffdf6 0%, #efdca0 46%, #c9a24d 100%);
+  border-color: rgba(255, 232, 161, 0.92);
+  box-shadow: 0 0 0 8px rgba(201, 162, 77, 0.13), 0 0 22px rgba(201, 162, 77, 0.48), 0 10px 24px rgba(0, 0, 0, 0.55);
+}
+.gm-self--social::after { border-color: rgba(201, 162, 77, 0.38); }
+
+.gm-self--private {
+  background: radial-gradient(circle at 50% 38%, #fdfbff 0%, #cbb0f7 46%, #8b5cf6 100%);
+}
+
+.gm-self__photo {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
 .gm-self::after {
   content: "";
   position: absolute;
@@ -1641,12 +1683,48 @@ button, input, select, textarea, [role="button"] {
 .g-opt__d { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 .g-opt[data-active='true'] { background: rgba(255, 255, 255, 0.055); }
 .g-opt[data-active='true'][data-tone='social'] {
-  border-color: rgba(201, 162, 77, 0.75);
-  box-shadow: 0 0 0 1px rgba(201, 162, 77, 0.35), 0 10px 26px rgba(201, 162, 77, 0.10);
+  border-color: rgba(236, 194, 92, 0.9);
+  background:
+    radial-gradient(140% 150% at 8% 0%, rgba(255, 220, 126, 0.22), transparent 48%),
+    radial-gradient(110% 120% at 92% 100%, rgba(201, 162, 77, 0.20), transparent 58%),
+    linear-gradient(135deg, rgba(201, 162, 77, 0.18), rgba(94, 68, 27, 0.10) 55%, rgba(255, 230, 150, 0.08));
+  box-shadow:
+    0 0 0 1px rgba(236, 194, 92, 0.35),
+    0 0 30px rgba(201, 162, 77, 0.18),
+    0 14px 34px rgba(77, 54, 15, 0.20),
+    inset 0 1px 0 rgba(255, 244, 190, 0.16);
 }
+.g-opt[data-active='true'][data-tone='social'] .g-opt__t { color: #fff8df; text-shadow: 0 0 18px rgba(236, 194, 92, 0.22); }
 .g-opt[data-active='true'][data-tone='private'] {
-  border-color: rgba(111, 60, 195, 0.9);
-  box-shadow: 0 0 0 1px rgba(111, 60, 195, 0.4), 0 10px 26px rgba(111, 60, 195, 0.16);
+  border-color: rgba(154, 108, 235, 0.95);
+  background:
+    radial-gradient(140% 150% at 8% 0%, rgba(177, 132, 255, 0.22), transparent 48%),
+    radial-gradient(110% 120% at 92% 100%, rgba(111, 60, 195, 0.24), transparent 58%),
+    linear-gradient(135deg, rgba(111, 60, 195, 0.22), rgba(53, 31, 96, 0.12) 55%, rgba(168, 122, 244, 0.08));
+  box-shadow:
+    0 0 0 1px rgba(154, 108, 235, 0.38),
+    0 0 32px rgba(111, 60, 195, 0.22),
+    0 14px 36px rgba(50, 26, 92, 0.22),
+    inset 0 1px 0 rgba(215, 190, 255, 0.16);
+}
+.g-opt[data-active='true'][data-tone='private'] .g-opt__t { color: #f4edff; text-shadow: 0 0 18px rgba(154, 108, 235, 0.25); }
+
+/* Rich signal colours for the composer footer — the final action follows the mode. */
+.g-sheet__foot--social .g-btn--intent-social {
+  background:
+    radial-gradient(120% 160% at 12% 0%, rgba(255, 226, 139, 0.25), transparent 48%),
+    linear-gradient(135deg, #dcb75e, #b8872d 58%, #e4c878);
+  color: #171108;
+  border-color: rgba(244, 212, 122, 0.72);
+  box-shadow: 0 10px 28px rgba(201, 162, 77, 0.28), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.g-sheet__foot--private .g-btn--intent-private {
+  background:
+    radial-gradient(120% 160% at 12% 0%, rgba(203, 166, 255, 0.25), transparent 48%),
+    linear-gradient(135deg, #8551d8, #5d2ca9 58%, #9a6be8);
+  color: #fff;
+  border-color: rgba(180, 142, 247, 0.68);
+  box-shadow: 0 10px 30px rgba(111, 60, 195, 0.32), inset 0 1px 0 rgba(255,255,255,0.18);
 }
 .g-opt--sm { min-height: 46px; padding: 9px 12px; }
 .g-opt--sm .g-opt__t { font-size: 13px; }
@@ -1671,9 +1749,72 @@ button, input, select, textarea, [role="button"] {
   color: #e4d7fb;
 }
 .g-optpill[data-active='true'][data-tone='amber'] {
-  background: rgba(201, 162, 77, 0.14);
-  border-color: rgba(201, 162, 77, 0.6);
-  color: #ecd6a5;
+  background:
+    radial-gradient(120% 180% at 18% 0%, rgba(255, 226, 139, 0.18), transparent 52%),
+    rgba(201, 162, 77, 0.14);
+  border-color: rgba(201, 162, 77, 0.72);
+  color: #f4dfae;
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 77, 0.16),
+    0 8px 24px rgba(201, 162, 77, 0.16),
+    inset 0 1px 0 rgba(255, 238, 184, 0.12);
+}
+
+/* The timing controls are the key decision in the live-signal composer.
+   Give the selected state a stronger violet "now" presence on mobile. */
+.g-sheet__body .g-optpill[data-active='true'] {
+  background:
+    radial-gradient(130% 180% at 18% 0%, rgba(203, 166, 255, 0.20), transparent 52%),
+    linear-gradient(180deg, rgba(111, 60, 195, 0.24), rgba(111, 60, 195, 0.14));
+  border-color: rgba(170, 132, 245, 0.82);
+  color: #f0e8ff;
+  box-shadow:
+    0 0 0 1px rgba(170, 132, 245, 0.12),
+    0 8px 26px rgba(111, 60, 195, 0.20),
+    inset 0 1px 0 rgba(235, 220, 255, 0.14);
+}
+
+.g-sheet__body .g-optpill[data-active='true']:active {
+  transform: translateY(1px);
+}
+
+/* Keep the composer usable above the iOS home indicator and make the
+   sticky action area visually separate from the scrolling choices. */
+@media (max-width: 639px) {
+  .g-sheet {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 10px);
+  }
+
+  .g-sheet__head {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .g-sheet__body {
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-bottom: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .g-sheet__foot {
+    padding-left: 18px;
+    padding-right: 18px;
+    background:
+      linear-gradient(180deg, rgba(8, 9, 13, 0.82), rgba(8, 9, 13, 0.97));
+    box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.22);
+  }
+
+  .g-sheet__foot .g-btn {
+    min-height: 48px;
+  }
+
+  .g-optpill {
+    min-height: 42px;
+    padding-left: 15px;
+    padding-right: 15px;
+    font-size: 12.5px;
+  }
 }
 
 /* Reveal animation for progressive sections */
@@ -1690,4 +1831,61 @@ button, input, select, textarea, [role="button"] {
   }
   .g-btn, .g-icon-btn, .g-opt, .g-live-cta { transition-duration: 0.01ms !important; }
   .g-tab__ind { transition: none; }
+}
+
+
+/* Map legend: make visibility and live availability unambiguous. */
+.g-map-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  background: rgba(9, 10, 16, 0.74);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  color: rgba(255,255,255,0.68);
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.g-map-legend__item { display: inline-flex; align-items: center; gap: 5px; }
+.g-map-legend__dot { width: 6px; height: 6px; border-radius: 999px; flex: none; }
+.g-map-legend__dot--live { background: #a879f1; box-shadow: 0 0 9px rgba(168,121,241,0.85); }
+.g-map-legend__dot--nearby { background: #d8d4dc; box-shadow: 0 0 7px rgba(216,212,220,0.28); }
+.g-map-legend__sep { width: 1px; height: 11px; background: rgba(255,255,255,0.12); }
+
+/* Chat fits the visible viewport (including the iOS keyboard), not an arbitrary
+   minimum height that pushes the composer behind the tab bar. */
+.g-chat-viewport {
+  position: fixed;
+  top: calc(var(--g-visual-top, 0px) + env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  height: max(0px, calc(var(--g-visual-height, 100dvh) - var(--g-tabbar-h) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px)));
+  padding: 0.5rem;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+@media (min-width: 768px) {
+  .g-chat-viewport {
+    top: calc(var(--g-visual-top, 0px) + 3.5rem + env(safe-area-inset-top, 0px));
+    height: max(0px, calc(var(--g-visual-height, 100dvh) - 4.5rem - env(safe-area-inset-top, 0px)));
+    max-width: 64rem;
+    margin-inline: auto;
+  }
+}
+
+/* Expanded discovery detail reserves the SAME nav gap in its height and
+   bottom margin. Unlayered .g-sheet margin otherwise overrides Tailwind's
+   mb-* utilities and the old max-height did not budget that gap. */
+.g-sheet.g-sheet--above-nav {
+  --g-sheet-bottom-gap: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px);
+  margin-bottom: var(--g-sheet-bottom-gap);
+  max-height: max(0px, calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-sheet-bottom-gap) - 14px));
+}
+@media (min-width: 768px) {
+  .g-sheet.g-sheet--above-nav { --g-sheet-bottom-gap: 24px; }
 }

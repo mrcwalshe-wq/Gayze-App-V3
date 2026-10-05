@@ -1,0 +1,43 @@
+{
+  "id": "https://gayze.co.uk/",
+  "name": "Gayze",
+  "short_name": "Gayze",
+  "description": "Gayze — Real Intent. Real Time. Encrypted, intent-based real-time social discovery.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#0B0810",
+  "theme_color": "#6F3CC3",
+  "lang": "en-GB",
+  "dir": "ltr",
+  "categories": ["social", "lifestyle"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/gayze-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/gayze-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/gayze-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/gayze-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

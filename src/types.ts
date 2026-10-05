@@ -7,6 +7,7 @@ export interface UserProfile {
   displayName: string;
   bio: string;
   avatarSeed: string;
+  avatarUrl?: string;
   neighborhood: string;
   privacySetting: LocationPrivacy;
   safetyVerified: boolean;
@@ -14,6 +15,17 @@ export interface UserProfile {
   reliabilityScore: number; // e.g. 95/100
   verifiedPeersCount: number; // In-person QR verified peers
   hapticsEnabled?: boolean; // Vibration API haptic feedback preference
+  age?: number;
+  pronouns?: string;
+  heightCm?: number;
+  bodyType?: string;
+  hobbies?: string[];
+  boundaries?: string[];
+  mySetup?: string[];
+  availability?: string[];
+  intimacy?: IntimacyProfile;
+  /** Hide presence from other users while still allowing authenticated chat. */
+  presenceIncognito?: boolean;
 }
 
 export interface Pulse {
@@ -105,6 +117,8 @@ export interface EncryptedMessage {
   roomId: string;
   senderKey: string;
   senderName: string;
+  /** Server-enforced expiry, retained during reconnect/catch-up. */
+  expiresAt?: number;
   timestamp: number;
   cipherText: string;
   nonceHex: string;
@@ -220,6 +234,7 @@ export interface SwarmRoom {
   peerName?: string;
   peerNeighborhood?: string;
   peerAvatar?: string;
+  peerLastSeenAt?: number;
   safetyNumber: string; // e.g. "4920 1823 8812 3901 0291 9410"
   swarmSecretKeyHex: string;
   lastMessage?: string;
@@ -294,4 +309,12 @@ export interface SafetyCheckin {
   startedAt: number;
   durationMinutes: number;
   notes: string;
+}
+
+
+export interface IntimacyProfile {
+  role?: string;
+  preferences: string[];
+  experience?: string;
+  visibility: 'everyone' | 'connections' | 'private';
 }

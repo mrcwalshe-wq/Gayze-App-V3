@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { getAuthRedirectUrl, supabase } from '../services/supabaseClient';
+import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Chrome } from 'lucide-react';
+import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
 import { GayzeLogo } from './GayzeLogo';
 
@@ -61,6 +61,22 @@ export const AuthView: React.FC<AuthViewProps> = ({
     setMessageTone(tone);
   };
 
+  const submitGoogle = async () => {
+    if (!supabase) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.home) },
+      });
+      if (error) throw error;
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Google sign-in failed. Please try again.', 'error');
+      setBusy(false);
+    }
+  };
+
   const submitSignIn = async () => {
     if (!supabase) return;
     const { error } = await supabase.auth.signInWithPassword({
@@ -79,7 +95,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       password,
       options: {
         data: { display_name: displayName.trim() || 'Gayze User' },
-        emailRedirectTo: getAuthRedirectUrl('/'),
+        emailRedirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.emailConfirm),
       },
     });
     if (error) throw error;
@@ -103,7 +119,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-      redirectTo: getAuthRedirectUrl('/'),
+      redirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.resetPassword),
     });
     // Always show a neutral success message — do not reveal account existence.
     if (error) {
@@ -148,7 +164,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: trimmed,
-      options: { emailRedirectTo: getAuthRedirectUrl('/') },
+      options: { emailRedirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.emailConfirm) },
     });
     if (error) throw error;
     setFeedback('Confirmation email sent. Check your inbox and spam folder.', 'success');
@@ -345,6 +361,26 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 Return to sign in
               </button>
             </div>
+          )}
+
+
+          {(mode === 'signin' || mode === 'signup') && (
+            <>
+              <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                <span className="h-px flex-1 bg-white/[0.07]" />
+                <span>or</span>
+                <span className="h-px flex-1 bg-white/[0.07]" />
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void submitGoogle()}
+                className="w-full h-12 rounded-xl bg-white text-[#111318] hover:bg-zinc-100 disabled:opacity-50 font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                <Chrome className="w-4 h-4" />
+                Continue with Google
+              </button>
+            </>
           )}
 
           {(mode === 'signin' || mode === 'signup') && (

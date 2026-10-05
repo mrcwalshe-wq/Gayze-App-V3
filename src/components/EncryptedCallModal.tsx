@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { hapticSensitiveAction, triggerVibration } from '../services/hapticService';
 import { webrtcCallService, CallState } from '../services/webrtcService';
+import { getCallAudioContext, closeCallAudio } from '../services/callAudioService';
 
 interface EncryptedCallModalProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   targetUserId,
   isIncoming = false,
 }) => {
-  const [callState, setCallState] = useState<CallState>(isIncoming ? 'connecting' : 'calling');
+  const [callState, setCallState] = useState<CallState>(isIncoming ? 'ringing' : 'calling');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -49,12 +50,81 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const terminalCloseTimerRef = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
+  const ringtoneTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  // Branded GAYZE call alert. Caller and recipient deliberately use different
+  // signatures so each side has a distinct call experience.
+  const stopRingtone = () => {
+    if (ringtoneTimerRef.current !== null) {
+      window.clearInterval(ringtoneTimerRef.current);
+      ringtoneTimerRef.current = null;
+    }
+    closeCallAudio();
+  };
+
+  const playRingtoneBurst = () => {
+    const ctx = getCallAudioContext();
+    if (!ctx || ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+    gain.connect(ctx.destination);
+    [523.25, 659.25, 783.99].forEach((frequency, index) => {
+      const oscillator = ctx.createOscillator();
+      oscillator.type = index === 2 ? 'triangle' : 'sine';
+      oscillator.frequency.setValueAtTime(frequency, now);
+      oscillator.connect(gain);
+      oscillator.start(now + index * 0.10);
+      oscillator.stop(now + 0.49);
+    });
+  };
+
+  useEffect(() => {
+    if (!isOpen || (callState !== 'calling' && callState !== 'ringing')) {
+      stopRingtone();
+      return;
+    }
+
+    // Outgoing uses the ascending GAYZE ringback. Incoming uses a different
+    // two-stage chime so the recipient can distinguish an incoming call.
+    const play = isIncoming ? () => {
+      const ctx = getCallAudioContext();
+      if (!ctx || ctx.state !== 'running') return;
+      const now = ctx.currentTime;
+      const tones = [
+        [392, 0, 0.34, 0.055],
+        [493.88, 0.09, 0.42, 0.05],
+        [587.33, 0.18, 0.52, 0.045],
+        [783.99, 0.34, 0.58, 0.032],
+      ];
+      tones.forEach(([frequency, offset, duration, level]) => {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = frequency === 783.99 ? 'sine' : 'triangle';
+        oscillator.frequency.setValueAtTime(frequency, now);
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(level, now + offset + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + duration);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(now + offset);
+        oscillator.stop(now + offset + duration + 0.02);
+      });
+    } : playRingtoneBurst;
+    play();
+    ringtoneTimerRef.current = window.setInterval(play, isIncoming ? 1900 : 1700);
+
+    return () => stopRingtone();
+  }, [isOpen, callState]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -94,9 +164,21 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
     const unsubStreams = webrtcCallService.subscribeStreams((local, remote) => {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = local;
+        if (local) void localVideoRef.current.play().catch(() => undefined);
       }
       if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remote;
+        remoteVideoRef.current.srcObject = initialCallType === 'video' ? remote : null;
+        remoteVideoRef.current.muted = initialCallType !== 'video';
+        if (remote && initialCallType === 'video') void remoteVideoRef.current.play().catch((error) => {
+          console.warn('[GAYZE Call] Remote video autoplay was blocked', error);
+        });
+      }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = initialCallType === 'audio' ? remote : null;
+        remoteAudioRef.current.volume = isSpeakerOn ? 1 : 0;
+        if (remote && initialCallType === 'audio') void remoteAudioRef.current.play().catch((error) => {
+          console.warn('[GAYZE Call] Remote audio autoplay was blocked', error);
+        });
       }
     });
 
@@ -113,6 +195,9 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   useEffect(() => {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.volume = isSpeakerOn ? 1 : 0;
+    }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.volume = isSpeakerOn ? 1 : 0;
     }
   }, [isSpeakerOn]);
 
@@ -171,8 +256,18 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   };
 
   const handleToggleMute = () => {
-    const nextState = webrtcCallService.toggleAudio();
-    setIsMuted(!nextState);
+    // Toggle the actual capture track immediately as well as the service state.
+    // This keeps the control reliable if the service stream reference lags behind
+    // the media element during call setup.
+    const stream = webrtcCallService.getLocalStream?.();
+    const track = stream?.getAudioTracks()[0];
+    const nextMuted = track ? track.enabled : !isMuted;
+    if (track) {
+      track.enabled = !nextMuted;
+    } else {
+      webrtcCallService.toggleAudio(!nextMuted);
+    }
+    setIsMuted(nextMuted);
   };
 
   const handleToggleVideo = () => {
@@ -223,6 +318,10 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
         {/* Center: Live Video Streams or Audio Waveform */}
         <div className="flex-1 flex flex-col items-center justify-center my-3 relative overflow-hidden rounded-2xl bg-[#090a0f] border border-white/10">
+          {/* Dedicated remote audio element. Keeping audio separate from the
+              video presentation avoids iOS/Safari autoplay and visibility quirks. */}
+          <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+
           {/* Remote Video Stream Element */}
           <video
             ref={remoteVideoRef}
@@ -354,7 +453,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
 
           {/* Speaker Toggle */}
           <button
-            onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+            onClick={() => setIsSpeakerOn((current) => !current)}
             className={`w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
               !isSpeakerOn
                 ? 'bg-zinc-800 text-zinc-500 border-white/5'

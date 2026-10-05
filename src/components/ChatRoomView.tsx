@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal } from '../types';
+import { PeerIntentBanner } from './PeerIntentBanner';
+import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
+import type { ChatConnectionState } from '../services/realtimeRecovery';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode } from '../types';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import {
   Lock,
@@ -26,53 +29,158 @@ import {
   MapPin,
   Coffee,
   Image as ImageIcon,
-  MoreHorizontal
+  MoreHorizontal,
+  Trash2
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
+import { getProfilePhotoUrl } from '../services/profilePhotoService';
 
 interface ChatRoomViewProps {
   rooms: SwarmRoom[];
   messages: Record<string, EncryptedMessage[]>;
   activeRoomId: string;
+  openRequest?: { roomId: string; sequence: number } | null;
+  onVisibleRoomChange?: (roomId: string | null) => void;
   onSelectRoom: (roomId: string) => void;
   currentUser: UserProfile;
-  onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string) => Promise<void>;
+  /** Authenticated Supabase user id; live message sender_id values use this, not the device public-key fingerprint. */
+  currentUserId?: string | null;
+  onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string, messageId?: string) => Promise<void>;
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
+  /** Removes only the current user's membership; resolves once the backend confirms. */
+  onDeleteChat?: (roomId: string) => Promise<void>;
   onOpenQR?: (peerName?: string) => void;
-  onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string) => void;
+  onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
   onlineUserIds?: Set<string>;
+  connectionState?: ChatConnectionState;
   /** True when no conversation key could be resolved on this device. */
   conversationKeyUnavailable?: boolean;
   conversationKeyReason?: string;
+  /** Current GAYZE mode controls the live chat border hue. */
+  activeIntentMode?: TopLevelIntentMode;
 }
 
 export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   rooms,
   messages,
   activeRoomId,
+  openRequest,
+  onVisibleRoomChange,
   onSelectRoom,
   currentUser,
+  currentUserId,
   onSendMessage,
   onUpdateRoomTtl,
+  onDeleteChat,
   onOpenQR,
   onStartCall,
   onOpenScheduleMeeting,
   onAcceptMeeting,
   onReturnToDiscovery,
   onlineUserIds,
+  connectionState,
   conversationKeyUnavailable = false,
   conversationKeyReason,
+  activeIntentMode,
 }) => {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    const viewport = window.visualViewport;
+    const resize = () => {
+      document.documentElement.style.setProperty('--g-visual-height', `${viewport?.height ?? window.innerHeight}px`);
+      document.documentElement.style.setProperty('--g-visual-top', `${viewport?.offsetTop ?? 0}px`);
+    };
+    resize();
+    viewport?.addEventListener('resize', resize);
+    viewport?.addEventListener('scroll', resize);
+    window.addEventListener('resize', resize);
+    return () => {
+      window.clearInterval(tick);
+      viewport?.removeEventListener('resize', resize);
+      viewport?.removeEventListener('scroll', resize);
+      window.removeEventListener('resize', resize);
+      document.documentElement.style.removeProperty('--g-visual-height');
+      document.documentElement.style.removeProperty('--g-visual-top');
+    };
+  }, []);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const pendingSend = useRef<{ draft: string; id: string } | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
   const [inspectedMessageId, setInspectedMessageId] = useState<string | null>(null);
   const [attachedMedia, setAttachedMedia] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
+  const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteDialogRef = useRef<HTMLDivElement | null>(null);
+  const isDeletingRef = useRef(false);
+  isDeletingRef.current = isDeletingChat;
+
+  // Delete dialog: focus moves in, Tab is trapped, Escape cancels (unless busy),
+  // and focus returns to whatever opened it.
+  useEffect(() => {
+    if (!confirmDeleteRoomId) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const dialog = deleteDialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? []);
+    focusable()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (!isDeletingRef.current) { event.preventDefault(); setConfirmDeleteRoomId(null); }
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) { event.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!dialog?.contains(active)) { event.preventDefault(); first.focus(); }
+      else if (event.shiftKey && active === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); opener?.focus?.(); };
+  }, [confirmDeleteRoomId]);
+  const [avatarUrls, setAvatarUrls] = useState<Record<string, string>>({});
+  const avatarUrlsRef = useRef(avatarUrls);
+  avatarUrlsRef.current = avatarUrls;
+
+  useEffect(() => {
+    let active = true;
+    const toResolve = [...new Set(rooms
+      .map((r) => r.peerAvatar)
+      .filter((a): a is string => Boolean(a && a !== 'user' && !a.startsWith('http') && !avatarUrlsRef.current[a])))];
+
+    if (!toResolve.length) return;
+
+    void Promise.all(
+      toResolve.map(async (path) => ({
+        path,
+        url: await getProfilePhotoUrl(path),
+      }))
+    ).then((items) => {
+      if (!active) return;
+      setAvatarUrls((prev) => {
+        const next = { ...prev };
+        for (const item of items) {
+          if (item.url) next[item.path] = item.url;
+        }
+        return next;
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [rooms]);
   // Local trust decisions only: a room is marked verified when the user
   // compares the real safety code out-of-band. Nothing is pre-verified and
   // nothing is asserted about a peer the user has not confirmed.
@@ -93,12 +201,52 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     }
   }, [isPeerVerified]);
   // Mobile responsive view: 'list' | 'chat'
-  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>(() => activeRoomId ? 'chat' : 'list');
+  const [wideLayout, setWideLayout] = useState(() => window.matchMedia?.('(min-width: 640px)').matches ?? window.innerWidth >= 640);
+  useLayoutEffect(() => {
+    if (activeRoomId) setMobileView('chat');
+  }, [activeRoomId, openRequest?.sequence]);
+  useEffect(() => {
+    const media = window.matchMedia?.('(min-width: 640px)');
+    const change = () => setWideLayout(media?.matches ?? window.innerWidth >= 640);
+    change();
+    if (!media) {
+      window.addEventListener('resize', change);
+      return () => window.removeEventListener('resize', change);
+    }
+    if (media.addEventListener) {
+      media.addEventListener('change', change);
+      return () => media.removeEventListener('change', change);
+    }
+    media.addListener(change);
+    return () => media.removeListener(change);
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const currentRoom = rooms.find((r) => r.id === activeRoomId) || rooms[0];
-  const currentMessages = messages[currentRoom?.id || ''] || [];
-  const prevCountRef = useRef<number>(currentMessages.length);
+  // An explicit target may still be hydrating: never show/send to another peer.
+  const currentRoom = activeRoomId ? rooms.find((r) => r.id === activeRoomId) : undefined;
+  const visibleRoomId = currentRoom && (wideLayout || mobileView === 'chat') ? currentRoom.id : null;
+  useLayoutEffect(() => {
+    onVisibleRoomChange?.(visibleRoomId);
+    return () => onVisibleRoomChange?.(null);
+  }, [visibleRoomId, onVisibleRoomChange]);
+  const currentMessages = useMemo(() => (messages[currentRoom?.id || ''] || [])
+    .filter((message) => !message.isBurned && (!message.expiresAt || message.expiresAt > now)), [messages, currentRoom?.id, now]);
+  const [historyWindow, setHistoryWindow] = useState({ roomId: activeRoomId, count: 100 });
+  const visibleCount = historyWindow.roomId === activeRoomId ? historyWindow.count : 100;
+  const visibleMessages = currentMessages.slice(-visibleCount);
+  const feedRef = useRef<HTMLDivElement | null>(null);
+  const nearBottomRef = useRef(true);
+  const previousTailRef = useRef<{ room: string; id?: string }>({ room: '', id: undefined });
+  const scrollAnchorRef = useRef<{ height: number; top: number } | null>(null);
+  const lastMessageId = currentMessages.at(-1)?.id;
+  useLayoutEffect(() => {
+    beginChatTrace(activeRoomId, true);
+    traceChat(activeRoomId, 'shell-commit');
+    countChatWork(activeRoomId, 'renders');
+    if (visibleMessages.length) traceChat(activeRoomId, 'first-message-commit');
+    if (visibleMessages.some((message) => message.plainText !== undefined && message.plainText !== '[Encrypted message]')) traceChat(activeRoomId, 'first-decrypted-commit');
+  });
 
   // Real safety code for this conversation: only shown when both device keys are
   // known. There is deliberately no placeholder number.
@@ -109,16 +257,25 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     return blocks.length ? blocks : null;
   }, [currentRoom?.safetyNumber]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    // Trigger subtle tactile haptic feedback when an encrypted message is received and decrypted locally
-    if (currentMessages.length > prevCountRef.current) {
-      hapticMessageDecrypted();
+  useLayoutEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+    const previous = previousTailRef.current;
+    const changedRoom = previous.room !== activeRoomId;
+    if (changedRoom) { nearBottomRef.current = true; scrollAnchorRef.current = null; }
+    if (scrollAnchorRef.current && !changedRoom) {
+      feed.scrollTop = scrollAnchorRef.current.top + feed.scrollHeight - scrollAnchorRef.current.height;
+      scrollAnchorRef.current = null;
+    } else if (changedRoom || (lastMessageId !== previous.id && nearBottomRef.current)) {
+      // Jump on hydration/reopen; don't animate every decrypted history batch.
+      feed.scrollTop = feed.scrollHeight;
     }
-    prevCountRef.current = currentMessages.length;
-  }, [currentMessages, activeRoomId]);
+    if (!changedRoom && previous.id && lastMessageId !== previous.id && nearBottomRef.current) hapticMessageDecrypted();
+    previousTailRef.current = { room: activeRoomId, id: lastMessageId };
+  }, [activeRoomId, lastMessageId, visibleCount]);
 
   const handleSelectRoom = (roomId: string) => {
+    hapticLight();
     onSelectRoom(roomId);
     setMobileView('chat');
   };
@@ -141,12 +298,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     const textToSend = inputText.trim() || (attachedMedia ? 'Shared a photo' : '');
     const mediaToSend = attachedMedia || undefined;
 
-    setInputText('');
-    setAttachedMedia(null);
+    const draft = JSON.stringify([currentUserId, currentRoom.id, textToSend, mediaToSend, currentRoom.ephemeralTtlSeconds]);
+    if (pendingSend.current?.draft !== draft) pendingSend.current = { draft, id: crypto.randomUUID() };
+    setSendError(null);
     setIsSending(true);
 
     try {
-      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend);
+      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend, pendingSend.current.id);
+      pendingSend.current = null;
+      setInputText('');
+      setAttachedMedia(null);
+    } catch {
+      setSendError('Send not confirmed. Your draft is kept; retrying this draft will not send it twice.');
     } finally {
       setIsSending(false);
     }
@@ -169,9 +332,16 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   };
 
   return (
-    <div className="gayze-chat-shell flex h-[calc(100dvh-8.5rem)] sm:h-[calc(100vh-9rem)] min-h-[460px] bg-[#090a0e] rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl">
+    <div className="flex flex-col h-full min-h-0">
+      {connectionState && (
+        <div role="status" aria-live="polite" className="shrink-0 px-3 py-1 text-[11px] text-zinc-400">
+          {{ connecting: 'Connecting to messages…', syncing: 'Recovering messages…', connected: 'Live · messages synced', reconnecting: 'Connection interrupted — reconnecting…', offline: 'Offline — messages will sync when you reconnect', suspended: 'Messages paused while the app is in the background', 'sign-in-required': 'Your session has ended. Sign in again to reconnect.' }[connectionState]}
+        </div>
+      )}
+    <div className="gayze-chat-shell flex flex-1 min-h-0 bg-[#090a0e] rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl">
       {/* Sidebar: Chats & Conversations */}
       <div
+        data-testid="conversation-list"
         className={`gayze-chat-sidebar w-full sm:w-72 md:w-80 bg-[#0d0e14] border-r border-white/[0.08] flex flex-col shrink-0 ${mobileView === 'chat' ? 'hidden sm:flex' : 'flex'
           }`}
       >
@@ -205,6 +375,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           {rooms.map((room) => {
             const isSelected = room.id === currentRoom?.id;
             const isGathering = room.type === 'gathering';
+            const roomAvatar = room.peerAvatar && room.peerAvatar !== 'user'
+              ? (avatarUrls[room.peerAvatar] || (room.peerAvatar.startsWith('http') ? room.peerAvatar : null))
+              : null;
 
             return (
               <button
@@ -216,12 +389,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   }`}
               >
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold ${isGathering
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold overflow-hidden ${isGathering
                     ? 'bg-[#171922] text-[#C9A24D] border border-[#C9A24D]/30'
                     : 'bg-[#171922] text-zinc-200 border border-white/10'
                     }`}
                 >
-                  {isGathering ? <Users className="w-4 h-4" /> : room.name.charAt(0)}
+                  {isGathering ? (
+                    <Users className="w-4 h-4" />
+                  ) : roomAvatar ? (
+                    <img src={roomAvatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    room.name.charAt(0)
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -265,24 +444,37 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
       {/* Main Chat Area */}
       {currentRoom ? (
-        <div
-          className={`flex-1 flex flex-col bg-[#090a0e] min-w-0 ${mobileView === 'list' ? 'hidden sm:flex' : 'flex'
+        <div data-testid="conversation-pane" data-room-id={currentRoom.id}
+          className={`flex-1 flex flex-col bg-[#090a0e] min-w-0 min-h-0 ${mobileView === 'list' ? 'hidden sm:flex' : 'flex'
             }`}
         >
           {/* Header */}
-          <div className="gayze-chat-header h-14 px-3 sm:px-4 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
+          <div className="gayze-chat-header shrink-0 h-14 px-3 sm:px-4 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {/* Mobile Back Button */}
               <button
-                onClick={() => setMobileView('list')}
-                className="sm:hidden min-h-[38px] min-w-[38px] -ml-1 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
+                onClick={() => {
+                  hapticLight();
+                  setMobileView('list');
+                }}
+                className="sm:hidden min-h-[44px] min-w-[44px] -ml-1 flex items-center justify-center text-zinc-400 hover:text-white rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer"
                 aria-label="Back to rooms"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              <div className="w-8 h-8 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0">
-                {currentRoom.type === 'gathering' ? <Users className="w-4 h-4" /> : currentRoom.name.charAt(0)}
+              <div className="w-8 h-8 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0 overflow-hidden">
+                {currentRoom.type === 'gathering' ? (
+                  <Users className="w-4 h-4" />
+                ) : (currentRoom.peerAvatar && currentRoom.peerAvatar !== 'user' && (avatarUrls[currentRoom.peerAvatar] || (currentRoom.peerAvatar.startsWith('http') ? currentRoom.peerAvatar : null))) ? (
+                  <img
+                    src={avatarUrls[currentRoom.peerAvatar] || currentRoom.peerAvatar}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  currentRoom.name.charAt(0)
+                )}
               </div>
 
               <div className="min-w-0">
@@ -297,15 +489,17 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1.5">
                   {currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block g-breathe" />
-                      <span className="text-emerald-400 font-semibold font-mono">Online</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] inline-block g-breathe" />
+                      <span className="text-[#C9A24D] font-semibold font-mono">Online now</span>
                     </>
                   ) : (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 inline-block" />
                       <span className="truncate font-mono">
                         {currentRoom.type === 'direct'
-                          ? (currentRoom.peerKey ? 'Device-to-device key' : 'Direct conversation')
+                          ? (currentRoom.peerLastSeenAt
+                            ? 'Last seen ' + new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                            : 'Last seen unavailable')
                           : 'Group conversation'}
                       </span>
                     </>
@@ -317,39 +511,105 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             {/* Header Actions — keep the direct actions quiet; secondary controls live in one menu on mobile. */}
             <div className="flex items-center gap-1 shrink-0">
               {currentRoom.type === 'direct' && onStartCall && (
-                <button onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId)}
-                  className="g-icon-btn" title="Video call" aria-label="Start video call">
+                <button
+                  onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId, currentRoom.peerAvatar)}
+                  className="g-icon-btn"
+                  title="Video call"
+                  aria-label="Start video call"
+                >
                   <Video className="w-4 h-4 text-[#c4a9f7]" />
                 </button>
               )}
+
               <div className="relative">
-                <button type="button" onClick={() => setShowChatActions((value) => !value)}
-                  className="g-icon-btn" aria-label="Conversation actions" aria-expanded={showChatActions}>
+                <button
+                  type="button"
+                  onClick={() => setShowChatActions((value) => !value)}
+                  className="g-icon-btn"
+                  aria-label="Conversation actions"
+                  aria-expanded={showChatActions}
+                >
                   <MoreHorizontal className="w-4 h-4" />
                 </button>
+
                 {showChatActions && (
                   <div className="absolute right-0 top-11 z-40 w-52 g-panel p-1.5 shadow-2xl">
                     {currentRoom.type === 'direct' && onStartCall && (
-                      <button type="button" className="g-row !min-h-[42px] !rounded-xl" onClick={() => { setShowChatActions(false); onStartCall(currentRoom.peerName || currentRoom.name, 'audio', currentRoom.peerUserId); }}>
-                        <Phone className="w-4 h-4 text-[#c4a9f7]" /><span className="text-[12px]">Audio call</span>
+                      <button
+                        type="button"
+                        className="g-row !min-h-[42px] !rounded-xl"
+                        onClick={() => {
+                          setShowChatActions(false);
+                          onStartCall(currentRoom.peerName || currentRoom.name, 'audio', currentRoom.peerUserId, currentRoom.peerAvatar);
+                        }}
+                      >
+                        <Phone className="w-4 h-4 text-[#c4a9f7]" />
+                        <span className="text-[12px]">Audio call</span>
                       </button>
                     )}
                     {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
-                      <button type="button" className="g-row !min-h-[42px] !rounded-xl" onClick={() => { setShowChatActions(false); onOpenScheduleMeeting(currentRoom.peerName || currentRoom.name); }}>
-                        <Calendar className="w-4 h-4 text-[#C9A24D]" /><span className="text-[12px]">Plan a safe meetup</span>
+                      <button
+                        type="button"
+                        className="g-row !min-h-[42px] !rounded-xl"
+                        onClick={() => {
+                          setShowChatActions(false);
+                          onOpenScheduleMeeting(currentRoom.peerName || currentRoom.name);
+                        }}
+                      >
+                        <Calendar className="w-4 h-4 text-[#C9A24D]" />
+                        <span className="text-[12px]">Plan a safe meetup</span>
                       </button>
                     )}
-                    <button type="button" className="g-row !min-h-[42px] !rounded-xl" onClick={() => { setShowChatActions(false); cycleTtl(); }}>
-                      <Clock className="w-4 h-4 text-[#c4a9f7]" /><span className="text-[12px]">Disappearing messages</span>
-                      <span className="ml-auto text-[10px] text-zinc-500">{getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}</span>
+                    <button
+                      type="button"
+                      className="g-row !min-h-[42px] !rounded-xl"
+                      onClick={() => {
+                        setShowChatActions(false);
+                        cycleTtl();
+                      }}
+                    >
+                      <Clock className="w-4 h-4 text-[#c4a9f7]" />
+                      <span className="text-[12px]">Disappearing messages</span>
+                      <span className="ml-auto text-[10px] text-zinc-500">
+                        {getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}
+                      </span>
                     </button>
-                    <button type="button" className="g-row !min-h-[42px] !rounded-xl" onClick={() => { setShowChatActions(false); setIsSafetyModalOpen(true); }}>
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" /><span className="text-[12px]">Verify safety code</span>
+                    <button
+                      type="button"
+                      className="g-row !min-h-[42px] !rounded-xl"
+                      onClick={() => {
+                        setShowChatActions(false);
+                        setIsSafetyModalOpen(true);
+                      }}
+                    >
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span className="text-[12px]">Verify safety code</span>
                     </button>
+                    {onDeleteChat && (
+                      <button
+                        type="button"
+                        className="g-row !min-h-[42px] !rounded-xl"
+                        onClick={() => {
+                          setShowChatActions(false);
+                          setDeleteError(null);
+                          setConfirmDeleteRoomId(currentRoom.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                        <span className="text-[12px] text-red-300">Delete Chat</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
-            </div>          </div>
+            </div>
+          </div>
+
+          {visibleRoomId && currentRoom.type === 'direct' && currentUserId && currentRoom.peerUserId && (
+            <PeerIntentBanner key={`${currentUserId}/${currentRoom.id}/${currentRoom.peerUserId}`}
+              userId={currentUserId} peerId={currentRoom.peerUserId}
+              peerName={currentRoom.peerName || currentRoom.name} now={now} />
+          )}
 
           {conversationKeyUnavailable && (
             <div className="px-3 sm:px-4 py-2 bg-amber-500/10 border-b border-amber-500/25 text-[11px] text-amber-200">
@@ -377,9 +637,19 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           )}
 
           {/* Messages Feed */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
-            {currentMessages.map((msg) => {
-              const isMe = msg.senderKey === currentUser.publicKey;
+          <div ref={feedRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3"
+            onScroll={() => { const feed = feedRef.current; if (feed) nearBottomRef.current = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 100; }}>
+            {currentMessages.length > visibleCount && (
+              <button type="button" className="block mx-auto min-h-[44px] text-xs text-[#C9A24D]" onClick={() => {
+                const feed = feedRef.current;
+                if (feed) scrollAnchorRef.current = { height: feed.scrollHeight, top: feed.scrollTop };
+                setHistoryWindow({ roomId: activeRoomId, count: visibleCount + 100 });
+              }}>Show older messages</button>
+            )}
+            {visibleMessages.map((msg) => {
+              const isMe = currentUserId
+                ? msg.senderKey === currentUserId
+                : msg.senderKey === currentUser.publicKey;
               const isInspecting = inspectedMessageId === msg.id;
 
               return (
@@ -394,10 +664,19 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   </div>
 
                   <div
-                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed ${isMe
-                      ? 'g-bubble--mine rounded-tr-sm'
-                      : 'bg-[#141620] text-zinc-100 border border-white/[0.08] rounded-tl-sm'
-                      }`}
+                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed border transition-colors ${
+                      activeIntentMode === 'private'
+                        ? isMe
+                          ? 'g-bubble--mine rounded-tr-sm !border-[#6F3CC3]/65 shadow-[0_0_18px_rgba(111,60,195,0.10)]'
+                          : 'bg-[#141620] text-zinc-100 rounded-tl-sm !border-[#6F3CC3]/45'
+                        : activeIntentMode === 'social'
+                          ? isMe
+                            ? 'g-bubble--mine rounded-tr-sm !border-[#C9A24D]/65 shadow-[0_0_18px_rgba(201,162,77,0.10)]'
+                            : 'bg-[#141620] text-zinc-100 rounded-tl-sm !border-[#C9A24D]/45'
+                          : isMe
+                            ? 'g-bubble--mine rounded-tr-sm border-white/10'
+                            : 'bg-[#141620] text-zinc-100 rounded-tl-sm border-white/[0.08]'
+                    }`}
                   >
                     {/* Encrypted Photo Attachment if present */}
                     {msg.mediaUrl && (
@@ -494,7 +773,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           </div>
 
           {/* Message Input Box */}
-          <form onSubmit={handleSend} className="p-2.5 sm:p-3 bg-[#0d0e14] border-t border-white/[0.08] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+          {sendError && <div role="alert" className="shrink-0 px-3 py-2 text-xs text-amber-200">{sendError}</div>}
+          <form onSubmit={handleSend} className="shrink-0 p-2.5 sm:p-3 bg-[#0d0e14] border-t border-white/[0.08] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
             {/* Attached Photo Preview Thumbnail */}
             {attachedMedia && (
               <div className="relative mb-2.5 inline-flex items-center gap-2.5 p-1.5 bg-[#141620] border border-white/15 rounded-xl animate-in fade-in">
@@ -536,7 +816,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <input
                 type="text"
                 value={inputText}
-                disabled={conversationKeyUnavailable}
+                disabled={conversationKeyUnavailable || isSending}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={currentRoom.ephemeralTtlSeconds > 0 ? `Message · ${getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}` : 'Message…'}
                 className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none py-1"
@@ -571,13 +851,14 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           </form>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center p-8">
+        <div className={`flex-1 items-center justify-center p-8 ${mobileView === 'list' ? 'hidden sm:flex' : 'flex'}`}>
           <div className="g-empty max-w-sm !bg-transparent !border-0 !shadow-none">
             <div className="g-empty__icon">
               <Lock className="w-5 h-5" />
             </div>
-            <h3>No conversation open</h3>
-            <p>Pick a chat — or message someone from an intent to start an encrypted thread.</p>
+            <h3>{activeRoomId ? 'Opening requested conversation' : 'No conversation open'}</h3>
+            <p>{activeRoomId ? 'Waiting for this conversation. If it is no longer available, choose another chat.' : 'Pick a chat — or message someone from an intent to start an encrypted thread.'}</p>
+            {activeRoomId && <button onClick={() => setMobileView('list')} className="sm:hidden min-h-[44px] px-3 text-amber-200">Back to rooms</button>}
           </div>
         </div>
       )}
@@ -601,6 +882,48 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               alt="Zoomed encrypted attachment"
               className="w-full h-full object-contain"
             />
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteRoomId && onDeleteChat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-chat-title">
+          <div ref={deleteDialogRef} className="w-full max-w-sm bg-[#11131a] border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4">
+            <h3 id="delete-chat-title" className="text-base font-bold text-white">Delete this chat?</h3>
+            <p className="text-[12px] text-zinc-400">
+              This removes the conversation from your account on every device. The other person keeps their copy and is not notified.
+            </p>
+            {deleteError && <p role="alert" className="text-[12px] text-red-300">{deleteError}</p>}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                className="px-3 py-2 rounded-xl text-[12px] text-zinc-300 border border-white/10"
+                disabled={isDeletingChat}
+                onClick={() => setConfirmDeleteRoomId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-3 py-2 rounded-xl text-[12px] font-semibold text-white bg-red-600 disabled:opacity-60"
+                disabled={isDeletingChat}
+                onClick={async () => {
+                  const roomId = confirmDeleteRoomId;
+                  setIsDeletingChat(true);
+                  setDeleteError(null);
+                  try {
+                    await onDeleteChat(roomId);
+                    setConfirmDeleteRoomId(null);
+                  } catch (error: any) {
+                    setDeleteError(error?.message || 'Could not delete this chat.');
+                  } finally {
+                    setIsDeletingChat(false);
+                  }
+                }}
+              >
+                {isDeletingChat ? 'Deleting…' : 'Delete Chat'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -683,6 +1006,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };
