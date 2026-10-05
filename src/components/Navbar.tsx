@@ -89,6 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   hapticLight();
                   onTabChange(tab.id);
                 }}
+                data-tab={tab.id}
                 data-active={activeGroup === tab.group}
                 className="g-navpill__btn"
               >
@@ -145,6 +146,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={tab.id}
                 className="g-tab"
+                data-tab={tab.id}
                 data-active={isActive}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
