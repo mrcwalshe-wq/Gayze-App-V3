@@ -27,7 +27,12 @@ function checked<T>(result: { data: T; error: unknown }): T {
 }
 const store: PushStore = {
   async user(token) { const result = await db.auth.getUser(token); return result.error ? null : result.data.user; },
-  async notice(id) { return checked(await db.from('gayze_notifications').select('id,user_id,category,event_key,url,read_at,created_at').eq('id', id).maybeSingle()); },
+  async notice(id) {
+    const notice = checked(await db.from('gayze_notifications').select('id,user_id,actor_id,category,event_key,url,read_at,created_at').eq('id', id).maybeSingle());
+    if (!notice?.actor_id) return notice;
+    const profile = checked(await db.from('profiles').select('display_name').eq('id', notice.actor_id).maybeSingle());
+    return { ...notice, actor_display_name: typeof profile?.display_name === 'string' ? profile.display_name : null };
+  },
   async eligible(id) { return checked(await db.rpc('gayze_notification_push_allowed', { p_id: id })) === true; },
   async preferences(user) { return checked(await db.from('notification_preferences').select('push_enabled,messages,intent_activity,connections,intent_expiry,safety').eq('user_id', user).maybeSingle()); },
   async subscriptions(user) { return checked(await db.from('push_subscriptions').select('id,user_id,endpoint,p256dh,auth').eq('user_id', user)) ?? []; },
