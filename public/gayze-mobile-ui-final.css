@@ -1,0 +1,151 @@
+/* GAYZE mobile UI final alignment pass — 2026-10-05
+   One geometry system for all five tabs and explicit clearance for fixed UI. */
+
+@media (max-width: 767px) {
+  :root { --g-tabbar-h: 80px; }
+
+  .g-tabbar {
+    height: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: 0 !important;
+  }
+
+  .g-tabbar__inner {
+    height: var(--g-tabbar-h) !important;
+    padding: 5px 7px !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    align-items: stretch !important;
+  }
+
+  .g-tab:not(.g-tab--discover) {
+    height: 68px !important;
+    min-height: 68px !important;
+    align-self: center !important;
+    padding: 7px 2px 6px !important;
+    border-radius: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .g-tab:not(.g-tab--discover) svg {
+    width: 23px !important;
+    height: 23px !important;
+  }
+
+  .g-tab[data-active="true"]:not(.g-tab--discover) {
+    border: 1px solid rgba(151,103,235,.30) !important;
+    background: linear-gradient(180deg, rgba(111,60,195,.16), rgba(111,60,195,.07)) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 5px 18px rgba(111,60,195,.12) !important;
+  }
+
+  .g-tab--discover {
+    height: 72px !important;
+    min-height: 72px !important;
+    padding: 0 !important;
+    transform: translateY(-24px) !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    justify-content: flex-end !important;
+  }
+
+  .g-tab--discover:active {
+    transform: translateY(-22px) scale(.985) !important;
+  }
+
+  .g-tab--discover .g-discover-action {
+    width: 78px !important;
+    height: 78px !important;
+    margin: 0 0 2px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background:
+      linear-gradient(transparent, transparent) padding-box,
+      conic-gradient(from 215deg, #6f3cc3, #b84dff 34%, #e04abf 60%, #c9a24d 82%, #6f3cc3) border-box !important;
+    border: 2px solid transparent !important;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.10),
+      0 12px 28px rgba(111,60,195,.40),
+      0 0 34px rgba(157,74,255,.25) !important;
+  }
+
+  .g-tab--discover .g-discover-action::before {
+    inset: -8px !important;
+    background: radial-gradient(circle, rgba(111,60,195,.24) 0%, rgba(201,162,77,.08) 42%, transparent 70%) !important;
+    filter: blur(8px) !important;
+  }
+
+  .g-tab--discover .g-discover-action::after {
+    inset: 2px !important;
+    border: 1px solid rgba(255,255,255,.13) !important;
+    background: transparent !important;
+  }
+
+  .g-tab--discover .g-discover-logo {
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .g-tab--discover .g-discover-logo img {
+    width: 60px !important;
+    max-width: none !important;
+    height: auto !important;
+    mix-blend-mode: screen !important;
+    filter: drop-shadow(0 0 10px rgba(185,94,255,.46)) !important;
+  }
+
+  .g-tab__discover-label {
+    margin-top: 1px !important;
+    line-height: 1 !important;
+  }
+
+  .g-chat-viewport {
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px)) !important;
+    height: max(0px, calc(100dvh - var(--g-tabbar-h) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px))) !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .g-chat-viewport .g-chat-composer,
+  .g-chat-viewport [class*="composer"] {
+    margin-bottom: 8px !important;
+  }
+
+  .g-sheet.g-sheet--above-nav {
+    --g-sheet-bottom-gap: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px) !important;
+    margin-bottom: var(--g-sheet-bottom-gap) !important;
+    max-height: max(0px, calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-sheet-bottom-gap) - 14px)) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+
+  .g-preview {
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 20px) !important;
+  }
+
+  .g-map-bar {
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px) !important;
+  }
+
+  .g-btn,
+  .g-icon-btn {
+    min-height: 44px;
+  }
+
+  .g-panel,
+  .g-card,
+  .g-sheet {
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 380px) {
+  .g-tab--discover .g-discover-action {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  .g-tab--discover .g-discover-logo img {
+    width: 55px !important;
+  }
+}
