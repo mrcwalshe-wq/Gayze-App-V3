@@ -1,5 +1,5 @@
 import { webrtcCallService } from './webrtcService';
-import { enqueueCallNotification, markCallNotificationRead } from './callNotificationService';
+import { enqueueCallNotification } from './callNotificationService';
 
 let callAudioContext: AudioContext | null = null;
 
@@ -75,8 +75,6 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
   };
 
   async function markCallNotificationReadByConversation(conversationId: string) {
-    // The server-side acknowledgement is owner-scoped and clears only the
-    // authenticated user's call notification for this conversation.
     try {
       const { supabase } = await import('./supabaseClient');
       if (!supabase) return;
