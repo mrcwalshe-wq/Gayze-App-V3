@@ -1,0 +1,42 @@
+name: Repair npm lockfile
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Use Cloudflare npm version
+        run: npm install --global npm@10.9.2
+
+      - name: Regenerate lockfile with npm 10.9.2
+        run: npm install --package-lock-only --include=optional
+
+      - name: Verify clean install with npm ci
+        run: npm ci --include=optional
+
+      - name: Commit repaired lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json is already compatible with npm 10.9.2"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "fix: regenerate npm lockfile for Cloudflare npm 10"
+          git push
