@@ -237,7 +237,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       aria-labelledby="set-intent-title"
     >
       <div
-        className="g-sheet"
+        className={`g-sheet g-sheet--above-nav ${mode ? `g-sheet--${mode}` : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="g-sheet__grip" />
