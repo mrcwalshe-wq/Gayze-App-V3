@@ -92,7 +92,7 @@
   .g-tab[data-active="true"]::after { width: 18px; }
   .g-tab:active { transform: scale(.97) !important; }
 
-  .g-tab > span:not(.g-tab__ind):not(.g-tab__badge):not(.g-discover-action) {
+  .g-tab > span.g-tab__label {
     line-height: 1 !important;
     font-size: 9px !important;
     font-weight: 600 !important;
@@ -125,37 +125,40 @@
     box-shadow: 0 0 0 2px #0a0b10, 0 0 8px rgba(201,162,77,.45) !important;
   }
 
-  /* The centre action is the original GAYZE eye + integrated G mark.
-     It is deliberately raised, transparent and free of an artificial orb,
-     ring or black box. The source SVG is the approved purple→pink→amber mark. */
+  /* Centre navigation is the actual GAYZE eye + G mark, kept inside its tab. */
   .g-tab--discover {
-    justify-content: center !important;
+    justify-content: flex-end !important;
     gap: 0 !important;
     overflow: visible !important;
+    padding-bottom: 7px !important;
   }
 
   .g-tab--discover .g-discover-action {
+    position: absolute !important;
+    left: 50% !important;
+    top: 5px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 84px !important;
-    height: 84px !important;
-    margin: -18px auto 0 !important;
+    width: 68px !important;
+    height: 38px !important;
+    margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
-    transform: none !important;
+    transform: translateX(-50%) !important;
+    pointer-events: none !important;
   }
 
   .g-tab--discover .g-discover-logo-image {
     display: block !important;
-    width: 53px !important;
-    height: 27px !important;
+    width: 68px !important;
+    height: 34px !important;
     object-fit: contain !important;
     object-position: center !important;
-    filter: drop-shadow(0 0 8px rgba(111,60,195,.28)) !important;
+    filter: drop-shadow(0 0 7px rgba(111,60,195,.30)) !important;
     mix-blend-mode: normal !important;
   }
 
@@ -163,7 +166,12 @@
     filter: drop-shadow(0 0 10px rgba(111,60,195,.48)) !important;
   }
 
-  /* Content must clear the complete nav footprint, including iOS safe area. */
+  .g-tab--discover .g-tab__label {
+    position: relative !important;
+    z-index: 2 !important;
+    margin-top: 0 !important;
+  }
+
   .g-chat-viewport {
     bottom: calc(var(--g-tabbar-h) + var(--g-tabbar-bottom-gap) + env(safe-area-inset-bottom, 0px)) !important;
   }
@@ -186,8 +194,8 @@
   .g-tabbar__inner { padding: 4px !important; }
   .g-tab { padding-left: 1px !important; padding-right: 1px !important; }
   .g-tab:not(.g-tab--discover) svg { width: 19px !important; height: 19px !important; }
-  .g-tab > span:not(.g-tab__ind):not(.g-tab__badge):not(.g-discover-action) { font-size: 8.5px !important; }
-  .g-tab--discover .g-discover-logo-image { width: 53px !important; height: 27px !important; }
+  .g-tab > span.g-tab__label { font-size: 8.5px !important; }
+  .g-tab--discover .g-discover-logo-image { width: 62px !important; height: 31px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
