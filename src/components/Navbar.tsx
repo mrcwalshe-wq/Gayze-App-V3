@@ -34,8 +34,8 @@ interface TabDef {
   group: NavTab;
 }
 
-// Mobile navigation deliberately keeps Discover in the visual centre so the
-// GAYZE eye is the primary action, matching the premium brand direction.
+// Keep the mobile navigation focused on the five primary destinations.
+// Discover remains the visual brand anchor without behaving like a floating CTA.
 const TABS: TabDef[] = [
   { id: 'later', label: 'Later', icon: <Clock />, group: 'later' },
   { id: 'right_now', label: 'Right Now', icon: <Radio />, group: 'right_now' },
@@ -77,9 +77,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="g-discover-action relative flex items-center justify-center transition-transform duration-200"
         >
           <img
-            src="/gayze-discover-logo.svg?v=20261005-3"
+            src="/gayze-discover-logo.svg?v=20261006-1"
             alt=""
-            className="w-6 h-6 object-contain"
+            className="g-discover-logo-image object-contain"
             draggable={false}
           />
         </span>
@@ -189,7 +189,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <span className="g-tab__ind" />
                 {renderTabIcon(tab, true)}
-                <span className={`text-[10px] font-medium tracking-tight mt-0.5 transition-colors duration-150 ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+                <span className={`g-tab__label text-[10px] font-medium tracking-tight mt-0.5 transition-colors duration-150 ${isActive ? 'text-white' : 'text-zinc-500'}`}>
                   {tab.label}
                 </span>
                 {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
