@@ -1,6 +1,4 @@
-/* GAYZE final mobile navigation — single authoritative override.
-   Keep this file last in index.html so legacy nav patches cannot fight it. */
-
+/* GAYZE final mobile navigation — single authoritative override. */
 :root {
   --g-tabbar-h: 72px;
   --g-tabbar-bottom-gap: 10px;
@@ -91,13 +89,8 @@
     border-color: rgba(111,60,195,.18) !important;
   }
 
-  .g-tab[data-active="true"]::after {
-    width: 18px;
-  }
-
-  .g-tab:active {
-    transform: scale(.97) !important;
-  }
+  .g-tab[data-active="true"]::after { width: 18px; }
+  .g-tab:active { transform: scale(.97) !important; }
 
   .g-tab > span:not(.g-tab__ind):not(.g-tab__badge):not(.g-discover-action) {
     line-height: 1 !important;
@@ -118,9 +111,7 @@
     filter: drop-shadow(0 0 7px rgba(111,60,195,.25));
   }
 
-  .g-tab__ind {
-    display: none !important;
-  }
+  .g-tab__ind { display: none !important; }
 
   .g-tab__badge {
     position: absolute !important;
@@ -134,11 +125,12 @@
     box-shadow: 0 0 0 2px #0a0b10, 0 0 8px rgba(201,162,77,.45) !important;
   }
 
-  /* Discover uses the real GAYZE eye mark as the brand action — no orb, no
-     oversized floating button, no artificial card behind the logo. */
+  /* The centre action is the original GAYZE eye + integrated G mark.
+     It is deliberately raised, transparent and free of an artificial orb,
+     ring or black box. The source SVG is the approved purple→pink→amber mark. */
   .g-tab--discover {
     justify-content: center !important;
-    gap: 3px !important;
+    gap: 0 !important;
     overflow: visible !important;
   }
 
@@ -146,12 +138,12 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 42px !important;
-    height: 30px !important;
-    margin: 0 !important;
+    width: 84px !important;
+    height: 84px !important;
+    margin: -18px auto 0 !important;
     padding: 0 !important;
     border: 0 !important;
-    border-radius: 9px !important;
+    border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
     transform: none !important;
@@ -159,16 +151,16 @@
 
   .g-tab--discover .g-discover-logo-image {
     display: block !important;
-    width: 38px !important;
-    height: 20px !important;
+    width: 53px !important;
+    height: 27px !important;
     object-fit: contain !important;
     object-position: center !important;
-    filter: drop-shadow(0 0 7px rgba(111,60,195,.34)) !important;
+    filter: drop-shadow(0 0 8px rgba(111,60,195,.28)) !important;
     mix-blend-mode: normal !important;
   }
 
   .g-tab--discover[data-active="true"] .g-discover-logo-image {
-    filter: drop-shadow(0 0 9px rgba(111,60,195,.55)) !important;
+    filter: drop-shadow(0 0 10px rgba(111,60,195,.48)) !important;
   }
 
   /* Content must clear the complete nav footprint, including iOS safe area. */
@@ -190,18 +182,12 @@
 
 @media (max-width: 380px) {
   :root { --g-tabbar-h: 70px; --g-tabbar-bottom-gap: 8px; }
-
-  .g-tabbar {
-    left: 9px !important;
-    right: 9px !important;
-    border-radius: 18px !important;
-  }
-
+  .g-tabbar { left: 9px !important; right: 9px !important; border-radius: 18px !important; }
   .g-tabbar__inner { padding: 4px !important; }
   .g-tab { padding-left: 1px !important; padding-right: 1px !important; }
   .g-tab:not(.g-tab--discover) svg { width: 19px !important; height: 19px !important; }
   .g-tab > span:not(.g-tab__ind):not(.g-tab__badge):not(.g-discover-action) { font-size: 8.5px !important; }
-  .g-tab--discover .g-discover-logo-image { width: 36px !important; height: 19px !important; }
+  .g-tab--discover .g-discover-logo-image { width: 53px !important; height: 27px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
