@@ -42,6 +42,54 @@ const TABS: TabDef[] = [
   { id: 'profile', label: 'Profile', icon: <UserRound />, group: 'profile' },
 ];
 
+const playGayzePressAnimation = (button: HTMLButtonElement) => {
+  const action = button.querySelector<HTMLElement>('.g-discover-action');
+  const logo = button.querySelector<HTMLImageElement>('.g-discover-logo-image');
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !action?.animate) return;
+
+  action.getAnimations().forEach((animation) => animation.cancel());
+  logo?.getAnimations().forEach((animation) => animation.cancel());
+
+  action.animate(
+    [
+      {
+        transform: 'scale(1)',
+        boxShadow:
+          '0 0 0 1px rgba(111,60,195,.28), 0 0 22px rgba(111,60,195,.34), 0 12px 30px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.12)',
+      },
+      {
+        transform: 'scale(.92)',
+        boxShadow:
+          '0 0 0 2px rgba(201,162,77,.48), 0 0 34px rgba(111,60,195,.58), 0 8px 24px rgba(0,0,0,.62), inset 0 1px 0 rgba(255,255,255,.18)',
+        offset: 0.18,
+      },
+      {
+        transform: 'scale(1.07)',
+        boxShadow:
+          '0 0 0 7px rgba(139,92,246,.16), 0 0 54px rgba(201,162,77,.46), 0 16px 34px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.22)',
+        offset: 0.48,
+      },
+      {
+        transform: 'scale(1)',
+        boxShadow:
+          '0 0 0 1px rgba(111,60,195,.28), 0 0 28px rgba(111,60,195,.40), 0 12px 30px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.12)',
+      },
+    ],
+    { duration: 520, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' },
+  );
+
+  logo?.animate(
+    [
+      { transform: 'translate(-50%, -50%) scale(1)', filter: 'drop-shadow(0 0 8px rgba(212,59,222,.30))' },
+      { transform: 'translate(-50%, -50%) scale(.88)', filter: 'drop-shadow(0 0 5px rgba(212,59,222,.22))', offset: 0.18 },
+      { transform: 'translate(-50%, -50%) scale(1.10)', filter: 'drop-shadow(0 0 16px rgba(255,158,44,.62))', offset: 0.48 },
+      { transform: 'translate(-50%, -50%) scale(1)', filter: 'drop-shadow(0 0 9px rgba(212,59,222,.36))' },
+    ],
+    { duration: 520, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' },
+  );
+};
+
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
@@ -132,7 +180,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             const isActive = activeGroup === tab.group;
             const isGayzeAction = tab.id === 'dating';
             return (
-              <button key={tab.id} className={`g-tab ${isGayzeAction ? 'g-tab--discover group' : ''}`} data-tab={tab.id} data-active={isActive} aria-current={isActive ? 'page' : undefined} aria-label={isGayzeAction ? 'GAYZE Discover' : tab.label} onClick={() => { hapticLight(); onTabChange(tab.id); }}>
+              <button
+                key={tab.id}
+                className={`g-tab ${isGayzeAction ? 'g-tab--discover group' : ''}`}
+                data-tab={tab.id}
+                data-active={isActive}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={isGayzeAction ? 'GAYZE Discover' : tab.label}
+                onClick={(event) => {
+                  hapticLight();
+                  if (isGayzeAction) playGayzePressAnimation(event.currentTarget);
+                  onTabChange(tab.id);
+                }}
+              >
                 <span className="g-tab__ind" />
                 {renderTabIcon(tab, true)}
                 <span className={`g-tab__label text-[10px] font-medium tracking-tight mt-0.5 transition-colors duration-150 ${isActive ? 'text-white' : 'text-zinc-500'}`}>{tab.label}</span>
