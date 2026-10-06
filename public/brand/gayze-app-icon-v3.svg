@@ -1,16 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none" role="img" aria-labelledby="title">
 <defs>
- <linearGradient id="bg" x1="120" y1="80" x2="900" y2="940" gradientUnits="userSpaceOnUse"><stop stop-color="#6519E6"/><stop offset=".48" stop-color="#241052"/><stop offset="1" stop-color="#090612"/></linearGradient>
- <radialGradient id="warm" cx="0" cy="0" r="1" gradientTransform="translate(820 210) rotate(125) scale(430)"><stop stop-color="#FF9E2C" stop-opacity=".9"/><stop offset="1" stop-color="#FF9E2C" stop-opacity="0"/></radialGradient>
- <linearGradient id="g" x1="160" y1="512" x2="864" y2="512" gradientUnits="userSpaceOnUse"><stop stop-color="#7B2CFF"/><stop offset=".36" stop-color="#D43BDE"/><stop offset=".68" stop-color="#FF5C9D"/><stop offset="1" stop-color="#FF9E2C"/></linearGradient>
- <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="18" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <linearGradient id="bg" x1="100" y1="70" x2="920" y2="960" gradientUnits="userSpaceOnUse"><stop stop-color="#32106F"/><stop offset=".52" stop-color="#130A26"/><stop offset="1" stop-color="#07050D"/></linearGradient>
+ <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(790 190) rotate(125) scale(500)"><stop stop-color="#FF9E2C" stop-opacity=".42"/><stop offset="1" stop-color="#FF9E2C" stop-opacity="0"/></radialGradient>
+ <linearGradient id="brand" x1="235" y1="290" x2="790" y2="740" gradientUnits="userSpaceOnUse"><stop stop-color="#8B45FF"/><stop offset=".4" stop-color="#D43BDE"/><stop offset=".72" stop-color="#FF5C9D"/><stop offset="1" stop-color="#FFB13B"/></linearGradient>
+ <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="15" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
+<title id="title">GAYZE</title>
 <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
-<rect width="1024" height="1024" rx="230" fill="url(#warm)"/>
-<rect x="54" y="54" width="916" height="916" rx="190" stroke="url(#g)" stroke-opacity=".55" stroke-width="4"/>
-<g transform="translate(0 8)">
-<path d="M132 512C288 303 428 218 512 218s224 85 380 294c-156 209-296 294-380 294S288 721 132 512Z" stroke="url(#g)" stroke-width="43" stroke-linejoin="round" filter="url(#glow)"/>
-<path d="M324 294C240 392 240 632 324 730M700 294C784 392 784 632 700 730" stroke="url(#g)" stroke-width="31" stroke-linecap="round"/>
-<path d="M584 260h-50c-89 0-160 33-212 95-52 61-78 137-78 227s26 166 78 227c52 62 123 95 212 95h50c89 0 164-34 216-98 39-48 62-106 74-174H706v-66h134v-64c-34-35-77-61-127-77-55-17-111-16-163 2-53 19-97 52-128 97-32 45-47 96-47 156s15 111 47 157c31 45 75 78 128 97 52 18 108 19 163 2 50-16 93-42 127-77l-34-36c-30 29-65 49-107 60-42 12-85 10-124-4-40-14-73-38-97-73-24-35-36-75-36-126 0-48 12-89 36-124 24-35 57-59 97-73 39-14 82-16 124-4 36 10 68 27 96 50v55h-151v-65h151V260Z" fill="url(#g)"/>
-</g>
+<rect width="1024" height="1024" rx="230" fill="url(#glow)"/>
+<path d="M116 512C236 337 385 245 512 245s276 92 396 267c-120 175-269 267-396 267S236 687 116 512Z" stroke="url(#brand)" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft)"/>
+<path d="M548 325C516 297 475 283 430 283C337 283 263 385 263 512s74 229 167 229c46 0 88-15 121-44v-145h-119" stroke="url(#brand)" stroke-width="55" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M550 552h-92" stroke="url(#brand)" stroke-width="55" stroke-linecap="round"/>
 </svg>
