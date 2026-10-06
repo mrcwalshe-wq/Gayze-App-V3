@@ -26,8 +26,8 @@ await import(fs.realpathSync(`${REPO}/public/service-worker.js`));
 async function fire(type, event) { const waits = []; for (const fn of listeners.get(type) ?? []) await fn({ waitUntil: (p) => waits.push(Promise.resolve(p)), ...event }); await Promise.all(waits); }
 console.log('\n=== Service worker push presentation ===');
 for (const [type, expectedTitle, expectedPath] of [
-  ['message', 'New message', '/messages/11111111-1111-4111-8111-111111111111'],
-  ['connection', 'New connection', '/messages/11111111-1111-4111-8111-111111111111'],
+  ['message', 'New message', '/messages/11111111-1111-4111-8111-111111111111?notification=22222222-2222-4222-8222-222222222222'],
+  ['connection', 'New connection', '/messages/11111111-1111-4111-8111-111111111111?notification=22222222-2222-4222-8222-222222222222'],
   ['gaze', 'New Gayze', '/notifications'],
   ['intent', 'Someone is interested', '/right-now'],
   ['intent_expiring', 'Your intent is ending soon', '/profile'],
@@ -41,7 +41,7 @@ for (const [type, expectedTitle, expectedPath] of [
   assert(Boolean(n), `${type}: notification shown`);
   assert(n?.title === expectedTitle, `${type}: title`);
   assert(n?.options.data.url === expectedPath, `${type}: route`);
-  assert(n?.options.icon === '/icons/gayze-192.png', `${type}: icon`);
+  assert(n?.options.icon === '/apple-touch-icon.png?v=20261005-2', `${type}: icon`);
   assert(n?.options.silent === false, `${type}: never silent`);
   assert(n?.options.renotify === true, `${type}: renotify enabled`);
 }

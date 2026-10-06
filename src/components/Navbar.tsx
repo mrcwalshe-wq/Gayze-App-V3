@@ -64,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const renderTabIcon = (tab: TabDef, mobile = false) => {
     if (tab.id !== 'dating') {
       return (
-        <span className={mobile ? '[&>svg]:w-5 [&>svg]:h-5 transition-transform duration-150' : '[&>svg]:w-[15px] [&>svg]:h-[15px]'}>
+        <span className={mobile ? '[&>svg]:w-[18px] [&>svg]:h-[18px] transition-transform duration-150' : '[&>svg]:w-[15px] [&>svg]:h-[15px]'}>
           {tab.icon}
         </span>
       );
@@ -79,7 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <img
             src="/gayze-discover-logo.svg?v=20261005-3"
             alt=""
-            className="w-6 h-6 object-contain"
+            className="w-5 h-5 object-contain"
             draggable={false}
           />
         </span>
@@ -187,14 +187,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onTabChange(tab.id);
                 }}
               >
-                <span className="g-tab__ind" />
-                {renderTabIcon(tab, true)}
-                <span className={`text-[10px] font-medium tracking-tight mt-0.5 transition-colors duration-150 ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+                <span className="g-tab__capsule">
+                  {renderTabIcon(tab, true)}
+                  {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
+                    <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
+                  )}
+                </span>
+                <span className="g-tab__label">
                   {tab.label}
                 </span>
-                {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
-                  <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
-                )}
               </button>
             );
           })}
