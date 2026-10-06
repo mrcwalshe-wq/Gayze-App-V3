@@ -34,8 +34,6 @@ interface TabDef {
   group: NavTab;
 }
 
-// Keep the mobile navigation focused on the five primary destinations.
-// Discover remains the visual brand anchor without behaving like a floating CTA.
 const TABS: TabDef[] = [
   { id: 'later', label: 'Later', icon: <Clock />, group: 'later' },
   { id: 'right_now', label: 'Right Now', icon: <Radio />, group: 'right_now' },
@@ -44,11 +42,6 @@ const TABS: TabDef[] = [
   { id: 'profile', label: 'Profile', icon: <UserRound />, group: 'profile' },
 ];
 
-/**
- * GAYZE navigation — five destinations, nothing more.
- * Mobile: bottom tab bar only (map stays full-bleed; views own their headers).
- * Desktop: one translucent top bar.
- */
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
@@ -77,7 +70,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="g-discover-action relative flex items-center justify-center transition-transform duration-200"
         >
           <img
-            src="/gayze-discover-logo.svg?v=20261006-1"
+            src="/gayze-logo-mark.svg?v=20261006-2"
             alt=""
             className="g-discover-logo-image object-contain"
             draggable={false}
