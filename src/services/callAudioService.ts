@@ -26,6 +26,8 @@ export const closeCallAudio = (): void => {
   if (ctx) void ctx.close().catch(() => undefined);
 };
 
+import { supabase } from './supabaseClient';
+
 // Bridge WebRTC call lifecycle events to the durable push-notification system.
 // This keeps provider/database notification details outside the WebRTC service.
 const bridgeKey = '__gayzeCallNotificationBridgeInstalled__';
@@ -76,7 +78,6 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
 
   async function markCallNotificationReadByConversation(conversationId: string) {
     try {
-      const { supabase } = await import('./supabaseClient');
       if (!supabase) return;
       const { error } = await supabase.rpc('gayze_mark_notification_read', {
         p_id: null,
