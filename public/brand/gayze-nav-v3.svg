@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">GAYZE</title>
+  <desc id="desc">GAYZE eye and G symbol</desc>
+  <defs>
+    <linearGradient id="gayzeGradient" x1="92" y1="128" x2="420" y2="384" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7B2CFF"/>
+      <stop offset=".38" stop-color="#D43BDE"/>
+      <stop offset=".7" stop-color="#FF5C9D"/>
+      <stop offset="1" stop-color="#FF9E2C"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Clean GAYZE eye -->
+  <path
+    d="M62 256C116 178 188 126 256 126S396 178 450 256C396 334 324 386 256 386S116 334 62 256Z"
+    stroke="url(#gayzeGradient)"
+    stroke-width="22"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#softGlow)"
+  />
+
+  <!-- Central G: deliberately simple, closed geometry for reliable SVG rendering -->
+  <path
+    d="M310 194C294 178 273 168 249 168C199 168 160 207 160 256S199 344 249 344C273 344 295 335 312 318V264H250"
+    stroke="url(#gayzeGradient)"
+    stroke-width="28"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M312 264H270"
+    stroke="url(#gayzeGradient)"
+    stroke-width="28"
+    stroke-linecap="round"
+  />
+</svg>

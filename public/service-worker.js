@@ -2,15 +2,15 @@
  * GAYZE production service worker.
  * Web Push is always user-visible on iOS; no silent/invisible push path.
  */
-const SW_VERSION = 'gayze-sw-v12';
+const SW_VERSION = 'gayze-sw-v14-icon';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 const APP_SHELL_URL = '/index.html';
-const ICON_VERSION = '?v=20261007-2';
+const ICON_VERSION = '?v=20261008-icon3';
 const IOS_ICON = `/icons/gayze-180.png${ICON_VERSION}`;
-const PRECACHE_URLS = ['/', '/manifest.webmanifest', IOS_ICON, `/icons/gayze-192.png${ICON_VERSION}`, `/icons/gayze-512.png${ICON_VERSION}`];
-const NOTIFICATION_ICON = `/icons/gayze-192.png${ICON_VERSION}`;
-const NOTIFICATION_BADGE = `/icons/gayze-180.png${ICON_VERSION}`;
+const PRECACHE_URLS = ['/', '/manifest.webmanifest', IOS_ICON, `/icons/gayze-192.png${ICON_VERSION}`, `/icons/gayze-512.png${ICON_VERSION}`, `/brand/gayze-nav-v3.svg${ICON_VERSION}`];
+const NOTIFICATION_ICON = '/icons/gayze-192.png';
+const NOTIFICATION_BADGE = '/icons/gayze-180.png';
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -37,7 +37,7 @@ self.addEventListener('message', (event) => {
 
 function isImmutableAsset(url) { return url.pathname.startsWith('/assets/'); }
 function isStaticBrandAsset(url) {
-  return url.pathname.startsWith('/icons/') || url.pathname === '/apple-touch-icon.png' ||
+  return url.pathname.startsWith('/icons/') || url.pathname.startsWith('/brand/') || url.pathname === '/apple-touch-icon.png' ||
     url.pathname === '/manifest.webmanifest' || /\.(?:png|jpe?g|webp|svg|ico|woff2?)$/.test(url.pathname);
 }
 function isCacheableResponse(response) { return Boolean(response) && response.status === 200 && response.type === 'basic'; }

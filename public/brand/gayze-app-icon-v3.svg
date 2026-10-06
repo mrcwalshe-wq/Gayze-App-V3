@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none" role="img" aria-labelledby="title">
+<defs>
+ <linearGradient id="bg" x1="100" y1="70" x2="920" y2="960" gradientUnits="userSpaceOnUse"><stop stop-color="#32106F"/><stop offset=".52" stop-color="#130A26"/><stop offset="1" stop-color="#07050D"/></linearGradient>
+ <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(790 190) rotate(125) scale(500)"><stop stop-color="#FF9E2C" stop-opacity=".42"/><stop offset="1" stop-color="#FF9E2C" stop-opacity="0"/></radialGradient>
+ <linearGradient id="brand" x1="235" y1="290" x2="790" y2="740" gradientUnits="userSpaceOnUse"><stop stop-color="#8B45FF"/><stop offset=".4" stop-color="#D43BDE"/><stop offset=".72" stop-color="#FF5C9D"/><stop offset="1" stop-color="#FFB13B"/></linearGradient>
+ <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="15" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<title id="title">GAYZE</title>
+<rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+<rect width="1024" height="1024" rx="230" fill="url(#glow)"/>
+<path d="M116 512C236 337 385 245 512 245s276 92 396 267c-120 175-269 267-396 267S236 687 116 512Z" stroke="url(#brand)" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft)"/>
+<path d="M548 325C516 297 475 283 430 283C337 283 263 385 263 512s74 229 167 229c46 0 88-15 121-44v-145h-119" stroke="url(#brand)" stroke-width="55" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M550 552h-92" stroke="url(#brand)" stroke-width="55" stroke-linecap="round"/>
+</svg>
