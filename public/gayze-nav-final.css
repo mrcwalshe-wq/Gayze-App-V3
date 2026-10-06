@@ -1,0 +1,209 @@
+/* GAYZE final mobile navigation — single authoritative override.
+   Keep this file last in index.html so legacy nav patches cannot fight it. */
+
+:root {
+  --g-tabbar-h: 72px;
+  --g-tabbar-bottom-gap: 10px;
+}
+
+@media (max-width: 767px) {
+  .g-tabbar {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(var(--g-tabbar-bottom-gap) + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    height: var(--g-tabbar-h) !important;
+    min-height: var(--g-tabbar-h) !important;
+    padding: 0 !important;
+    border: 1px solid rgba(255,255,255,.09) !important;
+    border-radius: 20px !important;
+    background: rgba(10,11,16,.94) !important;
+    box-shadow: 0 16px 42px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.055) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(135%) !important;
+    backdrop-filter: blur(24px) saturate(135%) !important;
+    z-index: 1000 !important;
+    overflow: visible !important;
+  }
+
+  .g-tabbar::before {
+    content: "";
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    top: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(111,60,195,.42), rgba(201,162,77,.22), transparent);
+    pointer-events: none;
+  }
+
+  .g-tabbar__inner {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 5px !important;
+    gap: 2px !important;
+    box-sizing: border-box !important;
+  }
+
+  .g-tab {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 6px 2px 5px !important;
+    gap: 3px !important;
+    border: 1px solid transparent !important;
+    border-radius: 15px !important;
+    background: transparent !important;
+    color: #737887 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    transition: color .18s ease, background .18s ease, border-color .18s ease, transform .18s ease !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .g-tab::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 3px;
+    width: 0;
+    height: 2px;
+    border-radius: 999px;
+    background: #8d5be0;
+    box-shadow: 0 0 10px rgba(111,60,195,.65);
+    transform: translateX(-50%);
+    transition: width .18s ease;
+  }
+
+  .g-tab[data-active="true"] {
+    color: #f5f3f8 !important;
+    background: rgba(111,60,195,.105) !important;
+    border-color: rgba(111,60,195,.18) !important;
+  }
+
+  .g-tab[data-active="true"]::after {
+    width: 18px;
+  }
+
+  .g-tab:active {
+    transform: scale(.97) !important;
+  }
+
+  .g-tab > span:not(.g-tab__ind):not(.g-tab__badge):not(.g-discover-action) {
+    line-height: 1 !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: .01em !important;
+    white-space: nowrap !important;
+  }
+
+  .g-tab:not(.g-tab--discover) svg {
+    width: 20px !important;
+    height: 20px !important;
+    stroke-width: 1.8 !important;
+  }
+
+  .g-tab[data-active="true"]:not(.g-tab--discover) svg {
+    color: #b796f0 !important;
+    filter: drop-shadow(0 0 7px rgba(111,60,195,.25));
+  }
+
+  .g-tab__ind {
+    display: none !important;
+  }
+
+  .g-tab__badge {
+    position: absolute !important;
+    top: 8px !important;
+    right: calc(50% - 17px) !important;
+    width: 6px !important;
+    height: 6px !important;
+    margin: 0 !important;
+    border-radius: 50% !important;
+    background: #C9A24D !important;
+    box-shadow: 0 0 0 2px #0a0b10, 0 0 8px rgba(201,162,77,.45) !important;
+  }
+
+  /* Discover uses the real GAYZE eye mark as the brand action — no orb, no
+     oversized floating button, no artificial card behind the logo. */
+  .g-tab--discover {
+    justify-content: center !important;
+    gap: 3px !important;
+    overflow: visible !important;
+  }
+
+  .g-tab--discover .g-discover-action {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 42px !important;
+    height: 30px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 9px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .g-tab--discover .g-discover-logo-image {
+    display: block !important;
+    width: 38px !important;
+    height: 20px !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    filter: drop-shadow(0 0 7px rgba(111,60,195,.34)) !important;
+    mix-blend-mode: normal !important;
+  }
+
+  .g-tab--discover[data-active="true"] .g-discover-logo-image {
+    filter: drop-shadow(0 0 9px rgba(111,60,195,.55)) !important;
+  }
+
+  /* Content must clear the complete nav footprint, including iOS safe area. */
+  .g-chat-viewport {
+    bottom: calc(var(--g-tabbar-h) + var(--g-tabbar-bottom-gap) + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .g-sheet.g-sheet--above-nav {
+    --g-sheet-bottom-gap: calc(var(--g-tabbar-h) + var(--g-tabbar-bottom-gap) + env(safe-area-inset-bottom, 0px) + 12px) !important;
+    margin-bottom: var(--g-sheet-bottom-gap) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-sheet-bottom-gap) - 10px) !important;
+  }
+
+  .g-preview,
+  .g-map-bar {
+    bottom: calc(var(--g-tabbar-h) + var(--g-tabbar-bottom-gap) + env(safe-area-inset-bottom, 0px) + 14px) !important;
+  }
+}
+
+@media (max-width: 380px) {
+  :root { --g-tabbar-h: 70px; --g-tabbar-bottom-gap: 8px; }
+
+  .g-tabbar {
+    left: 9px !important;
+    right: 9px !important;
+    border-radius: 18px !important;
+  }
+
+  .g-tabbar__inner { padding: 4px !important; }
+  .g-tab { padding-left: 1px !important; padding-right: 1px !important; }
+  .g-tab:not(.g-tab--discover) svg { width: 19px !important; height: 19px !important; }
+  .g-tab > span:not(.g-tab__ind):not(.g-tab__badge):not(.g-discover-action) { font-size: 8.5px !important; }
+  .g-tab--discover .g-discover-logo-image { width: 36px !important; height: 19px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-tab, .g-tab::after { transition: none !important; }
+}
