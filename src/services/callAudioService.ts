@@ -76,7 +76,9 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
 
   async function markCallNotificationReadByConversation(conversationId: string) {
     try {
-      const { supabase } = await import('./supabaseClient');
+      // @ts-ignore - dynamic import mapped at runtime
+      const supabaseModule = await import(/* @vite-ignore */ './supabaseClient');
+      const supabase = supabaseModule.supabase;
       if (!supabase) return;
       const { error } = await supabase.rpc('gayze_mark_notification_read', {
         p_id: null,

@@ -26,8 +26,8 @@ await import(fs.realpathSync(`${REPO}/public/service-worker.js`));
 async function fire(type, event) { const waits = []; for (const fn of listeners.get(type) ?? []) await fn({ waitUntil: (p) => waits.push(Promise.resolve(p)), ...event }); await Promise.all(waits); }
 console.log('\n=== Service worker push presentation ===');
 for (const [type, expectedTitle, expectedPath] of [
-  ['message', 'New message', '/messages/11111111-1111-4111-8111-111111111111'],
-  ['connection', 'New connection', '/messages/11111111-1111-4111-8111-111111111111'],
+  ['message', 'New message', '/messages/11111111-1111-4111-8111-111111111111?notification=22222222-2222-4222-8222-222222222222'],
+  ['connection', 'New connection', '/messages/11111111-1111-4111-8111-111111111111?notification=22222222-2222-4222-8222-222222222222'],
   ['gaze', 'New Gayze', '/notifications'],
   ['intent', 'Someone is interested', '/right-now'],
   ['intent_expiring', 'Your intent is ending soon', '/profile'],
@@ -35,7 +35,7 @@ for (const [type, expectedTitle, expectedPath] of [
   ['test', 'Gayze Test', '/notifications'],
 ]) {
   shown.length = 0;
-  const payload = { type, title: expectedTitle, body: 'Push notification test', notificationId: '22222222-2222-4222-8222-222222222222', conversationId: type === 'message' || type === 'connection' ? '11111111-1111-4111-8111-111111111111' : undefined, url: expectedPath };
+  const payload = { type, title: expectedTitle, body: 'Push notification test', notificationId: '22222222-2222-4222-8222-222222222222', conversationId: type === 'message' || type === 'connection' ? '11111111-1111-4111-8111-111111111111' : undefined, url: expectedPath.split('?')[0] };
   await fire('push', { data: { json: () => payload, text: () => '' } });
   const n = shown.at(-1);
   assert(Boolean(n), `${type}: notification shown`);
