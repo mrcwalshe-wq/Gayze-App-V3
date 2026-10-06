@@ -6,7 +6,7 @@ const SW_VERSION = 'gayze-sw-v13-nav3';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 const APP_SHELL_URL = '/index.html';
-const ICON_VERSION = '?v=20261008-nav3';
+const ICON_VERSION = '?v=20261008-nav4';
 const IOS_ICON = `/brand/gayze-app-icon-v3.svg${ICON_VERSION}`;
 const PRECACHE_URLS = ['/', '/manifest.webmanifest', IOS_ICON, `/brand/gayze-nav-v3.svg${ICON_VERSION}`, `/brand/gayze-app-icon-v3.svg${ICON_VERSION}`];
 const NOTIFICATION_ICON = `/brand/gayze-app-icon-v3.svg${ICON_VERSION}`;
