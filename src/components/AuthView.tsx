@@ -3,6 +3,7 @@ import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Chrome } from 
 import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
 import { GayzeLogo } from './GayzeLogo';
+import { GayzeWatermark } from './GayzeWatermark';
 
 export type AuthMode = 'signin' | 'signup' | 'forgot' | 'reset' | 'confirm_pending';
 
@@ -226,11 +227,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
         : 'border-amber-400/20 bg-amber-400/5 text-amber-200';
 
   return (
-    <div className="min-h-[100dvh] bg-[#090a0f] text-white flex items-center justify-center px-5 py-10">
+    <div className="relative min-h-[100dvh] bg-[#090a0f] text-white flex items-center justify-center px-5 py-10">
       <div className="g-atmos" aria-hidden="true" />
+      <GayzeWatermark width="88%" opacity={0.05} className="!items-start !pt-[7vh]" />
       <div className="g-shell w-full max-w-md">
         <div className="mb-8 text-center">
-          <GayzeLogo size={62} showWordmark={false} className="mb-3" />
+          <GayzeLogo size={62} showWordmark={false} className="mb-3 mx-auto" />
           <h1 className="text-[22px] font-semibold tracking-[0.14em] text-white">GAYZE</h1>
           <p className="mt-1.5 text-[13px] text-zinc-400">
             <span className="text-[#b796f0]">Real Intent.</span>{' '}

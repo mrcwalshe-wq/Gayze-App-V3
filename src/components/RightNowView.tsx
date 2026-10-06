@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
 import L from 'leaflet';
+import { GayzeMarkIcon } from './GayzeLogo';
 import {
   Pulse,
   SafeHaven,
@@ -110,7 +111,6 @@ import {
   Plus,
   Minus,
   Navigation,
-  Eye,
   Maximize2,
   Edit3,
   Pause,
@@ -1611,7 +1611,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       gazedPeerNames.has(selectedItem.item.id) ? 'g-btn--primary' : 'g-btn--quiet'
                     }`}
                   >
-                    <Eye className="w-3.5 h-3.5" />
+                    <GayzeMarkIcon size={11} />
                     {gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}
                   </button>
                 )}
@@ -1886,7 +1886,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           : 'g-btn--quiet'
                           }`}
                       >
-                        <Eye className="w-4 h-4 text-[#C9A24D]" />
+                        <GayzeMarkIcon size={13} />
                         <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}</span>
                       </button>
                     )}

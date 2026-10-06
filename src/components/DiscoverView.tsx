@@ -3,7 +3,6 @@ import {
   Map as MapIcon,
   MessageSquare,
   Calendar,
-  Eye,
   QrCode,
   ShieldCheck,
   X,
@@ -14,6 +13,7 @@ import {
 import { Pulse, DatingProfile, UserActiveIntent, UserProfile, SafeHaven } from '../types';
 import { CountdownPill } from './CountdownPill';
 import { hapticLight } from '../services/hapticService';
+import { GayzeMarkIcon } from './GayzeLogo';
 
 interface DiscoverViewProps {
   profiles: DatingProfile[];
@@ -416,7 +416,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
 
             <div className="g-sheet__foot">
               <button type="button" className="g-btn g-btn--quiet !px-3" onClick={() => handleGaze(selected)} aria-label="Gaze">
-                <Eye className="w-4 h-4" />
+                <GayzeMarkIcon size={13} />
                 {gazedNames.has(selected.kind === 'pulse' ? selected.item.peerId : selected.item.id) ? 'Gazed' : 'Gaze'}
               </button>
               <button
