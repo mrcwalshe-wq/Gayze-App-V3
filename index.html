@@ -35,10 +35,24 @@
     <link rel="stylesheet" href="/gayze-profile-nav-fix.css?v=20261005-1" />
     <link rel="stylesheet" href="/gayze-discover-nav.css?v=20261005-4" />
     <link rel="stylesheet" href="/gayze-mobile-ui-final.css?v=20261005-4" />
-    <link rel="stylesheet" href="/gayze-nav-final.css?v=20261006-1" />
+    <link rel="stylesheet" href="/gayze-nav-final.css?v=20261006-2" />
   </head>
   <body class="bg-[#090a0f] text-[#f1f3f7] antialiased selection:bg-[#C9A24D]/25 selection:text-[#C9A24D]">
     <div id="root"></div>
+    <script>
+      // Vite emits this event when a lazy chunk is stale after a deployment.
+      // Reload once so navigation cannot strand the app on a blank screen.
+      window.addEventListener('vite:preloadError', function (event) {
+        event.preventDefault();
+        var key = 'gayze-vite-preload-recovered';
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, '1');
+          window.location.reload();
+        } else {
+          sessionStorage.removeItem(key);
+        }
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
