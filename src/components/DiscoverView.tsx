@@ -199,23 +199,35 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   };
 
   return (
-    <div className="gayze-premium-page max-w-2xl mx-auto pb-6">
-      {/* In-view header (mobile has no global header) */}
-      <header className="flex items-start justify-between gap-3 pt-5 pb-4">
+    <div className="gayze-premium-page max-w-2xl mx-auto pb-6 px-1">
+      {/* In-view header */}
+      <header className="flex items-start justify-between gap-3 pt-5 pb-3">
         <div className="min-w-0">
-          <span className="g-label">{userNeighborhood || 'Near you'}</span>
-          <h1 className="text-[25px] leading-tight font-semibold tracking-[-0.022em] text-white mt-1.5">
+          <div className="flex items-center gap-2">
+            <span className="g-label">{userNeighborhood || 'Near you'}</span>
+            {liveCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-[#6F3CC3]/20 border border-[#6F3CC3]/40 text-[#d8c3f8]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#a879f1] animate-pulse" />
+                {liveCount} live
+              </span>
+            )}
+          </div>
+          <h1 className="text-[26px] leading-tight font-bold tracking-[-0.025em] text-white mt-1">
             Discover
           </h1>
-          <p className="text-[12.5px] text-zinc-500 mt-1">
+          <p className="text-[13px] text-zinc-400 mt-0.5">
             {liveCount > 0
-              ? `${liveCount} live ${liveCount === 1 ? 'intent' : 'intents'} nearby, nearest first`
-              : 'People here, by what they actually want to do'}
+              ? 'Real intent, nearest first. Connect with people available right now.'
+              : 'People here, by what they actually want to do.'}
           </p>
         </div>
         {onOpenMap && (
-          <button type="button" onClick={() => { hapticLight(); onOpenMap(); }} className="g-btn g-btn--quiet shrink-0">
-            <MapIcon className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={() => { hapticLight(); onOpenMap(); }}
+            className="g-btn g-btn--quiet shrink-0 !min-h-[38px] !px-3.5 !rounded-xl !text-[12.5px]"
+          >
+            <MapIcon className="w-4 h-4 text-[#C9A24D]" />
             Map
           </button>
         )}
@@ -226,38 +238,52 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         <button
           type="button"
           onClick={() => { hapticLight(); onOpenSetIntent?.(); }}
-          className="g-signal-strip mb-4"
+          className="w-full text-left p-3.5 rounded-2xl bg-gradient-to-r from-[#6F3CC3]/18 via-[#181926] to-[#C9A24D]/10 border border-[#6F3CC3]/35 shadow-[0_4px_20px_rgba(111,60,195,0.12)] mb-4 flex items-center gap-3 transition-transform active:scale-[0.99] cursor-pointer"
         >
           <span
             className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
             aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
-            <div className="text-[13.5px] font-semibold text-white truncate">
-              {activeUserIntent.intent.replace(' · ', ' ')}
+            <div className="text-[13.5px] font-semibold text-white truncate flex items-center gap-2">
+              <span>{activeUserIntent.intent.replace(' · ', ' ')}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-mono bg-white/10 text-zinc-300">
+                {activeUserIntent.mode}
+              </span>
             </div>
-            <div className="g-map-state__meta truncate">
-              {activeUserIntent.isPaused ? 'Paused' : `Live around ${activeUserIntent.area}`}
+            <div className="text-[11.5px] text-zinc-400 truncate mt-0.5">
+              {activeUserIntent.isPaused ? 'Signal paused' : `Active around ${activeUserIntent.area}`}
             </div>
           </div>
-          <span className="text-[12px] text-[#c9b0f5] shrink-0">Manage</span>
+          <span className="text-[12px] font-semibold text-[#c9b0f5] shrink-0 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10">
+            Manage
+          </span>
         </button>
       )}
 
-      {/* Mode segmented */}
-      <div className="g-seg mb-4">
-        {(['All', 'Social', 'Private'] as const).map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            className="g-seg__btn"
-            data-tone="purple"
-            data-active={modeFilter === mode}
-            onClick={() => { hapticLight(); setModeFilter(mode); }}
-          >
-            {mode}
-          </button>
-        ))}
+      {/* Mode segmented control */}
+      <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-[#0e1017] border border-white/[0.08] mb-4">
+        {(['All', 'Social', 'Private'] as const).map((mode) => {
+          const isSelected = modeFilter === mode;
+          return (
+            <button
+              key={mode}
+              type="button"
+              className={`h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
+                isSelected
+                  ? mode === 'Private'
+                    ? 'bg-[#6F3CC3]/30 text-[#f0e8ff] border border-[#6F3CC3]/65 shadow-[0_2px_12px_rgba(111,60,195,0.25)]'
+                    : mode === 'Social'
+                      ? 'bg-[#C9A24D]/25 text-[#fbf0d3] border border-[#C9A24D]/60 shadow-[0_2px_12px_rgba(201,162,77,0.22)]'
+                      : 'bg-white/15 text-white border border-white/20 shadow-[0_2px_10px_rgba(255,255,255,0.06)]'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'
+              }`}
+              onClick={() => { hapticLight(); setModeFilter(mode); }}
+            >
+              {mode}
+            </button>
+          );
+        })}
       </div>
 
       {/* Rows — one surface */}
@@ -279,29 +305,33 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           )}
         </div>
       ) : (
-        <div className="g-panel px-4 py-1">
+        <div className="g-panel px-3.5 sm:px-4 py-1 divide-y divide-white/[0.05]">
           {rows.map((row) => (
             <button
               key={row.id}
               type="button"
-              className="g-intent-row"
+              className="w-full py-3.5 flex items-center gap-3.5 text-left transition-colors duration-150 hover:bg-white/[0.025] rounded-xl px-1.5 cursor-pointer -mx-1.5"
               onClick={() => { hapticLight(); setSelected(row); }}
             >
               <div
-                className={`g-avatar w-11 h-11 text-[14px] ${
-                  row.mode === 'private' ? 'g-avatar--private' : 'g-avatar--social'
-                } ${row.live ? 'g-avatar--live' : ''}`}
+                className={`w-12 h-12 rounded-[16px] overflow-hidden flex items-center justify-center shrink-0 text-[14px] font-semibold border ${
+                  row.mode === 'private'
+                    ? 'border-[#6F3CC3]/40 bg-[#161324] text-[#d8c3f8]'
+                    : 'border-[#C9A24D]/35 bg-[#1f1b13] text-[#f4dfae]'
+                } ${row.live ? 'ring-2 ring-[#6F3CC3]/50 shadow-[0_0_12px_rgba(111,60,195,0.25)]' : ''}`}
               >
                 {row.kind === 'profile' ? (
                   <img
                     src={row.item.photoUrl}
                     alt=""
+                    className="w-full h-full object-cover"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (row.item.peerAvatar && row.item.peerAvatar !== 'user') ? (
                   <img
                     src={row.item.peerAvatar}
                     alt=""
+                    className="w-full h-full object-cover"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
@@ -310,43 +340,52 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={`text-[14px] truncate ${row.live ? 'font-semibold text-white' : 'font-medium text-zinc-300'}`}>
-                    {row.name}
-                  </span>
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className={`text-[14.5px] truncate tracking-tight ${row.live ? 'font-bold text-white' : 'font-medium text-zinc-200'}`}>
+                      {row.name}
+                    </span>
+                    {row.verified && (
+                      <span title="Verified" className="shrink-0 text-emerald-400">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                  </div>
                   {row.live ? (
-                    <span className="g-chip g-chip--live shrink-0">
-                      <span className="g-dot" />
-                      Live
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold tracking-wide bg-[#6F3CC3]/20 border border-[#6F3CC3]/45 text-[#d8c3f8] shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#a879f1] animate-pulse" />
+                      LIVE
                     </span>
                   ) : (
-                    <span className="g-chip g-chip--quiet shrink-0">Later</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.04] text-zinc-400 border border-white/[0.06] shrink-0">
+                      Later
+                    </span>
                   )}
                 </div>
-                <div className="text-[12px] text-zinc-400 truncate mt-1">
-                  <span className={row.mode === 'private' ? 'text-[#c9b0f5]' : 'text-[#e7c98a]'}>
+
+                <div className="text-[12.5px] text-zinc-400 truncate mt-1 leading-snug">
+                  <span className={`font-semibold ${row.mode === 'private' ? 'text-[#c9b0f5]' : 'text-[#e7c98a]'}`}>
                     {row.intentLabel}
                   </span>
-                  <span className="text-zinc-600"> · </span>
-                  {row.description}
-                </div>
-                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-zinc-500">
-                  <span>{row.area}</span>
-                  <span className="text-zinc-700">·</span>
-                  <span>{formatDistance(row.km)}</span>
-                  {row.verified && (
+                  {row.description && (
                     <>
-                      <span className="text-zinc-700">·</span>
-                      <span className="flex items-center gap-1 text-emerald-400/90">
-                        <ShieldCheck className="w-3 h-3" /> Verified
-                      </span>
+                      <span className="text-zinc-600"> — </span>
+                      <span className="text-zinc-300">{row.description}</span>
                     </>
                   )}
+                </div>
+
+                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-zinc-500 font-mono">
+                  <span>{row.area}</span>
+                  <span className="text-zinc-700">·</span>
+                  <span className="text-zinc-400 font-semibold">{formatDistance(row.km)}</span>
                 </div>
               </div>
 
               {row.expiresAt ? (
-                <CountdownPill expiresAt={row.expiresAt} />
+                <div className="shrink-0">
+                  <CountdownPill expiresAt={row.expiresAt} />
+                </div>
               ) : (
                 <MessageSquare className="w-4 h-4 text-zinc-600 shrink-0" />
               )}

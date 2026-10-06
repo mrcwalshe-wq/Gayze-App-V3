@@ -64,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const renderTabIcon = (tab: TabDef, mobile = false) => {
     if (tab.id !== 'dating') {
       return (
-        <span className={mobile ? '[&>svg]:w-6 [&>svg]:h-6' : '[&>svg]:w-[15px] [&>svg]:h-[15px]'}>
+        <span className={mobile ? '[&>svg]:w-5 [&>svg]:h-5 transition-transform duration-150' : '[&>svg]:w-[15px] [&>svg]:h-[15px]'}>
           {tab.icon}
         </span>
       );
@@ -74,12 +74,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       return (
         <span
           aria-hidden="true"
-          className="g-discover-action relative flex h-[72px] w-[72px] items-center justify-center rounded-full transition-transform duration-200 group-active:scale-95"
+          className="g-discover-action relative flex items-center justify-center transition-transform duration-200"
         >
           <img
             src="/gayze-discover-logo.svg?v=20261005-3"
             alt=""
-            className="g-discover-logo-image"
+            className="w-6 h-6 object-contain"
             draggable={false}
           />
         </span>
@@ -87,9 +87,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
 
     return (
-      <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[1.5px] shadow-[0_0_14px_rgba(111,60,195,0.30)]">
-        <span className="g-discover-logo flex h-full w-full items-center justify-center rounded-full bg-transparent p-0">
-          <GayzeLogo size={22} showWordmark={false} className="!w-auto" />
+      <span className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[1px] shadow-[0_0_12px_rgba(111,60,195,0.25)]">
+        <span className="g-discover-logo flex h-full w-full items-center justify-center rounded-[11px] bg-[#10121a] p-0">
+          <GayzeLogo size={20} showWordmark={false} className="!w-auto" />
         </span>
       </span>
     );
@@ -189,7 +189,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <span className="g-tab__ind" />
                 {renderTabIcon(tab, true)}
-                <span className={isGayzeAction ? 'g-tab__discover-label' : ''}>{tab.label}</span>
+                <span className={`text-[10px] font-medium tracking-tight mt-0.5 transition-colors duration-150 ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+                  {tab.label}
+                </span>
                 {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
                   <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
                 )}

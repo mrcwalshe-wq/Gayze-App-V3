@@ -342,9 +342,14 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {connectionState && (
-        <div role="status" aria-live="polite" className="shrink-0 px-3 py-1 text-[11px] text-zinc-400">
-          {{ connecting: 'Connecting to messages…', syncing: 'Recovering messages…', connected: 'Live · messages synced', reconnecting: 'Connection interrupted — reconnecting…', offline: 'Offline — messages will sync when you reconnect', suspended: 'Messages paused while the app is in the background', 'sign-in-required': 'Your session has ended. Sign in again to reconnect.' }[connectionState]}
+      {connectionState && connectionState !== 'connected' && (
+        <div role="status" aria-live="polite" className="shrink-0 px-3 py-1 flex items-center justify-center">
+          <div className="g-connection-bar">
+            <span className={`w-1.5 h-1.5 rounded-full ${connectionState === 'reconnecting' || connectionState === 'offline' ? 'bg-amber-400 animate-pulse' : 'bg-[#a879f1] animate-pulse'}`} />
+            <span>
+              {{ connecting: 'Connecting to messages…', syncing: 'Syncing messages…', connected: 'Live · messages synced', reconnecting: 'Connection interrupted — reconnecting…', offline: 'Offline — messages will sync when you reconnect', suspended: 'Messages paused while app is in background', 'sign-in-required': 'Session ended — sign in again' }[connectionState]}
+            </span>
+          </div>
         </div>
       )}
     <div className="gayze-chat-shell flex flex-1 min-h-0 bg-[#090a0e] rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl">
@@ -668,7 +673,14 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 >
                   <div className="flex items-center justify-end mb-1 px-1 text-[11px] text-zinc-500">
                     <div className="relative">
-                      <button type="button" aria-label="Message actions" className="min-w-[32px] min-h-[32px] text-zinc-500 hover:text-white" onClick={() => setMessageActionId((value) => value === msg.id ? null : msg.id)}>•••</button>
+                      <button
+                        type="button"
+                        aria-label="Message actions"
+                        className="w-7 h-7 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer"
+                        onClick={() => setMessageActionId((value) => value === msg.id ? null : msg.id)}
+                      >
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </button>
                       {messageActionId === msg.id && (
                         <div className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-white/10 bg-[#11131a] p-1.5 shadow-2xl">
                           {isMe && onUnsendMessage && !msg.deletedForEveryone && <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/5" onClick={async () => { await onUnsendMessage(msg.id); setMessageActionId(null); }}>Unsend for everyone</button>}
@@ -685,18 +697,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   </div>
 
                   <div
-                    className={`max-w-[88%] sm:max-w-md rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed border transition-colors ${
-                      activeIntentMode === 'private'
-                        ? isMe
-                          ? 'g-bubble--mine rounded-tr-sm !border-[#6F3CC3]/65 shadow-[0_0_18px_rgba(111,60,195,0.10)]'
-                          : 'bg-[#141620] text-zinc-100 rounded-tl-sm !border-[#6F3CC3]/45'
-                        : activeIntentMode === 'social'
-                          ? isMe
-                            ? 'g-bubble--mine rounded-tr-sm !border-[#C9A24D]/65 shadow-[0_0_18px_rgba(201,162,77,0.10)]'
-                            : 'bg-[#141620] text-zinc-100 rounded-tl-sm !border-[#C9A24D]/45'
-                          : isMe
-                            ? 'g-bubble--mine rounded-tr-sm border-white/10'
-                            : 'bg-[#141620] text-zinc-100 rounded-tl-sm border-white/[0.08]'
+                    className={`max-w-[88%] sm:max-w-md px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed transition-all ${
+                      isMe ? 'g-bubble--mine' : 'g-bubble--peer'
                     }`}
                   >
                     {/* Encrypted Photo Attachment if present */}

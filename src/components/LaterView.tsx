@@ -404,7 +404,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   placeholder="e.g. Queer Sci-Fi Book Club & Wine"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
+                  className="g-field !h-11 !rounded-xl !text-sm focus:!border-[#C9A24D]"
                 />
               </div>
 
@@ -414,7 +414,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   <select
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value as any)}
-                    className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-[#C9A24D] focus:outline-none cursor-pointer"
+                    className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D] cursor-pointer"
                   >
                     <option value="social">Social & Drinks</option>
                     <option value="games">Board Games</option>
@@ -432,7 +432,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                     max={100}
                     value={formCapacity}
                     onChange={(e) => setFormCapacity(Number(e.target.value))}
-                    className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-[#C9A24D] focus:outline-none"
+                    className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D]"
                   />
                 </div>
               </div>
@@ -444,7 +444,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   required
                   value={formDate}
                   onChange={(e) => setFormDate(e.target.value)}
-                  className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
+                  className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D]"
                 />
               </div>
 
@@ -456,7 +456,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   value={formLocation}
                   onChange={(e) => setFormLocation(e.target.value)}
                   placeholder="e.g. Queer Britain Lounge"
-                  className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
+                  className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D]"
                 />
               </div>
 
@@ -468,7 +468,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   value={formAddress}
                   onChange={(e) => setFormAddress(e.target.value)}
                   placeholder="Street address"
-                  className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
+                  className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D]"
                 />
               </div>
 
@@ -479,7 +479,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="What should attendees bring or expect?"
-                  className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none resize-none"
+                  className="g-field !rounded-xl !text-xs focus:!border-[#C9A24D] resize-none !py-2"
                 />
               </div>
 
@@ -487,13 +487,13 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsHostModalOpen(false)}
-                  className="min-h-[42px] px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white cursor-pointer"
+                  className="g-btn g-btn--quiet !min-h-[40px] !px-4 !text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="min-h-[42px] px-4 py-2 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm"
+                  className="g-btn g-btn--amber !min-h-[40px] !px-5 !rounded-xl !text-xs font-semibold"
                 >
                   Publish Gathering
                 </button>

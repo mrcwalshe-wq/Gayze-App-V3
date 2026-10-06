@@ -318,7 +318,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   // Full-screen iPhone-style UI
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
       onClick={handleUserActivity}
       onTouchStart={handleUserActivity}
       onMouseMove={handleUserActivity}
@@ -874,7 +874,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
       onClick={handleUserActivity}
       onTouchStart={handleUserActivity}
       onMouseMove={handleUserActivity}

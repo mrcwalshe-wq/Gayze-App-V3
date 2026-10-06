@@ -165,7 +165,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                   hapticLight();
                   onStartSafeCheckinWithVenue(haven);
                 }}
-                className="h-11 min-h-[44px] px-4 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1f2b] hover:bg-[#252838] rounded-xl border border-white/10 transition-colors cursor-pointer flex items-center justify-center active:scale-[0.98]"
+                className="g-btn g-btn--quiet !min-h-[42px] text-xs"
               >
                 Start Local Check-in Here
               </button>
@@ -175,7 +175,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                   hapticLight();
                   onSelectVenueForPulse(haven);
                 }}
-                className="h-11 min-h-[44px] flex items-center justify-center gap-1.5 px-4 text-xs font-semibold text-black bg-[#C9A24D] hover:bg-[#b58f3b] rounded-xl transition-colors cursor-pointer shadow-sm active:scale-[0.98]"
+                className="g-btn g-btn--amber !min-h-[42px] text-xs font-semibold"
               >
                 <span>Broadcast Pulse Here</span>
                 <ArrowRight className="w-3.5 h-3.5" />

@@ -442,17 +442,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           aria-label="Improve your profile"
         >
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-zinc-500 font-semibold">
+            <span className="g-label">
               Profile · {completion.percent}% complete
-            </div>
+            </span>
             <div className="text-[12.5px] text-zinc-300 mt-0.5 truncate">
               Make your profile more useful — {completion.missing.length} quick {completion.missing.length === 1 ? 'thing' : 'things'} to add
             </div>
           </div>
-          <div className="mt-2 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="mt-2.5 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D]"
-              style={{ width: `${completion.percent}%` }}
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${completion.percent}%`,
+                background: 'linear-gradient(90deg, var(--brand-purple), var(--brand-amber))',
+              }}
             />
           </div>
         </button>
