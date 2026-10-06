@@ -1,25 +1,30 @@
-/* GAYZE final mobile navigation — single authoritative override. */
+/* GAYZE — premium mobile navigation only.
+   Scoped exclusively to the mobile tab bar. */
 :root {
-  --g-tabbar-h: 72px;
-  --g-tabbar-bottom-gap: 10px;
+  --g-tabbar-h: 74px;
+  --g-tabbar-bottom-gap: 12px;
 }
 
 @media (max-width: 767px) {
   .g-tabbar {
     position: fixed !important;
-    left: 12px !important;
-    right: 12px !important;
+    left: 10px !important;
+    right: 10px !important;
     bottom: calc(var(--g-tabbar-bottom-gap) + env(safe-area-inset-bottom, 0px)) !important;
     width: auto !important;
     height: var(--g-tabbar-h) !important;
     min-height: var(--g-tabbar-h) !important;
     padding: 0 !important;
-    border: 1px solid rgba(255,255,255,.09) !important;
-    border-radius: 20px !important;
-    background: rgba(10,11,16,.94) !important;
-    box-shadow: 0 16px 42px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.055) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(135%) !important;
-    backdrop-filter: blur(24px) saturate(135%) !important;
+    border: 1px solid rgba(255,255,255,.085) !important;
+    border-radius: 24px !important;
+    background:
+      linear-gradient(180deg, rgba(25,23,34,.96) 0%, rgba(11,12,18,.97) 100%) !important;
+    box-shadow:
+      0 20px 48px rgba(0,0,0,.42),
+      0 4px 14px rgba(0,0,0,.28),
+      inset 0 1px 0 rgba(255,255,255,.07) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(145%) !important;
+    backdrop-filter: blur(28px) saturate(145%) !important;
     z-index: 1000 !important;
     overflow: visible !important;
   }
@@ -27,11 +32,12 @@
   .g-tabbar::before {
     content: "";
     position: absolute;
-    left: 18px;
-    right: 18px;
+    left: 24px;
+    right: 24px;
     top: -1px;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(111,60,195,.42), rgba(201,162,77,.22), transparent);
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(111,60,195,.55), rgba(201,162,77,.25), rgba(111,60,195,.55), transparent);
     pointer-events: none;
   }
 
@@ -41,8 +47,8 @@
     align-items: stretch !important;
     width: 100% !important;
     height: 100% !important;
-    padding: 5px !important;
-    gap: 2px !important;
+    padding: 6px !important;
+    gap: 3px !important;
     box-sizing: border-box !important;
   }
 
@@ -55,17 +61,20 @@
     min-width: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    min-height: 0 !important;
     margin: 0 !important;
-    padding: 6px 2px 5px !important;
-    gap: 3px !important;
+    padding: 7px 2px 6px !important;
+    gap: 4px !important;
     border: 1px solid transparent !important;
-    border-radius: 15px !important;
+    border-radius: 18px !important;
     background: transparent !important;
     color: #737887 !important;
     box-shadow: none !important;
-    transform: none !important;
-    transition: color .18s ease, background .18s ease, border-color .18s ease, transform .18s ease !important;
+    transform: translateZ(0) !important;
+    transition:
+      color .2s ease,
+      background .2s ease,
+      border-color .2s ease,
+      transform .15s ease !important;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -73,45 +82,53 @@
     content: "";
     position: absolute;
     left: 50%;
-    bottom: 3px;
+    bottom: 4px;
     width: 0;
     height: 2px;
     border-radius: 999px;
-    background: #8d5be0;
-    box-shadow: 0 0 10px rgba(111,60,195,.65);
+    background: #9b6be5;
+    box-shadow: 0 0 12px rgba(111,60,195,.7);
     transform: translateX(-50%);
-    transition: width .18s ease;
+    transition: width .2s ease !important;
   }
 
   .g-tab[data-active="true"] {
-    color: #f5f3f8 !important;
-    background: rgba(111,60,195,.105) !important;
-    border-color: rgba(111,60,195,.18) !important;
+    color: #f8f6fb !important;
+    background: linear-gradient(180deg, rgba(111,60,195,.16), rgba(111,60,195,.07)) !important;
+    border-color: rgba(155,107,229,.20) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
   }
 
-  .g-tab[data-active="true"]::after { width: 18px; }
-  .g-tab:active { transform: scale(.97) !important; }
+  .g-tab[data-active="true"]::after {
+    width: 22px;
+  }
+
+  .g-tab:active {
+    transform: scale(.955) !important;
+  }
 
   .g-tab > span.g-tab__label {
     line-height: 1 !important;
     font-size: 9px !important;
-    font-weight: 600 !important;
-    letter-spacing: .01em !important;
+    font-weight: 650 !important;
+    letter-spacing: .015em !important;
     white-space: nowrap !important;
   }
 
   .g-tab:not(.g-tab--discover) svg {
     width: 20px !important;
     height: 20px !important;
-    stroke-width: 1.8 !important;
+    stroke-width: 1.75 !important;
   }
 
   .g-tab[data-active="true"]:not(.g-tab--discover) svg {
-    color: #b796f0 !important;
-    filter: drop-shadow(0 0 7px rgba(111,60,195,.25));
+    color: #c3a7f4 !important;
+    filter: drop-shadow(0 0 8px rgba(111,60,195,.30));
   }
 
-  .g-tab__ind { display: none !important; }
+  .g-tab__ind {
+    display: none !important;
+  }
 
   .g-tab__badge {
     position: absolute !important;
@@ -122,10 +139,10 @@
     margin: 0 !important;
     border-radius: 50% !important;
     background: #C9A24D !important;
-    box-shadow: 0 0 0 2px #0a0b10, 0 0 8px rgba(201,162,77,.45) !important;
+    box-shadow: 0 0 0 2px #101016, 0 0 9px rgba(201,162,77,.55) !important;
   }
 
-  /* Centre navigation is the actual GAYZE eye + G mark, kept inside its tab. */
+  /* Centre GAYZE mark: visually elevated, but still belongs to the Discover tab. */
   .g-tab--discover {
     justify-content: flex-end !important;
     gap: 0 !important;
@@ -136,39 +153,53 @@
   .g-tab--discover .g-discover-action {
     position: absolute !important;
     left: 50% !important;
-    top: 5px !important;
+    top: -13px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 68px !important;
-    height: 38px !important;
+    width: 64px !important;
+    height: 64px !important;
     margin: 0 !important;
     padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    border-radius: 21px !important;
+    background: linear-gradient(145deg, rgba(30,27,43,.98), rgba(13,14,21,.98)) !important;
+    box-shadow:
+      0 10px 25px rgba(0,0,0,.42),
+      0 0 0 5px rgba(10,11,16,.92),
+      0 0 24px rgba(111,60,195,.16),
+      inset 0 1px 0 rgba(255,255,255,.07) !important;
     transform: translateX(-50%) !important;
     pointer-events: none !important;
+    z-index: 4 !important;
   }
 
   .g-tab--discover .g-discover-logo-image {
     display: block !important;
-    width: 68px !important;
-    height: 34px !important;
+    width: 48px !important;
+    height: 48px !important;
     object-fit: contain !important;
     object-position: center !important;
-    filter: drop-shadow(0 0 7px rgba(111,60,195,.30)) !important;
+    filter: drop-shadow(0 0 9px rgba(111,60,195,.38)) !important;
     mix-blend-mode: normal !important;
   }
 
+  .g-tab--discover[data-active="true"] .g-discover-action {
+    border-color: rgba(155,107,229,.32) !important;
+    box-shadow:
+      0 10px 25px rgba(0,0,0,.42),
+      0 0 0 5px rgba(10,11,16,.92),
+      0 0 28px rgba(111,60,195,.30),
+      inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+
   .g-tab--discover[data-active="true"] .g-discover-logo-image {
-    filter: drop-shadow(0 0 10px rgba(111,60,195,.48)) !important;
+    filter: drop-shadow(0 0 12px rgba(111,60,195,.58)) !important;
   }
 
   .g-tab--discover .g-tab__label {
     position: relative !important;
-    z-index: 2 !important;
+    z-index: 5 !important;
     margin-top: 0 !important;
   }
 
@@ -189,15 +220,52 @@
 }
 
 @media (max-width: 380px) {
-  :root { --g-tabbar-h: 70px; --g-tabbar-bottom-gap: 8px; }
-  .g-tabbar { left: 9px !important; right: 9px !important; border-radius: 18px !important; }
-  .g-tabbar__inner { padding: 4px !important; }
-  .g-tab { padding-left: 1px !important; padding-right: 1px !important; }
-  .g-tab:not(.g-tab--discover) svg { width: 19px !important; height: 19px !important; }
-  .g-tab > span.g-tab__label { font-size: 8.5px !important; }
-  .g-tab--discover .g-discover-logo-image { width: 62px !important; height: 31px !important; }
+  :root {
+    --g-tabbar-h: 70px;
+    --g-tabbar-bottom-gap: 9px;
+  }
+
+  .g-tabbar {
+    left: 8px !important;
+    right: 8px !important;
+    border-radius: 21px !important;
+  }
+
+  .g-tabbar__inner {
+    padding: 5px !important;
+    gap: 2px !important;
+  }
+
+  .g-tab {
+    padding-left: 1px !important;
+    padding-right: 1px !important;
+  }
+
+  .g-tab:not(.g-tab--discover) svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .g-tab > span.g-tab__label {
+    font-size: 8.5px !important;
+  }
+
+  .g-tab--discover .g-discover-action {
+    width: 58px !important;
+    height: 58px !important;
+    top: -10px !important;
+    border-radius: 19px !important;
+  }
+
+  .g-tab--discover .g-discover-logo-image {
+    width: 43px !important;
+    height: 43px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .g-tab, .g-tab::after { transition: none !important; }
+  .g-tab,
+  .g-tab::after {
+    transition: none !important;
+  }
 }
