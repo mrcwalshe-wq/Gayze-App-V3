@@ -15,7 +15,7 @@
   "categories": ["social", "lifestyle"],
   "prefer_related_applications": false,
   "icons": [
-    {"src": "/brand/gayze-app-icon-v3.svg?v=20261008-1", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
-    {"src": "/brand/gayze-app-icon-v3.svg?v=20261008-1", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"}
+    {"src": "/brand/gayze-app-icon-v3.svg?v=20261008-2", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "/brand/gayze-app-icon-v3.svg?v=20261008-2", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"}
   ]
 }
