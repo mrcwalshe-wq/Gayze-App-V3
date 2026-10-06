@@ -1,0 +1,39 @@
+/* Final semantic intent colour guard.
+   Private is always GAYZE violet; Social is always GAYZE amber.
+   Loaded after legacy polish layers so mode styling cannot regress. */
+
+.g-opt[data-tone="private"][data-active="true"] {
+  color: #f4edff !important;
+  border-color: rgba(111,60,195,.72) !important;
+  background:
+    radial-gradient(120% 160% at 50% 0%, rgba(111,60,195,.20), transparent 62%),
+    rgba(111,60,195,.13) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(111,60,195,.10),
+    0 10px 26px rgba(111,60,195,.12) !important;
+}
+.g-opt[data-tone="private"][data-active="true"] .g-opt__t {
+  color: #f4edff !important;
+  text-shadow: 0 0 18px rgba(154,108,235,.25);
+}
+.g-opt[data-tone="social"][data-active="true"] {
+  color: #fff8e5 !important;
+  border-color: rgba(201,162,77,.72) !important;
+  background:
+    radial-gradient(120% 160% at 50% 0%, rgba(201,162,77,.18), transparent 62%),
+    rgba(201,162,77,.12) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(201,162,77,.10),
+    0 10px 26px rgba(201,162,77,.10) !important;
+}
+.g-opt[data-tone="social"][data-active="true"] .g-opt__t { color: #fff8e5 !important; }
+.g-sheet__foot--private .g-btn--intent-private {
+  color: #f2eaff !important;
+  border-color: rgba(170,132,245,.48) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 10px 30px rgba(78,42,143,.28), 0 0 24px rgba(111,60,195,.12) !important;
+}
+.g-sheet__foot--social .g-btn--intent-social {
+  color: #fff8e5 !important;
+  border-color: rgba(201,162,77,.50) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 10px 30px rgba(112,84,29,.25), 0 0 24px rgba(201,162,77,.11) !important;
+}
