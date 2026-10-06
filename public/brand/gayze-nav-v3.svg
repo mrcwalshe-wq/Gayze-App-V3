@@ -1,44 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="title desc">
-  <title id="title">GAYZE</title>
-  <desc id="desc">GAYZE eye and G symbol</desc>
-  <defs>
-    <linearGradient id="gayzeGradient" x1="92" y1="128" x2="420" y2="384" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7B2CFF"/>
-      <stop offset=".38" stop-color="#D43BDE"/>
-      <stop offset=".7" stop-color="#FF5C9D"/>
-      <stop offset="1" stop-color="#FF9E2C"/>
-    </linearGradient>
-    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="7" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-
-  <!-- Clean GAYZE eye -->
-  <path
-    d="M62 256C116 178 188 126 256 126S396 178 450 256C396 334 324 386 256 386S116 334 62 256Z"
-    stroke="url(#gayzeGradient)"
-    stroke-width="22"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    filter="url(#softGlow)"
-  />
-
-  <!-- Central G: deliberately simple, closed geometry for reliable SVG rendering -->
-  <path
-    d="M310 194C294 178 273 168 249 168C199 168 160 207 160 256S199 344 249 344C273 344 295 335 312 318V264H250"
-    stroke="url(#gayzeGradient)"
-    stroke-width="28"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-  <path
-    d="M312 264H270"
-    stroke="url(#gayzeGradient)"
-    stroke-width="28"
-    stroke-linecap="round"
-  />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none" role="img" aria-labelledby="title">
+<defs>
+  <linearGradient id="gayzeBrand" x1="0" y1="249.5" x2="1000" y2="249.5" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#7B2CFF"/>
+    <stop offset=".36" stop-color="#D43BDE"/>
+    <stop offset=".68" stop-color="#FF5C9D"/>
+    <stop offset="1" stop-color="#FF9E2C"/>
+  </linearGradient>
+</defs>
+<title id="title">GAYZE</title>
+<!-- The approved eye/G mark, enlarged vertically for a square nav control. -->
+<g transform="translate(0 126) scale(1 1.50)">
+  <path fill="url(#gayzeBrand)" fill-rule="evenodd" d="M 529.0,78.5 L 496.4,78.5 L 468.6,82.1 L 425.1,97.8 L 393.7,117.1 L 369.6,138.9 L 343.0,173.9 L 327.3,211.0 L 322.5,249.5 L 327.3,288.0 L 343.0,323.5 L 369.6,358.5 L 393.7,380.3 L 425.1,399.6 L 468.6,415.3 L 496.4,418.9 L 529.0,418.9 L 559.8,415.3 L 593.1,404.5 L 623.3,387.6 L 650.0,365.8 L 671.8,338.0 L 688.7,306.6 L 696.0,276.4 L 696.0,249.5 L 585.9,249.5 L 585.9,281.2 L 655.9,281.2 L 655.9,325.9 L 632.9,341.6 L 604.8,350.1 L 574.3,349.0 L 545.9,338.2 L 520.9,319.0 L 502.2,294.2 L 492.6,264.0 L 492.6,236.0 L 502.2,205.8 L 520.9,181.0 L 545.9,161.8 L 574.3,151.0 L 604.8,149.9 L 632.9,158.4 L 655.9,174.1 L 674.0,152.3 L 650.0,129.4 L 623.3,111.4 L 593.1,94.5 L 559.8,83.7 Z M 329.7,84.0 C 251.0,143.0 251.0,356.0 329.7,415.0 C 294.0,357.0 294.0,143.0 329.7,84.0 Z M 670.3,84.0 C 749.0,143.0 749.0,356.0 670.3,415.0 C 706.0,357.0 706.0,143.0 670.3,84.0 Z M 0,249.5 C 177,45 823,45 1000,249.5 C 823,454 177,454 0,249.5 Z"/>
+</g>
 </svg>
