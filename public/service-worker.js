@@ -2,15 +2,15 @@
  * GAYZE production service worker.
  * Web Push is always user-visible on iOS; no silent/invisible push path.
  */
-const SW_VERSION = 'gayze-sw-v11';
+const SW_VERSION = 'gayze-sw-v12';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 const APP_SHELL_URL = '/index.html';
-const ICON_VERSION = '?v=20261006-1';
-const IOS_ICON = `/apple-touch-icon.png${ICON_VERSION}`;
-const PRECACHE_URLS = ['/', '/manifest.webmanifest', IOS_ICON, `/icons/gayze-180.png${ICON_VERSION}`, `/icons/gayze-192.png${ICON_VERSION}`, `/icons/gayze-512.png${ICON_VERSION}`, `/icons/gayze-512-maskable.png${ICON_VERSION}`];
-const NOTIFICATION_ICON = '/icons/gayze-192.png';
-const NOTIFICATION_BADGE = IOS_ICON;
+const ICON_VERSION = '?v=20261007-2';
+const IOS_ICON = `/icons/gayze-180.png${ICON_VERSION}`;
+const PRECACHE_URLS = ['/', '/manifest.webmanifest', IOS_ICON, `/icons/gayze-192.png${ICON_VERSION}`, `/icons/gayze-512.png${ICON_VERSION}`];
+const NOTIFICATION_ICON = `/icons/gayze-192.png${ICON_VERSION}`;
+const NOTIFICATION_BADGE = `/icons/gayze-180.png${ICON_VERSION}`;
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
