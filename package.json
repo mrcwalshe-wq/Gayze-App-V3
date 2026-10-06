@@ -20,7 +20,8 @@
     "test:e2ee": "tsx scripts/e2ee-tests/e2ee.test.mjs",
     "test:discovery": "node scripts/discovery-tests/public-wrapper.test.mjs",
     "test:inspect-script": "node scripts/discovery-tests/inspect-script.test.mjs",
-    "test:interaction": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/interaction-tests/interaction.test.tsx"
+    "test:interaction": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/interaction-tests/interaction.test.tsx",
+    "test:intent-composer": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/intent-composer-tests/intent-composer.test.tsx"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

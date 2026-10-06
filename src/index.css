@@ -416,8 +416,11 @@ button, input, select, textarea, [role="button"] {
   --g-dur-med: 240ms;
   --g-dur-slow: 340ms;
 
-  /* Chrome metrics */
-  --g-tabbar-h: 56px;
+  /* Chrome metrics — must match gayze-nav-final.css, the single source of
+     truth for the mobile tab bar. The bundled sheet loads last, so the value
+     used by every calc() (nav height AND sheet gap) is defined here. */
+  --g-tabbar-h: 72px;
+  --g-tabbar-bottom-gap: 10px;
 
   /* ------------------------------------------------------------------
      GAYZE ATMOSPHERE
@@ -793,7 +796,9 @@ button, input, select, textarea, [role="button"] {
 .g-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  /* Above the fixed tab bar (z-index 1000 in gayze-nav-final.css) so an open
+     sheet/scrim can never be overlapped — or blocked — by the navigation. */
+  z-index: 1002;
   background: rgba(4, 5, 8, 0.6);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
@@ -1779,33 +1784,6 @@ button, input, select, textarea, [role="button"] {
 .g-opt--sm { min-height: 46px; padding: 9px 12px; }
 .g-opt--sm .g-opt__t { font-size: 13px; }
 
-/* Intent mode owns the accent. Private stays violet throughout the composer. */
-.g-sheet--private .g-optpill[data-active='true'][data-tone='amber'],
-.g-sheet--private .g-optpill[data-active='true'] {
-  background:
-    radial-gradient(130% 180% at 18% 0%, rgba(203, 166, 255, 0.20), transparent 52%),
-    linear-gradient(180deg, rgba(111, 60, 195, 0.24), rgba(111, 60, 195, 0.14));
-  border-color: rgba(170, 132, 245, 0.82);
-  color: #f0e8ff;
-  box-shadow:
-    0 0 0 1px rgba(170, 132, 245, 0.12),
-    0 8px 26px rgba(111, 60, 195, 0.20),
-    inset 0 1px 0 rgba(235, 220, 255, 0.14);
-}
-
-/* Social uses amber for its selected distance/travel controls. */
-.g-sheet--social .g-optpill[data-active='true'][data-tone='amber'] {
-  background:
-    radial-gradient(120% 180% at 18% 0%, rgba(255, 226, 139, 0.22), transparent 52%),
-    linear-gradient(180deg, rgba(201, 162, 77, 0.26), rgba(160, 120, 40, 0.16));
-  border-color: rgba(236, 194, 92, 0.85);
-  color: #fff8e0;
-  box-shadow:
-    0 0 0 1px rgba(236, 194, 92, 0.18),
-    0 8px 26px rgba(201, 162, 77, 0.22),
-    inset 0 1px 0 rgba(255, 244, 190, 0.16);
-}
-
 /* Small option pill row (details step) */
 .g-optpill {
   min-height: 40px;
@@ -1865,6 +1843,40 @@ button, input, select, textarea, [role="button"] {
 
 .g-sheet__body .g-optpill[data-active='true']:active {
   transform: translateY(1px);
+}
+
+/* Intent mode owns the accent. These mode-specific rules are declared AFTER
+   the generic .g-sheet__body rules above (and with higher specificity) so a
+   mode colour always wins the cascade. Private stays violet throughout the
+   composer — including the amber-toned distance pills — while Social keeps
+   its amber/gold distance treatment. Amber is never removed globally. */
+.g-sheet--private .g-optpill[data-active='true'],
+.g-sheet--private .g-sheet__body .g-optpill[data-active='true'],
+.g-sheet--private .g-optpill[data-active='true'][data-tone='amber'],
+.g-sheet--private .g-sheet__body .g-optpill[data-active='true'][data-tone='amber'] {
+  background:
+    radial-gradient(130% 180% at 18% 0%, rgba(203, 166, 255, 0.20), transparent 52%),
+    linear-gradient(180deg, rgba(111, 60, 195, 0.24), rgba(111, 60, 195, 0.14));
+  border-color: rgba(170, 132, 245, 0.82);
+  color: #f0e8ff;
+  box-shadow:
+    0 0 0 1px rgba(170, 132, 245, 0.12),
+    0 8px 26px rgba(111, 60, 195, 0.20),
+    inset 0 1px 0 rgba(235, 220, 255, 0.14);
+}
+
+/* Social uses amber for its selected distance/travel controls. */
+.g-sheet--social .g-optpill[data-active='true'][data-tone='amber'],
+.g-sheet--social .g-sheet__body .g-optpill[data-active='true'][data-tone='amber'] {
+  background:
+    radial-gradient(120% 180% at 18% 0%, rgba(255, 226, 139, 0.22), transparent 52%),
+    linear-gradient(180deg, rgba(201, 162, 77, 0.26), rgba(160, 120, 40, 0.16));
+  border-color: rgba(236, 194, 92, 0.85);
+  color: #fff8e0;
+  box-shadow:
+    0 0 0 1px rgba(236, 194, 92, 0.18),
+    0 8px 26px rgba(201, 162, 77, 0.22),
+    inset 0 1px 0 rgba(255, 244, 190, 0.16);
 }
 
 /* Keep the composer usable above the iOS home indicator and make the
@@ -1977,4 +1989,11 @@ button, input, select, textarea, [role="button"] {
 }
 @media (min-width: 768px) {
   .g-sheet.g-sheet--above-nav { --g-sheet-bottom-gap: 24px; }
+}
+/* Small phones use the same compact tab bar metrics as gayze-nav-final.css. */
+@media (max-width: 380px) {
+  :root {
+    --g-tabbar-h: 70px;
+    --g-tabbar-bottom-gap: 8px;
+  }
 }
