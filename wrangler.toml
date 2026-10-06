@@ -17,6 +17,9 @@
 name = "gayze-app-v3"
 compatibility_date = "2025-09-01"
 
+[build]
+command = "npm run build"
+
 [assets]
 directory = "./dist"
 # Required so /messages/<conversation-id> (a notification click target) resolves
