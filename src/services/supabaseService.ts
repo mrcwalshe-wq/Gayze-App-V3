@@ -568,6 +568,7 @@ export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
     const profileMap = new Map<string, any>(
       (profiles ?? []).map((row: any) => [row.interest_id, row]),
     );
+
     const photoIds = Array.from(new Set((rows ?? []).flatMap((row: any) => row.shared_photo_ids ?? [])));
     const photoMap = new Map<string, string>();
     if (photoIds.length) {
@@ -581,7 +582,7 @@ export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
       }
     }
 
-    return (rows ?? []).map((row: any) => {
+    return Promise.all((rows ?? []).map(async (row: any): Promise<IncomingInterest> => {
       const profile = profileMap.get(row.id);
       return {
         id: row.id,
@@ -591,7 +592,7 @@ export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
         fromAge: profile?.age ?? null,
         fromBio: profile?.bio ?? null,
         fromNeighborhood: profile?.neighborhood ?? null,
-        fromAvatarUrl: profile?.avatar_path ? ((profile?.avatar_path && getProfilePhotoUrl(profile.avatar_path)) || null) : null,
+        fromAvatarUrl: profile?.avatar_path ? ((await getProfilePhotoUrl(profile.avatar_path)) || null) : null,
         fromInterests: Array.isArray(profile?.interests) ? profile.interests : [],
         fromReliabilityScore: Number(profile?.reliability_score) || 0,
         fromVerifiedPeersCount: Number(profile?.verified_peers_count) || 0,
@@ -602,16 +603,7 @@ export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
         message: row.message ?? null,
         sharedPhotoUrls: (row.shared_photo_ids ?? []).map((id: string) => photoMap.get(id)).filter(Boolean),
       };
-    }).map(async (interest: any) => ({
-      ...interest,
-      fromAvatarUrl: interest.fromAvatarUrl && typeof interest.fromAvatarUrl.then === 'function'
-        ? await interest.fromAvatarUrl
-        : interest.fromAvatarUrl,
-    })).reduce(async (promise, value) => {
-      const acc = await promise;
-      acc.push(await value);
-      return acc;
-    }, Promise.resolve([] as IncomingInterest[]));
+    }));
   } catch (error) {
     console.warn('[GAYZE] Could not load incoming interests:', error);
     return [];
