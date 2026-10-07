@@ -2924,7 +2924,10 @@ export default function App() {
       )}
 
       {/* Shell: navigation + views, above the atmosphere layer */}
-      <div className="g-shell flex flex-1 min-h-0 flex-col">
+      <div
+        className="g-shell flex flex-1 min-h-0 flex-col"
+        data-intent-mode={activeUserIntent?.mode ?? 'none'}
+      >
       {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
         activeTab={activeTab}
@@ -2938,6 +2941,7 @@ export default function App() {
         onOpenQR={() => handleOpenQRModal()}
         reliabilityScore={currentUser.reliabilityScore}
         userNeighborhood={currentUser.neighborhood}
+        activeIntentMode={activeUserIntent?.mode ?? null}
       />
 
       {/* Main Content Viewport Container */}
@@ -2983,8 +2987,6 @@ export default function App() {
               activeUserIntent={activeUserIntent}
               areaLabel={resolveAreaLabel(currentUser.neighborhood)}
               onOpenSetIntent={handleOpenIntentSheet}
-              onUpdateActiveUserIntent={handleUpdateActiveUserIntent}
-              intentBusy={intentBusy}
               onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
               isSafetyTimerActive={checkinState.isActive}
               onOpenMask={() => setIsMaskActive(true)}

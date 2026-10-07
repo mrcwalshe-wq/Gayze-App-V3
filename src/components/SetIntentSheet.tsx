@@ -237,7 +237,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       aria-labelledby="set-intent-title"
     >
       <div
-        className="g-sheet"
+        className={`g-sheet g-sheet--above-nav ${mode ? `g-sheet--${mode}` : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="g-sheet__grip" />
@@ -380,7 +380,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                           key={d}
                           type="button"
                           className="g-optpill"
-                          data-tone="amber"
+                          data-tone={mode === 'private' ? 'private' : 'amber'}
                           data-active={travelDistance === d}
                           onClick={() => { hapticLight(); setTravelDistance(d); }}
                         >

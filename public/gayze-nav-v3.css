@@ -1,0 +1,422 @@
+/* GAYZE Navigation V3 — rebuilt from scratch.
+   One authoritative navigation system. Mobile-first, safe-area aware. */
+
+.g-tabbar,
+.g-tabbar * { box-sizing: border-box; }
+
+@media (max-width: 767px) {
+  .g-tabbar {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    height: 76px !important;
+    padding: 0 !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    border-radius: 26px !important;
+    background: linear-gradient(180deg, rgba(18,16,28,.92), rgba(8,8,14,.97)) !important;
+    box-shadow: 0 18px 48px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(111,60,195,.08) !important;
+    backdrop-filter: blur(28px) saturate(155%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(155%) !important;
+    overflow: visible !important;
+    z-index: 1400 !important;
+  }
+  .g-tabbar::before {
+    content:""; position:absolute; left:22px; right:22px; top:-1px; height:1px;
+    background:linear-gradient(90deg,transparent,#7B2CFF,#D43BDE,#FF9E2C,transparent);
+    opacity:.7; pointer-events:none;
+  }
+  .g-tabbar__inner {
+    display:grid !important; grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+    width:100% !important; height:100% !important; padding:6px !important; gap:3px !important;
+    align-items:stretch !important; overflow:visible !important;
+  }
+  .g-tab {
+    position:relative !important; display:flex !important; flex-direction:column !important;
+    align-items:center !important; justify-content:center !important; gap:5px !important;
+    width:100% !important; min-width:0 !important; height:64px !important; min-height:64px !important;
+    padding:7px 2px 5px !important; margin:0 !important; border:1px solid transparent !important;
+    border-radius:18px !important; background:transparent !important; color:#77728a !important;
+    transform:none !important; transition:color .2s ease,background .2s ease,border-color .2s ease,transform .16s ease !important;
+    -webkit-tap-highlight-color:transparent !important;
+  }
+  .g-tab:not(.g-tab--discover) svg { width:22px !important; height:22px !important; stroke-width:1.75 !important; color:#9c95b0 !important; }
+  .g-tab[data-active="true"]:not(.g-tab--discover) {
+    color:#f7f3ff !important; background:rgba(111,60,195,.12) !important; border-color:rgba(170,132,245,.18) !important;
+  }
+  .g-tab[data-active="true"]:not(.g-tab--discover) svg { color:#c69aff !important; filter:drop-shadow(0 0 9px rgba(111,60,195,.4)); }
+  .g-tab:active:not(.g-tab--discover) { transform:scale(.965) !important; }
+  .g-tab__ind { display:none !important; }
+  .g-tab > .g-tab__label {
+    margin:0 !important; font-size:9px !important; line-height:1 !important; font-weight:600 !important;
+    letter-spacing:.02em !important; color:inherit !important;
+  }
+  .g-tab--discover {
+    z-index:10 !important; height:102px !important; min-height:102px !important;
+    transform:translateY(-29px) !important; justify-content:flex-end !important; gap:6px !important;
+    padding:0 !important; border:0 !important; background:transparent !important; overflow:visible !important;
+  }
+  .g-tab--discover:active { transform:translateY(-26px) scale(.97) !important; }
+  .g-tab--discover .g-discover-action {
+    position:relative !important; display:flex !important; align-items:center !important; justify-content:center !important;
+    width:72px !important; height:72px !important; border-radius:50% !important; padding:9px !important;
+    background:radial-gradient(circle at 32% 25%,rgba(111,60,195,.48),rgba(12,9,20,.98) 64%) !important;
+    border:1px solid rgba(212,59,222,.5) !important;
+    box-shadow:0 0 0 2px rgba(123,44,255,.13),0 0 28px rgba(123,44,255,.38),0 14px 34px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.13) !important;
+    isolation:isolate !important;
+  }
+  .g-tab--discover .g-discover-action::after {
+    content:""; position:absolute; inset:-14px; border-radius:50%;
+    background:radial-gradient(circle,rgba(212,59,222,.22),transparent 68%); filter:blur(6px); z-index:-2; pointer-events:none;
+  }
+  .g-tab--discover .g-discover-logo-image {
+    width:56px !important; height:56px !important; object-fit:contain !important; display:block !important;
+    filter:none !important; transform:none !important;
+  }
+  .g-tab--discover[data-active="true"] .g-discover-action {
+    box-shadow:0 0 0 2px rgba(255,92,157,.18),0 0 36px rgba(212,59,222,.52),0 14px 34px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16) !important;
+  }
+  .g-tab--discover .g-tab__label { color:#f0e7ff !important; text-shadow:0 0 12px rgba(212,59,222,.25); }
+  .g-tab__badge { position:absolute !important; top:7px !important; right:17% !important; width:7px !important; height:7px !important; border-radius:50% !important; background:#C9A24D !important; box-shadow:0 0 0 2px #0a0b10,0 0 10px rgba(201,162,77,.65) !important; }
+}
+@media (max-width:380px) {
+  .g-tabbar { left:8px !important; right:8px !important; height:72px !important; border-radius:23px !important; }
+  .g-tabbar__inner { padding:5px !important; }
+  .g-tab--discover { height:94px !important; min-height:94px !important; transform:translateY(-26px) !important; }
+  .g-tab--discover .g-discover-action { width:66px !important; height:66px !important; }
+  .g-tab--discover .g-discover-logo-image { width:51px !important; height:51px !important; }
+}
+@media (prefers-reduced-motion:reduce) { .g-tab,.g-tab--discover,.g-discover-action { transition:none !important; } }
+
+@media (min-width:768px) {
+  .g-desktop-header { position:fixed !important; top:14px !important; left:16px !important; right:16px !important; z-index:1400 !important; }
+  .g-desktop-header__inner {
+    height:58px !important; padding:7px 10px 7px 14px !important; border:1px solid rgba(255,255,255,.09) !important;
+    border-radius:18px !important; background:rgba(10,10,16,.86) !important; backdrop-filter:blur(24px) saturate(145%) !important;
+    -webkit-backdrop-filter:blur(24px) saturate(145%) !important; box-shadow:0 12px 34px rgba(0,0,0,.35) !important;
+  }
+  .g-navpill { background:rgba(255,255,255,.035) !important; border:1px solid rgba(255,255,255,.07) !important; border-radius:14px !important; padding:3px !important; }
+  .g-navpill__btn { border-radius:10px !important; }
+}
+
+
+/* ==========================================================================
+   GAYZE 2026-10-07 — refined navigation + Messages redesign
+   No bracket/corner ornaments. Brand gradient is continuous, architectural,
+   and restrained: violet at the left/top moving to rich amber at the right.
+   ========================================================================== */
+
+@media (max-width: 767px) {
+  .g-tabbar {
+    isolation: isolate !important;
+    border: 1px solid transparent !important;
+    background:
+      linear-gradient(180deg, rgba(18,16,28,.94), rgba(8,8,14,.985)) padding-box !important;
+    box-shadow:
+      0 18px 48px rgba(0,0,0,.56),
+      0 0 28px rgba(111,60,195,.08),
+      inset 0 1px 0 rgba(255,255,255,.07) !important;
+  }
+
+  /* One continuous premium edge — not four decorative corner marks. */
+  .g-tabbar::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    padding: 1px !important;
+    border-radius: inherit !important;
+    background: linear-gradient(
+      120deg,
+      rgba(111,60,195,.92) 0%,
+      rgba(139,92,246,.68) 27%,
+      rgba(212,59,222,.42) 52%,
+      rgba(201,162,77,.72) 78%,
+      rgba(201,162,77,.94) 100%
+    ) !important;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+    -webkit-mask-composite: xor !important;
+    mask-composite: exclude !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+  }
+
+  .g-tabbar__inner {
+    position: relative !important;
+    z-index: 1 !important;
+  }
+
+  /* Active tabs are identified by the slim light line only. */
+  .g-tab[data-active="true"]:not(.g-tab--discover) {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .g-tab__ind {
+    display: block !important;
+    bottom: 4px !important;
+    width: 34px !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, #7b2cff, #c49aff 48%, #c9a24d) !important;
+    box-shadow: 0 0 9px rgba(111,60,195,.58), 0 0 16px rgba(201,162,77,.14) !important;
+  }
+
+  .g-tab:hover .g-tab__ind {
+    opacity: .72 !important;
+  }
+}
+
+/* ----------------------------- Messages --------------------------------- */
+
+.gayze-chat-shell {
+  position: relative !important;
+  isolation: isolate !important;
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(180deg, rgba(14,15,23,.985), rgba(7,8,12,.995)) padding-box !important;
+  box-shadow:
+    0 28px 70px rgba(0,0,0,.42),
+    0 0 34px rgba(111,60,195,.06) !important;
+}
+
+.gayze-chat-shell::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  padding: 1px !important;
+  border-radius: inherit !important;
+  background: linear-gradient(
+    125deg,
+    rgba(111,60,195,.55),
+    rgba(139,92,246,.20) 32%,
+    rgba(255,255,255,.07) 52%,
+    rgba(201,162,77,.18) 72%,
+    rgba(201,162,77,.58)
+  ) !important;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+.gayze-chat-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+.gayze-chat-sidebar {
+  width: min(23rem, 31vw) !important;
+  min-width: 19rem !important;
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgba(111,60,195,.10), transparent 52%),
+    linear-gradient(180deg, rgba(15,16,24,.98), rgba(9,10,15,.99)) !important;
+  border-right: 1px solid rgba(255,255,255,.065) !important;
+}
+
+.gayze-chat-sidebar > div:first-child {
+  min-height: 78px !important;
+  padding: 16px 17px 14px !important;
+  border-bottom: 1px solid rgba(255,255,255,.055) !important;
+  background:
+    linear-gradient(135deg, rgba(111,60,195,.10), transparent 52%),
+    rgba(10,11,17,.55) !important;
+}
+
+.gayze-chat-sidebar > div:first-child > div:first-child {
+  gap: 10px !important;
+}
+
+.gayze-chat-sidebar > div:first-child svg {
+  color: #c49aff !important;
+  filter: drop-shadow(0 0 8px rgba(111,60,195,.34)) !important;
+}
+
+.gayze-chat-sidebar > div:first-child span.text-\[15px\] {
+  font-size: 17px !important;
+  letter-spacing: -.025em !important;
+}
+
+.gayze-chat-sidebar > div:first-child > span {
+  padding: 5px 8px !important;
+  border: 1px solid rgba(111,60,195,.18) !important;
+  border-radius: 999px !important;
+  background: rgba(111,60,195,.07) !important;
+  color: rgba(221,210,241,.66) !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) {
+  padding: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button {
+  position: relative !important;
+  min-height: 76px !important;
+  padding: 10px 11px !important;
+  border: 0 !important;
+  border-radius: 16px !important;
+  background: transparent !important;
+  transition: background .18s ease, transform .18s ease !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button:hover {
+  background: rgba(255,255,255,.025) !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button:active {
+  transform: scale(.992) !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button[class*="bg-\[\#15131f\]"] {
+  background:
+    radial-gradient(100% 140% at 0% 50%, rgba(111,60,195,.20), transparent 66%),
+    linear-gradient(90deg, rgba(111,60,195,.09), rgba(201,162,77,.025)) !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button[class*="bg-\[\#15131f\]"]::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 14px !important;
+  bottom: 14px !important;
+  width: 2px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, #7b2cff, #d43bde 48%, #c9a24d) !important;
+  box-shadow: 0 0 12px rgba(111,60,195,.38) !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button > div:first-child {
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+  background:
+    linear-gradient(145deg, rgba(111,60,195,.14), rgba(255,255,255,.025)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07) !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button[class*="bg-\[\#15131f\]"] > div:first-child {
+  border-color: rgba(170,132,245,.28) !important;
+  box-shadow:
+    0 0 18px rgba(111,60,195,.12),
+    inset 0 1px 0 rgba(255,255,255,.09) !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button p {
+  color: rgba(205,199,215,.62) !important;
+}
+
+.gayze-chat-sidebar > div:nth-child(2) > button[class*="bg-\[\#15131f\]"] p {
+  color: rgba(235,228,246,.72) !important;
+}
+
+.gayze-chat-sidebar > div:last-child {
+  padding: 12px 14px !important;
+  background: rgba(6,7,11,.55) !important;
+  border-top: 1px solid rgba(255,255,255,.045) !important;
+  color: rgba(160,154,171,.42) !important;
+}
+
+/* Conversation pane: quieter chrome, stronger hierarchy. */
+.gayze-chat-header {
+  height: 68px !important;
+  padding: 8px 14px !important;
+  background:
+    radial-gradient(90% 160% at 0% 0%, rgba(111,60,195,.12), transparent 55%),
+    linear-gradient(180deg, rgba(18,19,28,.98), rgba(11,12,18,.98)) !important;
+  border-bottom: 1px solid rgba(255,255,255,.055) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.16) !important;
+}
+
+.gayze-chat-header > div:first-child > div {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 14px !important;
+  border-color: rgba(170,132,245,.22) !important;
+  background: linear-gradient(145deg, rgba(111,60,195,.15), rgba(255,255,255,.025)) !important;
+}
+
+.gayze-chat-header .text-\[10px\] {
+  font-size: 10px !important;
+  letter-spacing: .01em !important;
+}
+
+.gayze-chat-header .g-breathe {
+  box-shadow: 0 0 9px rgba(201,162,77,.75) !important;
+}
+
+.gayze-chat-shell .g-bubble--mine {
+  background:
+    linear-gradient(135deg, rgba(111,60,195,.78), rgba(91,43,164,.72) 62%, rgba(122,61,181,.68)) !important;
+  border: 1px solid rgba(188,153,250,.18) !important;
+  box-shadow: 0 8px 24px rgba(70,30,125,.18), inset 0 1px 0 rgba(255,255,255,.10) !important;
+}
+
+.gayze-chat-shell .g-bubble--peer {
+  background:
+    linear-gradient(145deg, rgba(26,28,39,.96), rgba(15,17,24,.98)) !important;
+  border: 1px solid rgba(255,255,255,.065) !important;
+  box-shadow: 0 7px 20px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+.gayze-chat-shell .g-bubble--mine,
+.gayze-chat-shell .g-bubble--peer {
+  border-radius: 17px !important;
+}
+
+.gayze-chat-shell form {
+  padding: 10px 12px calc(env(safe-area-inset-bottom,0px) + .7rem) !important;
+  background:
+    linear-gradient(180deg, rgba(10,11,17,.76), rgba(7,8,12,.98)) !important;
+  border-top: 1px solid rgba(255,255,255,.055) !important;
+  box-shadow: 0 -14px 32px rgba(0,0,0,.16) !important;
+}
+
+.gayze-chat-shell form > div:last-child {
+  opacity: .72 !important;
+}
+
+@media (max-width: 639px) {
+  .gayze-chat-shell {
+    border-radius: 18px !important;
+    margin: 0 !important;
+  }
+
+  .gayze-chat-sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .gayze-chat-sidebar > div:first-child {
+    min-height: 84px !important;
+    padding-top: 17px !important;
+  }
+
+  .gayze-chat-sidebar > div:nth-child(2) {
+    padding: 10px 8px !important;
+    gap: 4px !important;
+  }
+
+  .gayze-chat-sidebar > div:nth-child(2) > button {
+    min-height: 82px !important;
+    border-radius: 17px !important;
+  }
+
+  .gayze-chat-header {
+    height: 64px !important;
+  }
+
+  .gayze-chat-shell .g-bubble--mine,
+  .gayze-chat-shell .g-bubble--peer {
+    max-width: 84% !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gayze-chat-sidebar > div:nth-child(2) > button {
+    transition: none !important;
+  }
+}

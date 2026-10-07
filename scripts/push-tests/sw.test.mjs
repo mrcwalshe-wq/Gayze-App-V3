@@ -35,13 +35,13 @@ for (const [type, expectedTitle, expectedPath] of [
   ['test', 'Gayze Test', '/notifications'],
 ]) {
   shown.length = 0;
-  const payload = { type, title: expectedTitle, body: 'Push notification test', notificationId: '22222222-2222-4222-8222-222222222222', conversationId: type === 'message' || type === 'connection' ? '11111111-1111-4111-8111-111111111111' : undefined, url: expectedPath };
+  const payload = { type, title: expectedTitle, body: 'Push notification test', notificationId: '22222222-2222-4222-8222-222222222222', conversationId: type === 'message' || type === 'connection' ? '11111111-1111-4111-8111-111111111111' : undefined, url: expectedPath.split('?')[0] };
   await fire('push', { data: { json: () => payload, text: () => '' } });
   const n = shown.at(-1);
   assert(Boolean(n), `${type}: notification shown`);
   assert(n?.title === expectedTitle, `${type}: title`);
   assert(n?.options.data.url === expectedPath, `${type}: route`);
-  assert(n?.options.icon === '/apple-touch-icon.png?v=20261005-2', `${type}: icon`);
+  assert(n?.options.icon === '/brand/gayze-app-icon-v3.svg?v=20261008-icon7', `${type}: icon`);
   assert(n?.options.silent === false, `${type}: never silent`);
   assert(n?.options.renotify === true, `${type}: renotify enabled`);
 }
