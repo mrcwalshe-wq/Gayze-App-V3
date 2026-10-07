@@ -121,8 +121,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     };
   }, []);
   const [inputText, setInputText] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const pendingSend = useRef<{ draft: string; id: string } | null>(null);
+  const [sendingCount, setSendingCount] = useState(0);
+  const pendingSends = useRef(new Map<string, string>());
   const [optimisticMessages, setOptimisticMessages] = useState<EncryptedMessage[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
@@ -323,16 +323,19 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!inputText.trim() && !attachedMedia) || isSending || !currentRoom) return;
+    if ((!inputText.trim() && !attachedMedia) || !currentRoom) return;
 
     const textToSend = inputText.trim() || (attachedMedia ? 'Shared a photo' : '');
     const mediaToSend = attachedMedia || undefined;
 
     const draft = JSON.stringify([currentUserId, currentRoom.id, textToSend, mediaToSend, currentRoom.ephemeralTtlSeconds]);
-    if (pendingSend.current?.draft !== draft) pendingSend.current = { draft, id: crypto.randomUUID() };
-    const messageId = pendingSend.current.id;
+    let messageId = pendingSends.current.get(draft);
+    if (!messageId) {
+      messageId = crypto.randomUUID();
+      pendingSends.current.set(draft, messageId);
+    }
     setSendError(null);
-    setIsSending(true);
+    setSendingCount((count) => count + 1);
 
     // Render the outgoing message immediately. The same stable ID is used by
     // the encrypted database write, so acknowledgement replaces this bubble
@@ -359,13 +362,13 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
     try {
       await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend, messageId);
-      pendingSend.current = null;
+      pendingSends.current.delete(draft);
       setOptimisticMessages((prev) => prev.filter((message) => message.id !== messageId));
     } catch {
       setSendError('Send not confirmed. Your message is safe to retry.');
       setOptimisticMessages((prev) => prev.map((message) => message.id === messageId ? { ...message, sendState: 'failed' } : message));
     } finally {
-      setIsSending(false);
+      setSendingCount((count) => Math.max(0, count - 1));
     }
   };
 
@@ -926,7 +929,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <input
                 type="text"
                 value={inputText}
-                disabled={conversationKeyUnavailable || isSending}
+                disabled={conversationKeyUnavailable}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={currentRoom.ephemeralTtlSeconds > 0 ? `Message · ${getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}` : 'Message…'}
                 className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none py-1"
@@ -946,7 +949,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
               <button
                 type="submit"
-                disabled={(!inputText.trim() && !attachedMedia) || isSending}
+                disabled={(!inputText.trim() && !attachedMedia) || conversationKeyUnavailable}
                 className="g-icon-btn g-icon-btn--send shrink-0"
                 aria-label="Send message"
               >
