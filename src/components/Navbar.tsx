@@ -181,8 +181,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="g-tab__ind" />
                 {renderTabIcon(tab, true)}
                 <span className={`g-tab__label text-[10px] font-medium tracking-tight mt-0.5 transition-colors duration-150 ${isActive ? 'text-white' : 'text-zinc-500'}`}>{tab.label}</span>
-                {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
-                  <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
+                {(tab.id === 'swarms' && (unreadCount > 0 || notificationCount > 0)) && (
+                  <span className="g-tab__badge" aria-label={`${notificationCount} unread GAYZE activity`} />
                 )}
               </button>
             );
