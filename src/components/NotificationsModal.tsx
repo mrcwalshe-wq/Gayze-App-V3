@@ -97,7 +97,73 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
       else if (detail.state === 'unavailable') setFeedback({ text: 'Notification registration could not be checked. Try again when connected.', tone: 'error' });
     };
     window.addEventListener('gayze-push-recovery', recovery);
-    const statusTitle = needsInstall
+    return () => window.removeEventListener('gayze-push-recovery', recovery);
+  }, [isOpen, currentUserId, refresh]);
+
+  if (!isOpen) return null;
+
+  const handleEnable = async () => {
+    hapticSensitiveAction();
+    setBusy(true);
+    setFeedback(null);
+    const result = await subscribeToPush(currentUserId ?? undefined);
+    if (result.ok) {
+      setSubscribed(true);
+      const next = { ...prefs, pushEnabled: true };
+      setPrefs(next);
+      const saved = await saveNotificationPreferences(next, currentUserId ?? undefined);
+      setFeedback(saved
+        ? { text: 'Notifications are on for this device.', tone: 'ok' }
+        : { text: 'Device registered, but notification preferences could not be saved. Please retry.', tone: 'error' });
+    } else {
+      setFeedback({ text: result.reason ?? 'Enabling notifications failed.', tone: 'error' });
+    }
+    setEnv(getPushEnvironment());
+    setBusy(false);
+  };
+
+  const handleDisable = async () => {
+    hapticSensitiveAction();
+    setBusy(true);
+    const ok = await unsubscribeFromPush(currentUserId ?? undefined);
+    if (ok) {
+      setSubscribed(false);
+      setFeedback({ text: 'Notifications are off for this device.', tone: 'info' });
+    } else {
+      setFeedback({ text: 'Could not turn notifications off. Try again.', tone: 'error' });
+    }
+    setBusy(false);
+  };
+
+  const updatePrefs = async (patch: Partial<NotificationPreferences>) => {
+    hapticLight();
+    const next = { ...prefs, ...patch };
+    setPrefs(next);
+    const ok = await saveNotificationPreferences(next, currentUserId ?? undefined);
+    if (!ok) {
+      setPrefs(prefs);
+      setFeedback({ text: 'Could not save that preference.', tone: 'error' });
+    }
+  };
+
+  const handleTest = async () => {
+    setBusy(true);
+    setFeedback(null);
+    const result = await sendTestNotification();
+    setFeedback(
+      result.ok
+        ? { text: 'Push provider accepted the test. Device delivery still needs confirmation.', tone: 'ok' }
+        : { text: result.reason ?? 'Test notification failed.', tone: 'error' },
+    );
+    setBusy(false);
+  };
+
+  const needsInstall = env?.blockedBy === 'ios-needs-install';
+  const denied = env?.blockedBy === 'permission-denied';
+  const unsupported = env?.blockedBy === 'unsupported';
+  const notConfigured = env?.blockedBy === 'not-configured';
+
+  const statusTitle = needsInstall
     ? 'Finish setup on iPhone'
     : denied
       ? 'Notifications are blocked'
@@ -282,5 +348,4 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
     </div>
   );
 
-  );
 };
