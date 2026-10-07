@@ -110,11 +110,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
 
-  // The promotional card is an ONBOARDING prompt, not a second notification
-  // system: it shows only while notifications are off AND the user has not
-  // dismissed it (dismissal is permanent), and it disappears for good the
-  // moment this device is subscribed. The permanent Notifications row below is
-  // the single entry point into the existing notification settings sheet.
+  // Persistent device-status banner: it remains visible while push is
+  // unavailable on this device and disappears as soon as the device subscribes.
   useEffect(() => {
     let cancelled = false;
     const checkReminder = async () => {
@@ -130,15 +127,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           // Enabled — the prompt has done its job; hide it immediately.
           setShowNotificationReminder(false);
           return;
-        }
-        try {
-          const dismissedAt = Number(window.localStorage.getItem('gayze_notification_reminder_dismissed_at')) || 0;
-          if (dismissedAt) {
-            setShowNotificationReminder(false);
-            return;
-          }
-        } catch {
-          // Continue if local storage is unavailable.
         }
         setShowNotificationReminder(true);
       } catch {
@@ -626,53 +614,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </section>
 
       {showNotificationReminder && onOpenNotifications && (
-        <section className="g-panel g-panel--live p-4 mb-5 border-[#6F3CC3]/30 bg-[#6F3CC3]/[0.06]">
-          <div className="flex items-start gap-3">
-            <span className="flex items-center justify-center w-9 h-9 rounded-[11px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 text-[#c9b0f5] shrink-0">
-              <Bell className="w-4 h-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-[13.5px] font-bold text-white">Turn on notifications</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-zinc-400">
-                    Stay in the loop when someone messages you, responds to your intent or connects with you.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="g-icon-btn g-icon-btn--bare shrink-0"
-                  aria-label="Dismiss notification reminder"
-                  onClick={() => {
-                    hapticLight();
-                    try {
-                      window.localStorage.setItem('gayze_notification_reminder_dismissed_at', String(Date.now()));
-                    } catch {
-                      // Ignore storage failures.
-                    }
-                    setShowNotificationReminder(false);
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <button
-                type="button"
-                className="g-btn g-btn--primary mt-3 w-full sm:w-auto"
-                onClick={() => {
-                  hapticLight();
-                  // Engaging the prompt retires it — the permanent Notifications
-                  // row below remains the single entry point from here on.
-                  onOpenNotifications();
-                  setShowNotificationReminder(false);
-                }}
-              >
-                <Bell className="w-4 h-4" />
-                Start notifications
-              </button>
-            </div>
-          </div>
-        </section>
+        <button
+          type="button"
+          className="g-profile-notification-banner w-full mb-4 text-left"
+          onClick={() => { hapticLight(); onOpenNotifications(); }}
+        >
+          <span className="g-profile-notification-banner__icon" aria-hidden="true">
+            <Bell className="w-4 h-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-bold text-white">Notifications are off</span>
+            <span className="block text-[11px] text-zinc-400 mt-0.5">Turn them on to receive messages and intent activity.</span>
+          </span>
+          <span className="g-profile-notification-banner__action">Enable</span>
+        </button>
       )}
 
       {/* ---------------- Profile summary — only sections with content ---------------- */}
@@ -762,26 +717,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       {/* Notifications — always-visible Web Push entry point */}
-      <section className="g-panel overflow-hidden mb-5">
-          <div className="px-4 pt-3.5 pb-1">
-            <span className="g-label">Notifications</span>
-          </div>
-          <button
-            type="button"
-            className="g-row"
-            onClick={() => { hapticLight(); onOpenNotifications?.(); }}
-          >
-            <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40">
-              <Bell className="w-4 h-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13.5px] font-bold text-white">Notifications</span>
-              <span className="block text-[11px] text-zinc-500 truncate">Messages, intent activity and safety</span>
-            </span>
-            <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
-          </button>
-      </section>
-
       {/* Safety & privacy */}
       <section className="g-panel overflow-hidden mb-5">
         <div className="px-4 pt-3.5 pb-1">
