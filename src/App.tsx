@@ -2917,7 +2917,7 @@ export default function App() {
       )}
 
       {locationError && (
-        <div className="g-float fixed top-[calc(env(safe-area-inset-top,0px)+62px)] md:top-[calc(env(safe-area-inset-top,0px)+124px)] left-3 right-[66px] md:right-auto md:w-80 z-40 rounded-[14px] px-3.5 py-2.5 text-[11.5px] text-zinc-300 leading-snug">
+        <div className="g-location-error g-float fixed z-40 rounded-[14px] px-3.5 py-2.5 text-[11.5px] text-zinc-300 leading-snug">
           <span className="text-amber-300 font-semibold">Live location unavailable.</span>{' '}
           {locationError}
         </div>
@@ -2927,6 +2927,7 @@ export default function App() {
       <div
         className="g-shell flex flex-1 min-h-0 flex-col"
         data-intent-mode={activeUserIntent?.mode ?? 'none'}
+        data-active-tab={activeTab}
       >
       {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
@@ -2949,7 +2950,7 @@ export default function App() {
         className={
           activeTab === 'right_now'
             ? 'fixed left-0 right-0 top-0 bottom-[calc(var(--g-tabbar-h)+env(safe-area-inset-bottom,0px))] md:top-[calc(3.5rem+env(safe-area-inset-top,0px))] overflow-hidden overscroll-none p-0'
-            : activeTab === 'swarms' ? 'g-chat-viewport' : 'flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-10 overflow-y-auto overscroll-contain'
+            : activeTab === 'swarms' ? 'g-chat-viewport' : 'g-main-viewport flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-10 overflow-y-auto overscroll-contain'
         }
       >
         <Suspense fallback={<div className="flex h-full min-h-[40vh] items-center justify-center text-xs text-zinc-400">Loading view…</div>}>
