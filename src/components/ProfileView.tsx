@@ -643,7 +643,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 className="g-btn g-btn--quiet !min-h-[36px] !px-3 shrink-0"
                 onClick={() => {
                   hapticLight();
-                  onOpenProfileEdit?.('identity');
+                  if (onOpenProfileEdit) onOpenProfileEdit('identity');
+                  else onOpenIdentity();
                 }}
                 aria-label="Edit profile"
               >
