@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { getProfilePhotoUrl } from '../services/profilePhotoService';
+import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../services/profilePhotoService';
 import L from 'leaflet';
 import {
   Pulse,
@@ -160,7 +160,7 @@ interface RightNowViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
-  onSubmitInterest?: (pulse: Pulse) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null }>;
+  onSubmitInterest?: (pulse: Pulse, message?: string, sharedPhotoIds?: string[]) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null }>;
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
   onSwitchToLater?: () => void;
   onRequestLocation?: () => void;
@@ -283,6 +283,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [interestPendingIds, setInterestPendingIds] = useState<Set<string>>(new Set());
   const [gazedPeerNames, setGazedPeerNames] = useState<Set<string>>(new Set());
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
+  const [interestDraftPulse, setInterestDraftPulse] = useState<Pulse | null>(null);
+  const [interestMessage, setInterestMessage] = useState('');
+  const [interestPhotos, setInterestPhotos] = useState<ProfilePhoto[]>([]);
+  const [selectedInterestPhotoIds, setSelectedInterestPhotoIds] = useState<Set<string>>(new Set());
+  const [interestComposerBusy, setInterestComposerBusy] = useState(false);
 
   // 6. Countdown timer for active user intent
   const [remainingMinutes, setRemainingMinutes] = useState<number>(0);
@@ -399,60 +404,30 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     showStatusMessage('Ending your signal…', 2500);
   };
 
-  // Express interest in a pulse / profile
+  // Express an intent interest with optional note and selected album photos.
   const handleTapInterested = async (id: string, pulseObj?: Pulse) => {
     hapticLight();
-    if (!pulseObj) return;
+    if (!pulseObj || interestComposerBusy) return;
+    if (interestedIds.has(id)) return;
+    setInterestDraftPulse(pulseObj);
+    setInterestMessage('');
+    setSelectedInterestPhotoIds(new Set());
+    try { setInterestPhotos(await loadProfilePhotos()); } catch { setInterestPhotos([]); }
+  };
 
-    if (interestedIds.has(id)) {
-      setInterestedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      return;
-    }
-
-    setInterestPendingIds((prev) => new Set(prev).add(id));
-
+  const sendInterestRequest = async () => {
+    if (!interestDraftPulse || !onSubmitInterest || interestComposerBusy) return;
+    setInterestComposerBusy(true);
     try {
-      let result = { sent: false, mutual: false, conversation_id: null as string | null };
-      const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulseObj.peerId);
-
-      if (looksLikeUuid && onSubmitInterest) {
-        result = await onSubmitInterest(pulseObj);
-      }
-
-      if (!result.sent) {
-        showStatusMessage('Interest could not be sent. Connect to live discovery and try again.');
-        return;
-      }
-
-      setInterestedIds((prev) => {
-        const next = new Set(prev);
-        next.add(id);
-        return next;
-      });
-
-      if (result.mutual) {
-        triggerVibration([40, 60, 100]);
-        setMutualMatchPulse(pulseObj);
-        showStatusMessage('Mutual interest — opening your chat', 2500);
-        setSelectedItem(null);
-        setIsCardExpanded(false);
-      } else {
-        showStatusMessage('Interest sent — they can now respond', 2500);
-      }
+      const result = await onSubmitInterest(interestDraftPulse, interestMessage, Array.from(selectedInterestPhotoIds));
+      if (!result.sent) { showStatusMessage('Intent interest could not be sent — try again.'); return; }
+      setInterestedIds((prev) => new Set(prev).add(interestDraftPulse.id));
+      setInterestDraftPulse(null);
+      showStatusMessage(`Intent interest sent to ${interestDraftPulse.peerName} — awaiting their response`, 3500);
     } catch (error) {
-      console.error('[GAYZE] Interest submission failed', error);
-      showStatusMessage('Interest could not be sent — try again');
-    } finally {
-      setInterestPendingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }
+      console.error('[GAYZE] Intent interest submission failed', error);
+      showStatusMessage('Intent interest could not be sent — try again.');
+    } finally { setInterestComposerBusy(false); }
   };
 
   const handleGazeAtPerson = async (name: string, peerId: string, pulseObj?: Pulse) => {
@@ -2301,6 +2276,27 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               >
                 <Edit3 className="w-4 h-4" /> {intentBusy ? 'Saving…' : 'Edit'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {interestDraftPulse && (
+        <div className="g-overlay flex items-end sm:items-center justify-center p-3" onClick={() => !interestComposerBusy && setInterestDraftPulse(null)}>
+          <div className="w-full max-w-md g-panel !rounded-[28px] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 flex items-center gap-3 border-b border-white/[0.08]">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#6F3CC3] to-[#C9A24D] flex items-center justify-center text-white font-bold">{interestDraftPulse.peerName.slice(0,1).toUpperCase()}</div>
+              <div className="min-w-0 flex-1"><span className="g-label text-[#C9A24D]">Intent interest</span><h3 className="text-[15px] font-semibold text-white truncate">Respond to {interestDraftPulse.peerName}</h3></div>
+              <button type="button" onClick={() => setInterestDraftPulse(null)} className="g-icon-btn g-icon-btn--bare" aria-label="Close"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Their intent</div><div className="text-sm text-white mt-1">{interestDraftPulse.title || interestDraftPulse.intent || 'Right Now'}</div></div>
+              <div><label className="text-xs font-semibold text-zinc-300">Add a note <span className="text-zinc-600">(optional)</span></label><textarea value={interestMessage} onChange={(e) => setInterestMessage(e.target.value.slice(0,500))} rows={3} placeholder="Tell them why you are interested…" className="mt-2 w-full resize-none rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#C9A24D]/60" /></div>
+              <div><div className="flex items-center justify-between"><label className="text-xs font-semibold text-zinc-300">Share album photos <span className="text-zinc-600">(optional)</span></label><span className="text-[10px] text-zinc-600">{selectedInterestPhotoIds.size}/6</span></div>
+                {interestPhotos.length ? <div className="mt-2 grid grid-cols-6 gap-2">{interestPhotos.map((photo) => { const selected=selectedInterestPhotoIds.has(photo.id); return <button key={photo.id} type="button" onClick={() => setSelectedInterestPhotoIds(prev => { const next=new Set(prev); if(selected) next.delete(photo.id); else if(next.size<6) next.add(photo.id); return next; })} className={`relative aspect-square rounded-xl overflow-hidden border-2 ${selected ? 'border-[#C9A24D]' : 'border-white/10'}`}><img src={photo.url} alt="" className="w-full h-full object-cover" />{selected && <span className="absolute inset-0 bg-[#6F3CC3]/35 flex items-center justify-center"><Check className="w-5 h-5 text-white" /></span>}</button>; })}</div> : <div className="mt-2 text-xs text-zinc-600 rounded-2xl border border-dashed border-white/10 p-4 text-center">No album photos available.</div>}
+              </div>
+              <button type="button" disabled={interestComposerBusy} onClick={() => void sendInterestRequest()} className="w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D] text-white font-bold disabled:opacity-50">{interestComposerBusy ? 'Sending…' : 'Send intent interest'}</button>
+              <p className="text-[10.5px] text-center text-zinc-600">They can accept or decline. If they decline, you will not be notified.</p>
             </div>
           </div>
         </div>
