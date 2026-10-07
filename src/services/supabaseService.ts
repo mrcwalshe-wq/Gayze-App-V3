@@ -625,7 +625,56 @@ export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
     console.warn('[GAYZE] Could not load incoming interests:', error);
     return [];
   }
+}\n
+export interface AcceptIncomingInterestResult {
+  accepted: boolean;
+  interest_id: string | null;
+  conversation_id: string | null;
+  recipient_id: string | null;
+  error?: string;
 }
+
+/** Accept an incoming intent-interest request and return the server-created conversation. */
+export async function acceptIncomingInterest(interestId: string): Promise<AcceptIncomingInterestResult> {
+  if (!supabase || !interestId) {
+    return { accepted: false, interest_id: interestId || null, conversation_id: null, recipient_id: null, error: 'Not connected' };
+  }
+  try {
+    const sessionUser = await ensureSupabaseSession();
+    if (!sessionUser) {
+      return { accepted: false, interest_id: interestId, conversation_id: null, recipient_id: null, error: 'Not authenticated' };
+    }
+    const { data, error } = await supabase.rpc('accept_interest', { p_interest_id: interestId });
+    if (error) throw error;
+    const result = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
+    const conversationId = typeof result.conversation_id === 'string' ? result.conversation_id : null;
+    return {
+      accepted: result.accepted === true && Boolean(conversationId),
+      interest_id: typeof result.interest_id === 'string' ? result.interest_id : interestId,
+      conversation_id: conversationId,
+      recipient_id: typeof result.recipient_id === 'string' ? result.recipient_id : null,
+    };
+  } catch (error: any) {
+    console.warn('[GAYZE] Could not accept incoming interest:', error?.message || error);
+    return { accepted: false, interest_id: interestId, conversation_id: null, recipient_id: null, error: error?.message || 'Accept failed' };
+  }
+}
+
+/** Decline an incoming intent-interest request without notifying the sender. */
+export async function declineIncomingInterest(interestId: string): Promise<boolean> {
+  if (!supabase || !interestId) return false;
+  try {
+    const sessionUser = await ensureSupabaseSession();
+    if (!sessionUser) return false;
+    const { data, error } = await supabase.rpc('decline_interest', { p_interest_id: interestId });
+    if (error) throw error;
+    return Boolean(data && typeof data === 'object' && (data as Record<string, unknown>).declined === true);
+  } catch (error: any) {
+    console.warn('[GAYZE] Could not decline incoming interest:', error?.message || error);
+    return false;
+  }
+}
+
 export interface SupabaseMessageRow {
   id: string;
   conversation_id: string;
