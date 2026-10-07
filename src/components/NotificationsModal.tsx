@@ -38,6 +38,7 @@ interface NotificationsModalProps {
   inbox?: NotificationInbox | null;
   inboxStatus?: ChatConnectionState;
   onOpenNotification?: (notice: InboxNotification) => void;
+  embedded?: boolean;
 }
 
 /**
@@ -63,7 +64,7 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, embedded = false }) => {
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -100,7 +101,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
     return () => window.removeEventListener('gayze-push-recovery', recovery);
   }, [isOpen, currentUserId, refresh]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !embedded) return null;
 
   const handleEnable = async () => {
     hapticSensitiveAction();
@@ -184,8 +185,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const recentRows = inbox?.rows.slice(0, 4) ?? [];
 
   return (
-    <div className="g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="g-sheet g-notifications-sheet" onClick={(e) => e.stopPropagation()}>
+    <div className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
+      <div className={embedded ? 'g-messages-notifications__panel' : 'g-sheet g-notifications-sheet'} onClick={embedded ? undefined : (e) => e.stopPropagation()}>
         <div className="g-sheet__grip" />
 
         <div className="g-sheet__head flex items-center gap-3">
@@ -196,9 +197,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
             <h2 className="text-[15px] font-bold text-white leading-tight">Notifications</h2>
             <p className="text-[11.5px] text-zinc-500">Real Intent. Real Time.</p>
           </div>
-          <button type="button" className="g-icon-btn g-icon-btn--bare" onClick={onClose} aria-label="Close">
-            <X className="w-4 h-4" />
-          </button>
+          {!embedded && (
+            <button type="button" className="g-icon-btn g-icon-btn--bare" onClick={onClose} aria-label="Close">
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <div className="g-sheet__body g-notifications-body">
