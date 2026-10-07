@@ -2337,3 +2337,34 @@ button, input, select, textarea, [role="button"] {
   content: none !important;
   display: none !important;
 }
+
+
+/* Nearby map list: it is a modal surface, so it must stop above the
+   navigation rather than compete with it. */
+@media (max-width: 767px) {
+  .g-sheet.g-sheet--nearby {
+    width: calc(100% - 2px);
+    margin-left: 1px;
+    margin-right: 1px;
+    margin-bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 8px);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-tabbar-h) - env(safe-area-inset-bottom, 0px) - 18px);
+    border-bottom: 1px solid var(--g-line-strong);
+    border-radius: var(--g-r-xl);
+  }
+
+  .g-sheet.g-sheet--nearby .g-sheet__head {
+    min-height: 78px;
+    padding-top: 12px;
+    padding-bottom: 10px;
+  }
+
+  .g-sheet.g-sheet--nearby .g-sheet__body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .g-sheet.g-sheet--nearby .g-sheet__foot {
+    flex: 0 0 auto;
+  }
+}
