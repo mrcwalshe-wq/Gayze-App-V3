@@ -3077,6 +3077,8 @@ export default function App() {
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
               onAcceptMeeting={handleAcceptMeeting}
               onReturnToDiscovery={() => setActiveTab('right_now')}
+              onOpenNotifications={() => setIsNotificationsOpen(true)}
+              notificationCount={notificationInbox?.unread ?? 0}
               onlineUserIds={onlineUserIds}
               connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
               conversationKeyUnavailable={
