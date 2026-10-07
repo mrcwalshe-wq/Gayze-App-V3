@@ -288,7 +288,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
 
       {/* Rows — one surface */}
       {rows.length === 0 ? (
-        <div className="g-empty">
+        <div className="g-empty g-discover-empty">
           <div className="g-empty__icon">
             <Radio className="w-5 h-5" />
           </div>
