@@ -205,29 +205,21 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="g-label">{userNeighborhood || 'Near you'}</span>
-            {liveCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-[#6F3CC3]/20 border border-[#6F3CC3]/40 text-[#d8c3f8]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#a879f1] animate-pulse" />
-                {liveCount} live
-              </span>
-            )}
           </div>
           <h1 className="text-[26px] leading-tight font-bold tracking-[-0.025em] text-white mt-1">
             Discover
           </h1>
           <p className="text-[13px] text-zinc-400 mt-0.5">
-            {liveCount > 0
-              ? 'Real intent, nearest first. Connect with people available right now.'
-              : 'People here, by what they actually want to do.'}
+            People here, by what they actually want to do.
           </p>
         </div>
         {onOpenMap && (
           <button
             type="button"
             onClick={() => { hapticLight(); onOpenMap(); }}
-            className="g-btn g-btn--quiet shrink-0 !min-h-[38px] !px-3.5 !rounded-xl !text-[12.5px]"
+            className={`g-btn g-btn--quiet g-discover-map-button shrink-0 !min-h-[38px] !px-3.5 !rounded-xl !text-[12.5px] ${activeUserIntent?.mode === 'private' ? 'g-discover-map-button--private' : activeUserIntent?.mode === 'social' ? 'g-discover-map-button--social' : ''}`}
           >
-            <MapIcon className="w-4 h-4 text-[#C9A24D]" />
+            <MapIcon className="w-4 h-4" />
             Map
           </button>
         )}
@@ -238,7 +230,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         <button
           type="button"
           onClick={() => { hapticLight(); onOpenSetIntent?.(); }}
-          className="g-discover-signal-strip mb-4 flex items-center gap-3 text-left cursor-pointer"
+          className={`g-discover-signal-strip g-discover-signal-strip--${activeUserIntent.mode === 'private' ? 'private' : 'social'} mb-4 flex items-center gap-3 text-left cursor-pointer`}
         >
           <span
             className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
