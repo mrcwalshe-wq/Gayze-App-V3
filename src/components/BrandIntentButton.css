@@ -151,6 +151,18 @@
   pointer-events: none;
 }
 
+/* The status card is intentionally clean: no decorative rails or corner brackets. */
+.g-map-state,
+.g-signal-strip {
+  position: relative;
+}
+.g-map-state:has(.g-live-dot--social)::after,
+.g-map-state:has(.g-live-dot--private)::after,
+.g-signal-strip:has(.g-live-dot--social)::after,
+.g-signal-strip:has(.g-live-dot--private)::after {
+  display: none !important;
+}
+
 /* The live mode is also echoed in the heading/accent where those surfaces use
    the existing semantic mode classes. */
 .g-map-state:has(.g-live-dot--social) .g-map-state__title,
