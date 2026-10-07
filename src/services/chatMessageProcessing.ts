@@ -53,14 +53,20 @@ export class ChatMessageProcessor {
     const keyWork = this.key(room, userId);
     const entry = { version, created: Date.parse(row.created_at) || 0, expires: Math.min(this.now() + 120_000, row.expires_at ? Date.parse(row.expires_at) : Infinity), work: Promise.resolve('') };
     entry.work = keyWork.then(async (result) => {
-      if (!result.key) throw new Error(result.reason || 'Conversation key unavailable');
-      try { return await this.decrypt(row.ciphertext, row.nonce!, result.key); }
-      catch (error) {
-        // A changed/revoked identity or envelope must be retryable; do not let
-        // an old request evict the replacement key started by another row.
-        if (this.keys.get(keyId)?.work === keyWork) this.keys.delete(keyId);
-        throw error;
+      const candidates = [result.key, result.legacyKey].filter(Boolean) as CryptoKey[];
+      if (!candidates.length) throw new Error(result.reason || 'Conversation key unavailable');
+      let lastError: unknown = null;
+      for (const key of candidates) {
+        try {
+          return await this.decrypt(row.ciphertext, row.nonce!, key);
+        } catch (error) {
+          lastError = error;
+        }
       }
+      // A changed/revoked identity or envelope must be retryable; do not let
+      // an old request evict the replacement key started by another row.
+      if (this.keys.get(keyId)?.work === keyWork) this.keys.delete(keyId);
+      throw lastError ?? new Error('Message decryption failed');
     }).catch((error) => { if (this.texts.get(id) === entry) this.texts.delete(id); throw error; });
     this.texts.set(id, entry);
     if (this.texts.size > 512) {
