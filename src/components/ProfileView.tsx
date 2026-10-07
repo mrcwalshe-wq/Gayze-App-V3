@@ -19,9 +19,11 @@ import {
   ArrowRight,
   AlertTriangle,
   Bell,
+  BellOff,
   LogOut,
 } from 'lucide-react';
 import {
+  computeProfileCompletion,
   type EditSectionKey,
   INTIMACY_VISIBILITY_OPTIONS,
 } from '../config/profileOptions';
