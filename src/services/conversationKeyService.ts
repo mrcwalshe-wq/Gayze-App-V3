@@ -11,6 +11,7 @@ import {
   loadConversationPeerKey,
   readConversationKeyEnvelopes,
   readConversationMemberDevices,
+  readConversationPeerDevices,
   saveConversationKeyEnvelope,
 } from './supabaseService';
 import type { ConversationKeyEnvelopeRead } from './supabaseService';
@@ -271,7 +272,7 @@ async function resolveGroupKey(
     const conversationKey = await deps.createKey();
     const recipients = [...devices];
     if (!recipients.some((device) => device.device_id === identity.deviceId) && currentUserId) {
-      recipients.push({ user_id: currentUserId, device_id: identity.deviceId, public_key: identity.publicKeyJwkString, device_label: null, last_seen_at: new Date().toISOString() });
+      recipients.push({ user_id: currentUserId, device_id: identity.deviceId, public_key: identity.publicKeyJwkString });
     }
     let saved = 0;
     for (const device of recipients) {
@@ -296,7 +297,6 @@ async function resolveGroupKey(
   }
 }
 
-export const resolveGroupKeyForTest = resolveGroupKey;
 export const resolveGroupKeyForTest = resolveGroupKey;
 
 export async function resolveConversationKey(
