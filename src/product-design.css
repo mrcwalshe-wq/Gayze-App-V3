@@ -916,6 +916,74 @@ select:focus-visible {
 
 
 /* ==========================================================================
+   Navigation — icon-only rail, no active capsules
+   ========================================================================== */
+@media (max-width: 767px) {
+  .g-tabbar__inner .g-tab,
+  .g-tabbar__inner .g-tab[data-active='true'],
+  .g-tabbar__inner .g-tab:hover,
+  .g-tabbar__inner .g-tab:focus-visible {
+    background: transparent !important;
+    border: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+  }
+
+  .g-tabbar__inner .g-tab::before {
+    display: none !important;
+  }
+
+  .g-tabbar__inner .g-tab::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    bottom: auto !important;
+    left: 50% !important;
+    width: 20px !important;
+    height: 2px !important;
+    transform: translateX(-50%) !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+  }
+
+  .g-tabbar__inner .g-tab[data-active='true']::after {
+    background: var(--g-intent-accent-strong) !important;
+    box-shadow: 0 0 9px var(--g-intent-accent-glow) !important;
+  }
+
+  /* The Discover logo is the icon itself — no card/frame around it. */
+  .g-tabbar__inner .g-tab--discover .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-active='true'] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode='private'] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode='social'] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode='none'] .g-discover-action {
+    width: 50px !important;
+    height: 50px !important;
+    margin-top: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .g-tabbar__inner .g-tab--discover .g-discover-action::before,
+  .g-tabbar__inner .g-tab--discover .g-discover-action::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .g-tabbar__inner .g-tab--discover .g-discover-logo-image {
+    width: 48px !important;
+    height: 48px !important;
+  }
+}
+
+/* ==========================================================================
    Surgical mobile overlap pass — 2026-10-07
    One geometry rule for every primary tab. Content ends before the fixed nav;
    sheets and transient UI never compete with it.
