@@ -2323,3 +2323,17 @@ button, input, select, textarea, [role="button"] {
   .g-tab__ind { transition: none; }
   .g-map-state__action, .g-intent-dock__button { transition: none; }
 }
+
+
+/* Final cleanup: the intent UI uses clean geometry, not bracket/corner ornaments. */
+.g-map-state::before,
+.g-map-state::after,
+.g-map-state--live::before,
+.g-map-state--live::after {
+  content: none !important;
+  display: none !important;
+}
+.g-intent-dock__button::before {
+  content: none !important;
+  display: none !important;
+}
