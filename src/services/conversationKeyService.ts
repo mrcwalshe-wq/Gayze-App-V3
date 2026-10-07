@@ -199,21 +199,28 @@ async function resolveDeviceAwareKey(
   // currently authorised device. Existing message ciphertext is untouched.
   try {
     const conversationKey = await deps.createKey();
-    let saved = 0;
-    for (const device of devices) {
+    // Provision all currently authorised devices concurrently. The previous
+    // serial loop made first-message latency grow linearly with device count
+    // (and group conversations can legitimately have many devices).
+    const results = await Promise.all(devices.map(async (device) => {
       const deviceJwk = parseJwk(device.public_key);
-      if (!deviceJwk) continue;
-      const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
-      const stored = await deps.saveEnvelope({
-        conversation_id: room.id,
-        user_id: device.user_id,
-        device_id: device.device_id,
-        wrapped_key: wrapped.wrappedKeyHex,
-        nonce: wrapped.nonceHex,
-        created_by_device_id: identity.deviceId,
-      });
-      if (stored) saved += 1;
-    }
+      if (!deviceJwk) return false;
+      try {
+        const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
+        const stored = await deps.saveEnvelope({
+          conversation_id: room.id,
+          user_id: device.user_id,
+          device_id: device.device_id,
+          wrapped_key: wrapped.wrappedKeyHex,
+          nonce: wrapped.nonceHex,
+          created_by_device_id: identity.deviceId,
+        });
+        return Boolean(stored);
+      } catch {
+        return false;
+      }
+    }));
+    const saved = results.filter(Boolean).length;
 
     if (saved === 0) {
       return {
@@ -274,22 +281,26 @@ async function resolveGroupKey(
     if (!recipients.some((device) => device.device_id === identity.deviceId) && currentUserId) {
       recipients.push({ user_id: currentUserId, device_id: identity.deviceId, public_key: identity.publicKeyJwkString });
     }
-    let saved = 0;
-    for (const device of recipients) {
+    const results = await Promise.all(recipients.map(async (device) => {
       const deviceJwk = parseJwk(device.public_key);
-      if (!deviceJwk) continue;
-      const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
-      const stored = await deps.saveEnvelope({
-        conversation_id: room.id,
-        user_id: device.user_id,
-        device_id: device.device_id,
-        wrapped_key: wrapped.wrappedKeyHex,
-        nonce: wrapped.nonceHex,
-        created_by_device_id: identity.deviceId,
-      });
-      if (!stored) return { key: null, status: 'unavailable', reason: 'This device is not allowed to provision the group key for every member yet.' };
-      saved += 1;
-    }
+      if (!deviceJwk) return false;
+      try {
+        const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
+        const stored = await deps.saveEnvelope({
+          conversation_id: room.id,
+          user_id: device.user_id,
+          device_id: device.device_id,
+          wrapped_key: wrapped.wrappedKeyHex,
+          nonce: wrapped.nonceHex,
+          created_by_device_id: identity.deviceId,
+        });
+        return Boolean(stored);
+      } catch {
+        return false;
+      }
+    }));
+    const saved = results.filter(Boolean).length;
+    if (saved !== recipients.length) return { key: null, status: 'unavailable', reason: 'The conversation key could not be provisioned to every authorised device.' };
     if (saved === 0) return { key: null, status: 'unavailable', reason: 'No member device with a usable identity key was found for this conversation.' };
     return { key: conversationKey, status: 'ready' };
   } catch {
