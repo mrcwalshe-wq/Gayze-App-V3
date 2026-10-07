@@ -104,7 +104,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [showNotificationReminder, setShowNotificationReminder] = useState(false);
+  const [showNotificationReminder, setShowNotificationReminder] = useState(false);\n  const [notificationBlockReason, setNotificationBlockReason] = useState<'ios-needs-install' | 'permission-denied' | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
@@ -335,6 +335,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <header className="pt-4 pb-2">
         <span className="g-label">Profile</span>
       </header>
+
+      {showNotificationReminder && onOpenNotifications && (
+        <button
+          type="button"
+          className="g-profile-notification-banner g-profile-notification-banner--top w-full mb-4 text-left"
+          onClick={() => { hapticLight(); onOpenNotifications(); }}
+        >
+          <span className="g-profile-notification-banner__icon" aria-hidden="true">
+            {notificationBlockReason === 'permission-denied' ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-bold text-white">
+              {notificationBlockReason === 'ios-needs-install' ? 'Add GAYZE to your Home Screen' : notificationBlockReason === 'permission-denied' ? 'Notifications are blocked' : 'Turn on notifications'}
+            </span>
+            <span className="block text-[11px] text-zinc-400 mt-0.5">
+              {notificationBlockReason === 'ios-needs-install' ? 'Required on iPhone for push notifications.' : notificationBlockReason === 'permission-denied' ? 'Enable GAYZE in iPhone Settings.' : 'Get messages, Gayzes and intent alerts.'}
+            </span>
+          </span>
+          <span className="g-profile-notification-banner__action">{notificationBlockReason === 'permission-denied' ? 'Settings' : 'Enable'}</span>
+        </button>
+      )}
 
       {/* Identity — prominent primary photo, authentic personal presence */}
       <section className="flex items-center gap-4 py-4">
@@ -611,23 +632,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         )}
       </section>
-
-      {showNotificationReminder && onOpenNotifications && (
-        <button
-          type="button"
-          className="g-profile-notification-banner w-full mb-4 text-left"
-          onClick={() => { hapticLight(); onOpenNotifications(); }}
-        >
-          <span className="g-profile-notification-banner__icon" aria-hidden="true">
-            <Bell className="w-4 h-4" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-bold text-white">Notifications are off</span>
-            <span className="block text-[11px] text-zinc-400 mt-0.5">Turn them on to receive messages and intent activity.</span>
-          </span>
-          <span className="g-profile-notification-banner__action">Enable</span>
-        </button>
-      )}
 
       {/* ---------------- Profile summary — only sections with content ---------------- */}
       {((currentUser.bio && currentUser.bio.trim()) || factTags.length > 0) && (
