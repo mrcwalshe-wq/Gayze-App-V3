@@ -833,3 +833,83 @@ select:focus-visible {
   }
   .g-tab--discover .g-tab__label { top: 38px; }
 }
+
+
+/* Discover is a primary navigation action, not a decorative logo.
+   Give it an unmistakable tap target while keeping the nav compact. */
+@media (max-width: 767px) {
+  .g-tab--discover {
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .g-tab--discover .g-discover-action {
+    width: 62px !important;
+    height: 62px !important;
+    margin-top: -13px !important;
+    border-radius: 18px !important;
+    background: linear-gradient(145deg, #171021 0%, #0f1118 100%) !important;
+    border: 1px solid rgba(170,132,245,.58) !important;
+    box-shadow:
+      0 0 0 4px rgba(9,10,15,.96),
+      0 8px 20px rgba(0,0,0,.48),
+      inset 0 1px 0 rgba(255,255,255,.10) !important;
+  }
+
+  .g-tab--discover .g-discover-action::before {
+    inset: -1px !important;
+    border-radius: 19px !important;
+  }
+
+  .g-tab--discover .g-discover-action::after {
+    content: "OPEN" !important;
+    position: absolute;
+    left: 50%;
+    bottom: -16px;
+    transform: translateX(-50%);
+    font-size: 7px;
+    line-height: 1;
+    letter-spacing: .16em;
+    font-weight: 800;
+    color: rgba(255,255,255,.42);
+    pointer-events: none;
+  }
+
+  .g-tab--discover .g-discover-logo-image {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .g-tab--discover .g-tab__label {
+    top: 49px !important;
+    font-weight: 650 !important;
+  }
+
+  .g-tab--discover[data-active='true'] .g-discover-action {
+    border-color: var(--g-intent-accent-border) !important;
+    box-shadow:
+      0 0 0 4px rgba(9,10,15,.96),
+      0 0 0 5px var(--g-intent-accent-soft),
+      0 10px 24px var(--g-intent-accent-glow),
+      inset 0 1px 0 rgba(255,255,255,.10) !important;
+  }
+
+  .g-tab--discover:active .g-discover-action {
+    transform: scale(.94) !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .g-tab--discover .g-discover-action {
+    width: 58px !important;
+    height: 58px !important;
+    margin-top: -11px !important;
+  }
+  .g-tab--discover .g-discover-logo-image {
+    width: 45px !important;
+    height: 45px !important;
+  }
+  .g-tab--discover .g-tab__label {
+    top: 46px !important;
+  }
+}
