@@ -1,25 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none" role="img" aria-labelledby="title desc">
   <defs>
-    <linearGradient id="gayzeRing" x1="110" y1="500" x2="890" y2="500" gradientUnits="userSpaceOnUse">
+    <linearGradient id="ring" x1="100" y1="180" x2="900" y2="820" gradientUnits="userSpaceOnUse">
       <stop stop-color="#6F22FF"/>
-      <stop offset=".32" stop-color="#A52CFF"/>
-      <stop offset=".58" stop-color="#E53BCE"/>
-      <stop offset=".78" stop-color="#FF5C8E"/>
+      <stop offset=".30" stop-color="#A52CFF"/>
+      <stop offset=".55" stop-color="#E53BCE"/>
+      <stop offset=".78" stop-color="#FF4F82"/>
       <stop offset="1" stop-color="#FF9E2C"/>
     </linearGradient>
-    <linearGradient id="gayzeMark" x1="150" y1="390" x2="850" y2="610" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6F22FF"/>
-      <stop offset=".28" stop-color="#9D2CFF"/>
-      <stop offset=".52" stop-color="#D53BDE"/>
-      <stop offset=".72" stop-color="#FF5C8E"/>
-      <stop offset=".88" stop-color="#FF9E2C"/>
+    <linearGradient id="eye" x1="120" y1="430" x2="880" y2="570" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6420FF"/>
+      <stop offset=".28" stop-color="#9B2DFF"/>
+      <stop offset=".52" stop-color="#D63BDE"/>
+      <stop offset=".72" stop-color="#FF4E91"/>
+      <stop offset=".90" stop-color="#FF9E2C"/>
       <stop offset="1" stop-color="#FFC52E"/>
+    </linearGradient>
+    <linearGradient id="gmark" x1="330" y1="300" x2="690" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6F22FF"/>
+      <stop offset=".45" stop-color="#D33CDE"/>
+      <stop offset=".72" stop-color="#FF4F86"/>
+      <stop offset="1" stop-color="#FFB52D"/>
     </linearGradient>
   </defs>
   <title id="title">GAYZE Discover</title>
-  <desc id="desc">The GAYZE eye and G mark inside a purple to amber circular ring.</desc>
-  <circle cx="500" cy="500" r="421" stroke="url(#gayzeRing)" stroke-width="34"/>
-  <g transform="translate(120 290) scale(.76)">
-    <path fill="url(#gayzeMark)" fill-rule="evenodd" d="M 529.0,78.5 L 496.4,78.5 L 468.6,82.1 L 425.1,97.8 L 393.7,117.1 L 369.6,138.9 L 343.0,173.9 L 327.3,211.0 L 322.5,249.5 L 327.3,288.0 L 343.0,323.5 L 369.6,358.5 L 393.7,380.3 L 425.1,399.6 L 468.6,415.3 L 496.4,418.9 L 529.0,418.9 L 559.8,415.3 L 593.1,404.5 L 623.3,387.6 L 650.0,365.8 L 671.8,338.0 L 688.7,306.6 L 696.0,276.4 L 696.0,249.5 L 585.9,249.5 L 585.9,281.2 L 655.9,281.2 L 655.9,325.9 L 632.9,341.6 L 604.8,350.1 L 574.3,349.0 L 545.9,338.2 L 520.9,319.0 L 502.2,294.2 L 492.6,264.0 L 492.6,236.0 L 502.2,205.8 L 520.9,181.0 L 545.9,161.8 L 574.3,151.0 L 604.8,149.9 L 632.9,158.4 L 655.9,174.1 L 674.0,152.3 L 650.0,129.4 L 623.3,111.4 L 593.1,94.5 L 559.8,83.7 Z M 329.7,84.0 C 251.0,143.0 251.0,356.0 329.7,415.0 C 294.0,357.0 294.0,143.0 329.7,84.0 Z M 670.3,84.0 C 749.0,143.0 749.0,356.0 670.3,415.0 C 706.0,357.0 706.0,143.0 670.3,84.0 Z M 0,249.5 C 177,45 823,45 1000,249.5 C 823,454 177,454 0,249.5 Z"/>
+  <desc id="desc">GAYZE eye and G mark inside the purple, magenta, pink and amber brand ring.</desc>
+
+  <!-- Brand ring from the supplied mark -->
+  <circle cx="500" cy="500" r="421" stroke="url(#ring)" stroke-width="34"/>
+
+  <!-- Correct GAYZE eye silhouette: clean almond outline, not a filled wedge -->
+  <path
+    d="M 125 500
+       C 245 345 365 295 500 295
+       C 635 295 755 345 875 500
+       C 755 655 635 705 500 705
+       C 365 705 245 655 125 500 Z"
+    stroke="url(#eye)"
+    stroke-width="30"
+    stroke-linejoin="round"
+    fill="rgba(0,0,0,0.02)"
+  />
+
+  <!-- Inner eye contour -->
+  <path
+    d="M 205 500
+       C 315 395 400 355 500 355
+       C 600 355 685 395 795 500
+       C 685 605 600 645 500 645
+       C 400 645 315 605 205 500 Z"
+    stroke="url(#eye)"
+    stroke-width="10"
+    opacity=".72"
+  />
+
+  <!-- Approved G construction, centred inside the eye -->
+  <g transform="translate(0 251)">
+    <path fill="url(#gmark)" fill-rule="evenodd" d="M 529.0,78.5 L 496.4,78.5 L 468.6,82.1 L 425.1,97.8 L 393.7,117.1 L 369.6,138.9 L 343.0,173.9 L 327.3,211.0 L 322.5,249.5 L 327.3,288.0 L 343.0,323.5 L 369.6,358.5 L 393.7,380.3 L 425.1,399.6 L 468.6,415.3 L 496.4,418.9 L 529.0,418.9 L 559.8,415.3 L 593.1,404.5 L 623.3,387.6 L 650.0,365.8 L 671.8,338.0 L 688.7,306.6 L 696.0,276.4 L 696.0,249.5 L 585.9,249.5 L 585.9,281.2 L 655.9,281.2 L 655.9,325.9 L 632.9,341.6 L 604.8,350.1 L 574.3,349.0 L 545.9,338.2 L 520.9,319.0 L 502.2,294.2 L 492.6,264.0 L 492.6,236.0 L 502.2,205.8 L 520.9,181.0 L 545.9,161.8 L 574.3,151.0 L 604.8,149.9 L 632.9,158.4 L 655.9,174.1 L 674.0,152.3 L 650.0,129.4 L 623.3,111.4 L 593.1,94.5 L 559.8,83.7 Z M 329.7,84.0 C 251.0,143.0 251.0,356.0 329.7,415.0 C 294.0,357.0 294.0,143.0 329.7,84.0 Z M 670.3,84.0 C 749.0,143.0 749.0,356.0 670.3,415.0 C 706.0,357.0 706.0,143.0 670.3,84.0 Z"/>
   </g>
 </svg>
