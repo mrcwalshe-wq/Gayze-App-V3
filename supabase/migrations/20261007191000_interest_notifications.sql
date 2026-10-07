@@ -88,7 +88,7 @@ set search_path=public,pg_temp
 as $$
 begin
   if new.status='pending'
-     and (tg_op='INSERT' or old.status is distinct from new.status) then
+     and (tg_op='INSERT' or (tg_op='UPDATE' and old.status is distinct from new.status)) then
     perform public.gayze_enqueue_notification(
       new.to_user_id,
       new.from_user_id,
@@ -99,7 +99,7 @@ begin
   end if;
 
   if new.status='mutual'
-     and (tg_op='INSERT' or old.status is distinct from new.status) then
+     and (tg_op='INSERT' or (tg_op='UPDATE' and old.status is distinct from new.status)) then
     perform public.gayze_enqueue_notification(
       new.to_user_id,
       new.from_user_id,
