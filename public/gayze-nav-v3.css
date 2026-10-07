@@ -420,3 +420,74 @@
     transition: none !important;
   }
 }
+
+
+/* Final navigation rule: the rail is the surface; individual icons are not cards. */
+@media (max-width: 767px) {
+  .g-tabbar__inner .g-tab,
+  .g-tabbar__inner .g-tab[data-active="true"],
+  .g-tabbar__inner .g-tab:active {
+    background: transparent !important;
+    border: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .g-tabbar__inner .g-tab[data-active="true"]:not(.g-tab--discover) {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Active state is the slim luminous line only. */
+  .g-tabbar__inner .g-tab__ind {
+    display: none !important;
+  }
+
+  .g-tabbar__inner .g-tab[data-active="true"]::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 0 !important;
+    bottom: auto !important;
+    left: 50% !important;
+    width: 24px !important;
+    height: 2px !important;
+    transform: translateX(-50%) !important;
+    border-radius: 999px !important;
+    background: var(--g-intent-accent-strong) !important;
+    box-shadow: 0 0 9px var(--g-intent-accent-glow) !important;
+    pointer-events: none !important;
+  }
+
+  /* Discover uses the real GAYZE logo directly — no surrounding icon box. */
+  .g-tabbar__inner .g-tab--discover .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-active="true"] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode="private"] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode="social"] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode="none"] .g-discover-action {
+    width: 52px !important;
+    height: 52px !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .g-tabbar__inner .g-tab--discover .g-discover-action::before,
+  .g-tabbar__inner .g-tab--discover .g-discover-action::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .g-tabbar__inner .g-tab--discover .g-discover-logo-image {
+    width: 50px !important;
+    height: 50px !important;
+  }
+
+  .g-tabbar__inner .g-tab--discover .g-tab__label {
+    text-shadow: none !important;
+  }
+}
