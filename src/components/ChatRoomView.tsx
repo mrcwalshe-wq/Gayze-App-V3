@@ -30,7 +30,8 @@ import {
   Coffee,
   Image as ImageIcon,
   MoreHorizontal,
-  Trash2
+  Trash2,
+  Bell
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
@@ -58,6 +59,8 @@ interface ChatRoomViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
+  onOpenNotifications?: () => void;
+  notificationCount?: number;
   onlineUserIds?: Set<string>;
   connectionState?: ChatConnectionState;
   /** True when no conversation key could be resolved on this device. */
@@ -87,6 +90,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onOpenScheduleMeeting,
   onAcceptMeeting,
   onReturnToDiscovery,
+  onOpenNotifications,
+  notificationCount = 0,
   onlineUserIds,
   connectionState,
   conversationKeyUnavailable = false,
@@ -359,21 +364,45 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         className={`gayze-chat-sidebar w-full sm:w-72 md:w-80 bg-[#0d0e14] border-r border-white/[0.08] flex flex-col shrink-0 ${mobileView === 'chat' ? 'hidden sm:flex' : 'flex'
           }`}
       >
-        {/* Chats header */}
-        <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-emerald-400" />
-            <span className="text-[15px] font-extrabold text-white tracking-tight">
-              Messages
+        {/* Messages / Notifications sub-navigation */}
+        <div className="gayze-message-header">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="text-[15px] font-extrabold text-white tracking-tight">
+                Messages
+              </span>
+              {rooms.length > 0 && (
+                <span className="text-[11px] text-zinc-500 font-mono">{rooms.length}</span>
+              )}
+            </div>
+            <span className="flex items-center gap-1.5 text-[10.5px] text-zinc-500 font-medium shrink-0">
+              <Lock className="w-3 h-3 text-emerald-400" />
+              Encrypted
             </span>
-            {rooms.length > 0 && (
-              <span className="text-[11px] text-zinc-500 font-mono">{rooms.length}</span>
-            )}
           </div>
-          <span className="flex items-center gap-1.5 text-[10.5px] text-zinc-500 font-medium">
-            <Lock className="w-3 h-3 text-emerald-400" />
-            Encrypted
-          </span>
+
+          <div className="gayze-message-subtabs" role="tablist" aria-label="Messages sections">
+            <button type="button" className="gayze-message-subtab gayze-message-subtab--active" role="tab" aria-selected="true">
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Chats</span>
+            </button>
+            <button
+              type="button"
+              className="gayze-message-subtab"
+              role="tab"
+              aria-selected="false"
+              onClick={() => onOpenNotifications?.()}
+              disabled={!onOpenNotifications}
+            >
+              <span className="relative inline-flex">
+                <Bell className="w-3.5 h-3.5" />
+                {notificationCount > 0 && <span className="gayze-message-subtab__badge" aria-label={`${notificationCount} unread notifications`} />}
+              </span>
+              <span>Notifications</span>
+              {notificationCount > 0 && <span className="gayze-message-subtab__count">{notificationCount > 99 ? '99+' : notificationCount}</span>}
+            </button>
+          </div>
         </div>
 
         {/* Room List */}
