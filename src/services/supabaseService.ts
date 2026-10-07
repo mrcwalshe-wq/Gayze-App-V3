@@ -1125,34 +1125,22 @@ export async function saveConversationKeyEnvelope(
 ): Promise<ConversationKeyEnvelope | null> {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase
-      .from('conversation_key_envelopes')
-      // Insert-only: an existing envelope must never be overwritten.
-      .insert({
-        conversation_id: envelope.conversation_id,
-        user_id: envelope.user_id,
-        device_id: envelope.device_id,
-        wrapped_key: envelope.wrapped_key,
-        nonce: envelope.nonce,
-        created_by_device_id: envelope.created_by_device_id,
-      })
-      .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
-      .single();
+    // Device envelopes are client-encrypted, but the target may belong to
+    // another conversation member. Use the guarded SECURITY DEFINER RPC rather
+    // than weakening RLS to permit cross-user envelope inserts.
+    const { data, error } = await supabase.rpc('save_conversation_key_envelope', {
+      p_conversation_id: envelope.conversation_id,
+      p_user_id: envelope.user_id,
+      p_device_id: envelope.device_id,
+      p_wrapped_key: envelope.wrapped_key,
+      p_nonce: envelope.nonce,
+      p_created_by_device_id: envelope.created_by_device_id,
+    });
     if (error) {
-      if ((error as { code?: string }).code === '23505') {
-        // Already provisioned (concurrent device/retry): keep the existing envelope untouched.
-        const { data: existing } = await supabase
-          .from('conversation_key_envelopes')
-          .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
-          .eq('conversation_id', envelope.conversation_id)
-          .eq('device_id', envelope.device_id)
-          .maybeSingle();
-        return (existing ?? null) as ConversationKeyEnvelope | null;
-      }
-      console.warn('[GAYZE] Supabase saveConversationKeyEnvelope unavailable:', error.message);
+      console.warn('[GAYZE] Supabase save_conversation_key_envelope unavailable:', error.message);
       return null;
     }
-    return data as ConversationKeyEnvelope;
+    return (Array.isArray(data) ? data[0] : data) as ConversationKeyEnvelope | null;
   } catch (err: any) {
     console.warn('[GAYZE] Supabase saveConversationKeyEnvelope exception:', err?.message || err);
     return null;
@@ -1165,6 +1153,31 @@ export interface ConversationPeerDevice {
   public_key: string;
   device_label: string | null;
   last_seen_at: string;
+}
+
+export interface ConversationMemberDevice extends ConversationPeerDevice {
+  status?: 'active' | 'revoked';
+}
+
+export async function readConversationMemberDevices(conversationId: string): Promise<{ ok: boolean; devices: ConversationMemberDevice[] }> {
+  if (!supabase) return { ok: false, devices: [] };
+  try {
+    const { data, error } = await supabase.rpc('get_conversation_member_devices', {
+      p_conversation_id: conversationId,
+    });
+    if (error) {
+      console.warn('[GAYZE] Supabase get_conversation_member_devices unavailable:', error.message);
+      return { ok: false, devices: [] };
+    }
+    return { ok: true, devices: (data ?? []) as ConversationMemberDevice[] };
+  } catch (err: any) {
+    console.warn('[GAYZE] Supabase get_conversation_member_devices exception:', err?.message || err);
+    return { ok: false, devices: [] };
+  }
+}
+
+export async function loadConversationMemberDevices(conversationId: string): Promise<ConversationMemberDevice[]> {
+  return (await readConversationMemberDevices(conversationId)).devices;
 }
 
 export async function readConversationPeerDevices(conversationId: string): Promise<{ ok: boolean; devices: ConversationPeerDevice[] }> {
@@ -1187,6 +1200,7 @@ export async function readConversationPeerDevices(conversationId: string): Promi
 export async function loadConversationPeerDevices(conversationId: string): Promise<ConversationPeerDevice[]> {
   return (await readConversationPeerDevices(conversationId)).devices;
 }
+
 
 export interface IdentityDevice {
   id: string;
