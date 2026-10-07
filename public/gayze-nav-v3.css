@@ -65,19 +65,13 @@
     box-shadow:0 0 0 2px rgba(123,44,255,.13),0 0 28px rgba(123,44,255,.38),0 14px 34px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.13) !important;
     isolation:isolate !important;
   }
-  .g-tab--discover .g-discover-action::before {
-    content:""; position:absolute; inset:-3px; border-radius:inherit; padding:2px;
-    background:linear-gradient(135deg,#7B2CFF,#D43BDE,#FF5C9D,#FF9E2C);
-    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude;
-    pointer-events:none; z-index:-1;
-  }
   .g-tab--discover .g-discover-action::after {
     content:""; position:absolute; inset:-14px; border-radius:50%;
     background:radial-gradient(circle,rgba(212,59,222,.22),transparent 68%); filter:blur(6px); z-index:-2; pointer-events:none;
   }
   .g-tab--discover .g-discover-logo-image {
     width:56px !important; height:56px !important; object-fit:contain !important; display:block !important;
-    filter:drop-shadow(0 0 10px rgba(212,59,222,.35)) !important; transform:none !important;
+    filter:none !important; transform:none !important;
   }
   .g-tab--discover[data-active="true"] .g-discover-action {
     box-shadow:0 0 0 2px rgba(255,92,157,.18),0 0 36px rgba(212,59,222,.52),0 14px 34px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16) !important;
