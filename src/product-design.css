@@ -680,3 +680,156 @@ select:focus-visible {
     font-size: 14px;
   }
 }
+
+
+/* Discover nav — refined branded centre action.
+   The logo sits in a compact circular dock rather than a large floating tile.
+   It remains vertically centred with the four ordinary tabs. */
+@media (max-width: 767px) {
+  .g-tabbar {
+    overflow: visible !important;
+  }
+
+  .g-tabbar__inner {
+    position: relative;
+    height: 56px !important;
+    padding: 0 6px !important;
+  }
+
+  .g-tab {
+    height: 56px !important;
+    min-width: 0;
+    padding: 3px 0 2px !important;
+  }
+
+  .g-tab--discover {
+    height: 56px !important;
+    min-height: 56px !important;
+    transform: none !important;
+    z-index: 2;
+    justify-content: flex-start !important;
+    padding-top: 0 !important;
+  }
+
+  .g-tab--discover:active {
+    transform: none !important;
+  }
+
+  .g-tab--discover .g-discover-action {
+    position: relative;
+    width: 58px !important;
+    height: 58px !important;
+    margin-top: -17px !important;
+    padding: 5px !important;
+    border-radius: 50% !important;
+    background: #10121a !important;
+    border: 1px solid rgba(170,132,245,.48) !important;
+    box-shadow:
+      0 0 0 5px rgba(10,12,18,.96),
+      0 8px 22px rgba(0,0,0,.46),
+      inset 0 1px 0 rgba(255,255,255,.10) !important;
+    transition: transform 180ms cubic-bezier(.22,1,.36,1), border-color 180ms ease, box-shadow 180ms ease !important;
+  }
+
+  .g-tab--discover .g-discover-action::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, #6F3CC3 0%, #D43CBE 52%, #C9A24D 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: .9;
+    pointer-events: none;
+  }
+
+  .g-tab--discover .g-discover-logo-image {
+    position: relative;
+    z-index: 1;
+    width: 47px !important;
+    height: 47px !important;
+  }
+
+  .g-tab--discover .g-tab__label {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0 !important;
+    white-space: nowrap;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    color: rgba(255,255,255,.72) !important;
+  }
+
+  .g-tab--discover[data-active='true'] .g-tab__label {
+    color: #fff !important;
+  }
+
+  .g-tab--discover .g-tab__ind {
+    display: none !important;
+  }
+
+  /* Keep the nav's active state as a small baseline rather than a large capsule. */
+  .g-tab[data-active='true']:not(.g-tab--discover) {
+    background: transparent !important;
+    border-color: transparent !important;
+  }
+
+  .g-tab[data-active='true']:not(.g-tab--discover) svg {
+    filter: none !important;
+  }
+
+  .g-tab[data-active='true']:not(.g-tab--discover)::after {
+    content: "";
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    width: 20px;
+    height: 2px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: var(--g-intent-accent-strong);
+    box-shadow: 0 0 9px var(--g-intent-accent-glow);
+  }
+
+  .g-tab--discover[data-intent-mode='private'] .g-discover-action {
+    border-color: rgba(170,132,245,.72) !important;
+    box-shadow:
+      0 0 0 5px rgba(10,12,18,.96),
+      0 0 0 6px rgba(111,60,195,.12),
+      0 9px 24px rgba(111,60,195,.28),
+      inset 0 1px 0 rgba(255,255,255,.10) !important;
+  }
+
+  .g-tab--discover[data-intent-mode='social'] .g-discover-action {
+    border-color: rgba(225,194,111,.72) !important;
+    box-shadow:
+      0 0 0 5px rgba(10,12,18,.96),
+      0 0 0 6px rgba(201,162,77,.12),
+      0 9px 24px rgba(201,162,77,.22),
+      inset 0 1px 0 rgba(255,255,255,.10) !important;
+  }
+
+  .g-tab--discover[data-intent-mode='none'] .g-discover-action {
+    border-color: rgba(170,132,245,.48) !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .g-tabbar__inner { height: 54px !important; }
+  .g-tab { height: 54px !important; }
+  .g-tab--discover { height: 54px !important; }
+  .g-tab--discover .g-discover-action {
+    width: 54px !important;
+    height: 54px !important;
+    margin-top: -15px !important;
+  }
+  .g-tab--discover .g-discover-logo-image {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .g-tab--discover .g-tab__label { top: 38px; }
+}
