@@ -534,6 +534,7 @@ export default function App() {
     beginChatTrace(roomId);
     setChatOpenRequest(previous => ({ roomId, sequence: (previous?.sequence ?? 0) + 1 }));
     setActiveRoomId(roomId);
+    setMessagesSubTab('chats');
     setActiveTab('swarms');
   }
 
@@ -555,7 +556,7 @@ export default function App() {
   // Modals & Mask
   const [isMaskActive, setIsMaskActive] = useState(false);
   const [isIdentityOpen, setIsIdentityOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [messagesSubTab, setMessagesSubTab] = useState<'chats' | 'notifications'>('chats');
   const [isSafetyTimerOpen, setIsSafetyTimerOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
@@ -1294,8 +1295,8 @@ export default function App() {
         }
         const route = routeFromPath(data.url);
         setActiveTab(route.tab);
+        if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
         if (route.conversationId) requestConversationOpen(route.conversationId);
-        if (route.openNotifications) setIsNotificationsOpen(true);
         replacePath(data.url);
         event.ports[0]?.postMessage({ handled: true });
         return;
@@ -1357,8 +1358,8 @@ export default function App() {
       notificationRefreshRef.current();
       const route = routeFromPath(notice.url);
       setActiveTab(route.tab);
+      if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
       if (route.conversationId) requestConversationOpen(route.conversationId);
-      setIsNotificationsOpen(Boolean(route.openNotifications));
       replacePath(notice.url);
     } catch { showToast('Could not update the notification. Please try again.'); }
   };
@@ -3001,7 +3002,10 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
-              onOpenNotifications={() => setIsNotificationsOpen(true)}
+              onOpenNotifications={() => {
+                setMessagesSubTab('notifications');
+                setActiveTab('swarms');
+              }}
             />
           )}
 
@@ -3052,40 +3056,80 @@ export default function App() {
           )}
 
           {activeTab === 'swarms' && (
-            <ChatRoomView
-              rooms={rooms}
-              messages={messages}
-              activeRoomId={activeRoomId}
-              openRequest={chatOpenRequest}
-              onVisibleRoomChange={reportVisibleChatRoom}
-              onSelectRoom={requestConversationOpen}
-              currentUser={currentUser}
-              currentUserId={supabaseUserId}
-              onSendMessage={handleSendMessage}
-              onUpdateRoomTtl={handleUpdateRoomTtl}
-              onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
-              onDeleteMessage={IS_LIVE_BACKEND ? handleDeleteMessageForMe : undefined}
-              onUnsendMessage={IS_LIVE_BACKEND ? handleUnsendMessage : undefined}
-              onSetMessageExpiry={IS_LIVE_BACKEND ? handleSetMessageExpiry : undefined}
-              onOpenQR={(peerName) => {
-                const matchedPeer = datingProfiles.find(
-                  (p) => p.name.toLowerCase() === peerName?.toLowerCase()
-                );
-                handleOpenQRModal(matchedPeer || null);
-              }}
-              onStartCall={handleStartCall}
-              onOpenScheduleMeeting={handleOpenScheduleMeeting}
-              onAcceptMeeting={handleAcceptMeeting}
-              onReturnToDiscovery={() => setActiveTab('right_now')}
-              onlineUserIds={onlineUserIds}
-              connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
-              conversationKeyUnavailable={
-                Boolean(activeRoomId)
-                && conversationKeyState.roomId === activeRoomId
-                && conversationKeyState.status === 'unavailable'
-              }
-              conversationKeyReason={conversationKeyState.reason}
-            />
+            <div className="g-messages-hub">
+              <div className="g-messages-subtabs" role="tablist" aria-label="Messages sections">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={messagesSubTab === 'chats'}
+                  data-active={messagesSubTab === 'chats'}
+                  className="g-messages-subtab"
+                  onClick={() => setMessagesSubTab('chats')}
+                >
+                  Chats
+                  {unreadMessageCount > 0 && <span className="g-messages-subtab__badge">{unreadMessageCount}</span>}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={messagesSubTab === 'notifications'}
+                  data-active={messagesSubTab === 'notifications'}
+                  className="g-messages-subtab"
+                  onClick={() => setMessagesSubTab('notifications')}
+                >
+                  Notifications
+                  {(notificationInbox?.unread ?? 0) > 0 && <span className="g-messages-subtab__badge">{notificationInbox?.unread}</span>}
+                </button>
+              </div>
+              <div className="g-messages-hub__content">
+                {messagesSubTab === 'notifications' ? (
+                  <NotificationsModal
+                    embedded
+                    currentUserId={supabaseUserId}
+                    isOpen
+                    inbox={notificationInbox}
+                    inboxStatus={notificationInboxStatus}
+                    onOpenNotification={openInboxNotification}
+                    onClose={() => setMessagesSubTab('chats')}
+                  />
+                ) : (
+                  <ChatRoomView
+                    rooms={rooms}
+                    messages={messages}
+                    activeRoomId={activeRoomId}
+                    openRequest={chatOpenRequest}
+                    onVisibleRoomChange={reportVisibleChatRoom}
+                    onSelectRoom={requestConversationOpen}
+                    currentUser={currentUser}
+                    currentUserId={supabaseUserId}
+                    onSendMessage={handleSendMessage}
+                    onUpdateRoomTtl={handleUpdateRoomTtl}
+                    onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
+                    onDeleteMessage={IS_LIVE_BACKEND ? handleDeleteMessageForMe : undefined}
+                    onUnsendMessage={IS_LIVE_BACKEND ? handleUnsendMessage : undefined}
+                    onSetMessageExpiry={IS_LIVE_BACKEND ? handleSetMessageExpiry : undefined}
+                    onOpenQR={(peerName) => {
+                      const matchedPeer = datingProfiles.find(
+                        (p) => p.name.toLowerCase() === peerName?.toLowerCase()
+                      );
+                      handleOpenQRModal(matchedPeer || null);
+                    }}
+                    onStartCall={handleStartCall}
+                    onOpenScheduleMeeting={handleOpenScheduleMeeting}
+                    onAcceptMeeting={handleAcceptMeeting}
+                    onReturnToDiscovery={() => setActiveTab('right_now')}
+                    onlineUserIds={onlineUserIds}
+                    connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
+                    conversationKeyUnavailable={
+                      Boolean(activeRoomId)
+                      && conversationKeyState.roomId === activeRoomId
+                      && conversationKeyState.status === 'unavailable'
+                    }
+                    conversationKeyReason={conversationKeyState.reason}
+                  />
+                )}
+              </div>
+            </div>
           )}
 
           {activeTab === 'safe_havens' && (
@@ -3229,16 +3273,6 @@ export default function App() {
         onExtendTimer={handleExtendTimer}
         onEndCheckin={handleEndCheckin}
         remainingSeconds={remainingSeconds}
-      />
-
-      {/* Web Push opt-in, category preferences and device state */}
-      <NotificationsModal key={supabaseUserId || 'signed-out'}
-        currentUserId={supabaseUserId}
-        isOpen={isNotificationsOpen}
-        inbox={notificationInbox}
-        inboxStatus={notificationInboxStatus}
-        onOpenNotification={openInboxNotification}
-        onClose={() => setIsNotificationsOpen(false)}
       />
 
       {/* iOS Home Screen install nudge (self-hiding, dismissal-aware) */}
