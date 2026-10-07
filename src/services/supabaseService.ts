@@ -482,6 +482,29 @@ export interface SubmitInterestResult {
   interest_id?: string | null;
 }
 
+export async function verifyPeerIdentity(
+  peerPublicKey: string,
+  peerFingerprint: string,
+  deviceId?: string | null,
+): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.rpc('verify_peer_identity', {
+      p_peer_public_key: peerPublicKey,
+      p_peer_fingerprint: peerFingerprint,
+      p_device_id: deviceId ?? null,
+    });
+    if (error) {
+      console.warn('[GAYZE] Peer identity verification failed:', error.message);
+      return false;
+    }
+    return data === true;
+  } catch (err: any) {
+    console.warn('[GAYZE] Peer identity verification exception:', err?.message || err);
+    return false;
+  }
+}
+
 export async function submitInterest(
   toUserId: string,
   intentId?: string,
@@ -506,6 +529,9 @@ export async function submitInterest(
       conversation_id?: string | null;
       interest_id?: string | null;
     };
+    // The RPC result is the authoritative "mutual was just created" signal.
+    // Forward it so the other member is notified (server enforces exactly-once
+    // and the recipient's preferences). Fire-and-forget: no effect on the flow.
     if (result.mutual && result.conversation_id) {
       void requestConnectionPush(result.conversation_id);
     }
