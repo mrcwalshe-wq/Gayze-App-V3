@@ -1084,8 +1084,7 @@ select:focus-visible {
 
   /* On Right Now the toast sits beneath the map's state card, on the opposite
      side of the map controls. */
-  .g-shell[data-active-tab='right_now'] ~ .g-toast,
-  .g-shell[data-active-tab='right_now'] .g-toast {
+  .g-toast--right_now {
     top: calc(env(safe-area-inset-top, 0px) + 190px) !important;
   }
 
