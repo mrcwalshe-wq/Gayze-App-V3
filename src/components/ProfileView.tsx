@@ -85,7 +85,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   activeUserIntent,
   areaLabel,
   onOpenSetIntent,
-  intentBusy = false,
   onOpenSafetyTimer,
   isSafetyTimerActive,
   onOpenMask,

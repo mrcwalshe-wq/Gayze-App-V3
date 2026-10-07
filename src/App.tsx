@@ -2987,8 +2987,6 @@ export default function App() {
               activeUserIntent={activeUserIntent}
               areaLabel={resolveAreaLabel(currentUser.neighborhood)}
               onOpenSetIntent={handleOpenIntentSheet}
-              onUpdateActiveUserIntent={handleUpdateActiveUserIntent}
-              intentBusy={intentBusy}
               onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
               isSafetyTimerActive={checkinState.isActive}
               onOpenMask={() => setIsMaskActive(true)}
