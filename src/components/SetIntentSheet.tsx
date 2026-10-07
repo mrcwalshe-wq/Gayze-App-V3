@@ -380,7 +380,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                           key={d}
                           type="button"
                           className="g-optpill"
-                          data-tone="amber"
+                          data-tone={mode === 'private' ? 'private' : 'amber'}
                           data-active={travelDistance === d}
                           onClick={() => { hapticLight(); setTravelDistance(d); }}
                         >

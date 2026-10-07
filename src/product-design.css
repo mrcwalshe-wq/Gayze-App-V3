@@ -166,3 +166,140 @@ select:focus-visible {
     animation-iteration-count: 1 !important;
   }
 }
+
+
+/* Final mobile chrome refinement: the navigation should frame the app, not overlap it. */
+:root { --g-tabbar-h: 52px; }
+@media (max-width: 767px) {
+  .g-tabbar {
+    padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+  }
+  .g-tabbar__inner {
+    height: 52px !important;
+  }
+  .g-tab--discover {
+    transform: translateY(-18px) !important;
+    height: 74px !important;
+    min-height: 74px !important;
+  }
+  .g-tab--discover:active {
+    transform: translateY(-16px) scale(.98) !important;
+  }
+  .g-tab--discover .g-discover-action {
+    width: 54px !important;
+    height: 54px !important;
+    padding: 6px !important;
+    border-radius: 17px !important;
+  }
+  .g-tab--discover .g-discover-logo-image {
+    width: 44px !important;
+    height: 44px !important;
+  }
+}
+@media (max-width: 380px) {
+  .g-tabbar__inner { height: 50px !important; }
+  .g-tab--discover {
+    transform: translateY(-17px) !important;
+    height: 70px !important;
+    min-height: 70px !important;
+  }
+  .g-tab--discover .g-discover-action {
+    width: 52px !important;
+    height: 52px !important;
+  }
+  .g-tab--discover .g-discover-logo-image {
+    width: 42px !important;
+    height: 42px !important;
+  }
+}
+
+/* Private intent owns the full selection accent. Distance/time controls must not turn amber. */
+.g-sheet--private .g-optpill[data-tone='amber'][data-active='true'] {
+  color: #e9dcff !important;
+  background: rgba(111,60,195,.16) !important;
+  border-color: rgba(170,132,245,.68) !important;
+  box-shadow: 0 0 0 1px rgba(111,60,195,.16), 0 8px 22px rgba(111,60,195,.16) !important;
+}
+.g-sheet--private .g-optpill[data-tone='private'][data-active='true'] {
+  color: #e9dcff !important;
+  background: rgba(111,60,195,.16) !important;
+  border-color: rgba(170,132,245,.68) !important;
+  box-shadow: 0 0 0 1px rgba(111,60,195,.16), 0 8px 22px rgba(111,60,195,.16) !important;
+}
+
+
+/* End intent is a destructive action, never a mode colour.
+   Use a restrained violet → magenta → red progression rather than Social amber. */
+.g-map-state__action--end {
+  color: #ffe8ee !important;
+  background: linear-gradient(135deg, rgba(111,60,195,.92) 0%, rgba(212,60,190,.82) 52%, rgba(239,68,68,.78) 100%) !important;
+  border-color: rgba(230,112,194,.62) !important;
+  box-shadow:
+    0 8px 20px rgba(111,60,195,.20),
+    0 4px 14px rgba(239,68,68,.12),
+    inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+.g-map-state__action--end:hover {
+  filter: brightness(1.06);
+}
+.g-map-state__end-dot {
+  background: #ff6b7d !important;
+  box-shadow: 0 0 8px rgba(255,107,125,.48) !important;
+}
+
+/* Toasts should arrive from the edge, like transient system feedback,
+   rather than rising out of the bottom navigation. */
+.g-toast {
+  left: auto !important;
+  right: 14px !important;
+  bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px) !important;
+  width: min(360px, calc(100vw - 28px)) !important;
+  margin: 0 !important;
+  animation: g-toast-in-side var(--g-dur-med) var(--g-spring) both !important;
+}
+@keyframes g-toast-in-side {
+  from { transform: translate3d(24px, 0, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+@media (max-width: 640px) {
+  .g-toast {
+    right: 12px !important;
+    width: min(340px, calc(100vw - 24px)) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-toast { animation: none !important; }
+}
+
+
+/* Discover brand action reflects the live intent mode, not the Social palette.
+   Private is rich violet; Social is amber; no active intent stays neutral. */
+@media (max-width: 767px) {
+  .g-tab--discover[data-intent-mode='private'] .g-discover-action {
+    border-color: rgba(111,60,195,.78) !important;
+    background: linear-gradient(145deg, #171021 0%, #24153d 58%, #11131a 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(111,60,195,.16),
+      0 10px 24px rgba(111,60,195,.26),
+      inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+  .g-tab--discover[data-intent-mode='private'][data-active='true'] .g-discover-action {
+    border-color: rgba(170,132,245,.78) !important;
+    box-shadow:
+      0 0 0 1px rgba(111,60,195,.22),
+      0 0 22px rgba(111,60,195,.24),
+      0 10px 24px rgba(0,0,0,.42),
+      inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+  .g-tab--discover[data-intent-mode='social'] .g-discover-action {
+    border-color: rgba(201,162,77,.72) !important;
+    box-shadow:
+      0 0 0 1px rgba(201,162,77,.12),
+      0 10px 24px rgba(201,162,77,.18),
+      inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+  .g-tab--discover[data-intent-mode='none'] .g-discover-action {
+    border-color: rgba(111,60,195,.58) !important;
+    box-shadow: 0 8px 22px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.07) !important;
+  }
+}
