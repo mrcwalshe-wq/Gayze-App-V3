@@ -491,3 +491,43 @@
     text-shadow: none !important;
   }
 }
+
+/* Absolute final override: active tabs never become cards. */
+@media (max-width: 767px) {
+  nav.g-tabbar .g-tab[data-active="true"],
+  nav.g-tabbar .g-tab[data-active="true"]:hover,
+  nav.g-tabbar .g-tab[data-active="true"]:focus,
+  nav.g-tabbar .g-tab[data-active="true"]:focus-visible,
+  nav.g-tabbar .g-tab[data-tab="right_now"][data-active="true"],
+  nav.g-tabbar .g-tab[data-tab="swarms"][data-active="true"],
+  nav.g-tabbar .g-tab[data-tab="profile"][data-active="true"],
+  nav.g-tabbar .g-tab[data-tab="later"][data-active="true"] {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+  }
+
+  nav.g-tabbar .g-tab[data-active="true"]::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  nav.g-tabbar .g-tab[data-active="true"]::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 50% !important;
+    bottom: auto !important;
+    width: 24px !important;
+    height: 2px !important;
+    transform: translateX(-50%) !important;
+    border-radius: 999px !important;
+    background: var(--g-intent-accent-strong) !important;
+    box-shadow: 0 0 9px var(--g-intent-accent-glow) !important;
+  }
+}
