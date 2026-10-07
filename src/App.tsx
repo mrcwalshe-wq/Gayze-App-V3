@@ -2938,6 +2938,7 @@ export default function App() {
         onOpenQR={() => handleOpenQRModal()}
         reliabilityScore={currentUser.reliabilityScore}
         userNeighborhood={currentUser.neighborhood}
+        activeIntentMode={activeUserIntent?.mode ?? null}
       />
 
       {/* Main Content Viewport Container */}
