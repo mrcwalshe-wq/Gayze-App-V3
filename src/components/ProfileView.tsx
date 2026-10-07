@@ -19,11 +19,13 @@ import {
   ArrowRight,
   AlertTriangle,
   Bell,
+  BellOff,
   LogOut,
 } from 'lucide-react';
 import {
   type EditSectionKey,
   INTIMACY_VISIBILITY_OPTIONS,
+  computeProfileCompletion,
 } from '../config/profileOptions';
 import { UserActiveIntent, UserProfile } from '../types';
 import { hapticLight, triggerVibration } from '../services/hapticService';
