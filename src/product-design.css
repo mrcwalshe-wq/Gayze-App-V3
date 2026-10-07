@@ -405,3 +405,19 @@ select:focus-visible {
 .g-shell [role='button']:focus-visible {
   outline-color: var(--g-intent-accent-strong) !important;
 }
+
+
+/* Secondary highlights inherit the same live intent signal. */
+.g-shell .g-btn--quiet > svg,
+.g-shell .g-icon-btn > svg {
+  color: var(--g-intent-accent-strong) !important;
+}
+.g-shell .g-empty__icon {
+  color: var(--g-intent-accent-strong) !important;
+  background: radial-gradient(circle at 50% 45%, var(--g-intent-accent-soft), transparent 72%) !important;
+  border-color: var(--g-intent-accent-border) !important;
+  box-shadow: 0 0 0 8px var(--g-intent-accent-soft) !important;
+}
+.g-shell .g-live-dot {
+  box-shadow: 0 0 0 4px var(--g-intent-accent-soft), 0 0 12px var(--g-intent-accent-glow) !important;
+}
