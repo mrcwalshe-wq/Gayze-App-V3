@@ -2910,7 +2910,7 @@ export default function App() {
 
       {/* Toast Notification */}
       {notificationToast && (
-        <div className="g-toast">
+        <div className={`g-toast g-toast--${activeTab}`}>
           <Shield className="w-4 h-4 text-[#C9A24D] shrink-0" />
           <span className="flex-1 truncate font-semibold">{notificationToast}</span>
         </div>
