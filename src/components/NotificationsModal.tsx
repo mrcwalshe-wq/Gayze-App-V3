@@ -1,6 +1,6 @@
 import { notificationCopy, type NotificationInbox, type InboxNotification } from '../services/notificationInbox';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bell,
   BellOff,
@@ -81,6 +81,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const [feedback, setFeedback] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null);
   const [incomingInterests, setIncomingInterests] = useState<IncomingInterest[]>([]);
   const [interestBusyId, setInterestBusyId] = useState<string | null>(null);
+  const embeddedScrollRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = useCallback(async () => {
     setEnv(getPushEnvironment());
@@ -93,6 +94,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
 
   useEffect(() => {
     if (!isOpen) return;
+    if (embedded) requestAnimationFrame(() => {
+      if (embeddedScrollRef.current) embeddedScrollRef.current.scrollTop = 0;
+    });
     setLoading(true);
     setFeedback(null);
     void refresh();
@@ -196,7 +200,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const recentRows = inbox?.rows.slice(0, 4) ?? [];
 
   return (
-    <div className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
+    <div ref={embedded ? embeddedScrollRef : undefined} className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
       <div className={embedded ? 'g-messages-notifications__panel' : 'g-sheet g-notifications-sheet'} onClick={embedded ? undefined : (e) => e.stopPropagation()}>
         <div className="g-sheet__grip" />
 
