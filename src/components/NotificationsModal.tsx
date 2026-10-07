@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
+import { acceptIncomingInterest, declineIncomingInterest, loadIncomingInterests, type IncomingInterest } from '../services/supabaseService';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   getPushEnvironment,
@@ -38,6 +39,7 @@ interface NotificationsModalProps {
   inbox?: NotificationInbox | null;
   inboxStatus?: ChatConnectionState;
   onOpenNotification?: (notice: InboxNotification) => void;
+  onInterestAccepted?: (conversationId: string) => void;
 }
 
 /**
@@ -63,19 +65,22 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, onInterestAccepted }) => {
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null);
+  const [incomingInterests, setIncomingInterests] = useState<IncomingInterest[]>([]);
+  const [interestBusyId, setInterestBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setEnv(getPushEnvironment());
-    const [device, loaded] = await Promise.all([isDeviceSubscribed(), loadNotificationPreferences()]);
+    const [device, loaded, interests] = await Promise.all([isDeviceSubscribed(), loadNotificationPreferences(), loadIncomingInterests()]);
     setSubscribed(device);
     setPrefs(loaded);
+    setIncomingInterests(interests);
     setLoading(false);
   }, []);
 
@@ -296,6 +301,18 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                   </React.Fragment>
                 ))}
               </section>
+
+              {incomingInterests.length > 0 && (
+                <section className="g-panel g-notification-inbox">
+                  <div className="g-notification-section-head"><div><span className="g-label text-[#C9A24D]">Intent interests</span><h3>{incomingInterests.length} awaiting your response</h3></div></div>
+                  {incomingInterests.map((interest) => (
+                    <div key={interest.id} className="p-4 border-t border-white/[0.06]">
+                      <div className="flex items-start gap-3"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#6F3CC3] to-[#C9A24D] flex items-center justify-center text-white font-bold">{interest.fromDisplayName.slice(0,1).toUpperCase()}</div><div className="min-w-0 flex-1"><div className="text-sm font-semibold text-white">{interest.fromDisplayName} is interested in your intent</div><div className="text-[11px] text-zinc-500 mt-1">They chose to respond to your live intent.</div>{interest.message && <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] text-zinc-200">{interest.message}</div>}{interest.sharedPhotoUrls?.length ? <div className="mt-3 grid grid-cols-4 gap-2">{interest.sharedPhotoUrls.map((url) => <img key={url} src={url} alt="" className="aspect-square object-cover rounded-xl border border-white/10" />)}</div> : null}</div></div>
+                      <div className="grid grid-cols-2 gap-2 mt-4"><button type="button" disabled={interestBusyId===interest.id} onClick={async()=>{setInterestBusyId(interest.id);const result=await acceptIncomingInterest(interest.id);setInterestBusyId(null);if(result.accepted){setIncomingInterests(prev=>prev.filter(item=>item.id!==interest.id));onInterestAccepted?.(result.conversation_id!);setFeedback({text:'Intent interest accepted. Your encrypted chat is ready.',tone:'ok'});}else setFeedback({text:'Could not accept this interest. Try again.',tone:'error');}}} className="g-btn g-btn--primary min-h-[44px]">{interestBusyId===interest.id?'Working…':'Accept'}</button><button type="button" disabled={interestBusyId===interest.id} onClick={async()=>{setInterestBusyId(interest.id);const ok=await declineIncomingInterest(interest.id);setInterestBusyId(null);if(ok){setIncomingInterests(prev=>prev.filter(item=>item.id!==interest.id));setFeedback({text:'Declined. The sender will not be notified.',tone:'info'});}else setFeedback({text:'Could not decline this interest. Try again.',tone:'error');}}} className="g-btn g-btn--quiet min-h-[44px]">Decline</button></div>
+                    </div>
+                  ))}
+                </section>
+              )}
 
               <section className="g-panel g-notification-inbox">
                 <div className="g-notification-section-head">
