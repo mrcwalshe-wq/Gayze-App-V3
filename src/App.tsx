@@ -3103,6 +3103,10 @@ export default function App() {
                     inbox={notificationInbox}
                     inboxStatus={notificationInboxStatus}
                     onOpenNotification={openInboxNotification}
+                    onInterestAccepted={async (conversationId) => {
+                      await refreshConversationListRef.current();
+                      requestConversationOpen(conversationId);
+                    }}
                     onClose={() => setMessagesSubTab('chats')}
                   />
                 ) : (
