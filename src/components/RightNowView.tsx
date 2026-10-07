@@ -1351,15 +1351,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className="g-float g-nearby-btn" aria-expanded={isNearbyOpen} aria-label={`${liveMembersCount} nearby — open nearby intents`}><List className="w-3.5 h-3.5" /><span>{liveMembersCount}</span><span className="g-nearby-btn__chevron">›</span></button>
             )}
           </div>
-          {onOpenSetIntent && activeUserIntent && (
-            <div className="g-intent-dock">
-              <button type="button" onClick={() => { hapticLight(); setIsUserIntentDrawerOpen(true); }} className={`g-intent-dock__button g-intent-dock__button--${activeUserIntent.mode === 'private' ? 'private' : 'social'}`} aria-label="Manage your live intent">
-                <span className="g-intent-dock__icon"><Radio className="w-4 h-4" /></span>
-                <span className="g-intent-dock__copy"><strong>{activeUserIntent.isPaused ? 'Intent paused' : 'Intent live'}</strong><span>{formatRemainingTime(remainingMinutes)} remaining</span></span>
-                <span className="g-intent-dock__chevron">⌃</span>
-              </button>
-            </div>
-          )}
         </>
       )}
 
