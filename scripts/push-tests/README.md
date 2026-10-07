@@ -16,6 +16,14 @@ node scripts/push-tests/e2e.test.mjs
 node scripts/push-tests/sw.test.mjs
 ```
 
+> **Status of `e2e.test.mjs`: not part of `npm test`.** The 91 lines added by commit
+> `f4a946c` were committed line-reversed and without their setup lines, so the file does not
+> parse and the missing setup cannot be recovered from Git. Independently, even the last
+> parsing version (`829075c`) fails against the current `send-push` function (it now imports
+> `web-push` directly and uses `handler.ts` / `gayze_notifications`, which that harness does
+> not model). No assertions were removed or rewritten; the file is left as committed. Current
+> push backend behaviour is covered by `test:notifications` and `test:push-hardening`.
+
 Coverage highlights: pg_net dispatch URL normalisation for every plausible
 `gayze_functions_url` value (the message-push fix); message / interest / connection /
 system / safety / intent-expiry dispatch; exactly-once ledger suppression; preference

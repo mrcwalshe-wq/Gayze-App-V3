@@ -9,8 +9,6 @@ import {
   ChevronLeft,
   ShieldCheck,
   Plus,
-  Pause,
-  Play,
   X,
   Edit3,
   Compass,
@@ -21,9 +19,15 @@ import {
   ArrowRight,
   AlertTriangle,
   Bell,
+  LogOut,
 } from 'lucide-react';
+import {
+  type EditSectionKey,
+  INTIMACY_VISIBILITY_OPTIONS,
+  computeProfileCompletion,
+} from '../config/profileOptions';
 import { UserActiveIntent, UserProfile } from '../types';
-import { hapticLight, hapticSensitiveAction, triggerVibration } from '../services/hapticService';
+import { hapticLight, triggerVibration } from '../services/hapticService';
 import {
   deleteProfilePhoto,
   loadProfilePhotos,
@@ -39,17 +43,18 @@ interface ProfileViewProps {
   activeUserIntent?: UserActiveIntent | null;
   areaLabel?: string;
   onOpenSetIntent?: () => void;
-  onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
-  /** True while a publish/pause/end write is in flight. */
-  intentBusy?: boolean;
   onOpenSafetyTimer: () => void;
   isSafetyTimerActive: boolean;
   onOpenMask: () => void;
   onOpenIdentity: () => void;
+  /** Releases push, clears the session and returns to the signed-out state. */
+  onSignOut?: () => void | Promise<void>;
+  signingOut?: boolean;
   onOpenQR: () => void;
   onOpenSafeHavens: () => void;
   onOpenDiscover?: () => void;
-  onOpenProfileEdit?: (section?: string) => void;
+  /** Opens the sectioned profile editor (the "Edit profile" pencil). */
+  onOpenProfileEdit?: (section?: EditSectionKey) => void;
   onAvatarUpdated?: (url: string | undefined) => void;
   /** Opens the Web Push opt-in / notification preferences sheet. */
   onOpenNotifications?: () => void;
@@ -81,12 +86,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   activeUserIntent,
   areaLabel,
   onOpenSetIntent,
-  onUpdateActiveUserIntent,
-  intentBusy = false,
   onOpenSafetyTimer,
   isSafetyTimerActive,
   onOpenMask,
   onOpenIdentity,
+  onSignOut,
+  signingOut = false,
   onOpenQR,
   onOpenSafeHavens,
   onOpenDiscover,
@@ -105,27 +110,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
 
+  // Persistent device-status banner: it remains visible while push is
+  // unavailable on this device and disappears as soon as the device subscribes.
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
+    const checkReminder = async () => {
       try {
         const env = getPushEnvironment();
-        if (env.blockedBy === 'unsupported' || env.blockedBy === 'not-configured') return;
+        if (env.blockedBy === 'unsupported' || env.blockedBy === 'not-configured') {
+          if (!cancelled) setShowNotificationReminder(false);
+          return;
+        }
         const subscribed = await isDeviceSubscribed();
-        if (cancelled || subscribed) return;
-        try {
-          const dismissedAt = Number(window.localStorage.getItem('gayze_notification_reminder_dismissed_at')) || 0;
-          if (dismissedAt && Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return;
-        } catch {
-          // Continue if local storage is unavailable.
+        if (cancelled) return;
+        if (subscribed) {
+          // Enabled — the prompt has done its job; hide it immediately.
+          setShowNotificationReminder(false);
+          return;
         }
         setShowNotificationReminder(true);
       } catch {
         // Notification setup is optional and must never affect the profile view.
       }
-    })();
+    };
+    // Own heartbeat (independent of the intent countdown, which only runs with
+    // a live intent) + focus/visibility, so a subscription started elsewhere —
+    // e.g. from the Notifications sheet or the OS settings — retires the prompt.
+    void checkReminder();
+    const id = window.setInterval(() => { void checkReminder(); }, 30000);
+    const onWake = () => { void checkReminder(); };
+    window.addEventListener('focus', onWake);
+    document.addEventListener('visibilitychange', onWake);
     return () => {
       cancelled = true;
+      window.clearInterval(id);
+      window.removeEventListener('focus', onWake);
+      document.removeEventListener('visibilitychange', onWake);
     };
   }, []);
 
@@ -246,12 +266,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (!activeUserIntent || activeUserIntent.isPaused) return;
-    const id = window.setInterval(() => setNow(Date.now()), 30000);
-    return () => window.clearInterval(id);
-  }, [activeUserIntent]);
-
   // Keyboard navigation for full-screen photo viewer
   useEffect(() => {
     if (viewerIndex === null) return;
@@ -277,17 +291,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const primaryPhoto = photos.find((p) => p.isPrimary) || photos[0];
   const displayAvatarUrl = primaryPhoto?.url || currentUser.avatarUrl;
-
-  const handleEnd = () => {
-    hapticSensitiveAction();
-    onUpdateActiveUserIntent?.(null);
-  };
-
-  const handlePause = () => {
-    if (!activeUserIntent) return;
-    hapticLight();
-    onUpdateActiveUserIntent?.({ ...activeUserIntent, isPaused: !activeUserIntent.isPaused });
-  };
 
   const rows: {
     key: string;
@@ -316,6 +319,35 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     : tone === 'amber' ? 'text-[#e7c98a] bg-[#C9A24D]/10 border-[#C9A24D]/30'
     : tone === 'purple' ? 'text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40'
     : 'text-zinc-400 bg-white/[0.05] border-white/10';
+
+  // Profile completion — the checklist that materially improves matching.
+  const completion = computeProfileCompletion({
+    hasPhoto: photos.length > 0 || Boolean(currentUser.avatarUrl),
+    lookingForCount: currentUser.interests.length,
+    interestCount: currentUser.hobbies?.length ?? 0,
+    hasIntimacy: Boolean(
+      currentUser.intimacy?.role
+      || (currentUser.intimacy?.preferences.length ?? 0) > 0
+      || (currentUser.intimacy?.experience && currentUser.intimacy.experience !== 'Not specified'),
+    ),
+    setupCount: currentUser.mySetup?.length ?? 0,
+    hasBio: Boolean(currentUser.bio && currentUser.bio.trim()),
+  });
+  const intimacyVisibilityLabel = currentUser.intimacy
+    ? INTIMACY_VISIBILITY_OPTIONS.find((option) => option.value === currentUser.intimacy?.visibility)?.label
+    : undefined;
+  const factTags = [
+    currentUser.pronouns,
+    currentUser.heightCm ? `${currentUser.heightCm} cm` : undefined,
+    currentUser.bodyType,
+  ].filter((value): value is string => Boolean(value));
+  const hasIntimacySection = Boolean(
+    currentUser.intimacy && (
+      currentUser.intimacy.role
+      || currentUser.intimacy.preferences.length > 0
+      || (currentUser.intimacy.experience && currentUser.intimacy.experience !== 'Not specified')
+    ),
+  );
 
   const emptySlotsCount = Math.max(0, MAX_PHOTOS - photos.length);
 
@@ -358,7 +390,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             )}
           </div>
           <div className="text-[12px] text-zinc-400 mt-1 truncate">
-            {areaLabel || currentUser.neighborhood} · approximate area
+            {[currentUser.age ? String(currentUser.age) : null, currentUser.pronouns || null, areaLabel || currentUser.neighborhood]
+              .filter(Boolean)
+              .join(' · ')}{' '}
+            · approximate area
           </div>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className="g-badge g-badge--trust">
@@ -371,13 +406,45 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
         <button
           type="button"
-          onClick={() => { hapticLight(); onOpenProfileEdit?.('identity'); }}
+          onClick={() => {
+            hapticLight();
+            if (onOpenProfileEdit) onOpenProfileEdit('identity');
+            else onOpenIdentity();
+          }}
           className="g-icon-btn shrink-0"
           aria-label="Edit profile"
         >
           <Edit3 className="w-4 h-4" />
         </button>
       </section>
+
+      {/* Profile completion — a quiet nudge, never a blocking checklist */}
+      {completion.missing.length > 0 && (
+        <button
+          type="button"
+          onClick={() => { hapticLight(); onOpenProfileEdit?.(completion.missing[0].section as EditSectionKey); }}
+          className="w-full text-left rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 mb-4 hover:bg-white/[0.04] transition-colors"
+          aria-label="Improve your profile"
+        >
+          <div className="min-w-0">
+            <span className="g-label">
+              Profile · {completion.percent}% complete
+            </span>
+            <div className="text-[12.5px] text-zinc-300 mt-0.5 truncate">
+              Make your profile more useful — {completion.missing.length} quick {completion.missing.length === 1 ? 'thing' : 'things'} to add
+            </div>
+          </div>
+          <div className="mt-2.5 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${completion.percent}%`,
+                background: 'var(--brand-purple)',
+              }}
+            />
+          </div>
+        </button>
+      )}
 
       {/* Profile photos — first-class gallery with reordering, primary designation, and full-screen view */}
       <section className="g-panel p-4 mb-5">
@@ -567,117 +634,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </section>
 
       {showNotificationReminder && onOpenNotifications && (
-        <section className="g-panel g-panel--live p-4 mb-5 border-[#6F3CC3]/30 bg-[#6F3CC3]/[0.06]">
-          <div className="flex items-start gap-3">
-            <span className="flex items-center justify-center w-9 h-9 rounded-[11px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 text-[#c9b0f5] shrink-0">
-              <Bell className="w-4 h-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-[13.5px] font-bold text-white">Turn on notifications</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-zinc-400">
-                    Stay in the loop when someone messages you, responds to your intent or connects with you.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="g-icon-btn g-icon-btn--bare shrink-0"
-                  aria-label="Dismiss notification reminder"
-                  onClick={() => {
-                    hapticLight();
-                    try {
-                      window.localStorage.setItem('gayze_notification_reminder_dismissed_at', String(Date.now()));
-                    } catch {
-                      // Ignore storage failures.
-                    }
-                    setShowNotificationReminder(false);
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <button
-                type="button"
-                className="g-btn g-btn--primary mt-3 w-full sm:w-auto"
-                onClick={() => { hapticLight(); onOpenNotifications(); }}
-              >
-                <Bell className="w-4 h-4" />
-                Start notifications
-              </button>
+        <button
+          type="button"
+          className="g-profile-notification-banner w-full mb-4 text-left"
+          onClick={() => { hapticLight(); onOpenNotifications(); }}
+        >
+          <span className="g-profile-notification-banner__icon" aria-hidden="true">
+            <Bell className="w-4 h-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-bold text-white">Notifications are off</span>
+            <span className="block text-[11px] text-zinc-400 mt-0.5">Turn them on to receive messages and intent activity.</span>
+          </span>
+          <span className="g-profile-notification-banner__action">Enable</span>
+        </button>
+      )}
+
+      {/* ---------------- Profile summary — only sections with content ---------------- */}
+      {((currentUser.bio && currentUser.bio.trim()) || factTags.length > 0) && (
+        <section className="mb-5">
+          <span className="g-label">About you</span>
+          {(currentUser.bio && currentUser.bio.trim()) && (
+            <p className="mt-2 text-[13.5px] leading-relaxed text-zinc-200">“{currentUser.bio.trim()}”</p>
+          )}
+          {factTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {factTags.map((tag) => (
+                <span key={tag} className="g-tag">{tag}</span>
+              ))}
             </div>
-          </div>
+          )}
         </section>
       )}
 
-      {/* Current signal */}
-      <section className={`g-panel p-4 mb-5 ${activeUserIntent && !activeUserIntent.isPaused ? 'g-panel--live' : ''}`}>
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <span className="g-label">Your signal</span>
-          {activeUserIntent && (
-            <span className={`g-chip ${activeUserIntent.isPaused ? 'g-chip--quiet' : 'g-chip--live'}`}>
-              {activeUserIntent.isPaused
-                ? <span className="g-dot g-dot--muted" />
-                : <span className="g-live-dot" aria-hidden="true" />}
-              {activeUserIntent.isPaused ? 'Paused' : 'Live'}
-            </span>
-          )}
-        </div>
-
-        {activeUserIntent ? (
-          <>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`g-chip ${activeUserIntent.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
-                {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
-              </span>
-              <span className="text-[16px] font-semibold text-white tracking-[-0.015em]">
-                {activeUserIntent.intent.replace(' · ', ' ')}
-              </span>
-            </div>
-            <p className="text-[13px] text-zinc-400 leading-relaxed mt-2">{activeUserIntent.description}</p>
-            <div className="flex items-center justify-between gap-3 mt-3 text-[11.5px] text-zinc-500">
-              <span className="truncate">
-                {activeUserIntent.when} · {activeUserIntent.duration} · {activeUserIntent.travelDistance}
-              </span>
-              <span className="text-zinc-400 shrink-0 font-mono">
-                {activeUserIntent.isPaused
-                  ? 'paused'
-                  : `expires in ${formatRemaining(Math.max(0, activeUserIntent.expiresAt - now))}`}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 mt-4">
-              <button type="button" className="g-btn g-btn--danger-quiet !px-3.5" onClick={handleEnd} disabled={intentBusy}>
-                <X className="w-4 h-4" /> End
-              </button>
-              <button type="button" className="g-btn g-btn--quiet flex-1" onClick={handlePause} disabled={intentBusy}>
-                {activeUserIntent.isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                {activeUserIntent.isPaused ? 'Resume' : 'Pause'}
-              </button>
-              <button type="button" className="g-btn g-btn--primary flex-1" onClick={() => { hapticLight(); onOpenSetIntent?.(); }} disabled={intentBusy}>
-                {intentBusy ? 'Saving…' : 'Edit'}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-[13px] text-zinc-400 leading-relaxed mb-3.5">
-              You are not broadcasting. Set a signal to appear on the map for the next two hours.
-            </p>
-            {onOpenSetIntent && (
-              <button type="button" className="g-btn g-btn--primary w-full" onClick={() => { hapticLight(); onOpenSetIntent(); }}>
-                <Plus className="w-4 h-4" />
-                Create your intent
-              </button>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* Attributes */}
       {currentUser.interests.length > 0 && (
         <section className="mb-5">
-          <span className="g-label">About you</span>
+          <span className="g-label">Looking for</span>
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             {currentUser.interests.map((interest) => (
               <span key={interest} className="g-tag">{interest}</span>
@@ -686,27 +678,65 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </section>
       )}
 
-      {/* Notifications — always-visible Web Push entry point */}
-      <section className="g-panel overflow-hidden mb-5">
-          <div className="px-4 pt-3.5 pb-1">
-            <span className="g-label">Notifications</span>
+      {(currentUser.hobbies?.length ?? 0) > 0 && (
+        <section className="mb-5">
+          <span className="g-label">Interests</span>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {currentUser.hobbies!.map((hobby) => (
+              <span key={hobby} className="g-tag">{hobby}</span>
+            ))}
           </div>
-          <button
-            type="button"
-            className="g-row"
-            onClick={() => { hapticLight(); onOpenNotifications?.(); }}
-          >
-            <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40">
-              <Bell className="w-4 h-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13.5px] font-bold text-white">Notifications</span>
-              <span className="block text-[11px] text-zinc-500 truncate">Messages, intent activity and safety</span>
-            </span>
-            <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
-          </button>
-      </section>
+        </section>
+      )}
 
+      {hasIntimacySection && currentUser.intimacy && (
+        <section className="mb-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="g-label">Intimacy</span>
+            {intimacyVisibilityLabel && (
+              <span className="g-badge g-badge--quiet">{intimacyVisibilityLabel}</span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {currentUser.intimacy.role && (
+              <span className="g-chip g-chip--private">{currentUser.intimacy.role}</span>
+            )}
+            {currentUser.intimacy.preferences.map((preference) => (
+              <span key={preference} className="g-tag">{preference}</span>
+            ))}
+            {currentUser.intimacy.experience && currentUser.intimacy.experience !== 'Not specified' && (
+              <span className="g-tag">{currentUser.intimacy.experience}</span>
+            )}
+          </div>
+        </section>
+      )}
+
+      {((currentUser.mySetup?.length ?? 0) > 0 || (currentUser.availability?.length ?? 0) > 0) && (
+        <section className="mb-5">
+          <span className="g-label">My setup</span>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {(currentUser.mySetup ?? []).map((setup) => (
+              <span key={setup} className="g-tag">{setup}</span>
+            ))}
+            {(currentUser.availability ?? []).map((when) => (
+              <span key={when} className="g-chip g-chip--quiet">{when}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(currentUser.boundaries?.length ?? 0) > 0 && (
+        <section className="mb-5">
+          <span className="g-label">Boundaries</span>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {currentUser.boundaries!.map((boundary) => (
+              <span key={boundary} className="g-tag">{boundary}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Notifications — always-visible Web Push entry point */}
       {/* Safety & privacy */}
       <section className="g-panel overflow-hidden mb-5">
         <div className="px-4 pt-3.5 pb-1">
@@ -728,6 +758,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </React.Fragment>
         ))}
       </section>
+
+      {onSignOut && (
+        <button
+          type="button"
+          disabled={signingOut}
+          onClick={() => { hapticLight(); void onSignOut(); }}
+          className="w-full mb-5 h-11 rounded-xl border border-red-400/20 bg-red-400/5 text-red-300 hover:bg-red-400/10 disabled:opacity-50 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
+        >
+          <LogOut className="w-4 h-4" />
+          {signingOut ? 'Signing out…' : 'Sign Out'}
+        </button>
+      )}
 
       {/* Footer */}
       <footer className="flex items-center justify-between px-1 pb-4 opacity-75">

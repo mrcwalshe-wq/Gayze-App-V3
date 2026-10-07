@@ -31,8 +31,8 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   const isVideo = incomingCall.callType === 'video';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="g-panel relative w-full max-w-sm p-6 !rounded-[22px] space-y-6 text-center">
+    <div className="g-overlay flex items-center justify-center p-4">
+      <div className="g-panel relative w-full max-w-sm p-6 !rounded-[24px] space-y-6 text-center shadow-2xl border-white/15">
         {/* Security Badge */}
         <div className="g-badge g-badge--verify">
           <Lock className="w-3 h-3" />

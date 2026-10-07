@@ -128,7 +128,12 @@ export interface EncryptedMessage {
   isSystem?: boolean;
   meetingData?: MeetingProposal;
   mediaUrl?: string;
-  mediaType?: 'image';
+  mediaType?: 'image' | 'video' | 'audio';
+  scheduledFor?: number;
+  deletedForMe?: boolean;
+  deletedForEveryone?: boolean;
+  mediaDurationSeconds?: number;
+  albumId?: string;
 }
 
 export interface GazeInteraction {

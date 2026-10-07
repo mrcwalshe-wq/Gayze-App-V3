@@ -256,7 +256,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Display name"
                   autoComplete="name"
-                  className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#6F3CC3]/70"
+                  className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm"
                 />
               </label>
             )}
@@ -272,7 +272,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   placeholder="Email address"
                   autoComplete="email"
                   readOnly={mode === 'confirm_pending' && Boolean(pendingEmail)}
-                  className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#6F3CC3]/70 read-only:opacity-80"
+                  className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11 read-only:opacity-80"
                 />
               </label>
             )}
@@ -288,7 +288,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={mode === 'reset' ? 'New password' : 'Password'}
                   autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                  className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#6F3CC3]/70"
+                  className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11"
                 />
               </label>
             )}
@@ -304,7 +304,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
                   autoComplete="new-password"
-                  className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#6F3CC3]/70"
+                  className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11"
                 />
               </label>
             )}
@@ -318,7 +318,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <button
               type="submit"
               disabled={busy}
-              className="w-full h-12 rounded-xl bg-[#6F3CC3] hover:bg-[#7b46d2] disabled:opacity-50 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+              className="g-btn g-btn--primary w-full !h-12 !rounded-xl !text-sm font-semibold !gap-2"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
               {mode === 'signin' && 'Sign in'}

@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { DeletedRoomTracker } from './services/deletedRooms';
 import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
 import type { ChatConnectionState } from './services/realtimeRecovery';
 import type { MessageDelivery } from './services/chatSubscriptions';
@@ -21,8 +22,11 @@ import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
-import { EncryptedCallModal } from './components/EncryptedCallModal';
+import { FullScreenCallModal, FullScreenAudioCallModal } from './components/FullScreenCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
+import { initEnhancedPresence, formatLastSeen, type UserPresence } from './services/presenceService';
+import { loadCallHistory, getUnreadCallCount, markCallRecordsAsRead, markCallAsMissed } from './services/callHistoryService';
+import { sendMissedCallNotification, sendIncomingCallNotification, markCallNotificationsAsRead } from './services/callNotificationService';
 import type { EditSectionKey } from './config/profileOptions';
 import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
@@ -62,6 +66,7 @@ const ChatRoomView = lazy(() => import('./components/ChatRoomView').then((module
 const DiscoverView = lazy(() => import('./components/DiscoverView').then((module) => ({ default: module.DiscoverView })));
 const ProfileView = lazy(() => import('./components/ProfileView').then((module) => ({ default: module.ProfileView })));
 const SwarmQRModal = lazy(() => import('./components/SwarmQRModal').then((module) => ({ default: module.SwarmQRModal })));
+const PublicProfileSheet = lazy(() => import('./components/PublicProfileSheet').then((module) => ({ default: module.PublicProfileSheet })));
 import {
   Pulse,
   Gathering,
@@ -125,11 +130,13 @@ import {
   initPresence,
   createStoryFromIntent,
   loadMyConversations,
+  leaveConversation,
   loadConversationPeerKey,
   jitterLocation,
   privacyRadiusMeters,
 } from './services/supabaseService';
 import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';
+import { deleteMessageForMe, unsendMessage, setMessageExpiry } from './services/messageLifecycleService';
 import { resolveConversationKey } from './services/conversationKeyService';
 import {
   hapticQRHandshake,
@@ -556,6 +563,15 @@ export default function App() {
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [profileEditSection, setProfileEditSection] = useState<EditSectionKey | null>(null);
+  const [viewingPublicProfile, setViewingPublicProfile] = useState<{
+    userId: string | null;
+    fallbackName?: string;
+    fallbackAge?: number;
+    fallbackArea?: string;
+    fallbackIntent?: string;
+    fallbackPhotoUrl?: string;
+    fallbackOnline?: boolean;
+  } | null>(null);
   const knownIncomingInterestIdsRef = useRef<Set<string>>(new Set());
   const [notificationInbox, setNotificationInbox] = useState<NotificationInbox | null>(null);
   const [notificationInboxStatus, setNotificationInboxStatus] = useState<ChatConnectionState>('connecting');
@@ -570,6 +586,7 @@ export default function App() {
   // Encrypted Calling state
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [callPeerName, setCallPeerName] = useState<string>('Marcus');
+  const [callPeerAvatar, setCallPeerAvatar] = useState<string | undefined>(undefined);
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
   const [callTargetUserId, setCallTargetUserId] = useState<string | undefined>(undefined);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
@@ -578,6 +595,9 @@ export default function App() {
   const [chatConnection, setChatConnection] = useState<{ roomId: string; state: ChatConnectionState }>({ roomId: '', state: 'connecting' });
   const [presenceProfileUserId, setPresenceProfileUserId] = useState<string | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [presenceMap, setPresenceMap] = useState<Map<string, UserPresence>>(new Map());
+  const [callHistory, setCallHistory] = useState<any[]>([]);
+  const [unreadCallCount, setUnreadCallCount] = useState<number>(0);
 
   // Set Intent Sheet state — canonical Right Now intent state.
   // Hydrate once from local storage so Discover / Right Now stay consistent
@@ -677,17 +697,31 @@ export default function App() {
     viewingRoom: activeTabRef.current === 'swarms' ? visibleChatRoomRef.current : null,
     userId: supabaseUserIdRef.current, recipientId,
   }, () => { showToast('New GAYZE message'); hapticMessageDecrypted(); });
+  // Delete-chat bookkeeping. A list load that STARTED before a delete was
+  // confirmed may still contain the deleted room and must not resurrect it;
+  // any load started afterwards reflects server truth (so a genuinely
+  // recreated conversation becomes visible again). Entries are not permanent.
+  const conversationLoadEpochs = useRef(new WeakMap<object, number>()).current;
+  const deletedRooms = useRef(new DeletedRoomTracker()).current;
   const conversationLoadRef = useRef<{ userId: string; work: ReturnType<typeof loadMyConversations> } | null>(null);
   const loadConversationListOnce = (userId: string) => {
     const pending = conversationLoadRef.current;
     if (pending?.userId === userId) return pending.work;
-    const entry = { userId, work: loadMyConversations() };
+    const startEpoch = deletedRooms.currentEpoch;
+    const entry = {
+      userId,
+      work: loadMyConversations().then((result) => {
+        if (result) conversationLoadEpochs.set(result, startEpoch);
+        return result;
+      }),
+    };
     conversationLoadRef.current = entry;
     void entry.work.finally(() => { if (conversationLoadRef.current === entry) conversationLoadRef.current = null; }).catch(() => {});
     return entry.work;
   };
 
   function clearChatAccount() {
+    deletedRooms.clear();
     clearMessageWork();
     messageAlertsRef.current.clear();
     conversationLoadRef.current = null;
@@ -718,6 +752,9 @@ export default function App() {
 
   const activeUserIntentRef = useRef<UserActiveIntent | null>(activeUserIntent);
   useEffect(() => { activeUserIntentRef.current = activeUserIntent; }, [activeUserIntent]);
+
+  const withoutDeletedRooms = (loaded: SwarmRoom[], result: object) =>
+    deletedRooms.filter(loaded, conversationLoadEpochs.get(result) ?? -1);
 
   const refreshDiscoveryRef = useRef<() => Promise<void>>(async () => undefined);
   const refreshConversationListRef = useRef<() => Promise<void>>(async () => undefined);
@@ -927,7 +964,7 @@ export default function App() {
     if (!viewerId) return;
     const result = await loadConversationListOnce(viewerId);
     if (!result || isSigningOutRef.current || supabaseUserIdRef.current !== viewerId) return;
-    const loaded = buildRoomsFromSupabase(result, viewerId);
+    const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, viewerId), result);
     setRooms((prev) => mergeBackendRooms(prev, loaded, viewerId));
   };
 
@@ -974,7 +1011,7 @@ export default function App() {
           const result = await loadConversationListOnce(supabaseUserId);
           if (disposed || !delivery.current()) return;
           if (result) {
-            const loaded = buildRoomsFromSupabase(result, supabaseUserIdRef.current || '');
+            const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, supabaseUserIdRef.current || ''), result);
             setRooms((prev) => mergeBackendRooms(prev, loaded, supabaseUserIdRef.current || ''));
             room = loaded.find((candidate) => candidate.id === row.conversation_id);
           }
@@ -1053,12 +1090,31 @@ export default function App() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
-    // Presence privacy is independent of authenticated messaging/call signalling.
-    const unsubPresence = initPresence(supabaseUserId, currentUser.displayName, (onlineIds) => {
-      setOnlineUserIds(onlineIds);
-    }, presenceProfileUserId === supabaseUserId && !currentUser.presenceIncognito && currentUser.privacySetting !== 'ghost');
+    // Use enhanced presence system for both online status and last seen
+    const visible = presenceProfileUserId === supabaseUserId && !currentUser.presenceIncognito && currentUser.privacySetting !== 'ghost';
+    
+    const unsubPresence = initEnhancedPresence(
+      supabaseUserId, 
+      currentUser.displayName, 
+      (presenceMap) => {
+        // Convert presence map to online user IDs for backward compatibility
+        const onlineIds = new Set<string>();
+        presenceMap.forEach((presence, userId) => {
+          if (presence.isOnline) {
+            onlineIds.add(userId);
+          }
+        });
+        setOnlineUserIds(onlineIds);
+        setPresenceMap(presenceMap);
+      },
+      visible
+    );
 
-    return unsubPresence;
+    return () => {
+      unsubPresence();
+      setOnlineUserIds(new Set());
+      setPresenceMap(new Map());
+    };
   }, [supabaseUserId, currentUser.displayName, currentUser.presenceIncognito, currentUser.privacySetting, presenceProfileUserId, isAuthenticated, isSigningOut]);
 
   // Local persistence is limited to local/demo mode (no Supabase configured).
@@ -1374,7 +1430,7 @@ export default function App() {
             loadRooms: async () => {
               const result = await loadConversationListOnce(account!);
               if (!result || !current()) return null;
-              const loaded = buildRoomsFromSupabase(result, account!);
+              const loaded = withoutDeletedRooms(buildRoomsFromSupabase(result, account!), result);
               setRooms(previous => mergeBackendRooms(previous, loaded, account!));
               return loaded;
             },
@@ -2037,6 +2093,113 @@ export default function App() {
     }
   };
 
+  const handleDeleteMessageForMe = async (messageId: string) => {
+    await deleteMessageForMe(messageId);
+    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.filter((message) => message.id !== messageId)])));
+  };
+  const handleUnsendMessage = async (messageId: string) => {
+    await unsendMessage(messageId);
+    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.map((message) => message.id === messageId ? { ...message, deletedForEveryone: true, isBurned: false, plainText: 'Message unsent', cipherText: '' } : message)])));
+  };
+  const handleSetMessageExpiry = async (messageId: string, ttlSeconds: number | null) => {
+    const expiresAt = ttlSeconds == null ? null : new Date(Date.now() + ttlSeconds * 1000);
+    await setMessageExpiry(messageId, expiresAt);
+    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.map((message) => message.id === messageId ? { ...message, expiresAt: expiresAt?.getTime() } : message)])));
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    isSigningOutRef.current = true;
+
+    // Invalidate in-flight work and leave the authenticated shell immediately.
+    authGenerationRef.current += 1;
+    clearChatAccount();
+    locationWatchStopRef.current?.();
+    locationWatchStopRef.current = null;
+    recoverySessionRef.current = false;
+
+    setActiveUserIntent(null);
+    setSupabaseRightNowPulses([]);
+    setSupabaseReady(false);
+    setSupabaseUserId(null);
+    setIdentityDevices([]);
+    setCurrentDeviceFingerprint(null);
+    setOnlineUserIds(new Set());
+    setUserLocation(null);
+    setLocationError(null);
+    setIsIdentityOpen(false);
+    setIsAuthenticated(false);
+    setAuthReady(true);
+
+    await finishSignOut({
+      releasePush: releasePushOnSignOut,
+      clearLocalSession: () => {
+        for (const storage of [window.localStorage, window.sessionStorage]) {
+          try {
+            storage.removeItem(GAYZE_AUTH_STORAGE_KEY);
+            for (let index = storage.length - 1; index >= 0; index -= 1) {
+              const key = storage.key(index);
+              if (key && (
+                key.startsWith('sb-') ||
+                key.includes('supabase.auth') ||
+                key.includes('supabase-auth-token')
+              )) storage.removeItem(key);
+            }
+          } catch (error) {
+            console.warn('[GAYZE] Could not clear browser auth storage:', error);
+          }
+        }
+
+        for (const key of [
+          'gayze_messages',
+          'gayze_active_user_intent',
+          'gayze_user',
+          'gayze_rooms',
+          'gayze_pulses',
+          'gayze_gatherings',
+          'gayze_stories',
+          'gayze_intent_posts',
+          'gayze_checkin',
+          'gayze_verified_rooms',
+        ]) {
+          try { window.localStorage.removeItem(key); } catch { /* Storage is optional. */ }
+        }
+      },
+      signOut: () => supabase?.auth.signOut({ scope: 'global' }),
+      reload: () => window.location.replace(window.location.origin + '/?signed_out=1'),
+    });
+  };
+
+  const handleDeleteChat = async (roomId: string) => {
+    const account = supabaseUserIdRef.current;
+    if (!account || !isConversationId(roomId)) throw new Error('This conversation is unavailable.');
+    // Until the delete is confirmed, drop every list load for this room.
+    deletedRooms.begin(roomId);
+    conversationLoadRef.current = null;
+    try {
+      await leaveConversation(roomId);
+    } catch (error) {
+      deletedRooms.fail(roomId);
+      throw error;
+    }
+    deletedRooms.confirm(roomId);
+    conversationLoadRef.current = null;
+    messageProcessorRef.current.forgetConversation(roomId);
+    setRooms((prev) => prev.filter((room) => room.id !== roomId));
+    setMessages((prev) => {
+      if (!(roomId in prev)) return prev;
+      const { [roomId]: _removed, ...rest } = prev;
+      return rest;
+    });
+    if (activeRoomIdRef.current === roomId) {
+      setActiveRoomId('');
+      setChatOpenRequest(null);
+      reportVisibleChatRoom(null);
+    }
+    showToast('Chat deleted');
+  };
+
   const handleUpdateRoomTtl = (roomId: string, ttl: number) => {
     setRooms((prev) =>
       prev.map((r) => (r.id === roomId ? { ...r, ephemeralTtlSeconds: ttl } : r))
@@ -2258,7 +2421,7 @@ export default function App() {
   };
 
   // Calling & Gaze Handlers
-  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string) => {
+  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
     // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
     primeCallAudio();
     // Live calls must belong to a real mutual conversation. A synthetic room
@@ -2274,11 +2437,13 @@ export default function App() {
         return;
       }
       setCallPeerName(peerName);
+      setCallPeerAvatar(peerAvatar);
       setCallType(type);
       setCallTargetUserId(targetUserId);
       setActiveRoomId(room.id);
     } else {
       setCallPeerName(peerName);
+      setCallPeerAvatar(peerAvatar);
       setCallType(type);
       setCallTargetUserId(targetUserId);
     }
@@ -2290,6 +2455,7 @@ export default function App() {
     primeCallAudio();
     setIncomingCall(null);
     setCallPeerName(call.callerName);
+    setCallPeerAvatar(undefined); // Will be fetched from profile if needed
     setCallType(call.callType);
     setCallTargetUserId(call.callerId);
     setActiveRoomId(call.conversationId);
@@ -2300,6 +2466,7 @@ export default function App() {
       callerId: call.callerId,
       userId: supabaseUserId || currentUser.publicKey,
       callType: call.callType,
+      callerName: call.callerName,
     });
   };
 
@@ -2309,7 +2476,12 @@ export default function App() {
       conversationId: call.conversationId,
       callerId: call.callerId,
       userId: supabaseUserId || currentUser.publicKey,
+      callerName: call.callerName,
     });
+    
+    // Save missed call record and send notification
+    await markCallAsMissed(call.conversationId, call.callerId, call.callType);
+    await sendMissedCallNotification(call);
   };
 
   const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
@@ -2723,7 +2895,10 @@ export default function App() {
       )}
 
       {/* Shell: navigation + views, above the atmosphere layer */}
-      <div className="g-shell flex flex-1 min-h-0 flex-col">
+      <div
+        className="g-shell flex flex-1 min-h-0 flex-col"
+        data-intent-mode={activeUserIntent?.mode ?? 'none'}
+      >
       {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
         activeTab={activeTab}
@@ -2737,6 +2912,7 @@ export default function App() {
         onOpenQR={() => handleOpenQRModal()}
         reliabilityScore={currentUser.reliabilityScore}
         userNeighborhood={currentUser.neighborhood}
+        activeIntentMode={activeUserIntent?.mode ?? null}
       />
 
       {/* Main Content Viewport Container */}
@@ -2770,6 +2946,9 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
+              onOpenPublicProfile={(userId, fallback) => {
+                setViewingPublicProfile({ userId, ...fallback });
+              }}
             />
           )}
 
@@ -2779,12 +2958,12 @@ export default function App() {
               activeUserIntent={activeUserIntent}
               areaLabel={resolveAreaLabel(currentUser.neighborhood)}
               onOpenSetIntent={handleOpenIntentSheet}
-              onUpdateActiveUserIntent={handleUpdateActiveUserIntent}
-              intentBusy={intentBusy}
               onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
               isSafetyTimerActive={checkinState.isActive}
               onOpenMask={() => setIsMaskActive(true)}
               onOpenIdentity={() => setIsIdentityOpen(true)}
+              onSignOut={handleSignOut}
+              signingOut={isSigningOut}
               onOpenQR={() => handleOpenQRModal()}
               onOpenSafeHavens={() => setActiveTab('safe_havens')}
               onOpenDiscover={() => setActiveTab('dating')}
@@ -2854,6 +3033,10 @@ export default function App() {
               currentUserId={supabaseUserId}
               onSendMessage={handleSendMessage}
               onUpdateRoomTtl={handleUpdateRoomTtl}
+              onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
+              onDeleteMessage={IS_LIVE_BACKEND ? handleDeleteMessageForMe : undefined}
+              onUnsendMessage={IS_LIVE_BACKEND ? handleUnsendMessage : undefined}
+              onSetMessageExpiry={IS_LIVE_BACKEND ? handleSetMessageExpiry : undefined}
               onOpenQR={(peerName) => {
                 const matchedPeer = datingProfiles.find(
                   (p) => p.name.toLowerCase() === peerName?.toLowerCase()
@@ -2904,21 +3087,43 @@ export default function App() {
         onConfirmMeeting={handleConfirmMeeting}
       />
 
-      {/* Encrypted Audio & Video Call Modal */}
-      <EncryptedCallModal
-        isOpen={isCallModalOpen}
-        onClose={() => {
-          setIsCallModalOpen(false);
-          setIsIncomingCallActive(false);
-        }}
-        peerName={callPeerName}
-        callType={callType}
-        conversationId={activeRoomId}
-        callerId={supabaseUserId || currentUser.publicKey}
-        callerName={currentUser.displayName}
-        targetUserId={callTargetUserId}
-        isIncoming={isIncomingCallActive}
-      />
+      {/* Full Screen Video Call Modal */}
+      {callType === 'video' && (
+        <FullScreenCallModal
+          isOpen={isCallModalOpen}
+          onClose={() => {
+            setIsCallModalOpen(false);
+            setIsIncomingCallActive(false);
+          }}
+          peerName={callPeerName}
+          peerAvatar={callPeerAvatar}
+          callType={callType}
+          conversationId={activeRoomId}
+          callerId={supabaseUserId || currentUser.publicKey}
+          callerName={currentUser.displayName}
+          targetUserId={callTargetUserId}
+          isIncoming={isIncomingCallActive}
+        />
+      )}
+      
+      {/* Full Screen Audio Call Modal */}
+      {callType === 'audio' && (
+        <FullScreenAudioCallModal
+          isOpen={isCallModalOpen}
+          onClose={() => {
+            setIsCallModalOpen(false);
+            setIsIncomingCallActive(false);
+          }}
+          peerName={callPeerName}
+          peerAvatar={callPeerAvatar}
+          callType={callType}
+          conversationId={activeRoomId}
+          callerId={supabaseUserId || currentUser.publicKey}
+          callerName={currentUser.displayName}
+          targetUserId={callTargetUserId}
+          isIncoming={isIncomingCallActive}
+        />
+      )}
 
       {/* Incoming Call Notification Modal */}
       <IncomingCallModal
@@ -2952,6 +3157,35 @@ export default function App() {
             initialSection={profileEditSection}
             onOpenIdentity={() => setIsIdentityOpen(true)}
             onOpenSetIntent={handleOpenIntentSheet}
+          />
+        </Suspense>
+      )}
+
+      {/* Public Profile View Sheet */}
+      {viewingPublicProfile && (
+        <Suspense fallback={null}>
+          <PublicProfileSheet
+            userId={viewingPublicProfile.userId}
+            fallbackName={viewingPublicProfile.fallbackName}
+            fallbackAge={viewingPublicProfile.fallbackAge}
+            fallbackArea={viewingPublicProfile.fallbackArea}
+            fallbackIntent={viewingPublicProfile.fallbackIntent}
+            fallbackPhotoUrl={viewingPublicProfile.fallbackPhotoUrl}
+            fallbackOnline={viewingPublicProfile.fallbackOnline}
+            onClose={() => setViewingPublicProfile(null)}
+            onMessage={() => {
+              const peerId = viewingPublicProfile.userId;
+              setViewingPublicProfile(null);
+              if (peerId) {
+                const targetRoom = rooms.find(
+                  (r) => r.peerUserId === peerId || r.id === `room_${peerId}` || r.id.includes(peerId)
+                );
+                if (targetRoom) {
+                  requestConversationOpen(targetRoom.id);
+                  setActiveTab('swarms');
+                }
+              }
+            }}
           />
         </Suspense>
       )}
@@ -3003,68 +3237,7 @@ export default function App() {
         currentDeviceFingerprint={currentDeviceFingerprint}
         onRevokeDevice={handleRevokeDevice}
         signingOut={isSigningOut}
-        onSignOut={async () => {
-          if (isSigningOut) return;
-          setIsSigningOut(true);
-          isSigningOutRef.current = true;
-
-          // Invalidate in-flight work and leave the authenticated shell immediately.
-          authGenerationRef.current += 1;
-          clearChatAccount();
-          locationWatchStopRef.current?.();
-          locationWatchStopRef.current = null;
-          recoverySessionRef.current = false;
-          setActiveUserIntent(null);
-          setSupabaseRightNowPulses([]);
-          setSupabaseReady(false);
-          setSupabaseUserId(null);
-          setIdentityDevices([]);
-          setCurrentDeviceFingerprint(null);
-          setOnlineUserIds(new Set());
-          setUserLocation(null);
-          setLocationError(null);
-          setIsIdentityOpen(false);
-          setIsAuthenticated(false);
-          setAuthReady(true);
-
-          await finishSignOut({
-            releasePush: releasePushOnSignOut,
-            clearLocalSession: () => {
-              for (const storage of [window.localStorage, window.sessionStorage]) {
-                try {
-                  storage.removeItem(GAYZE_AUTH_STORAGE_KEY);
-                  for (let index = storage.length - 1; index >= 0; index -= 1) {
-                    const key = storage.key(index);
-                    if (key && (
-                      key.startsWith('sb-') ||
-                      key.includes('supabase.auth') ||
-                      key.includes('supabase-auth-token')
-                    )) storage.removeItem(key);
-                  }
-                } catch (error) {
-                  console.warn('[GAYZE] Could not clear browser auth storage:', error);
-                }
-              }
-
-              for (const key of [
-                'gayze_messages',
-                'gayze_active_user_intent',
-                'gayze_user',
-                'gayze_rooms',
-                'gayze_pulses',
-                'gayze_gatherings',
-                'gayze_stories',
-                'gayze_intent_posts',
-                'gayze_checkin',
-                'gayze_verified_rooms',
-              ]) {
-                try { window.localStorage.removeItem(key); } catch { /* Storage is optional. */ }
-              }
-            },
-            signOut: () => supabase?.auth.signOut({ scope: 'global' }),
-            reload: () => window.location.replace(window.location.origin + '/?signed_out=1'),
-          });
-        }}
+        onSignOut={handleSignOut}
       />
       </div>{/* /g-shell */}
 

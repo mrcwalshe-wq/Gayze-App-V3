@@ -248,99 +248,102 @@ assert(webpushSends.length === 1 && webpushSends[0].payload.conversationId === c
 globalThis.__clientSb.rpc = async () => ({ data: { mutual: false, conversation_id: null }, error: null });
 webpushSends.length = 0;
 const res2 = await svc.submitInterest(B, undefined);
-await db.query('delete from notification_preferences'); await db.query('delete from push_subscriptions'); await db.query('delete from notification_dispatch_log');
-  'master switch off -> test push refused with the honest reason (not "no device")');
-assert(!ts.ok && webpushSends.length === 0 && /switched off/.test(ts.reason),
-ts = await push.sendTestNotification();
-await db.query(`insert into notification_preferences(user_id, push_enabled) values ($1,false)`, [B]);
-assert(webpushSends.length === 2 && webpushSends[1].endpoint === epB7, 'test action can only target the JWT user (toUserId ignored)');
-e = await callEdge({ action: 'test', toUserId: A }, { Authorization: `Bearer tok:${B}` });
-  'system notification copy + destination');
-assert(webpushSends[0].payload.type === 'test' && webpushSends[0].payload.url === '/profile' && webpushSends[0].payload.body === 'Your Gayze push notifications are now enabled.',
-assert(ts.ok && webpushSends.length === 1 && webpushSends[0].endpoint === epB7, 'test push reaches the signed-in user\'s own device');
-let ts = await push.sendTestNotification();
-signIn(B); await push.subscribeToPush(); const epB7 = device.sub.endpoint;
-console.log('\n=== Scenario 7: system (test) notification ===');
-await db.query('delete from notification_dispatch_log');
-  'submitInterest(mutual) sends the CONNECTION push only — never a second interest push for the same call');
-assert(webpushSends.length === 1 && webpushSends[0].payload.type === 'connection' && webpushSends[0].payload.conversationId === conv5,
-const res5 = await svc.submitInterest(B, uuid(8));
-globalThis.__clientSb.rpc = async (name) => name === 'submit_interest' ? { data: { mutual: true, conversation_id: conv5 }, error: null } : { data: null, error: { message: 'x' } };
-await db.query(`insert into conversation_members values ($1,$2),($1,$3)`, [conv5, A, B]);
-const conv5 = (await db.query(`insert into conversations default values returning id`)).rows[0].id;
-assert(res4.sent && webpushSends.length === 1 && webpushSends[0].payload.type === 'intent', 'submitInterest(non-mutual, intentId) triggers exactly one interest push');
-const res4 = await svc.submitInterest(B, intentB2);
-const intentB2 = (await db.query(`insert into intents(user_id,expires_at,is_paused) values ($1, now()+interval '1 hour', false) returning id`, [B])).rows[0].id;
-assert(res3.sent && !res3.mutual && webpushSends.length === 0, 'repeat submitInterest from A is deduped at the ledger (already claimed)');
-const res3 = await svc.submitInterest(B, intentB);
-  : { data: null, error: { message: 'x' } };
-  ? { data: { mutual: false, conversation_id: null }, error: null }
-globalThis.__clientSb.rpc = async (name, args) => name === 'submit_interest'
-// submitInterest wiring: non-mutual + intentId fires the interest push; mutual fires the connection push instead (one event, one notification).
-assert(webpushSends.length === 0 && e.body.delivered === 0, 'intent_activity=false -> no interest push');
-await db.query(`insert into notification_preferences(user_id, intent_activity) values ($1,false)`, [B]);
-// Preference gate.
-assert(e.status === 401, 'interest push requires authentication');
-e = await callEdge({ action: 'interest', intentId: intentB });
-assert(webpushSends.length === 2, 'recipient comes from intents.user_id — body toUserId is ignored');
-e = await callEdge({ action: 'interest', intentId: intentB, toUserId: C }, { Authorization: `Bearer tok:${A}` });
-assert(e.body.reason === 'not_eligible', 'unknown intent id -> nothing');
-e = await callEdge({ action: 'interest', intentId: uuid(9) }, { Authorization: `Bearer tok:${A}` });
-assert(e.body.reason === 'invalid_intent', 'malformed intent id rejected');
-e = await callEdge({ action: 'interest', intentId: 'not-a-uuid' }, { Authorization: `Bearer tok:${A}` });
-assert(e.body.reason === 'not_eligible' && webpushSends.length === 2, 'own intent -> rejected (no self-push)');
-e = await callEdge({ action: 'interest', intentId: intentA }, { Authorization: `Bearer tok:${A}` });
-assert(webpushSends.length === 2 && webpushSends[1].endpoint === epB6, 'a DIFFERENT responder is a different event -> B notified once more');
-e = await callEdge({ action: 'interest', intentId: intentB }, { Authorization: `Bearer tok:${C}` });
-signIn(C);
-assert((await db.query(`select count(*)::int c from notification_dispatch_log where category='intent'`)).rows[0].c === 1, 'one interest ledger row');
-assert(e.body.reason === 'already_sent' && webpushSends.length === 1, 'retry / repeat interest from the same caller is suppressed (exactly once per (intent, caller))');
-assert(!/(A\b|Alex)/.test(ip.body), 'no sender identity in the intent push body');
-  'intent push deep-links to /right-now and never names the sender or the intent');
-assert(ip.url === '/right-now' && ip.intentId === intentB && ip.body === 'Someone responded to your active intent.',
-const ip = webpushSends[0].payload;
-  'A responds to B\'s intent -> exactly one "someone is interested" push to B\'s device');
-assert(webpushSends.length === 1 && webpushSends[0].endpoint === epB6 && webpushSends[0].payload.type === 'intent',
-e = await callEdge({ action: 'interest', intentId: intentB }, { Authorization: `Bearer tok:${A}` });
-signIn(B); await push.subscribeToPush(); const epB6 = device.sub.endpoint;
-const intentA = (await db.query(`insert into intents(user_id,expires_at,is_paused) values ($1, now()+interval '1 hour', false) returning id`, [A])).rows[0].id;
-const intentB = (await db.query(`insert into intents(user_id,expires_at,is_paused) values ($1, now()+interval '1 hour', false) returning id`, [B])).rows[0].id;
-console.log('\n=== Scenario 6: interest push (someone responds to your live intent) ===');
-await db.query('delete from push_subscriptions'); await db.query('delete from notification_dispatch_log');
-device.revoked.delete(epB5b);
-assert(left.length === 1 && left[0].endpoint === epB5a, 'stale prune removes ONLY the dead endpoint row; the healthy device is untouched');
-const left = await rows('where user_id=$1', [B]);
-assert(d.body.delivered === 1 && webpushSends.some((s) => s.endpoint === epB5a), 'second device dead (410) -> first device still receives');
-device.revoked.add(epB5b);
-// Stale prune must touch ONLY the dead device's row.
-assert(d.body.delivered === 0 && webpushSends.length === 0, 'master push_enabled=false -> no push either');
-await db.query(`update notification_preferences set messages=true, push_enabled=false where user_id=$1`, [B]);
-assert(d.body.delivered === 0 && webpushSends.length === 0, 'messages=false -> no push despite an active message');
-await db.query(`insert into notification_preferences(user_id, messages) values ($1,false)`, [B]);
-// Preferences gate the message category (server-side, not UI).
-}
-  assert(!/(ciphertext|nonce|plainText|p256dh|swarmSecret|cipher)/i.test(JSON.stringify(mp)), 'no E2EE material anywhere in the push payload');
-    `payload carries ONLY ${allowed.join('/')} — no ciphertext, nonce, keys or message text (got: ${keys.join('/')})`);
-  assert(JSON.stringify(keys) === JSON.stringify(allowed),
-  const allowed = ['body', 'conversationId', 'tag', 'title', 'type', 'url'];
-  const keys = Object.keys(mp).sort();
-{
-  'message notification deep-links to the conversation and tags per-conversation');
-assert(mp.url === `/messages/${convAB}` && mp.conversationId === convAB && mp.tag === `gayze-message-${convAB}`,
-  `message push copy is "sender sent you a message" (got: ${JSON.stringify(mp.body)})`);
-assert(mp.type === 'message' && mp.title === 'New message' && mp.body === 'X sent you a message',
-const mp = webpushSends[0].payload;
-assert(webpushSends.every((s) => [epB5a, epB5b].includes(s.endpoint)) && new Set(webpushSends.map((s) => s.endpoint)).size === 2, 'exactly one send per device, no duplicates');
-assert(d.body.delivered === 2 && webpushSends.length === 2, 'one message -> one push PER eligible device (B has two)');
-d = await dispatchMessage(A, convAB);
-await db.query(`insert into push_subscriptions(user_id,endpoint,p256dh,auth) values ($1,$2,'k','a')`, [B, epB5b]);
-const epB5b = 'https://push.example/ep-B-second-device';
-signIn(B); device.unsubMode = 'ok'; await push.subscribeToPush(); const epB5a = device.sub.endpoint;
-await db.query('delete from push_subscriptions'); await db.query('delete from notification_dispatch_log'); await db.query('delete from notification_preferences');
-// B runs TWO devices; A sends one message.
-console.log('\n=== Scenario 5: message push — E2EE exclusion, multi-device, preferences ===');
 await new Promise((r2) => setTimeout(r2, 200));
 assert(res2.sent && !res2.mutual && webpushSends.length === 0, 'non-mutual interest sends no connection push');
+
+console.log('\n=== Scenario 5: message push — E2EE exclusion, multi-device, preferences ===');
+// B runs TWO devices; A sends one message.
+await db.query('delete from push_subscriptions'); await db.query('delete from notification_dispatch_log'); await db.query('delete from notification_preferences');
+signIn(B); device.unsubMode = 'ok'; await push.subscribeToPush(); const epB5a = device.sub.endpoint;
+const epB5b = 'https://push.example/ep-B-second-device';
+await db.query(`insert into push_subscriptions(user_id,endpoint,p256dh,auth) values ($1,$2,'k','a')`, [B, epB5b]);
+d = await dispatchMessage(A, convAB);
+assert(d.body.delivered === 2 && webpushSends.length === 2, 'one message -> one push PER eligible device (B has two)');
+assert(webpushSends.every((s) => [epB5a, epB5b].includes(s.endpoint)) && new Set(webpushSends.map((s) => s.endpoint)).size === 2, 'exactly one send per device, no duplicates');
+const mp = webpushSends[0].payload;
+assert(mp.type === 'message' && mp.title === 'New message' && mp.body === 'X sent you a message',
+  `message push copy is "sender sent you a message" (got: ${JSON.stringify(mp.body)})`);
+assert(mp.url === `/messages/${convAB}` && mp.conversationId === convAB && mp.tag === `gayze-message-${convAB}`,
+  'message notification deep-links to the conversation and tags per-conversation');
+{
+  const keys = Object.keys(mp).sort();
+  const allowed = ['body', 'conversationId', 'tag', 'title', 'type', 'url'];
+  assert(JSON.stringify(keys) === JSON.stringify(allowed),
+    `payload carries ONLY ${allowed.join('/')} — no ciphertext, nonce, keys or message text (got: ${keys.join('/')})`);
+  assert(!/(ciphertext|nonce|plainText|p256dh|swarmSecret|cipher)/i.test(JSON.stringify(mp)), 'no E2EE material anywhere in the push payload');
+}
+// Preferences gate the message category (server-side, not UI).
+await db.query(`insert into notification_preferences(user_id, messages) values ($1,false)`, [B]);
+assert(d.body.delivered === 0 && webpushSends.length === 0, 'messages=false -> no push despite an active message');
+await db.query(`update notification_preferences set messages=true, push_enabled=false where user_id=$1`, [B]);
+assert(d.body.delivered === 0 && webpushSends.length === 0, 'master push_enabled=false -> no push either');
+// Stale prune must touch ONLY the dead device's row.
+device.revoked.add(epB5b);
+assert(d.body.delivered === 1 && webpushSends.some((s) => s.endpoint === epB5a), 'second device dead (410) -> first device still receives');
+const left = await rows('where user_id=$1', [B]);
+assert(left.length === 1 && left[0].endpoint === epB5a, 'stale prune removes ONLY the dead endpoint row; the healthy device is untouched');
+device.revoked.delete(epB5b);
+await db.query('delete from push_subscriptions'); await db.query('delete from notification_dispatch_log'); await db.query('delete from notification_preferences');
+
+console.log('\n=== Scenario 6: interest push (someone responds to your live intent) ===');
+const intentB = (await db.query(`insert into intents(user_id,expires_at,is_paused) values ($1, now()+interval '1 hour', false) returning id`, [B])).rows[0].id;
+const intentA = (await db.query(`insert into intents(user_id,expires_at,is_paused) values ($1, now()+interval '1 hour', false) returning id`, [A])).rows[0].id;
+signIn(B); await push.subscribeToPush(); const epB6 = device.sub.endpoint;
+e = await callEdge({ action: 'interest', intentId: intentB }, { Authorization: `Bearer tok:${A}` });
+assert(webpushSends.length === 1 && webpushSends[0].endpoint === epB6 && webpushSends[0].payload.type === 'intent',
+  'A responds to B\'s intent -> exactly one "someone is interested" push to B\'s device');
+const ip = webpushSends[0].payload;
+assert(ip.url === '/right-now' && ip.intentId === intentB && ip.body === 'Someone responded to your active intent.',
+  'intent push deep-links to /right-now and never names the sender or the intent');
+assert(!/(A\b|Alex)/.test(ip.body), 'no sender identity in the intent push body');
+assert(e.body.reason === 'already_sent' && webpushSends.length === 1, 'retry / repeat interest from the same caller is suppressed (exactly once per (intent, caller))');
+assert((await db.query(`select count(*)::int c from notification_dispatch_log where category='intent'`)).rows[0].c === 1, 'one interest ledger row');
+signIn(C);
+e = await callEdge({ action: 'interest', intentId: intentB }, { Authorization: `Bearer tok:${C}` });
+assert(webpushSends.length === 2 && webpushSends[1].endpoint === epB6, 'a DIFFERENT responder is a different event -> B notified once more');
+e = await callEdge({ action: 'interest', intentId: intentA }, { Authorization: `Bearer tok:${A}` });
+assert(e.body.reason === 'not_eligible' && webpushSends.length === 2, 'own intent -> rejected (no self-push)');
+e = await callEdge({ action: 'interest', intentId: 'not-a-uuid' }, { Authorization: `Bearer tok:${A}` });
+assert(e.body.reason === 'invalid_intent', 'malformed intent id rejected');
+e = await callEdge({ action: 'interest', intentId: uuid(9) }, { Authorization: `Bearer tok:${A}` });
+assert(e.body.reason === 'not_eligible', 'unknown intent id -> nothing');
+e = await callEdge({ action: 'interest', intentId: intentB, toUserId: C }, { Authorization: `Bearer tok:${A}` });
+assert(webpushSends.length === 2, 'recipient comes from intents.user_id — body toUserId is ignored');
+e = await callEdge({ action: 'interest', intentId: intentB });
+assert(e.status === 401, 'interest push requires authentication');
+// Preference gate.
+await db.query(`insert into notification_preferences(user_id, intent_activity) values ($1,false)`, [B]);
+assert(webpushSends.length === 0 && e.body.delivered === 0, 'intent_activity=false -> no interest push');
+// submitInterest wiring: non-mutual + intentId fires the interest push; mutual fires the connection push instead (one event, one notification).
+globalThis.__clientSb.rpc = async (name, args) => name === 'submit_interest'
+  ? { data: { mutual: false, conversation_id: null }, error: null }
+  : { data: null, error: { message: 'x' } };
+const res3 = await svc.submitInterest(B, intentB);
+assert(res3.sent && !res3.mutual && webpushSends.length === 0, 'repeat submitInterest from A is deduped at the ledger (already claimed)');
+const intentB2 = (await db.query(`insert into intents(user_id,expires_at,is_paused) values ($1, now()+interval '1 hour', false) returning id`, [B])).rows[0].id;
+const res4 = await svc.submitInterest(B, intentB2);
+assert(res4.sent && webpushSends.length === 1 && webpushSends[0].payload.type === 'intent', 'submitInterest(non-mutual, intentId) triggers exactly one interest push');
+const conv5 = (await db.query(`insert into conversations default values returning id`)).rows[0].id;
+await db.query(`insert into conversation_members values ($1,$2),($1,$3)`, [conv5, A, B]);
+globalThis.__clientSb.rpc = async (name) => name === 'submit_interest' ? { data: { mutual: true, conversation_id: conv5 }, error: null } : { data: null, error: { message: 'x' } };
+const res5 = await svc.submitInterest(B, uuid(8));
+assert(webpushSends.length === 1 && webpushSends[0].payload.type === 'connection' && webpushSends[0].payload.conversationId === conv5,
+  'submitInterest(mutual) sends the CONNECTION push only — never a second interest push for the same call');
+await db.query('delete from notification_dispatch_log'); await db.query('delete from notification_preferences');
+
+console.log('\n=== Scenario 7: system (test) notification ===');
+signIn(B); await push.subscribeToPush(); const epB7 = device.sub.endpoint;
+let ts = await push.sendTestNotification();
+assert(ts.ok && webpushSends.length === 1 && webpushSends[0].endpoint === epB7, 'test push reaches the signed-in user\'s own device');
+assert(webpushSends[0].payload.type === 'test' && webpushSends[0].payload.url === '/profile' && webpushSends[0].payload.body === 'Your Gayze push notifications are now enabled.',
+  'system notification copy + destination');
+e = await callEdge({ action: 'test', toUserId: A }, { Authorization: `Bearer tok:${B}` });
+assert(webpushSends.length === 2 && webpushSends[1].endpoint === epB7, 'test action can only target the JWT user (toUserId ignored)');
+await db.query(`insert into notification_preferences(user_id, push_enabled) values ($1,false)`, [B]);
+ts = await push.sendTestNotification();
+assert(!ts.ok && webpushSends.length === 0 && /switched off/.test(ts.reason),
+  'master switch off -> test push refused with the honest reason (not "no device")');
+await db.query('delete from notification_preferences'); await db.query('delete from push_subscriptions'); await db.query('delete from notification_dispatch_log');
 
 await vite.close();
 console.log(process.exitCode ? '\nE2E TESTS: FAILURES' : '\nE2E TESTS: ALL PASSED');

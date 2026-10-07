@@ -1,0 +1,27 @@
+/* GAYZE structural brand chrome — thin Purple → Magenta → Amber signature lines. */
+.g-brand-topline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 2147483000;
+  pointer-events: none;
+  background: linear-gradient(90deg, #6F3CC3 0%, #D43CBE 52%, #C9A24D 100%);
+  box-shadow: 0 0 14px rgba(111,60,195,.18), 0 0 18px rgba(201,162,77,.10);
+  opacity: .92;
+}
+
+.g-brand-rule {
+  width: 100%;
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, #6F3CC3 0%, #D43CBE 52%, #C9A24D 100%);
+  opacity: .72;
+}
+.g-brand-rule--soft { opacity: .30; }
+.g-brand-rule--strong { height: 2px; opacity: .92; }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-brand-topline { box-shadow: none; }
+}

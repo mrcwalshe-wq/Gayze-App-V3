@@ -8,7 +8,7 @@ export interface InboxNotification {
 export interface NotificationInbox { rows: InboxNotification[]; unread: number; messageUnread: number; }
 export const notificationCopy: Record<string, string> = {
   gaze: 'Someone sent you a Gayze', message: 'You have a new message', connection: 'You have a new connection',
-  intent_expiring: 'Your intent is ending soon', safety: 'Your safety check-in has ended', test: 'GAYZE test notification',
+  call: 'Incoming call', missed_call: 'Missed call', intent_expiring: 'Your intent is ending soon', safety: 'Your safety check-in has ended', test: 'GAYZE test notification',
 };
 
 export function watchNotificationInbox(userId: string, receive: (inbox: NotificationInbox) => void,

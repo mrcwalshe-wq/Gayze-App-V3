@@ -93,7 +93,7 @@ test('real migration → durable inbox → authenticated sender → provider bou
       const response = await handler(request({notificationId:notice.id,body:'attacker text',toUserId:a,url:'https://evil.example'}));
       assert.equal(response.status,200); assert.equal(sent.length,1);
       assert.equal(sent[0].subscription.user_id,b);
-      assert.equal(sent[0].payload.messageId,notice.event_key); assert.equal(sent[0].payload.recipientId,b); assert.equal(sent[0].payload.conversationId,undefined);
+      assert.equal(sent[0].payload.messageId,notice.event_key); assert.equal(sent[0].payload.recipientId,b); assert.equal(sent[0].payload.conversationId,room);
       assert.equal(sent[0].payload.type,'message'); assert.equal(sent[0].payload.url,`/messages/${room}?notification=${notice.id}&recipient=${b}`);
       assert(!JSON.stringify(sent[0].payload).includes('ciphertext')); assert(!JSON.stringify(sent[0].payload).includes('attacker'));
     });
@@ -181,7 +181,7 @@ test('real migration → durable inbox → authenticated sender → provider bou
       assert.equal(await f.store.connection('a',room),id);
       assert.equal((await handler(request({notificationId:id}))).status,200);
       assert.equal(sent.at(-1).payload.type,'connection'); assert.equal(sent.at(-1).payload.notificationId,id);
-      assert.equal(sent.at(-1).payload.conversationId,undefined); assert.equal(sent.at(-1).payload.url,`/messages/${room}?notification=${id}&recipient=${b}`);
+      assert.equal(sent.at(-1).payload.conversationId,room); assert.equal(sent.at(-1).payload.url,`/messages/${room}?notification=${id}&recipient=${b}`);
     });
     await t.test('legacy intent/safety sweeps now persist durable records and deduplicate', async () => {
       await f.rows("insert into intents values($1,$2,now()+interval '5 minutes',false)",[room,b]);

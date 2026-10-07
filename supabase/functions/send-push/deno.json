@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "lib": ["deno.window", "dom"], "strict": true },
+  "imports": { "@supabase/supabase-js": "npm:@supabase/supabase-js@2.117.2", "web-push": "npm:web-push@3.6.7" }
+}
