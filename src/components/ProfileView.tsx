@@ -9,8 +9,6 @@ import {
   ChevronLeft,
   ShieldCheck,
   Plus,
-  Pause,
-  Play,
   X,
   Edit3,
   Compass,
@@ -29,7 +27,7 @@ import {
   computeProfileCompletion,
 } from '../config/profileOptions';
 import { UserActiveIntent, UserProfile } from '../types';
-import { hapticLight, hapticSensitiveAction, triggerVibration } from '../services/hapticService';
+import { hapticLight, triggerVibration } from '../services/hapticService';
 import {
   deleteProfilePhoto,
   loadProfilePhotos,
@@ -45,9 +43,6 @@ interface ProfileViewProps {
   activeUserIntent?: UserActiveIntent | null;
   areaLabel?: string;
   onOpenSetIntent?: () => void;
-  onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
-  /** True while a publish/pause/end write is in flight. */
-  intentBusy?: boolean;
   onOpenSafetyTimer: () => void;
   isSafetyTimerActive: boolean;
   onOpenMask: () => void;
@@ -90,7 +85,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   activeUserIntent,
   areaLabel,
   onOpenSetIntent,
-  onUpdateActiveUserIntent,
   intentBusy = false,
   onOpenSafetyTimer,
   isSafetyTimerActive,
@@ -264,12 +258,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (!activeUserIntent || activeUserIntent.isPaused) return;
-    const id = window.setInterval(() => setNow(Date.now()), 30000);
-    return () => window.clearInterval(id);
-  }, [activeUserIntent]);
-
   // Keyboard navigation for full-screen photo viewer
   useEffect(() => {
     if (viewerIndex === null) return;
@@ -295,17 +283,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const primaryPhoto = photos.find((p) => p.isPrimary) || photos[0];
   const displayAvatarUrl = primaryPhoto?.url || currentUser.avatarUrl;
-
-  const handleEnd = () => {
-    hapticSensitiveAction();
-    onUpdateActiveUserIntent?.(null);
-  };
-
-  const handlePause = () => {
-    if (!activeUserIntent) return;
-    hapticLight();
-    onUpdateActiveUserIntent?.({ ...activeUserIntent, isPaused: !activeUserIntent.isPaused });
-  };
 
   const rows: {
     key: string;
@@ -697,70 +674,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </section>
       )}
-
-      {/* Current signal */}
-      <section className={`g-panel p-4 mb-5 ${activeUserIntent && !activeUserIntent.isPaused ? 'g-panel--live' : ''}`}>
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <span className="g-label">Your signal</span>
-          {activeUserIntent && (
-            <span className={`g-chip ${activeUserIntent.isPaused ? 'g-chip--quiet' : 'g-chip--live'}`}>
-              {activeUserIntent.isPaused
-                ? <span className="g-dot g-dot--muted" />
-                : <span className="g-live-dot" aria-hidden="true" />}
-              {activeUserIntent.isPaused ? 'Paused' : 'Live'}
-            </span>
-          )}
-        </div>
-
-        {activeUserIntent ? (
-          <>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`g-chip ${activeUserIntent.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
-                {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
-              </span>
-              <span className="text-[16px] font-semibold text-white tracking-[-0.015em]">
-                {activeUserIntent.intent.replace(' · ', ' ')}
-              </span>
-            </div>
-            <p className="text-[13px] text-zinc-400 leading-relaxed mt-2">{activeUserIntent.description}</p>
-            <div className="flex items-center justify-between gap-3 mt-3 text-[11.5px] text-zinc-500">
-              <span className="truncate">
-                {activeUserIntent.when} · {activeUserIntent.duration} · {activeUserIntent.travelDistance}
-              </span>
-              <span className="text-zinc-400 shrink-0 font-mono">
-                {activeUserIntent.isPaused
-                  ? 'paused'
-                  : `expires in ${formatRemaining(Math.max(0, activeUserIntent.expiresAt - now))}`}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 mt-4">
-              <button type="button" className="g-btn g-btn--danger-quiet !px-3.5" onClick={handleEnd} disabled={intentBusy}>
-                <X className="w-4 h-4" /> End
-              </button>
-              <button type="button" className="g-btn g-btn--quiet flex-1" onClick={handlePause} disabled={intentBusy}>
-                {activeUserIntent.isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                {activeUserIntent.isPaused ? 'Resume' : 'Pause'}
-              </button>
-              <button type="button" className="g-btn g-btn--primary flex-1" onClick={() => { hapticLight(); onOpenSetIntent?.(); }} disabled={intentBusy}>
-                {intentBusy ? 'Saving…' : 'Edit'}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-[13px] text-zinc-400 leading-relaxed mb-3.5">
-              You are not broadcasting. Set a signal to appear on the map for the next two hours.
-            </p>
-            {onOpenSetIntent && (
-              <button type="button" className="g-btn g-btn--primary w-full" onClick={() => { hapticLight(); onOpenSetIntent(); }}>
-                <Plus className="w-4 h-4" />
-                Create your intent
-              </button>
-            )}
-          </>
-        )}
-      </section>
 
       {/* ---------------- Profile summary — only sections with content ---------------- */}
       {((currentUser.bio && currentUser.bio.trim()) || factTags.length > 0) && (
