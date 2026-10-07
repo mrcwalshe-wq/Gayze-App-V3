@@ -24,7 +24,6 @@ import {
 import {
   type EditSectionKey,
   INTIMACY_VISIBILITY_OPTIONS,
-  computeProfileCompletion,
 } from '../config/profileOptions';
 import { UserActiveIntent, UserProfile } from '../types';
 import { hapticLight, triggerVibration } from '../services/hapticService';
@@ -75,6 +74,7 @@ const formatRemaining = (ms: number): string => {
 };
 
 const MAX_PHOTOS = 6;
+const PHOTO_URL_REFRESH_MS = 50 * 60 * 1000;
 
 /**
  * Profile — authentic identity surface in Obsidian Velvet.
@@ -105,6 +105,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showNotificationReminder, setShowNotificationReminder] = useState(false);
+  const [notificationBlockReason, setNotificationBlockReason] = useState<'ios-needs-install' | 'permission-denied' | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
@@ -148,24 +149,47 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     };
   }, []);
 
+  const refreshProfilePhotos = useCallback(async () => {
+    try {
+      const items = await loadProfilePhotos();
+      setPhotos(items);
+      const primary = items.find((p) => p.isPrimary) || items[0];
+      if (primary) onAvatarUpdated?.(primary.url);
+    } catch {
+      // Signed URL refresh is best-effort; keep the existing gallery if it fails.
+    }
+  }, [onAvatarUpdated]);
+
   useEffect(() => {
     let cancelled = false;
-    void loadProfilePhotos()
-      .then((items) => {
+    const load = async () => {
+      try {
+        const items = await loadProfilePhotos();
         if (cancelled) return;
         setPhotos(items);
         const primary = items.find((p) => p.isPrimary) || items[0];
-        if (primary && onAvatarUpdated) {
-          onAvatarUpdated(primary.url);
-        }
-      })
-      .catch(() => {
+        if (primary) onAvatarUpdated?.(primary.url);
+      } catch {
         if (!cancelled) setPhotoMessage('Profile photos are unavailable right now.');
-      });
+      }
+    };
+    void load();
+
+    const refresh = () => {
+      if (!cancelled && document.visibilityState !== 'hidden') void refreshProfilePhotos();
+    };
+    const intervalId = window.setInterval(refresh, PHOTO_URL_REFRESH_MS);
+    window.addEventListener('pageshow', refresh);
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('pageshow', refresh);
+      window.removeEventListener('online', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
-  }, [onAvatarUpdated]);
+  }, [onAvatarUpdated, refreshProfilePhotos]);
 
   const syncPrimaryAvatar = useCallback((updatedPhotos: ProfilePhoto[]) => {
     const primary = updatedPhotos.find((p) => p.isPrimary) || updatedPhotos[0];
@@ -336,6 +360,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <span className="g-label">Profile</span>
       </header>
 
+      {showNotificationReminder && onOpenNotifications && (
+        <button
+          type="button"
+          className="g-profile-notification-banner g-profile-notification-banner--top w-full mb-4 text-left"
+          onClick={() => { hapticLight(); onOpenNotifications(); }}
+        >
+          <span className="g-profile-notification-banner__icon" aria-hidden="true">
+            {notificationBlockReason === 'permission-denied' ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-bold text-white">
+              {notificationBlockReason === 'ios-needs-install' ? 'Add GAYZE to your Home Screen' : notificationBlockReason === 'permission-denied' ? 'Notifications are blocked' : 'Turn on notifications'}
+            </span>
+            <span className="block text-[11px] text-zinc-400 mt-0.5">
+              {notificationBlockReason === 'ios-needs-install' ? 'Required on iPhone for push notifications.' : notificationBlockReason === 'permission-denied' ? 'Enable GAYZE in iPhone Settings.' : 'Get messages, Gayzes and intent alerts.'}
+            </span>
+          </span>
+          <span className="g-profile-notification-banner__action">{notificationBlockReason === 'permission-denied' ? 'Settings' : 'Enable'}</span>
+        </button>
+      )}
+
       {/* Identity — prominent primary photo, authentic personal presence */}
       <section className="flex items-center gap-4 py-4">
         <div
@@ -390,40 +435,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             if (onOpenProfileEdit) onOpenProfileEdit('identity');
             else onOpenIdentity();
           }}
-          className="g-icon-btn shrink-0"
+          className="g-btn g-btn--quiet !min-h-[36px] !px-3 shrink-0"
           aria-label="Edit profile"
         >
-          <Edit3 className="w-4 h-4" />
+          <Edit3 className="w-3.5 h-3.5" />
+          Edit
         </button>
       </section>
-
-      {/* Profile completion — a quiet nudge, never a blocking checklist */}
-      {completion.missing.length > 0 && (
-        <button
-          type="button"
-          onClick={() => { hapticLight(); onOpenProfileEdit?.(completion.missing[0].section as EditSectionKey); }}
-          className="w-full text-left rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 mb-4 hover:bg-white/[0.04] transition-colors"
-          aria-label="Improve your profile"
-        >
-          <div className="min-w-0">
-            <span className="g-label">
-              Profile · {completion.percent}% complete
-            </span>
-            <div className="text-[12.5px] text-zinc-300 mt-0.5 truncate">
-              Make your profile more useful — {completion.missing.length} quick {completion.missing.length === 1 ? 'thing' : 'things'} to add
-            </div>
-          </div>
-          <div className="mt-2.5 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-300"
-              style={{
-                width: `${completion.percent}%`,
-                background: 'var(--brand-purple)',
-              }}
-            />
-          </div>
-        </button>
-      )}
 
       {/* Profile photos — first-class gallery with reordering, primary designation, and full-screen view */}
       <section className="g-panel p-4 mb-5">
@@ -612,108 +630,134 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         )}
       </section>
 
-      {showNotificationReminder && onOpenNotifications && (
-        <button
-          type="button"
-          className="g-profile-notification-banner w-full mb-4 text-left"
-          onClick={() => { hapticLight(); onOpenNotifications(); }}
-        >
-          <span className="g-profile-notification-banner__icon" aria-hidden="true">
-            <Bell className="w-4 h-4" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-bold text-white">Notifications are off</span>
-            <span className="block text-[11px] text-zinc-400 mt-0.5">Turn them on to receive messages and intent activity.</span>
-          </span>
-          <span className="g-profile-notification-banner__action">Enable</span>
-        </button>
-      )}
+      {/* ---------------- Profile summary — a read-only snapshot of onboarding choices ---------------- */}
+      {(() => {
+        const lookingFor = currentUser.interests ?? [];
+        const interests = currentUser.hobbies ?? [];
+        const intimacy = currentUser.intimacy;
+        const setup = currentUser.mySetup ?? [];
+        const availability = currentUser.availability ?? [];
+        const boundaries = currentUser.boundaries ?? [];
+        const identity = [
+          currentUser.pronouns,
+          currentUser.heightCm ? `${currentUser.heightCm} cm` : undefined,
+          currentUser.bodyType,
+        ].filter(Boolean) as string[];
 
-      {/* ---------------- Profile summary — only sections with content ---------------- */}
-      {((currentUser.bio && currentUser.bio.trim()) || factTags.length > 0) && (
-        <section className="mb-5">
-          <span className="g-label">About you</span>
-          {(currentUser.bio && currentUser.bio.trim()) && (
-            <p className="mt-2 text-[13.5px] leading-relaxed text-zinc-200">“{currentUser.bio.trim()}”</p>
-          )}
-          {factTags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2.5">
-              {factTags.map((tag) => (
-                <span key={tag} className="g-tag">{tag}</span>
-              ))}
+        const joinList = (values: string[]) => {
+          if (values.length <= 1) return values[0] ?? '';
+          if (values.length === 2) return values.join(' and ');
+          return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`;
+        };
+
+        const intimacyItems = [
+          intimacy?.role,
+          ...(intimacy?.preferences ?? []),
+          intimacy?.experience && intimacy.experience !== 'Not specified' ? intimacy.experience : undefined,
+        ].filter(Boolean) as string[];
+
+        return (
+          <section className="g-panel overflow-hidden mb-5">
+            <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span className="g-label">Your profile</span>
+                <h2 className="text-[17px] font-bold text-white mt-1">The short version</h2>
+              </div>
+              <button
+                type="button"
+                className="g-btn g-btn--quiet !min-h-[36px] !px-3 shrink-0"
+                onClick={() => {
+                  hapticLight();
+                  if (onOpenProfileEdit) onOpenProfileEdit('identity');
+                  else onOpenIdentity();
+                }}
+                aria-label="Edit profile"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                Edit
+              </button>
             </div>
-          )}
-        </section>
-      )}
 
-      {currentUser.interests.length > 0 && (
-        <section className="mb-5">
-          <span className="g-label">Looking for</span>
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {currentUser.interests.map((interest) => (
-              <span key={interest} className="g-tag">{interest}</span>
-            ))}
-          </div>
-        </section>
-      )}
+            <div className="px-4 pb-4">
+              {currentUser.bio?.trim() && (
+                <p className="text-[14px] leading-relaxed text-zinc-200 mb-4">
+                  “{currentUser.bio.trim()}”
+                </p>
+              )}
 
-      {(currentUser.hobbies?.length ?? 0) > 0 && (
-        <section className="mb-5">
-          <span className="g-label">Interests</span>
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {currentUser.hobbies!.map((hobby) => (
-              <span key={hobby} className="g-tag">{hobby}</span>
-            ))}
-          </div>
-        </section>
-      )}
+              {identity.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {identity.map((value) => (
+                    <span key={value} className="g-tag">{value}</span>
+                  ))}
+                </div>
+              )}
 
-      {hasIntimacySection && currentUser.intimacy && (
-        <section className="mb-5">
-          <div className="flex items-center justify-between gap-3">
-            <span className="g-label">Intimacy</span>
-            {intimacyVisibilityLabel && (
-              <span className="g-badge g-badge--quiet">{intimacyVisibilityLabel}</span>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {currentUser.intimacy.role && (
-              <span className="g-chip g-chip--private">{currentUser.intimacy.role}</span>
-            )}
-            {currentUser.intimacy.preferences.map((preference) => (
-              <span key={preference} className="g-tag">{preference}</span>
-            ))}
-            {currentUser.intimacy.experience && currentUser.intimacy.experience !== 'Not specified' && (
-              <span className="g-tag">{currentUser.intimacy.experience}</span>
-            )}
-          </div>
-        </section>
-      )}
+              <div className="space-y-3">
+                {lookingFor.length > 0 && (
+                  <div>
+                    <span className="g-label">Looking for</span>
+                    <p className="text-[13px] leading-relaxed text-zinc-200 mt-1">
+                      {joinList(lookingFor)}.
+                    </p>
+                  </div>
+                )}
 
-      {((currentUser.mySetup?.length ?? 0) > 0 || (currentUser.availability?.length ?? 0) > 0) && (
-        <section className="mb-5">
-          <span className="g-label">My setup</span>
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {(currentUser.mySetup ?? []).map((setup) => (
-              <span key={setup} className="g-tag">{setup}</span>
-            ))}
-            {(currentUser.availability ?? []).map((when) => (
-              <span key={when} className="g-chip g-chip--quiet">{when}</span>
-            ))}
-          </div>
-        </section>
-      )}
+                {interests.length > 0 && (
+                  <div>
+                    <span className="g-label">Into</span>
+                    <p className="text-[13px] leading-relaxed text-zinc-200 mt-1">
+                      {joinList(interests)}.
+                    </p>
+                  </div>
+                )}
 
-      {(currentUser.boundaries?.length ?? 0) > 0 && (
-        <section className="mb-5">
-          <span className="g-label">Boundaries</span>
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {currentUser.boundaries!.map((boundary) => (
-              <span key={boundary} className="g-tag">{boundary}</span>
-            ))}
-          </div>
-        </section>
-      )}
+                {intimacyItems.length > 0 && (
+                  <div>
+                    <span className="g-label">Intimacy</span>
+                    <p className="text-[13px] leading-relaxed text-zinc-200 mt-1">
+                      {joinList(intimacyItems)}.
+                    </p>
+                  </div>
+                )}
+
+                {(setup.length > 0 || availability.length > 0) && (
+                  <div>
+                    <span className="g-label">Setup</span>
+                    <p className="text-[13px] leading-relaxed text-zinc-200 mt-1">
+                      {[setup.length > 0 ? joinList(setup) : '', availability.length > 0 ? `available ${joinList(availability)}` : '']
+                        .filter(Boolean)
+                        .join(' · ')}.
+                    </p>
+                  </div>
+                )}
+
+                {boundaries.length > 0 && (
+                  <div>
+                    <span className="g-label">Boundaries</span>
+                    <p className="text-[13px] leading-relaxed text-zinc-200 mt-1">
+                      {joinList(boundaries)}.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {!currentUser.bio?.trim() &&
+                identity.length === 0 &&
+                lookingFor.length === 0 &&
+                interests.length === 0 &&
+                intimacyItems.length === 0 &&
+                setup.length === 0 &&
+                availability.length === 0 &&
+                boundaries.length === 0 && (
+                  <p className="text-[13px] text-zinc-500">
+                    Your profile choices will appear here as a simple summary.
+                  </p>
+                )}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Notifications — always-visible Web Push entry point */}
       {/* Safety & privacy */}

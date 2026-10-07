@@ -913,3 +913,411 @@ select:focus-visible {
     top: 46px !important;
   }
 }
+
+
+/* ==========================================================================
+   Navigation — icon-only rail, no active capsules
+   ========================================================================== */
+@media (max-width: 767px) {
+  .g-tabbar__inner .g-tab,
+  .g-tabbar__inner .g-tab[data-active='true'],
+  .g-tabbar__inner .g-tab:hover,
+  .g-tabbar__inner .g-tab:focus-visible {
+    background: transparent !important;
+    border: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+  }
+
+  .g-tabbar__inner .g-tab::before {
+    display: none !important;
+  }
+
+  .g-tabbar__inner .g-tab::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    bottom: auto !important;
+    left: 50% !important;
+    width: 20px !important;
+    height: 2px !important;
+    transform: translateX(-50%) !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+  }
+
+  .g-tabbar__inner .g-tab[data-active='true']::after {
+    background: var(--g-intent-accent-strong) !important;
+    box-shadow: 0 0 9px var(--g-intent-accent-glow) !important;
+  }
+
+  /* The Discover logo is the icon itself — no card/frame around it. */
+  .g-tabbar__inner .g-tab--discover .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-active='true'] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode='private'] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode='social'] .g-discover-action,
+  .g-tabbar__inner .g-tab--discover[data-intent-mode='none'] .g-discover-action {
+    width: 50px !important;
+    height: 50px !important;
+    margin-top: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .g-tabbar__inner .g-tab--discover .g-discover-action::before,
+  .g-tabbar__inner .g-tab--discover .g-discover-action::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .g-tabbar__inner .g-tab--discover .g-discover-logo-image {
+    width: 48px !important;
+    height: 48px !important;
+  }
+}
+
+/* ==========================================================================
+   Surgical mobile overlap pass — 2026-10-07
+   One geometry rule for every primary tab. Content ends before the fixed nav;
+   sheets and transient UI never compete with it.
+   ========================================================================== */
+@media (max-width: 767px) {
+  :root {
+    --g-tabbar-h: 52px;
+    --g-nav-clearance: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  /* The five-tab bar is now a clean rail. Active state is the thin intent
+     line; no active capsules, cards or large outlines. */
+  .g-tabbar {
+    height: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 0 !important;
+    background: rgba(9,10,14,.94) !important;
+    border-top: 1px solid rgba(255,255,255,.07) !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: 0 -12px 28px rgba(0,0,0,.30) !important;
+    backdrop-filter: blur(18px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
+  }
+
+  .g-tabbar__inner {
+    height: var(--g-tabbar-h) !important;
+    max-width: 560px !important;
+    padding: 0 4px !important;
+  }
+
+  .g-tab {
+    height: var(--g-tabbar-h) !important;
+    min-height: var(--g-tabbar-h) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 3px 0 2px !important;
+  }
+
+  .g-tab[data-active='true']:not(.g-tab--discover),
+  .g-tab[data-active='true']:not(.g-tab--discover):hover {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .g-tab[data-active='true'] svg {
+    color: var(--g-intent-accent-strong) !important;
+    filter: none !important;
+  }
+
+  .g-tab__ind,
+  .g-tab--discover .g-tab__ind {
+    display: block !important;
+    top: 0 !important;
+    bottom: auto !important;
+    left: 50% !important;
+    width: 34px !important;
+    height: 2px !important;
+    opacity: 0 !important;
+    transform: translateX(-50%) scaleX(.25) !important;
+    background: var(--g-intent-accent-strong) !important;
+    box-shadow: 0 0 9px var(--g-intent-accent-glow) !important;
+    transition: opacity 180ms ease, transform 220ms var(--g-spring) !important;
+  }
+
+  .g-tab[data-active='true'] .g-tab__ind {
+    opacity: 1 !important;
+    transform: translateX(-50%) scaleX(1) !important;
+  }
+
+  .g-tab:hover .g-tab__ind {
+    opacity: .6 !important;
+    transform: translateX(-50%) scaleX(.8) !important;
+  }
+
+  /* Discover remains recognisable by the original GAYZE mark, not a card. */
+  .g-tab--discover {
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  .g-tab--discover .g-discover-action {
+    width: 52px !important;
+    height: 52px !important;
+    margin-top: -9px !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .g-tab--discover .g-discover-action::before,
+  .g-tab--discover .g-discover-action::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .g-tab--discover .g-discover-logo-image {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .g-tab--discover .g-tab__label {
+    top: 39px !important;
+    color: rgba(255,255,255,.68) !important;
+    text-shadow: none !important;
+  }
+
+  .g-tab--discover[data-active='true'] .g-tab__label {
+    color: #fff !important;
+  }
+
+  /* Every scrollable content tab gets the same physical clearance. */
+  .g-main-viewport {
+    padding-bottom: var(--g-nav-clearance) !important;
+    scroll-padding-bottom: var(--g-nav-clearance) !important;
+  }
+
+  /* Bottom sheets stop above the navigation, even when the component did not
+     explicitly opt into g-sheet--above-nav. */
+  .g-overlay > .g-sheet:not(.g-sheet--fullscreen) {
+    margin-bottom: var(--g-nav-clearance) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-nav-clearance) - 12px) !important;
+  }
+
+  /* The message viewport already reserves the nav in its fixed geometry.
+     Give the conversation composer a little extra breathing room. */
+  .g-chat-viewport {
+    bottom: calc(var(--g-nav-clearance) - 16px) !important;
+    height: auto !important;
+  }
+
+  /* Transient location errors have their own lane and cannot sit over the
+     fixed navigation or a tab's bottom controls. */
+  .g-location-error {
+    left: 12px !important;
+    right: 12px !important;
+    top: calc(env(safe-area-inset-top, 0px) + 68px) !important;
+    width: auto !important;
+    max-width: 520px !important;
+    margin-inline: auto !important;
+  }
+
+  /* Right Now has its own map chrome: keep the location warning below the
+     state/filter row rather than on top of it. */
+  .g-shell[data-active-tab='right_now'] .g-location-error {
+    top: calc(env(safe-area-inset-top, 0px) + 190px) !important;
+    max-width: 420px !important;
+  }
+
+  /* Toasts use the same side lane on content tabs and never occupy the nav
+     or the central Discover action. */
+  .g-toast {
+    top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+    right: 12px !important;
+    left: auto !important;
+    transform: none !important;
+    width: min(300px, calc(100vw - 92px)) !important;
+    max-width: 300px !important;
+    z-index: 75 !important;
+  }
+
+  /* On Right Now the toast sits beneath the map's state card, on the opposite
+     side of the map controls. */
+  .g-toast--right_now {
+    top: calc(env(safe-area-inset-top, 0px) + 190px) !important;
+  }
+
+  /* No tab should let an inline full-width control become wider than the
+     available viewport once the nav is present. */
+  .gayze-premium-page {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .gayze-premium-page > * {
+    min-width: 0;
+  }
+}
+
+
+@media (max-width: 767px) {
+  /* Right Now: the map key must sit below the live-state card, never through it. */
+  .g-shell[data-active-tab='right_now'] .g-map-legend {
+    top: calc(env(safe-area-inset-top, 0px) + 176px) !important;
+  }
+
+  /* Keep the map utility rail clear of the relocated key. */
+  .g-shell[data-active-tab='right_now'] .g-map-rail {
+    top: calc(env(safe-area-inset-top, 0px) + 66px) !important;
+  }
+
+  /* The persistent Right Now dock and nearby control already reserve nav
+     clearance; make that relationship explicit for small screens. */
+  .g-shell[data-active-tab='right_now'] .g-intent-dock {
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 10px) !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-nearby-float {
+    bottom: auto !important;
+  }
+}
+
+
+/* ========================================================================== 
+   2026-10-07 FINAL MOBILE NAV + SOCIAL LIVE INTENT TREATMENT
+   This block is intentionally last: product-design.css is imported after the
+   legacy/public navigation sheets, so these rules are the final authority.
+   ========================================================================== */
+@media (max-width: 767px) {
+  /* The nav rail is the only surface. Individual destinations are never cards. */
+  nav.g-tabbar .g-tabbar__inner .g-tab,
+  nav.g-tabbar .g-tabbar__inner .g-tab:hover,
+  nav.g-tabbar .g-tabbar__inner .g-tab:focus,
+  nav.g-tabbar .g-tabbar__inner .g-tab:focus-visible,
+  nav.g-tabbar .g-tabbar__inner .g-tab:active,
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true'],
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']:hover,
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']:focus,
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']:focus-visible {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Active destination = one restrained luminous line, nothing else. */
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']::before {
+    content: none !important;
+    display: none !important;
+  }
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']::after {
+    content: '' !important;
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    bottom: auto !important;
+    left: 50% !important;
+    width: 24px !important;
+    height: 2px !important;
+    transform: translateX(-50%) !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: var(--g-intent-accent-strong) !important;
+    box-shadow: 0 0 9px var(--g-intent-accent-glow) !important;
+    pointer-events: none !important;
+  }
+
+  /* Discover is the authentic GAYZE mark, not a fifth card. */
+  nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action,
+  nav.g-tabbar .g-tabbar__inner .g-tab--discover[data-active='true'] .g-discover-action {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+  }
+  nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before,
+  nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* ----------------------------------------------------------------------
+     Social live intent: amber/gold → deep charcoal, matching Social intent.
+     The card stays premium and legible without the purple treatment.
+     ---------------------------------------------------------------------- */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social {
+    background:
+      radial-gradient(125% 170% at 8% 0%, rgba(255,224,128,.24), transparent 48%),
+      linear-gradient(118deg, #c9a24d 0%, #a77e35 19%, #4b402b 43%, #25221d 66%, #111216 100%) !important;
+    border-color: rgba(225,190,94,.76) !important;
+    box-shadow:
+      0 0 0 1px rgba(201,162,77,.16),
+      0 16px 42px rgba(0,0,0,.50),
+      0 0 28px rgba(201,162,77,.20),
+      inset 0 1px 0 rgba(255,238,180,.20) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__live-pill {
+    color: #fff4cf !important;
+    background: rgba(201,162,77,.18) !important;
+    border-color: rgba(236,201,112,.62) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__live-dot {
+    background: #f1cc68 !important;
+    box-shadow: 0 0 9px rgba(241,204,104,.82) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__title {
+    color: #fff9e8 !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__details,
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__timer span {
+    color: rgba(255,246,220,.70) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__timer strong {
+    color: #fff8df !important;
+  }
+
+  /* Pause/Resume = amber → green: positive, live, reversible. */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__action--pause {
+    color: #fffdf2 !important;
+    background:
+      linear-gradient(118deg, #e0b95b 0%, #c9a24d 36%, #4f8f61 72%, #237044 100%) !important;
+    border-color: rgba(226,208,130,.78) !important;
+    box-shadow:
+      0 8px 20px rgba(47,108,67,.24),
+      inset 0 1px 0 rgba(255,247,205,.24) !important;
+  }
+
+  /* End intent = red → amber: destructive, but visually tied to Social. */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__action--end {
+    color: #fff7e8 !important;
+    background:
+      linear-gradient(118deg, #b93645 0%, #d44d46 42%, #c9893c 76%, #c9a24d 100%) !important;
+    border-color: rgba(239,169,95,.76) !important;
+    box-shadow:
+      0 8px 20px rgba(190,72,57,.24),
+      inset 0 1px 0 rgba(255,229,188,.22) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__end-dot {
+    background: #ffb15c !important;
+    box-shadow: 0 0 8px rgba(255,177,92,.58) !important;
+  }
+}

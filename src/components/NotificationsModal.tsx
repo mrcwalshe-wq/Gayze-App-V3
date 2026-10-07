@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Radio,
   Share,
+  ChevronRight,
   Shield,
   Sparkles,
   Timer,
@@ -108,11 +109,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
     const result = await subscribeToPush(currentUserId ?? undefined);
     if (result.ok) {
       setSubscribed(true);
-      // Turning push on from a disabled master state should also re-enable it.
       const next = { ...prefs, pushEnabled: true };
       setPrefs(next);
       const saved = await saveNotificationPreferences(next, currentUserId ?? undefined);
-      setFeedback(saved ? { text: 'Notifications are on for this device.', tone: 'ok' }
+      setFeedback(saved
+        ? { text: 'Notifications are on for this device.', tone: 'ok' }
         : { text: 'Device registered, but notification preferences could not be saved. Please retry.', tone: 'error' });
     } else {
       setFeedback({ text: result.reason ?? 'Enabling notifications failed.', tone: 'error' });
@@ -162,148 +163,106 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const unsupported = env?.blockedBy === 'unsupported';
   const notConfigured = env?.blockedBy === 'not-configured';
 
+  const statusTitle = needsInstall
+    ? 'Finish setup on iPhone'
+    : denied
+      ? 'Notifications are blocked'
+      : subscribed
+        ? 'Notifications are on'
+        : 'Notifications are off';
+
+  const statusDescription = needsInstall
+    ? 'Add GAYZE to your Home Screen first. iOS only enables web push for installed apps.'
+    : denied
+      ? 'Notification permission is blocked at device level. Re-enable GAYZE in iPhone Settings.'
+      : subscribed
+        ? 'This device is registered and ready to receive GAYZE alerts.'
+        : 'Turn notifications on to hear about messages, Gayzes, connections and intent activity.';
+
+  const statusTone = needsInstall || denied ? 'attention' : subscribed ? 'ready' : 'action';
+
+  const recentRows = inbox?.rows.slice(0, 4) ?? [];
+
   return (
-    <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
+    <div className="g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="g-sheet g-notifications-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="g-sheet__grip" />
 
         <div className="g-sheet__head flex items-center gap-3">
-          <span className="flex items-center justify-center w-9 h-9 rounded-[11px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 text-[#c9b0f5] shrink-0">
+          <span className="g-notifications-title-icon">
             <Bell className="w-4 h-4" />
           </span>
           <div className="min-w-0 flex-1">
             <h2 className="text-[15px] font-bold text-white leading-tight">Notifications</h2>
-            <p className="text-[11.5px] text-zinc-500 truncate">Real Intent. Real Time.</p>
+            <p className="text-[11.5px] text-zinc-500">Real Intent. Real Time.</p>
           </div>
           <button type="button" className="g-icon-btn g-icon-btn--bare" onClick={onClose} aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="g-sheet__body space-y-4">
-          <section aria-label="Notification inbox" className="g-panel p-4 space-y-3">
-            <h3 className="text-sm font-semibold">Your notifications {inbox ? `· ${inbox.unread} unread` : ''}</h3>
-            {inboxStatus !== 'connected' && <p role="status" className="text-xs text-zinc-400">
-              {inboxStatus === 'connecting' || inboxStatus === 'syncing' ? 'Loading notifications…' : 'Notification inbox unavailable — reconnecting. Saved notifications are retained.'}
-            </p>}
-            {inbox && inbox.rows.length === 0 && <p className="text-xs text-zinc-400">No notifications yet.</p>}
-            {inbox?.rows.map((notice) => <button key={notice.id} type="button"
-              onClick={() => onOpenNotification?.(notice)}
-              className="block w-full rounded-lg border border-white/10 p-3 text-left text-sm hover:bg-white/5"
-              aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notificationCopy[notice.category] ?? 'GAYZE notification'}`}>
-              {!notice.read_at && <span className="mr-2 text-[#C9A24D]" aria-hidden="true">●</span>}
-              {notificationCopy[notice.category] ?? 'GAYZE notification'}
-              <time className="block mt-1 text-xs text-zinc-500" dateTime={notice.created_at}>{new Date(notice.created_at).toLocaleString()}</time>
-            </button>)}
-          </section>
+        <div className="g-sheet__body g-notifications-body">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-[12px] text-zinc-400">
+            <div className="g-notifications-loading">
               <Loader2 className="w-4 h-4 animate-spin" />
               Checking this device…
             </div>
           ) : (
             <>
-              {/* --- iOS: must be installed to the Home Screen first --- */}
-              {needsInstall && (
-                <section className="g-panel p-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border border-[#C9A24D]/30 bg-[#C9A24D]/10 text-[#e7c98a] shrink-0">
-                      <Share className="w-4 h-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="text-[13.5px] font-bold text-white">Add Gayze to your Home Screen</h3>
-                      <p className="mt-1 text-[12px] leading-relaxed text-zinc-400">
-                        iPhone and iPad only deliver notifications to installed apps. Add Gayze to your Home
-                        Screen to enable notifications.
-                      </p>
-                    </div>
+              <section className={`g-notification-status g-notification-status--${statusTone}`} aria-live="polite">
+                <div className="g-notification-status__top">
+                  <div className="g-notification-status__icon">
+                    {statusTone === 'ready' ? <Check className="w-5 h-5" /> : statusTone === 'attention' ? <BellOff className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
                   </div>
-                  <ol className="space-y-1.5 pl-1 text-[12px] text-zinc-300">
-                    <li><span className="text-[#c9b0f5] font-semibold">1.</span> Tap the Share button in Safari.</li>
-                    <li><span className="text-[#c9b0f5] font-semibold">2.</span> Choose “Add to Home Screen”.</li>
-                    <li><span className="text-[#c9b0f5] font-semibold">3.</span> Open Gayze from your Home Screen, then return here.</li>
-                  </ol>
-                </section>
-              )}
-
-              {/* --- Permission previously denied --- */}
-              {denied && (
-                <section className="g-panel p-4">
-                  <div className="flex items-start gap-3">
-                    <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border border-rose-500/25 bg-rose-500/10 text-rose-300 shrink-0">
-                      <BellOff className="w-4 h-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="text-[13.5px] font-bold text-white">Notifications are blocked</h3>
-                      <p className="mt-1 text-[12px] leading-relaxed text-zinc-400">
-                        Gayze cannot re-ask once notifications are blocked. Enable them for Gayze in your device
-                        settings, then reopen this screen.
-                      </p>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {unsupported && (
-                <section className="g-panel p-4 text-[12px] leading-relaxed text-zinc-400">
-                  This browser does not support web push notifications. Gayze will keep showing in-app alerts
-                  while you have it open.
-                </section>
-              )}
-
-              {notConfigured && (
-                <section className="g-panel p-4 text-[12px] leading-relaxed text-zinc-400">
-                  Push notifications are not configured for this build. No VAPID public key was provided at
-                  build time.
-                </section>
-              )}
-
-              {/* --- Primary opt-in --- */}
-              {!subscribed && env?.canSubscribe && (
-                <section className="g-panel p-4 space-y-3.5">
-                  <div className="flex items-start gap-3">
-                    <span className="flex items-center justify-center w-9 h-9 rounded-[11px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 text-[#c9b0f5] shrink-0">
-                      <Sparkles className="w-4 h-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="text-[14px] font-bold text-white">Stay connected</h3>
-                      <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-400">
-                        Enable notifications to know when someone messages you or interacts with your intent.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" className="g-btn g-btn--primary flex-1" onClick={() => void handleEnable()} disabled={busy}>
-                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
-                      Enable notifications
-                    </button>
-                    <button type="button" className="g-btn g-btn--quiet" onClick={onClose} disabled={busy}>
-                      Not now
-                    </button>
-                  </div>
-                </section>
-              )}
-
-              {/* --- Enabled state --- */}
-              {subscribed && (
-                <section className="g-panel p-4 flex items-center gap-3">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border border-emerald-500/25 bg-emerald-500/10 text-emerald-400 shrink-0">
-                    <Check className="w-4 h-4" />
-                  </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-bold text-white">Notifications are on</p>
-                    <p className="text-[11.5px] text-zinc-500">This device is subscribed.</p>
+                    <span className="g-label">Notification status</span>
+                    <h3>{statusTitle}</h3>
+                    <p>{statusDescription}</p>
                   </div>
-                  <button type="button" className="g-btn g-btn--quiet" onClick={() => void handleDisable()} disabled={busy}>
-                    Turn off
+                </div>
+
+                {needsInstall && (
+                  <div className="g-notification-steps">
+                    <div><b>1</b><span>Tap Safari Share</span></div>
+                    <div><b>2</b><span>Choose “Add to Home Screen”</span></div>
+                    <div><b>3</b><span>Open GAYZE from the Home Screen</span></div>
+                  </div>
+                )}
+
+                {denied && (
+                  <div className="g-notification-device-note">
+                    <BellOff className="w-3.5 h-3.5 shrink-0" />
+                    <span>GAYZE can detect that permission is denied, but iOS must be changed in Settings.</span>
+                  </div>
+                )}
+
+                {!needsInstall && !denied && !subscribed && env?.canSubscribe && (
+                  <button type="button" className="g-btn g-btn--primary w-full mt-3" onClick={() => void handleEnable()} disabled={busy}>
+                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
+                    Enable notifications
                   </button>
-                </section>
+                )}
+
+                {subscribed && (
+                  <div className="g-notification-status__ready">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Push is active on this device</span>
+                  </div>
+                )}
+              </section>
+
+              {feedback && (
+                <div className={`g-notification-feedback g-notification-feedback--${feedback.tone}`} role="status">
+                  {feedback.text}
+                </div>
               )}
 
-              {/* --- Categories --- */}
-              <section className="g-panel overflow-hidden">
-                <div className="px-4 pt-3.5 pb-1 flex items-center justify-between gap-3">
-                  <span className="g-label">Push notifications</span>
+              <section className="g-panel g-notification-preferences overflow-hidden">
+                <div className="g-notification-section-head">
+                  <div>
+                    <span className="g-label">Preferences</span>
+                    <h3>What GAYZE can notify you about</h3>
+                  </div>
                   <button
                     type="button"
                     role="switch"
@@ -313,10 +272,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                     onClick={() => void updatePrefs({ pushEnabled: !prefs.pushEnabled })}
                   />
                 </div>
-
                 {CATEGORIES.map((category, index) => (
                   <React.Fragment key={category.key}>
-                    {index === 0 ? <hr className="g-divider mt-2.5" /> : <hr className="g-divider" />}
+                    {index === 0 ? <hr className="g-divider" /> : <hr className="g-divider" />}
                     <div className={`g-row ${prefs.pushEnabled ? '' : 'opacity-45'}`}>
                       <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border border-white/10 bg-white/[0.05] text-zinc-400 shrink-0">
                         {category.icon}
@@ -339,13 +297,41 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                 ))}
               </section>
 
+              <section className="g-panel g-notification-inbox">
+                <div className="g-notification-section-head">
+                  <div>
+                    <span className="g-label">Activity</span>
+                    <h3>{inbox?.unread ? `${inbox.unread} unread` : 'Recent notifications'}</h3>
+                  </div>
+                  {inboxStatus !== 'connected' && <span className="text-[10px] text-zinc-500">Reconnecting…</span>}
+                </div>
+                {recentRows.length === 0 ? (
+                  <p className="text-xs text-zinc-500 px-4 pb-4">Nothing here yet. GAYZE will surface messages, Gayzes and connections here.</p>
+                ) : (
+                  recentRows.map((notice) => (
+                    <button key={notice.id} type="button" onClick={() => onOpenNotification?.(notice)}
+                      className="g-notification-row" aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notificationCopy[notice.category] ?? 'GAYZE notification'}`}>
+                      <span className={`g-notification-row__dot ${notice.read_at ? 'is-read' : ''}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-semibold text-white truncate">{notificationCopy[notice.category] ?? 'GAYZE notification'}</span>
+                        <time className="block mt-1 text-[10.5px] text-zinc-600" dateTime={notice.created_at}>{new Date(notice.created_at).toLocaleString()}</time>
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                    </button>
+                  ))
+                )}
+              </section>
+
+              {unsupported && (
+                <p className="g-notification-footnote">This browser cannot receive web push. In-app notifications remain available while GAYZE is open.</p>
+              )}
+              {notConfigured && (
+                <p className="g-notification-footnote">Push is not configured for this build.</p>
+              )}
               {!isBadgingSupported() && (
-                <p className="px-1 text-[11px] leading-relaxed text-zinc-600">
-                  This device does not support Home Screen badge counts. Notifications still arrive normally.
-                </p>
+                <p className="g-notification-footnote">Home Screen badge counts are not supported on this device.</p>
               )}
 
-              {/* --- Developer / admin test --- */}
               {isTestPushAvailable() && (
                 <section className="g-panel p-4 space-y-2.5">
                   <span className="g-label">Developer</span>
@@ -353,24 +339,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                     {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
                     Send test notification
                   </button>
-                  {!subscribed && (
-                    <p className="text-[11px] text-zinc-600">Enable notifications on this device first.</p>
-                  )}
                 </section>
-              )}
-
-              {feedback && (
-                <p
-                  className={`px-1 text-[12px] leading-relaxed ${
-                    feedback.tone === 'error'
-                      ? 'text-rose-300'
-                      : feedback.tone === 'ok'
-                        ? 'text-emerald-300'
-                        : 'text-zinc-400'
-                  }`}
-                >
-                  {feedback.text}
-                </p>
               )}
             </>
           )}
@@ -378,4 +347,5 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
       </div>
     </div>
   );
+
 };

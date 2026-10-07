@@ -389,7 +389,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       {/* Preview sheet */}
       {selected && (
         <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setSelected(null)}>
-          <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="g-sheet g-sheet--above-nav" onClick={(e) => e.stopPropagation()}>
             <div className="g-sheet__grip" />
             <div className="g-sheet__head">
               <div className="flex items-center gap-3 min-w-0">
