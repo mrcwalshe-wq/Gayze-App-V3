@@ -479,6 +479,7 @@ export interface SubmitInterestResult {
   sent: boolean;
   mutual: boolean;
   conversation_id: string | null;
+  interest_id?: string | null;
 }
 
 export async function verifyPeerIdentity(
@@ -504,15 +505,30 @@ export async function verifyPeerIdentity(
   }
 }
 
-export async function submitInterest(toUserId: string, intentId?: string): Promise<SubmitInterestResult> {
-  if (!supabase) return { sent: false, mutual: false, conversation_id: null };
+export async function submitInterest(
+  toUserId: string,
+  intentId?: string,
+  message?: string,
+  sharedPhotoIds: string[] = [],
+): Promise<SubmitInterestResult> {
+  if (!supabase) return { sent: false, mutual: false, conversation_id: null, interest_id: null };
   try {
-    const { data, error } = await supabase.rpc('submit_interest', { p_to_user: toUserId, p_intent_id: intentId ?? null });
+    const { data, error } = await supabase.rpc('submit_interest', {
+      p_to_user: toUserId,
+      p_intent_id: intentId ?? null,
+      p_message: message?.trim() || null,
+      p_shared_photo_ids: sharedPhotoIds,
+    });
     if (error) {
       console.warn('[GAYZE] Supabase submit_interest unavailable:', error.message);
-      return { sent: false, mutual: false, conversation_id: null };
+      return { sent: false, mutual: false, conversation_id: null, interest_id: null };
     }
-    const result = data as { mutual?: boolean; conversation_id?: string | null };
+    const result = data as {
+      sent?: boolean;
+      mutual?: boolean;
+      conversation_id?: string | null;
+      interest_id?: string | null;
+    };
     // The RPC result is the authoritative "mutual was just created" signal.
     // Forward it so the other member is notified (server enforces exactly-once
     // and the recipient's preferences). Fire-and-forget: no effect on the flow.
@@ -520,13 +536,14 @@ export async function submitInterest(toUserId: string, intentId?: string): Promi
       void requestConnectionPush(result.conversation_id);
     }
     return {
-      sent: true,
+      sent: result.sent !== false,
       mutual: Boolean(result.mutual),
       conversation_id: result.conversation_id ?? null,
+      interest_id: result.interest_id ?? null,
     };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase submit_interest exception:', err?.message || err);
-    return { sent: false, mutual: false, conversation_id: null };
+    return { sent: false, mutual: false, conversation_id: null, interest_id: null };
   }
 }
 
