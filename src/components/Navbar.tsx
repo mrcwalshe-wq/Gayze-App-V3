@@ -37,7 +37,7 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { id: 'later', label: 'Later', icon: <Clock />, group: 'later' },
-  { id: 'right_now', label: 'Right Now', icon: <Radio />, group: 'right_now' },
+  { id: 'right_now', label: 'Now Map', icon: <Radio />, group: 'right_now' },
   { id: 'dating', label: 'Discover', icon: <Compass />, group: 'dating' },
   { id: 'swarms', label: 'Messages', icon: <MessageSquare />, group: 'swarms' },
   { id: 'profile', label: 'Profile', icon: <UserRound />, group: 'profile' },
