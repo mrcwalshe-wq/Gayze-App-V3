@@ -60,7 +60,7 @@ type CategoryKey = Exclude<keyof NotificationPreferences, 'pushEnabled'>;
 const notificationLabel = (notice: InboxNotification): string => (
   notice.category === 'gaze' && notice.event_key?.startsWith('interest:')
     ? 'Someone is interested in your intent'
-    : notificationLabel(notice)
+    : notificationCopy[notice.category] ?? 'GAYZE notification'
 );
 
 const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta: string }[] = [
