@@ -967,8 +967,8 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
                     key={i}
                     className="w-2 bg-[#C9A24D] rounded-full transition-all duration-100"
                     style={{ 
-                      height: `${Math.random() * 80 + 20}%`,
-                      animation: `wave ${Math.random() * 0.5 + 0.5}s ease-in-out infinite alternate`
+                      height: `${20 + ((i * 17) % 80)}%`,
+                      animation: `wave ${0.5 + i * 0.1}s ease-in-out infinite alternate`
                     }}
                   />
                 ))}
@@ -982,8 +982,8 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
                     key={i}
                     className="w-2 bg-[#C9A24D] rounded-full transition-all duration-100"
                     style={{ 
-                      height: `${Math.random() * 80 + 20}%`,
-                      animation: `wave ${Math.random() * 0.5 + 0.5}s ease-in-out infinite alternate-reverse`
+                      height: `${20 + (((6 - i) * 17) % 80)}%`,
+                      animation: `wave ${0.5 + (6 - i) * 0.1}s ease-in-out infinite alternate-reverse`
                     }}
                   />
                 ))}
@@ -1106,4 +1106,3 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     </div>
   );
 };
-
