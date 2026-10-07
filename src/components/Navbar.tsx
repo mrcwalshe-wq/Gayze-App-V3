@@ -25,6 +25,7 @@ interface NavbarProps {
   onOpenQR: () => void;
   reliabilityScore?: number;
   userNeighborhood?: string;
+  activeIntentMode?: 'social' | 'private' | null;
 }
 
 interface TabDef {
@@ -81,6 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSafetyTimer,
   isSafetyTimerActive,
   userNeighborhood,
+  activeIntentMode = null,
 }) => {
   const activeGroup = activeTab === 'safe_havens' ? 'profile' : activeTab;
 
@@ -167,6 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className={`g-tab ${isGayzeAction ? 'g-tab--discover group' : ''}`}
                 data-tab={tab.id}
                 data-active={isActive}
+                data-intent-mode={isGayzeAction ? (activeIntentMode || 'none') : undefined}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={isGayzeAction ? 'GAYZE Discover' : tab.label}
                 onClick={(event) => {
