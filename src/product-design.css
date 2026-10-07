@@ -226,3 +226,47 @@ select:focus-visible {
   border-color: rgba(170,132,245,.68) !important;
   box-shadow: 0 0 0 1px rgba(111,60,195,.16), 0 8px 22px rgba(111,60,195,.16) !important;
 }
+
+
+/* End intent is a destructive action, never a mode colour.
+   Use a restrained violet → magenta → red progression rather than Social amber. */
+.g-map-state__action--end {
+  color: #ffe8ee !important;
+  background: linear-gradient(135deg, rgba(111,60,195,.92) 0%, rgba(212,60,190,.82) 52%, rgba(239,68,68,.78) 100%) !important;
+  border-color: rgba(230,112,194,.62) !important;
+  box-shadow:
+    0 8px 20px rgba(111,60,195,.20),
+    0 4px 14px rgba(239,68,68,.12),
+    inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+.g-map-state__action--end:hover {
+  filter: brightness(1.06);
+}
+.g-map-state__end-dot {
+  background: #ff6b7d !important;
+  box-shadow: 0 0 8px rgba(255,107,125,.48) !important;
+}
+
+/* Toasts should arrive from the edge, like transient system feedback,
+   rather than rising out of the bottom navigation. */
+.g-toast {
+  left: auto !important;
+  right: 14px !important;
+  bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px) !important;
+  width: min(360px, calc(100vw - 28px)) !important;
+  margin: 0 !important;
+  animation: g-toast-in-side var(--g-dur-med) var(--g-spring) both !important;
+}
+@keyframes g-toast-in-side {
+  from { transform: translate3d(24px, 0, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+@media (max-width: 640px) {
+  .g-toast {
+    right: 12px !important;
+    width: min(340px, calc(100vw - 24px)) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-toast { animation: none !important; }
+}
