@@ -166,3 +166,63 @@ select:focus-visible {
     animation-iteration-count: 1 !important;
   }
 }
+
+
+/* Final mobile chrome refinement: the navigation should frame the app, not overlap it. */
+:root { --g-tabbar-h: 52px; }
+@media (max-width: 767px) {
+  .g-tabbar {
+    padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+  }
+  .g-tabbar__inner {
+    height: 52px !important;
+  }
+  .g-tab--discover {
+    transform: translateY(-18px) !important;
+    height: 74px !important;
+    min-height: 74px !important;
+  }
+  .g-tab--discover:active {
+    transform: translateY(-16px) scale(.98) !important;
+  }
+  .g-tab--discover .g-discover-action {
+    width: 54px !important;
+    height: 54px !important;
+    padding: 6px !important;
+    border-radius: 17px !important;
+  }
+  .g-tab--discover .g-discover-logo-image {
+    width: 44px !important;
+    height: 44px !important;
+  }
+}
+@media (max-width: 380px) {
+  .g-tabbar__inner { height: 50px !important; }
+  .g-tab--discover {
+    transform: translateY(-17px) !important;
+    height: 70px !important;
+    min-height: 70px !important;
+  }
+  .g-tab--discover .g-discover-action {
+    width: 52px !important;
+    height: 52px !important;
+  }
+  .g-tab--discover .g-discover-logo-image {
+    width: 42px !important;
+    height: 42px !important;
+  }
+}
+
+/* Private intent owns the full selection accent. Distance/time controls must not turn amber. */
+.g-sheet--private .g-optpill[data-tone='amber'][data-active='true'] {
+  color: #e9dcff !important;
+  background: rgba(111,60,195,.16) !important;
+  border-color: rgba(170,132,245,.68) !important;
+  box-shadow: 0 0 0 1px rgba(111,60,195,.16), 0 8px 22px rgba(111,60,195,.16) !important;
+}
+.g-sheet--private .g-optpill[data-tone='private'][data-active='true'] {
+  color: #e9dcff !important;
+  background: rgba(111,60,195,.16) !important;
+  border-color: rgba(170,132,245,.68) !important;
+  box-shadow: 0 0 0 1px rgba(111,60,195,.16), 0 8px 22px rgba(111,60,195,.16) !important;
+}
