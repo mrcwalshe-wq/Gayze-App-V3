@@ -1321,3 +1321,158 @@ select:focus-visible {
     box-shadow: 0 0 8px rgba(255,177,92,.58) !important;
   }
 }
+
+
+/* --------------------------------------------------------------------------
+   GAYZE MAP — FINAL PREMIUM REFINEMENT
+   One hierarchy: charcoal surfaces, amber for Social, purple for GAYZE,
+   green for pause/resume, red→amber for destructive end.
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  /* Active intent card: reduce amber ink and let the map breathe. */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social {
+    min-height: 0 !important;
+    padding: 10px 10px 9px !important;
+    border-radius: 18px !important;
+    background:
+      radial-gradient(115% 170% at 7% 0%, rgba(201,162,77,.14), transparent 44%),
+      linear-gradient(120deg, rgba(71,58,31,.96) 0%, rgba(34,31,26,.98) 35%, rgba(16,17,21,.99) 72%, rgba(11,12,16,.99) 100%) !important;
+    border-color: rgba(201,162,77,.58) !important;
+    box-shadow:
+      0 14px 34px rgba(0,0,0,.52),
+      0 0 20px rgba(201,162,77,.12),
+      inset 0 1px 0 rgba(255,236,180,.12) !important;
+  }
+
+  .g-shell .g-map-state__summary {
+    min-height: 58px !important;
+  }
+
+  .g-shell .g-map-state__actions {
+    gap: 8px !important;
+    margin-top: 8px !important;
+  }
+
+  .g-shell .g-map-state__action {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    min-height: 38px !important;
+    border-radius: 11px !important;
+    font-size: 10.5px !important;
+  }
+
+  /* Pause/resume: amber → green. */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__action--pause {
+    background: linear-gradient(118deg, #d8b45a 0%, #c9a24d 34%, #4f8f61 72%, #237044 100%) !important;
+    border-color: rgba(226,208,130,.72) !important;
+  }
+
+  /* End: restrained red → amber, never purple. */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__action--end {
+    background: linear-gradient(118deg, #b93645 0%, #cf4b45 42%, #c9893c 76%, #c9a24d 100%) !important;
+    border-color: rgba(239,169,95,.70) !important;
+  }
+
+  /* Map rail: one coherent glass control family, not four dark boxes. */
+  .g-map-rail {
+    gap: 7px !important;
+  }
+
+  .g-map-rail .g-icon-btn {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 14px !important;
+    color: rgba(239,234,247,.84) !important;
+    background: rgba(10,11,16,.72) !important;
+    border: 1px solid rgba(255,255,255,.09) !important;
+    box-shadow:
+      0 8px 20px rgba(0,0,0,.38),
+      inset 0 1px 0 rgba(255,255,255,.06) !important;
+    backdrop-filter: blur(18px) saturate(135%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(135%) !important;
+  }
+
+  .g-map-rail .g-icon-btn:hover,
+  .g-map-rail .g-icon-btn:focus-visible {
+    color: #fff !important;
+    border-color: rgba(201,162,77,.42) !important;
+    box-shadow:
+      0 0 16px rgba(201,162,77,.10),
+      0 8px 20px rgba(0,0,0,.38) !important;
+  }
+
+  /* Nearby control: quiet, integrated with the rail. */
+  .g-nearby-btn {
+    min-height: 36px !important;
+    min-width: 44px !important;
+    padding: 0 10px !important;
+    background: rgba(10,11,16,.76) !important;
+    border-color: rgba(255,255,255,.10) !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,.34) !important;
+  }
+
+  /* The top filter control uses exactly the same glass geometry. */
+  .g-shell > .g-float.g-icon-btn,
+  .g-shell .g-icon-btn.shrink-0 {
+    border-radius: 14px !important;
+  }
+
+  /* Bottom nav: restore the GAYZE purple → amber hairline and remove
+     individual icon boxes/capsules. */
+  .g-tabbar {
+    border-top-color: transparent !important;
+    box-shadow:
+      0 -12px 30px rgba(0,0,0,.42),
+      inset 0 1px 0 rgba(255,255,255,.035) !important;
+  }
+
+  .g-tabbar::before {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    left: 10% !important;
+    right: 10% !important;
+    top: 0 !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, transparent 0%, rgba(111,60,195,.88) 18%, rgba(180,105,235,.95) 42%, rgba(201,162,77,.90) 62%, rgba(225,194,111,.72) 82%, transparent 100%) !important;
+    box-shadow: 0 0 12px rgba(111,60,195,.22), 0 0 10px rgba(201,162,77,.14) !important;
+    pointer-events: none !important;
+  }
+
+  .g-tab:not(.g-tab--discover) .g-tab__capsule,
+  .g-tab:not(.g-tab--discover)[data-active='true'] .g-tab__capsule {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .g-tab:not(.g-tab--discover) {
+    background: transparent !important;
+    border-color: transparent !important;
+  }
+
+  /* The central GAYZE action remains the only elevated nav object. */
+  .g-tab--discover .g-discover-action {
+    background: #11131a !important;
+    border-color: rgba(111,60,195,.64) !important;
+    box-shadow:
+      0 0 0 1px rgba(111,60,195,.12),
+      0 10px 24px rgba(0,0,0,.44),
+      inset 0 1px 0 rgba(255,255,255,.07) !important;
+  }
+
+  .g-tab--discover[data-intent-mode='social'] .g-discover-action {
+    border-color: rgba(201,162,77,.64) !important;
+    box-shadow:
+      0 0 0 1px rgba(201,162,77,.10),
+      0 10px 24px rgba(0,0,0,.44),
+      inset 0 1px 0 rgba(255,255,255,.07) !important;
+  }
+
+  /* Remove the now-redundant lower live-intent dock. */
+  .g-intent-dock { display: none !important; }
+}
+
+/* The dock is redundant at every breakpoint now that the top live card owns
+   pause/resume/end management. */
+.g-intent-dock { display: none !important; }
