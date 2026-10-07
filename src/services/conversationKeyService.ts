@@ -123,6 +123,21 @@ async function resolveDeviceAwareKey(
   const envelopes = envelopeRead.envelopes;
   const devices = deviceRead.devices.filter((device) => device.status !== 'revoked');
 
+  // Never generate or persist a conversation key until this browser's device
+  // is present in the authorised device registry. Without this guard, a chat
+  // hydration race can create a key and then have every envelope write rejected
+  // because the database correctly requires the creator device to be registered.
+  const currentDevice = devices.find((device) => device.device_id === identity.deviceId);
+  if (!currentDevice) {
+    return {
+      key: null,
+      status: 'unavailable',
+      transient: true,
+      legacyKey: legacyKey ?? undefined,
+      reason: 'This device is still being registered for encrypted conversations. Please retry.',
+    };
+  }
+
   const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId);
   if (mine) {
     const creatorDeviceId = mine.created_by_device_id || mine.device_id;
