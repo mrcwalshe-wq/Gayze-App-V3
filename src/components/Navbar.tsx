@@ -135,8 +135,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button key={tab.id} onClick={() => { hapticLight(); onTabChange(tab.id); }} data-tab={tab.id} data-active={activeGroup === tab.group} className="g-navpill__btn">
                 {renderTabIcon(tab)}
                 <span>{tab.label}</span>
-                {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
+                {(tab.id === 'swarms' && (unreadCount > 0 || notificationCount > 0)) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D]" aria-label={`${notificationCount} unread GAYZE activity`} />
                 )}
               </button>
             ))}
