@@ -19,6 +19,7 @@ import {
   ArrowRight,
   AlertTriangle,
   Bell,
+  BellOff,
   LogOut,
 } from 'lucide-react';
 import {
