@@ -117,6 +117,8 @@ import {
   loadIntimacyProfile,
   loadProfileDetails,
   loadIncomingInterests,
+  acceptIncomingInterest,
+  declineIncomingInterest,
   updateSupabaseProfile,
   persistConversationMessage,
   subscribeToConversationMessages,
@@ -2535,7 +2537,7 @@ export default function App() {
     return true;
   };
 
-  const handleSubmitInterest = async (pulse: Pulse) => {
+  const handleSubmitInterest = async (pulse: Pulse, message?: string, sharedPhotoIds?: string[]) => {
     const account = supabaseUserIdRef.current;
     const generation = authGenerationRef.current;
     const request = ++directChatRequestRef.current;
@@ -2550,7 +2552,7 @@ export default function App() {
     }
 
     const intentId = pulse.id.slice('supabase_'.length);
-    const result = await submitInterest(pulse.peerId, intentId);
+    const result = await submitInterest(pulse.peerId, intentId, message, sharedPhotoIds ?? []);
     if (account !== supabaseUserIdRef.current || generation !== authGenerationRef.current
       || request !== directChatRequestRef.current || isSigningOutRef.current) {
       return { sent: false, mutual: false, conversation_id: null };
