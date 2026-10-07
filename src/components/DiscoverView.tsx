@@ -297,7 +297,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             Nobody matches this view right now. Set your own signal — it shows here and on the map
             the moment you go live.
           </p>
-          {onOpenSetIntent && (
+          {onOpenSetIntent && !activeUserIntent && (
             <button type="button" className="g-btn g-btn--primary w-full mt-1" onClick={() => { hapticLight(); onOpenSetIntent(); }}>
               <Plus className="w-4 h-4" />
               Create your intent
