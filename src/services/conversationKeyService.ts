@@ -234,7 +234,69 @@ async function resolveDeviceAwareKey(
   }
 }
 
-export const resolveGroupKeyForTest = resolveDeviceAwareKey;
+async function resolveGroupKey(
+  room: SwarmRoom,
+  currentUserId?: string,
+  deps: GroupKeyDeps = defaultGroupKeyDeps,
+): Promise<ConversationKeyResult> {
+  const identity = await getOrCreateDeviceIdentity();
+  const envelopeRead = await readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs);
+  const deviceRead = await readWithRetry(() => deps.readDevices(room.id), deps.retryDelayMs);
+  if (!envelopeRead.ok || !deviceRead.ok) {
+    return { key: null, status: 'unavailable', transient: true, reason: 'The group key could not be read right now. Retrying will not change any existing key.' };
+  }
+  const envelopes = envelopeRead.envelopes;
+  const devices = deviceRead.devices;
+  const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId);
+
+  if (mine) {
+    const creatorDeviceId = mine.created_by_device_id || mine.device_id;
+    const creator = devices.find((device) => device.device_id === creatorDeviceId)
+      ?? (creatorDeviceId === identity.deviceId ? { public_key: identity.publicKeyJwkString } : undefined);
+    const creatorJwk = parseJwk(creator?.public_key);
+    if (!creatorJwk) return { key: null, status: 'unavailable', transient: true, reason: 'The device that created this group key is not currently available on this conversation.' };
+    try {
+      const key = await unwrapConversationKey(room.id, mine.wrapped_key, mine.nonce, creatorJwk);
+      return { key, status: 'ready' };
+    } catch {
+      return { key: null, status: 'unavailable', reason: 'This device could not unlock the group key envelope.' };
+    }
+  }
+
+  if (envelopes.length > 0) {
+    return { key: null, status: 'unavailable', transient: true, reason: 'A group key exists for this conversation, but it has not been shared with this device yet.' };
+  }
+
+  try {
+    const conversationKey = await deps.createKey();
+    const recipients = [...devices];
+    if (!recipients.some((device) => device.device_id === identity.deviceId) && currentUserId) {
+      recipients.push({ user_id: currentUserId, device_id: identity.deviceId, public_key: identity.publicKeyJwkString, device_label: null, last_seen_at: new Date().toISOString() });
+    }
+    let saved = 0;
+    for (const device of recipients) {
+      const deviceJwk = parseJwk(device.public_key);
+      if (!deviceJwk) continue;
+      const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
+      const stored = await deps.saveEnvelope({
+        conversation_id: room.id,
+        user_id: device.user_id,
+        device_id: device.device_id,
+        wrapped_key: wrapped.wrappedKeyHex,
+        nonce: wrapped.nonceHex,
+        created_by_device_id: identity.deviceId,
+      });
+      if (!stored) return { key: null, status: 'unavailable', reason: 'This device is not allowed to provision the group key for every member yet.' };
+      saved += 1;
+    }
+    if (saved === 0) return { key: null, status: 'unavailable', reason: 'No member device with a usable identity key was found for this conversation.' };
+    return { key: conversationKey, status: 'ready' };
+  } catch {
+    return { key: null, status: 'unavailable', reason: 'The group conversation key could not be provisioned on this device.' };
+  }
+}
+
+export const resolveGroupKeyForTest = resolveGroupKey;
 export const resolveGroupKeyForTest = resolveGroupKey;
 
 export async function resolveConversationKey(
