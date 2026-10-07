@@ -31,7 +31,8 @@ import {
   Image as ImageIcon,
   MoreHorizontal,
   Trash2,
-  Bell
+  Bell,
+  MessageSquare
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
