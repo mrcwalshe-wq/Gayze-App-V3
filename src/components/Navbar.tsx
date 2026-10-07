@@ -118,7 +118,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="g-discover-action relative flex items-center justify-center transition-transform duration-200"
         >
           <img
-            src="/brand/gayze-nav-v3.svg?v=20261008-6"
+            src="/brand/gayze-nav-v3.svg?v=20261008-7"
             alt=""
             className="g-discover-logo-image object-contain"
             draggable={false}
