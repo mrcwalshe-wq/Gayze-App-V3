@@ -303,3 +303,105 @@ select:focus-visible {
     box-shadow: 0 8px 22px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.07) !important;
   }
 }
+
+
+/* Intent-linked application theme.
+   Normal interaction accents follow the user's live intent.
+   Destructive/system states remain semantically distinct (red/safety). */
+.g-shell {
+  --g-intent-accent: #6F3CC3;
+  --g-intent-accent-strong: #8B5CF6;
+  --g-intent-accent-soft: rgba(111,60,195,.16);
+  --g-intent-accent-border: rgba(170,132,245,.56);
+  --g-intent-accent-glow: rgba(111,60,195,.22);
+  --g-intent-accent-contrast: #f6f0ff;
+}
+.g-shell[data-intent-mode='private'] {
+  --g-intent-accent: #6F3CC3;
+  --g-intent-accent-strong: #9A6BE8;
+  --g-intent-accent-soft: rgba(111,60,195,.17);
+  --g-intent-accent-border: rgba(170,132,245,.62);
+  --g-intent-accent-glow: rgba(111,60,195,.25);
+  --g-intent-accent-contrast: #f4edff;
+}
+.g-shell[data-intent-mode='social'] {
+  --g-intent-accent: #C9A24D;
+  --g-intent-accent-strong: #E2C36B;
+  --g-intent-accent-soft: rgba(201,162,77,.14);
+  --g-intent-accent-border: rgba(225,194,111,.62);
+  --g-intent-accent-glow: rgba(201,162,77,.20);
+  --g-intent-accent-contrast: #fff8e7;
+}
+
+/* Primary actions and normal interactive emphasis. */
+.g-shell .g-btn--primary {
+  color: var(--g-intent-accent-contrast) !important;
+  background: linear-gradient(135deg, var(--g-intent-accent-strong), var(--g-intent-accent)) !important;
+  border-color: var(--g-intent-accent-border) !important;
+  box-shadow: 0 8px 22px var(--g-intent-accent-glow), inset 0 1px 0 rgba(255,255,255,.16) !important;
+}
+.g-shell .g-btn--primary:hover {
+  filter: brightness(1.06);
+}
+.g-shell .g-btn--quiet:hover,
+.g-shell .g-icon-btn:hover {
+  border-color: var(--g-intent-accent-border) !important;
+  color: var(--g-intent-accent-contrast) !important;
+}
+.g-shell .g-btn--quiet:focus-visible,
+.g-shell .g-icon-btn:focus-visible {
+  border-color: var(--g-intent-accent-border) !important;
+}
+
+/* Normal selected/active navigation follows the same live signal. */
+.g-shell .g-tab[data-active='true']:not(.g-tab--discover) {
+  background: var(--g-intent-accent-soft) !important;
+  border-color: var(--g-intent-accent-border) !important;
+}
+.g-shell .g-tab[data-active='true']:not(.g-tab--discover) svg {
+  color: var(--g-intent-accent-strong) !important;
+  filter: drop-shadow(0 0 8px var(--g-intent-accent-glow)) !important;
+}
+.g-shell .g-navpill__btn[data-active='true'] {
+  color: var(--g-intent-accent-contrast) !important;
+  background: var(--g-intent-accent-soft) !important;
+  border-color: var(--g-intent-accent-border) !important;
+}
+
+/* Common intent-linked highlights used by cards, live markers and badges. */
+.g-shell .g-live-dot:not(.g-live-dot--paused),
+.g-shell .g-map-state__live-pill {
+  background: var(--g-intent-accent-soft) !important;
+  border-color: var(--g-intent-accent-border) !important;
+  color: var(--g-intent-accent-contrast) !important;
+}
+.g-shell .g-map-state--live {
+  border-color: var(--g-intent-accent-border) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.28), 0 0 24px var(--g-intent-accent-glow) !important;
+}
+.g-shell .g-intent-dock__button {
+  border-color: var(--g-intent-accent-border) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.28), 0 0 18px var(--g-intent-accent-glow) !important;
+}
+.g-shell .g-tab__ind {
+  background: var(--g-intent-accent-strong) !important;
+  box-shadow: 0 0 10px var(--g-intent-accent-glow) !important;
+}
+
+/* The GAYZE Discover action inherits the same mode hue. */
+@media (max-width: 767px) {
+  .g-shell .g-tab--discover[data-intent-mode='private'] .g-discover-action {
+    border-color: var(--g-intent-accent-border) !important;
+    box-shadow: 0 0 0 1px var(--g-intent-accent-soft), 0 10px 24px var(--g-intent-accent-glow), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+  .g-shell .g-tab--discover[data-intent-mode='social'] .g-discover-action {
+    border-color: var(--g-intent-accent-border) !important;
+    box-shadow: 0 0 0 1px var(--g-intent-accent-soft), 0 10px 24px var(--g-intent-accent-glow), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+}
+
+/* Focus follows intent too; safety/destructive controls retain their own semantic colours. */
+.g-shell button:focus-visible,
+.g-shell [role='button']:focus-visible {
+  outline-color: var(--g-intent-accent-strong) !important;
+}
