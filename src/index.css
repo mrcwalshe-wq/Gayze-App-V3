@@ -2226,12 +2226,35 @@ button, input, select, textarea, [role="button"] {
   box-shadow: 0 0 10px rgba(111,60,195,.55);
 }
 .g-intent-dock__button--social {
-  border-color: rgba(201,162,77,.48);
-  box-shadow: 0 14px 34px rgba(0,0,0,.46), 0 0 25px rgba(201,162,77,.13), inset 0 1px 0 rgba(255,255,255,.12);
+  border-color: rgba(201,162,77,.58);
+  background:
+    radial-gradient(125% 170% at 8% 0%, rgba(201,162,77,.24), transparent 50%),
+    radial-gradient(90% 140% at 100% 100%, rgba(240,201,109,.10), transparent 58%),
+    linear-gradient(135deg, rgba(43,34,18,.98), rgba(20,17,16,.98));
+  box-shadow:
+    0 14px 34px rgba(0,0,0,.46),
+    0 0 28px rgba(201,162,77,.18),
+    inset 0 1px 0 rgba(240,201,109,.16);
 }
 .g-intent-dock__button--social::before {
   background: linear-gradient(90deg, transparent, rgba(236,194,92,.9), transparent);
   box-shadow: 0 0 10px rgba(201,162,77,.48);
+}
+
+.g-intent-dock__button--private {
+  border-color: rgba(111,60,195,.62);
+  background:
+    radial-gradient(125% 170% at 8% 0%, rgba(111,60,195,.25), transparent 50%),
+    radial-gradient(90% 140% at 100% 100%, rgba(212,60,190,.10), transparent 58%),
+    linear-gradient(135deg, rgba(31,22,47,.98), rgba(16,14,23,.98));
+  box-shadow:
+    0 14px 34px rgba(0,0,0,.46),
+    0 0 28px rgba(111,60,195,.20),
+    inset 0 1px 0 rgba(170,132,245,.17);
+}
+.g-intent-dock__button--private::before {
+  background: linear-gradient(90deg, transparent, rgba(190,151,255,.9), transparent);
+  box-shadow: 0 0 10px rgba(111,60,195,.55);
 }
 .g-intent-dock__icon {
   display: grid;
