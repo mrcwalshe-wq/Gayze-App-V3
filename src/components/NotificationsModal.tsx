@@ -333,10 +333,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                 ) : (
                   recentRows.map((notice) => (
                     <button key={notice.id} type="button" onClick={() => onOpenNotification?.(notice)}
-                      className="g-notification-row" aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notificationCopy[notice.category] ?? 'GAYZE notification'}`}>
+                      className="g-notification-row" aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notificationLabel(notice)}`}>
                       <span className={`g-notification-row__dot ${notice.read_at ? 'is-read' : ''}`} />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] font-semibold text-white truncate">{notificationCopy[notice.category] ?? 'GAYZE notification'}</span>
+                        <span className="block text-[13px] font-semibold text-white truncate">{notificationLabel(notice)}</span>
                         <time className="block mt-1 text-[10.5px] text-zinc-600" dateTime={notice.created_at}>{new Date(notice.created_at).toLocaleString()}</time>
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
