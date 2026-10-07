@@ -112,6 +112,35 @@
   border-color: rgba(201,162,77,.48) !important;
 }
 
+
+/* Discover: a quiet status strip with a clear action boundary. */
+.g-discover-signal-strip {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(111,60,195,.28);
+  border-radius: var(--g-product-radius-lg);
+  background: #11131a;
+  box-shadow: none;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.g-discover-signal-strip:hover {
+  background: #151821;
+  border-color: rgba(111,60,195,.42);
+}
+.g-discover-signal-strip:active { transform: scale(.995); }
+
+.g-discover-mode-filter {
+  border: 1px solid var(--g-product-border);
+  border-radius: var(--g-product-radius-lg);
+  background: #0d0f14;
+}
+.g-discover-mode-filter__button {
+  border: 1px solid transparent;
+  box-shadow: none !important;
+}
+.g-discover-mode-filter__button:hover { background: rgba(255,255,255,.035); }
+.g-discover-mode-filter__button:focus-visible { outline-offset: -2px; }
+
 /* Profile surfaces stay content-led rather than dashboard-like. */
 .gayze-premium-page .g-avatar { box-shadow: none !important; }
 .gayze-premium-page section.g-panel .shadow-md,
