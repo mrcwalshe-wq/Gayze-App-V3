@@ -543,3 +543,140 @@ select:focus-visible {
   line-height: 1.55;
   color: rgba(203,207,220,.70);
 }
+
+
+/* Discover reference refinement: calm header, intent-led status strip, deliberate empty surface. */
+@media (max-width: 767px) {
+  .g-shell .gayze-premium-page {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+  .g-shell .gayze-premium-page > header {
+    padding-top: 18px;
+    padding-bottom: 12px;
+  }
+  .g-shell .gayze-premium-page > header h1 {
+    font-size: 30px;
+    letter-spacing: -0.035em;
+  }
+  .g-shell .gayze-premium-page > header p {
+    font-size: 13.5px;
+    line-height: 1.4;
+  }
+
+  .g-shell .g-discover-signal-strip {
+    min-height: 66px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, rgba(18,19,27,.94), rgba(12,13,19,.96));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 8px 24px rgba(0,0,0,.14);
+  }
+  .g-shell .g-discover-signal-strip--social {
+    border-color: rgba(201,162,77,.30);
+  }
+  .g-shell .g-discover-signal-strip--private {
+    border-color: rgba(111,60,195,.38);
+  }
+  .g-shell .g-discover-signal-strip .g-live-dot {
+    width: 10px;
+    height: 10px;
+    margin-left: 1px;
+  }
+  .g-shell .g-discover-signal-strip .g-chip {
+    height: 22px;
+    padding: 0 8px;
+  }
+  .g-shell .g-discover-signal-strip .g-chip--social {
+    color: #f2d58c;
+    background: rgba(201,162,77,.11);
+    border-color: rgba(201,162,77,.34);
+  }
+  .g-shell .g-discover-signal-strip .g-chip--private {
+    color: #d6c2f6;
+    background: rgba(111,60,195,.13);
+    border-color: rgba(111,60,195,.40);
+  }
+  .g-shell .g-discover-signal-strip > div > div:first-child {
+    font-size: 14px;
+  }
+  .g-shell .g-discover-signal-strip > div > div:last-child {
+    font-size: 11.5px;
+  }
+  .g-shell .g-discover-signal-strip > span:last-child {
+    min-width: 74px;
+    text-align: center;
+    padding: 8px 10px;
+    border-radius: 11px;
+    background: rgba(255,255,255,.045);
+    border-color: rgba(255,255,255,.09);
+  }
+
+  .g-shell .g-discover-mode-filter {
+    min-height: 58px;
+    padding: 4px;
+    gap: 2px;
+    border-radius: 19px;
+    background: rgba(9,10,15,.72);
+  }
+  .g-shell .g-discover-mode-filter__button {
+    height: 48px !important;
+    border-radius: 15px !important;
+    font-size: 13px !important;
+  }
+  .g-shell .g-discover-mode-filter__button[class*="bg-white\/15"] {
+    background: rgba(255,255,255,.16) !important;
+    border-color: rgba(255,255,255,.09) !important;
+  }
+
+  .g-shell .g-discover-map-button {
+    min-height: 40px !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    border-radius: 15px !important;
+  }
+  .g-shell .g-discover-map-button--social svg {
+    color: #e2c36b !important;
+  }
+  .g-shell .g-discover-map-button--private svg {
+    color: #a879f1 !important;
+  }
+
+  .g-shell .g-discover-empty {
+    min-height: 445px;
+    padding: 34px 28px 28px;
+    border-radius: 23px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .g-shell .g-discover-empty::before {
+    inset: 0 24% auto;
+    opacity: .52;
+  }
+  .g-shell .g-discover-empty .g-empty__icon {
+    width: 72px;
+    height: 72px;
+    margin-top: 0;
+    margin-bottom: 24px;
+    border-radius: 24px;
+  }
+  .g-shell .g-discover-empty h3 {
+    margin-top: 0;
+    font-size: 19px;
+    line-height: 1.25;
+  }
+  .g-shell .g-discover-empty p {
+    margin-top: 10px;
+    max-width: 330px;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .g-shell .g-discover-empty .g-btn--primary {
+    margin-top: 20px;
+    min-height: 52px;
+    border-radius: 17px;
+    font-size: 14px;
+  }
+}
