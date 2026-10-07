@@ -795,19 +795,73 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
 }
 
 export async function updateSupabaseProfile(userId: string, profile: { displayName: string; handle: string; bio: string; age: number; privacySetting: LocationPrivacy; interests: string[] }) {
-  if (!supabase) return false;
+  if (!supabase || !userId) return false;
   try {
-    const { error } = await supabase.from('profiles').update({
-      display_name: profile.displayName.trim(),
-      handle: profile.handle.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 32),
-      bio: profile.bio.trim(),
-      age: profile.age,
-      privacy_setting: profile.privacySetting,
-      interests: profile.interests,
-      updated_at: new Date().toISOString(),
-    }).eq('id', userId);
-    if (error) throw error;
-    return true;
+    // Do not report success for a local-only update. The authenticated user must
+    // be the profile owner and the database must return the persisted row.
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user || authData.user.id !== userId) {
+      console.warn('[GAYZE] Profile save rejected: authenticated user does not match profile owner');
+      return false;
+    }
+
+    const displayName = profile.displayName.trim();
+    const handle = profile.handle.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 32);
+    const interests = Array.isArray(profile.interests) ? profile.interests : [];
+    if (!displayName || !handle) {
+      console.warn('[GAYZE] Profile save rejected: display name and handle are required');
+      return false;
+    }
+
+    // UPDATE-only was a silent failure when a profile row was missing: PostgREST
+    // can return no error for zero affected rows. Upsert the user-owned columns
+    // instead, so a missing profile is repaired without touching server-managed
+    // reliability/verification fields.
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: userId,
+        display_name: displayName,
+        handle,
+        bio: profile.bio.trim() || null,
+        age: profile.age,
+        privacy_setting: profile.privacySetting,
+        interests,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select('id,display_name,handle,bio,age,privacy_setting,interests,updated_at')
+      .maybeSingle();
+
+    if (error || !data || data.id !== userId) {
+      console.warn('[GAYZE] Profile preferences save failed:', error?.message || 'database returned no persisted profile');
+      return false;
+    }
+
+    // Verify the values that the editor just saved. This prevents a false
+    // "Profile saved" state when RLS, a trigger, or another persistence issue
+    // prevents the expected row from being stored.
+    const saved = await supabase
+      .from('profiles')
+      .select('id,display_name,handle,bio,age,privacy_setting,interests')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (saved.error || !saved.data) {
+      console.warn('[GAYZE] Profile save verification failed:', saved.error?.message || 'profile row missing after save');
+      return false;
+    }
+
+    const normalisedHandle = handle;
+    const savedInterests = Array.isArray(saved.data.interests) ? saved.data.interests : [];
+    const interestsMatch = savedInterests.length === interests.length &&
+      savedInterests.every((value: string, index: number) => value === interests[index]);
+
+    return saved.data.display_name === displayName &&
+      saved.data.handle === normalisedHandle &&
+      (saved.data.bio ?? '') === (profile.bio.trim() || '') &&
+      Number(saved.data.age) === Number(profile.age) &&
+      saved.data.privacy_setting === profile.privacySetting &&
+      interestsMatch;
   } catch (error) {
     console.warn('[GAYZE] Profile preferences update failed:', error);
     return false;
