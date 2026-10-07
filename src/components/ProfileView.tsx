@@ -24,6 +24,7 @@ import {
 import {
   type EditSectionKey,
   INTIMACY_VISIBILITY_OPTIONS,
+  computeProfileCompletion,
 } from '../config/profileOptions';
 import { UserActiveIntent, UserProfile } from '../types';
 import { hapticLight, triggerVibration } from '../services/hapticService';
