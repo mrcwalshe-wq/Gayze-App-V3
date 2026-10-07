@@ -1188,3 +1188,136 @@ select:focus-visible {
     bottom: auto !important;
   }
 }
+
+
+/* ========================================================================== 
+   2026-10-07 FINAL MOBILE NAV + SOCIAL LIVE INTENT TREATMENT
+   This block is intentionally last: product-design.css is imported after the
+   legacy/public navigation sheets, so these rules are the final authority.
+   ========================================================================== */
+@media (max-width: 767px) {
+  /* The nav rail is the only surface. Individual destinations are never cards. */
+  nav.g-tabbar .g-tabbar__inner .g-tab,
+  nav.g-tabbar .g-tabbar__inner .g-tab:hover,
+  nav.g-tabbar .g-tabbar__inner .g-tab:focus,
+  nav.g-tabbar .g-tabbar__inner .g-tab:focus-visible,
+  nav.g-tabbar .g-tabbar__inner .g-tab:active,
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true'],
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']:hover,
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']:focus,
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']:focus-visible {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Active destination = one restrained luminous line, nothing else. */
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']::before {
+    content: none !important;
+    display: none !important;
+  }
+  nav.g-tabbar .g-tabbar__inner .g-tab[data-active='true']::after {
+    content: '' !important;
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    bottom: auto !important;
+    left: 50% !important;
+    width: 24px !important;
+    height: 2px !important;
+    transform: translateX(-50%) !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: var(--g-intent-accent-strong) !important;
+    box-shadow: 0 0 9px var(--g-intent-accent-glow) !important;
+    pointer-events: none !important;
+  }
+
+  /* Discover is the authentic GAYZE mark, not a fifth card. */
+  nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action,
+  nav.g-tabbar .g-tabbar__inner .g-tab--discover[data-active='true'] .g-discover-action {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+  }
+  nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before,
+  nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* ----------------------------------------------------------------------
+     Social live intent: amber/gold → deep charcoal, matching Social intent.
+     The card stays premium and legible without the purple treatment.
+     ---------------------------------------------------------------------- */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social {
+    background:
+      radial-gradient(125% 170% at 8% 0%, rgba(255,224,128,.24), transparent 48%),
+      linear-gradient(118deg, #c9a24d 0%, #a77e35 19%, #4b402b 43%, #25221d 66%, #111216 100%) !important;
+    border-color: rgba(225,190,94,.76) !important;
+    box-shadow:
+      0 0 0 1px rgba(201,162,77,.16),
+      0 16px 42px rgba(0,0,0,.50),
+      0 0 28px rgba(201,162,77,.20),
+      inset 0 1px 0 rgba(255,238,180,.20) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__live-pill {
+    color: #fff4cf !important;
+    background: rgba(201,162,77,.18) !important;
+    border-color: rgba(236,201,112,.62) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__live-dot {
+    background: #f1cc68 !important;
+    box-shadow: 0 0 9px rgba(241,204,104,.82) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__title {
+    color: #fff9e8 !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__details,
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__timer span {
+    color: rgba(255,246,220,.70) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__timer strong {
+    color: #fff8df !important;
+  }
+
+  /* Pause/Resume = amber → green: positive, live, reversible. */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__action--pause {
+    color: #fffdf2 !important;
+    background:
+      linear-gradient(118deg, #e0b95b 0%, #c9a24d 36%, #4f8f61 72%, #237044 100%) !important;
+    border-color: rgba(226,208,130,.78) !important;
+    box-shadow:
+      0 8px 20px rgba(47,108,67,.24),
+      inset 0 1px 0 rgba(255,247,205,.24) !important;
+  }
+
+  /* End intent = red → amber: destructive, but visually tied to Social. */
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__action--end {
+    color: #fff7e8 !important;
+    background:
+      linear-gradient(118deg, #b93645 0%, #d44d46 42%, #c9893c 76%, #c9a24d 100%) !important;
+    border-color: rgba(239,169,95,.76) !important;
+    box-shadow:
+      0 8px 20px rgba(190,72,57,.24),
+      inset 0 1px 0 rgba(255,229,188,.22) !important;
+  }
+
+  .g-shell .g-map-state.g-map-state--live.g-map-state--social .g-map-state__end-dot {
+    background: #ffb15c !important;
+    box-shadow: 0 0 8px rgba(255,177,92,.58) !important;
+  }
+}
