@@ -479,54 +479,45 @@ export interface SubmitInterestResult {
   sent: boolean;
   mutual: boolean;
   conversation_id: string | null;
+  interest_id?: string | null;
 }
 
-export async function verifyPeerIdentity(
-  peerPublicKey: string,
-  peerFingerprint: string,
-  deviceId?: string | null,
-): Promise<boolean> {
-  if (!supabase) return false;
+export async function submitInterest(
+  toUserId: string,
+  intentId?: string,
+  message?: string,
+  sharedPhotoIds: string[] = [],
+): Promise<SubmitInterestResult> {
+  if (!supabase) return { sent: false, mutual: false, conversation_id: null, interest_id: null };
   try {
-    const { data, error } = await supabase.rpc('verify_peer_identity', {
-      p_peer_public_key: peerPublicKey,
-      p_peer_fingerprint: peerFingerprint,
-      p_device_id: deviceId ?? null,
+    const { data, error } = await supabase.rpc('submit_interest', {
+      p_to_user: toUserId,
+      p_intent_id: intentId ?? null,
+      p_message: message?.trim() || null,
+      p_shared_photo_ids: sharedPhotoIds,
     });
     if (error) {
-      console.warn('[GAYZE] Peer identity verification failed:', error.message);
-      return false;
-    }
-    return data === true;
-  } catch (err: any) {
-    console.warn('[GAYZE] Peer identity verification exception:', err?.message || err);
-    return false;
-  }
-}
-
-export async function submitInterest(toUserId: string, intentId?: string): Promise<SubmitInterestResult> {
-  if (!supabase) return { sent: false, mutual: false, conversation_id: null };
-  try {
-    const { data, error } = await supabase.rpc('submit_interest', { p_to_user: toUserId, p_intent_id: intentId ?? null });
-    if (error) {
       console.warn('[GAYZE] Supabase submit_interest unavailable:', error.message);
-      return { sent: false, mutual: false, conversation_id: null };
+      return { sent: false, mutual: false, conversation_id: null, interest_id: null };
     }
-    const result = data as { mutual?: boolean; conversation_id?: string | null };
-    // The RPC result is the authoritative "mutual was just created" signal.
-    // Forward it so the other member is notified (server enforces exactly-once
-    // and the recipient's preferences). Fire-and-forget: no effect on the flow.
+    const result = data as {
+      sent?: boolean;
+      mutual?: boolean;
+      conversation_id?: string | null;
+      interest_id?: string | null;
+    };
     if (result.mutual && result.conversation_id) {
       void requestConnectionPush(result.conversation_id);
     }
     return {
-      sent: true,
+      sent: result.sent !== false,
       mutual: Boolean(result.mutual),
       conversation_id: result.conversation_id ?? null,
+      interest_id: result.interest_id ?? null,
     };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase submit_interest exception:', err?.message || err);
-    return { sent: false, mutual: false, conversation_id: null };
+    return { sent: false, mutual: false, conversation_id: null, interest_id: null };
   }
 }
 
