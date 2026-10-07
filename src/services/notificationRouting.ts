@@ -14,6 +14,7 @@ export interface NotificationRoute {
   tab: GayzeTab;
   conversationId?: string;
   openNotifications?: boolean;
+  messagesSubtab?: 'chats' | 'notifications';
 }
 
 let currentAuthUserId: string | null = null;
@@ -90,9 +91,11 @@ export function routeFromPath(pathname: string): NotificationRoute {
     case 'safe_havens':
       return { tab: 'safe_havens' };
     case 'profile':
-      return { tab: 'profile', openNotifications: second === 'notifications' };
+      return second === 'notifications'
+        ? { tab: 'swarms', messagesSubtab: 'notifications' }
+        : { tab: 'profile' };
     case 'notifications':
-      return { tab: 'profile', openNotifications: true };
+      return { tab: 'swarms', messagesSubtab: 'notifications' };
     default:
       return { tab: 'right_now' };
   }
