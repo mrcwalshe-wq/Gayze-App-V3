@@ -421,3 +421,74 @@ select:focus-visible {
 .g-shell .g-live-dot {
   box-shadow: 0 0 0 4px var(--g-intent-accent-soft), 0 0 12px var(--g-intent-accent-glow) !important;
 }
+
+
+/* Persistent notification status: a compact product-status row, not a promotional card. */
+.g-profile-notification-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 9px 11px;
+  border: 1px solid rgba(201,162,77,.34);
+  border-radius: 14px;
+  background: rgba(201,162,77,.055);
+  box-shadow: none;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.g-profile-notification-banner:hover {
+  background: rgba(201,162,77,.085);
+  border-color: rgba(201,162,77,.48);
+}
+.g-profile-notification-banner__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  color: #e2c36b;
+  background: rgba(201,162,77,.11);
+  border: 1px solid rgba(201,162,77,.28);
+}
+.g-profile-notification-banner__action {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: #fff8e7;
+  background: rgba(201,162,77,.16);
+  border: 1px solid rgba(201,162,77,.34);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* Toasts are transient system feedback, not another floating content card.
+   Keep them in a small top notification lane so they never sit on the bottom nav,
+   intent dock, or map controls. */
+.g-toast {
+  left: 50% !important;
+  right: auto !important;
+  top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+  bottom: auto !important;
+  width: min(310px, calc(100vw - 32px)) !important;
+  min-height: 42px !important;
+  padding: 9px 12px !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  border-radius: 12px !important;
+  background: rgba(12,14,21,.94) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.32) !important;
+  backdrop-filter: blur(18px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
+  animation: g-toast-in-top var(--g-dur-med) var(--g-spring) both !important;
+  z-index: 70 !important;
+}
+@keyframes g-toast-in-top {
+  from { transform: translate3d(-50%, -14px, 0); opacity: 0; }
+  to { transform: translate3d(-50%, 0, 0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-toast { animation: none !important; }
+}
