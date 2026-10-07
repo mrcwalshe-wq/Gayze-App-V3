@@ -91,6 +91,7 @@ function applyBadge(count) {
 
 const DEFAULT_COPY = {
   gaze: { title: 'New Gayze', body: 'Someone sent you a Gayze.', url: '/notifications' },
+  interest: { title: 'Intent interest', body: 'Someone is interested in your intent.', url: '/right-now' },
   message: { title: 'New message', body: 'You have a new Gayze message.', url: '/messages' },
   intent: { title: 'Someone is interested', body: 'Someone responded to your intent.', url: '/right-now' },
   intent_expiring: { title: 'Your intent is ending soon', body: 'Your active intent expires shortly.', url: '/profile' },

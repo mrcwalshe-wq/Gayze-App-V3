@@ -29,6 +29,7 @@ for (const [type, expectedTitle, expectedPath] of [
   ['message', 'New message', '/messages/11111111-1111-4111-8111-111111111111?notification=22222222-2222-4222-8222-222222222222'],
   ['connection', 'New connection', '/messages/11111111-1111-4111-8111-111111111111?notification=22222222-2222-4222-8222-222222222222'],
   ['gaze', 'New Gayze', '/notifications'],
+  ['interest', 'Intent interest', '/right-now'],
   ['intent', 'Someone is interested', '/right-now'],
   ['intent_expiring', 'Your intent is ending soon', '/profile'],
   ['safety', 'Safety alert', '/profile'],

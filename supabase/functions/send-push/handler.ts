@@ -5,10 +5,11 @@ export interface PushStore { user(token: string): Promise<{ id: string; app_meta
 export interface PushConfig { dispatchSecret?: string; dispatchSecretProvider?: () => Promise<string | undefined>; origins: string[]; configured: boolean; }
 export type PushTransport = (subscription: Subscription, payload: Record<string, unknown>) => Promise<number | void>;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const categories: Record<string, string> = { message: 'messages', gaze: 'intent_activity', connection: 'connections', call: 'push_enabled', missed_call: 'push_enabled', intent_expiring: 'intent_expiry', safety: 'safety', test: 'push_enabled' };
+const categories: Record<string, string> = { message: 'messages', gaze: 'intent_activity', interest: 'intent_activity', connection: 'connections', call: 'push_enabled', missed_call: 'push_enabled', intent_expiring: 'intent_expiry', safety: 'safety', test: 'push_enabled' };
 const copy: Record<string, [string, string]> = {
   message: ['New message', 'You have a new GAYZE message.'],
   gaze: ['New Gayze', 'Someone sent you a Gayze.'],
+  interest: ['Intent interest', 'Someone is interested in your intent.'],
   connection: ['New connection', 'You have a new GAYZE connection.'],
   call: ['Incoming call', 'You have an incoming GAYZE call.'],
   missed_call: ['Missed call', 'You missed a GAYZE call.'],
@@ -25,6 +26,7 @@ function notificationCopy(notice: Notice): [string, string] {
     if (hasIntentInterest(notice)) return actor ? [`${actor} is interested in your intent`, 'Someone is interested in your current intent.'] : ['Someone is interested in your intent', 'Someone is interested in your current intent.'];
     return actor ? [`${actor} sent you a Gayze`, 'Someone has Gayzed you.'] : copy.gaze;
   }
+  if (notice.category === 'interest') return actor ? [actor + ' is interested in your intent', 'Someone is interested in your current intent.'] : copy.interest;
   if (notice.category === 'connection') return actor ? [`You have a new connection with ${actor}`, 'Open GAYZE to view your connection.'] : copy.connection;
   if (notice.category === 'call') return actor ? [`Incoming ${notice.event_key?.includes(':video') ? 'video' : 'audio'} call from ${actor}`, 'Tap to open GAYZE.'] : copy.call;
   if (notice.category === 'missed_call') return actor ? [`Missed ${notice.event_key?.includes(':video') ? 'video' : 'audio'} call from ${actor}`, 'Tap to open GAYZE.'] : copy.missed_call;

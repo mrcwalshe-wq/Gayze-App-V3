@@ -1326,15 +1326,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className="g-float g-nearby-btn" aria-expanded={isNearbyOpen} aria-label={`${liveMembersCount} nearby — open nearby intents`}><List className="w-3.5 h-3.5" /><span>{liveMembersCount}</span><span className="g-nearby-btn__chevron">›</span></button>
             )}
           </div>
-          {onOpenSetIntent && activeUserIntent && (
-            <div className="g-intent-dock">
-              <button type="button" onClick={() => { hapticLight(); setIsUserIntentDrawerOpen(true); }} className={`g-intent-dock__button g-intent-dock__button--${activeUserIntent.mode === 'private' ? 'private' : 'social'}`} aria-label="Manage your live intent">
-                <span className="g-intent-dock__icon"><Radio className="w-4 h-4" /></span>
-                <span className="g-intent-dock__copy"><strong>{activeUserIntent.isPaused ? 'Intent paused' : 'Intent live'}</strong><span>{formatRemainingTime(remainingMinutes)} remaining</span></span>
-                <span className="g-intent-dock__chevron">⌃</span>
-              </button>
-            </div>
-          )}
         </>
       )}
 
@@ -2285,9 +2276,23 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         <div className="g-overlay flex items-end sm:items-center justify-center p-3" onClick={() => !interestComposerBusy && setInterestDraftPulse(null)}>
           <div className="w-full max-w-md g-panel !rounded-[28px] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 flex items-center gap-3 border-b border-white/[0.08]">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#6F3CC3] to-[#C9A24D] flex items-center justify-center text-white font-bold">{interestDraftPulse.peerName.slice(0,1).toUpperCase()}</div>
-              <div className="min-w-0 flex-1"><span className="g-label text-[#C9A24D]">Intent interest</span><h3 className="text-[15px] font-semibold text-white truncate">Respond to {interestDraftPulse.peerName}</h3></div>
-              <button type="button" onClick={() => setInterestDraftPulse(null)} className="g-icon-btn g-icon-btn--bare" aria-label="Close"><X className="w-4 h-4" /></button>
+              <div className="relative w-12 h-12 shrink-0 rounded-2xl overflow-hidden border border-[#C9A24D]/45 bg-[#171922] shadow-[0_8px_20px_rgba(0,0,0,.35)]">
+                <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-white">{interestDraftPulse.peerName.slice(0,1).toUpperCase()}</span>
+                {interestDraftPulse.peerAvatar && /^https?:\/\//i.test(interestDraftPulse.peerAvatar) && (
+                  <img
+                    src={interestDraftPulse.peerAvatar}
+                    alt={interestDraftPulse.peerName}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="g-label text-[#C9A24D]">Intent interest</span>
+                <h3 className="text-[15px] font-semibold text-white truncate">Respond to {interestDraftPulse.peerName}</h3>
+                <p className="text-[10.5px] text-zinc-500 truncate">{interestDraftPulse.peerAge ? String(interestDraftPulse.peerAge) + ' · ' : ''}{interestDraftPulse.neighborhood}</p>
+              </div>
+              <button type="button" onClick={() => setInterestDraftPulse(null)} className="g-icon-btn g-icon-btn--bare !w-11 !h-11 shrink-0" aria-label="Close"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-5 space-y-4">
               <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Their intent</div><div className="text-sm text-white mt-1">{interestDraftPulse.title || interestDraftPulse.intent || 'Right Now'}</div></div>

@@ -482,31 +482,13 @@ export interface SubmitInterestResult {
   interest_id?: string | null;
 }
 
-export async function verifyPeerIdentity(
-  peerPublicKey: string,
-  peerFingerprint: string,
-  deviceId?: string | null,
-): Promise<boolean> {
-  if (!supabase) return false;
-  try {
-    const { data, error } = await supabase.rpc('verify_peer_identity', {
-      p_peer_public_key: peerPublicKey,
-      p_peer_fingerprint: peerFingerprint,
-      p_device_id: deviceId ?? null,
-    });
-    if (error) {
-      console.warn('[GAYZE] Peer identity verification failed:', error.message);
-      return false;
-    }
-    return data === true;
-  } catch (err: any) {
-    console.warn('[GAYZE] Peer identity verification exception:', err?.message || err);
-    return false;
-  }
-}
-
-export async function submitInterest(toUserId: string, intentId?: string, message?: string, sharedPhotoIds: string[] = []): Promise<SubmitInterestResult> {
-  if (!supabase) return { sent: false, mutual: false, conversation_id: null };
+export async function submitInterest(
+  toUserId: string,
+  intentId?: string,
+  message?: string,
+  sharedPhotoIds: string[] = [],
+): Promise<SubmitInterestResult> {
+  if (!supabase) return { sent: false, mutual: false, conversation_id: null, interest_id: null };
   try {
     const { data, error } = await supabase.rpc('submit_interest', {
       p_to_user: toUserId,
@@ -516,24 +498,26 @@ export async function submitInterest(toUserId: string, intentId?: string, messag
     });
     if (error) {
       console.warn('[GAYZE] Supabase submit_interest unavailable:', error.message);
-      return { sent: false, mutual: false, conversation_id: null };
+      return { sent: false, mutual: false, conversation_id: null, interest_id: null };
     }
-    const result = data as { mutual?: boolean; conversation_id?: string | null; interest_id?: string | null };
-    // The RPC result is the authoritative "mutual was just created" signal.
-    // Forward it so the other member is notified (server enforces exactly-once
-    // and the recipient's preferences). Fire-and-forget: no effect on the flow.
+    const result = data as {
+      sent?: boolean;
+      mutual?: boolean;
+      conversation_id?: string | null;
+      interest_id?: string | null;
+    };
     if (result.mutual && result.conversation_id) {
       void requestConnectionPush(result.conversation_id);
     }
     return {
-      sent: true,
+      sent: result.sent !== false,
       mutual: Boolean(result.mutual),
       conversation_id: result.conversation_id ?? null,
       interest_id: result.interest_id ?? null,
     };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase submit_interest exception:', err?.message || err);
-    return { sent: false, mutual: false, conversation_id: null };
+    return { sent: false, mutual: false, conversation_id: null, interest_id: null };
   }
 }
 
@@ -542,6 +526,15 @@ export interface IncomingInterest {
   id: string;
   fromUserId: string;
   fromDisplayName: string;
+  fromHandle?: string | null;
+  fromAge?: number | null;
+  fromBio?: string | null;
+  fromNeighborhood?: string | null;
+  fromAvatarUrl?: string | null;
+  fromInterests?: string[];
+  fromReliabilityScore?: number;
+  fromVerifiedPeersCount?: number;
+  fromSafetyVerified?: boolean;
   createdAt: number;
   status: 'pending' | 'mutual' | 'declined' | 'withdrawn';
   intentId?: string | null;
@@ -552,38 +545,61 @@ export interface IncomingInterest {
 export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
   if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from('interests')
-      .select('id,from_user_id,created_at,status,intent_id,message,shared_photo_ids,from_profile:profiles!interests_from_user_id_fkey(display_name)')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+    const [{ data: rows, error }, { data: profiles, error: profileError }] = await Promise.all([
+      supabase
+        .from('interests')
+        .select('id,from_user_id,created_at,status,intent_id,message,shared_photo_ids')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      supabase.rpc('get_incoming_interest_profiles'),
+    ]);
     if (error) throw error;
-    const rows = data ?? [];
-    const photoIds = Array.from(new Set(rows.flatMap((row: any) => row.shared_photo_ids ?? [])));
+    if (profileError) throw profileError;
+
+    const profileMap = new Map<string, any>(
+      (profiles ?? []).map((row: any) => [row.interest_id, row]),
+    );
+
+    const photoIds = Array.from(new Set((rows ?? []).flatMap((row: any) => row.shared_photo_ids ?? [])));
     const photoMap = new Map<string, string>();
     if (photoIds.length) {
-      const { data: photos } = await supabase.from('profile_photos').select('id,storage_path').in('id', photoIds);
+      const { data: photos } = await supabase
+        .from('profile_photos')
+        .select('id,storage_path')
+        .in('id', photoIds);
       for (const photo of photos ?? []) {
         const url = await getProfilePhotoUrl(photo.storage_path);
         if (url) photoMap.set(photo.id, url);
       }
     }
-    return rows.map((row: any) => ({
-      id: row.id,
-      fromUserId: row.from_user_id,
-      fromDisplayName: row.from_profile?.display_name || 'Someone',
-      createdAt: new Date(row.created_at).getTime(),
-      status: row.status,
-      intentId: row.intent_id ?? null,
-      message: row.message ?? null,
-      sharedPhotoUrls: (row.shared_photo_ids ?? []).map((id: string) => photoMap.get(id)).filter(Boolean),
+
+    return Promise.all((rows ?? []).map(async (row: any): Promise<IncomingInterest> => {
+      const profile = profileMap.get(row.id);
+      return {
+        id: row.id,
+        fromUserId: row.from_user_id,
+        fromDisplayName: profile?.display_name || 'Someone',
+        fromHandle: profile?.handle ?? null,
+        fromAge: profile?.age ?? null,
+        fromBio: profile?.bio ?? null,
+        fromNeighborhood: profile?.neighborhood ?? null,
+        fromAvatarUrl: profile?.avatar_path ? ((await getProfilePhotoUrl(profile.avatar_path)) || null) : null,
+        fromInterests: Array.isArray(profile?.interests) ? profile.interests : [],
+        fromReliabilityScore: Number(profile?.reliability_score) || 0,
+        fromVerifiedPeersCount: Number(profile?.verified_peers_count) || 0,
+        fromSafetyVerified: Boolean(profile?.safety_verified),
+        createdAt: new Date(row.created_at).getTime(),
+        status: row.status,
+        intentId: row.intent_id ?? null,
+        message: row.message ?? null,
+        sharedPhotoUrls: (row.shared_photo_ids ?? []).map((id: string) => photoMap.get(id)).filter(Boolean),
+      };
     }));
   } catch (error) {
     console.warn('[GAYZE] Could not load incoming interests:', error);
     return [];
   }
 }
-
 export interface SupabaseMessageRow {
   id: string;
   conversation_id: string;
@@ -1201,7 +1217,6 @@ export async function loadConversationPeerDevices(conversationId: string): Promi
   return (await readConversationPeerDevices(conversationId)).devices;
 }
 
-
 export interface IdentityDevice {
   id: string;
   user_id: string;
@@ -1616,26 +1631,4 @@ export async function saveIntimacyProfile(
     console.warn('[GAYZE] Intimacy profile save exception:', err?.message || err);
     return false;
   }
-}
-
-
-export async function acceptIncomingInterest(interestId: string): Promise<{ accepted: boolean; conversation_id: string | null }> {
-  if (!supabase) return { accepted: false, conversation_id: null };
-  const { data, error } = await supabase.rpc('accept_interest', { p_interest_id: interestId });
-  if (error) {
-    console.warn('[GAYZE] Accept interest failed:', error.message);
-    return { accepted: false, conversation_id: null };
-  }
-  const result = data as { accepted?: boolean; conversation_id?: string | null };
-  return { accepted: Boolean(result.accepted), conversation_id: result.conversation_id ?? null };
-}
-
-export async function declineIncomingInterest(interestId: string): Promise<boolean> {
-  if (!supabase) return false;
-  const { data, error } = await supabase.rpc('decline_interest', { p_interest_id: interestId });
-  if (error) {
-    console.warn('[GAYZE] Decline interest failed:', error.message);
-    return false;
-  }
-  return Boolean((data as { declined?: boolean })?.declined);
 }
