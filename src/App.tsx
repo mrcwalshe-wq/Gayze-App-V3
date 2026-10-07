@@ -3242,6 +3242,13 @@ export default function App() {
         inbox={notificationInbox}
         inboxStatus={notificationInboxStatus}
         onOpenNotification={openInboxNotification}
+        onInterestAccepted={(conversationId) => {
+          setIsNotificationsOpen(false);
+          if (isConversationId(conversationId)) {
+            requestConversationOpen(conversationId);
+            setActiveTab('swarms');
+          }
+        }}
         onClose={() => setIsNotificationsOpen(false)}
       />
 
