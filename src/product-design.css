@@ -1103,7 +1103,7 @@ select:focus-visible {
 @media (max-width: 767px) {
   /* Right Now: the map key must sit below the live-state card, never through it. */
   .g-shell[data-active-tab='right_now'] .g-map-legend {
-    margin-top: calc(env(safe-area-inset-top, 0px) + 166px);
+    top: calc(env(safe-area-inset-top, 0px) + 176px) !important;
   }
 
   /* Keep the map utility rail clear of the relocated key. */
