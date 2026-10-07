@@ -537,6 +537,7 @@ export default function App() {
     setChatOpenRequest(previous => ({ roomId, sequence: (previous?.sequence ?? 0) + 1 }));
     setActiveRoomId(roomId);
     setMessagesSubTab('chats');
+    setMessagesSubTab('chats');
     setActiveTab('swarms');
   }
 
@@ -3090,12 +3091,6 @@ export default function App() {
                     inboxStatus={notificationInboxStatus}
                     onOpenNotification={openInboxNotification}
                     onClose={() => setMessagesSubTab('chats')}
-                    onInterestAccepted={(conversationId) => {
-                      if (isConversationId(conversationId)) {
-                        requestConversationOpen(conversationId);
-                        setMessagesSubTab('chats');
-                      }
-                    }}
                   />
                 ) : (
                   <ChatRoomView
