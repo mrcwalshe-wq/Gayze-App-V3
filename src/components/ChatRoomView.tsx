@@ -121,7 +121,6 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     };
   }, []);
   const [inputText, setInputText] = useState('');
-  const [sendingCount, setSendingCount] = useState(0);
   const pendingSends = useRef(new Map<string, string>());
   const [optimisticMessages, setOptimisticMessages] = useState<EncryptedMessage[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -335,7 +334,6 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       pendingSends.current.set(draft, messageId);
     }
     setSendError(null);
-    setSendingCount((count) => count + 1);
 
     // Render the outgoing message immediately. The same stable ID is used by
     // the encrypted database write, so acknowledgement replaces this bubble
@@ -368,7 +366,6 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       setSendError('Send not confirmed. Your message is safe to retry.');
       setOptimisticMessages((prev) => prev.map((message) => message.id === messageId ? { ...message, sendState: 'failed' } : message));
     } finally {
-      setSendingCount((count) => Math.max(0, count - 1));
     }
   };
 
