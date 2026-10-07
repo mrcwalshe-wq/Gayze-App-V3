@@ -48,6 +48,7 @@ security definer
 set search_path=public,pg_temp
 as $$
 declare v_row public.conversation_key_envelopes;
+  v_inserted integer;
 begin
   if auth.uid() is null then raise exception 'Sign in required'; end if;
 
@@ -82,7 +83,8 @@ begin
   on conflict do nothing
   returning * into v_row;
 
-  if v_row.id is not null then return v_row; end if;
+  get diagnostics v_inserted = row_count;
+  if v_inserted = 1 then return v_row; end if;
 
   select * into v_row
   from public.conversation_key_envelopes
