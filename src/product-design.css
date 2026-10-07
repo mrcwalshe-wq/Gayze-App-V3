@@ -913,3 +913,189 @@ select:focus-visible {
     top: 46px !important;
   }
 }
+
+
+/* ==========================================================================
+   Surgical mobile overlap pass — 2026-10-07
+   One geometry rule for every primary tab. Content ends before the fixed nav;
+   sheets and transient UI never compete with it.
+   ========================================================================== */
+@media (max-width: 767px) {
+  :root {
+    --g-tabbar-h: 52px;
+    --g-nav-clearance: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  /* The five-tab bar is now a clean rail. Active state is the thin intent
+     line; no active capsules, cards or large outlines. */
+  .g-tabbar {
+    height: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 0 !important;
+    background: rgba(9,10,14,.94) !important;
+    border-top: 1px solid rgba(255,255,255,.07) !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: 0 -12px 28px rgba(0,0,0,.30) !important;
+    backdrop-filter: blur(18px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
+  }
+
+  .g-tabbar__inner {
+    height: var(--g-tabbar-h) !important;
+    max-width: 560px !important;
+    padding: 0 4px !important;
+  }
+
+  .g-tab {
+    height: var(--g-tabbar-h) !important;
+    min-height: var(--g-tabbar-h) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 3px 0 2px !important;
+  }
+
+  .g-tab[data-active='true']:not(.g-tab--discover),
+  .g-tab[data-active='true']:not(.g-tab--discover):hover {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .g-tab[data-active='true'] svg {
+    color: var(--g-intent-accent-strong) !important;
+    filter: none !important;
+  }
+
+  .g-tab__ind,
+  .g-tab--discover .g-tab__ind {
+    display: block !important;
+    top: 0 !important;
+    bottom: auto !important;
+    left: 50% !important;
+    width: 34px !important;
+    height: 2px !important;
+    opacity: 0 !important;
+    transform: translateX(-50%) scaleX(.25) !important;
+    background: var(--g-intent-accent-strong) !important;
+    box-shadow: 0 0 9px var(--g-intent-accent-glow) !important;
+    transition: opacity 180ms ease, transform 220ms var(--g-spring) !important;
+  }
+
+  .g-tab[data-active='true'] .g-tab__ind {
+    opacity: 1 !important;
+    transform: translateX(-50%) scaleX(1) !important;
+  }
+
+  .g-tab:hover .g-tab__ind {
+    opacity: .6 !important;
+    transform: translateX(-50%) scaleX(.8) !important;
+  }
+
+  /* Discover remains recognisable by the original GAYZE mark, not a card. */
+  .g-tab--discover {
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  .g-tab--discover .g-discover-action {
+    width: 52px !important;
+    height: 52px !important;
+    margin-top: -9px !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .g-tab--discover .g-discover-action::before,
+  .g-tab--discover .g-discover-action::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .g-tab--discover .g-discover-logo-image {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .g-tab--discover .g-tab__label {
+    top: 39px !important;
+    color: rgba(255,255,255,.68) !important;
+    text-shadow: none !important;
+  }
+
+  .g-tab--discover[data-active='true'] .g-tab__label {
+    color: #fff !important;
+  }
+
+  /* Every scrollable content tab gets the same physical clearance. */
+  .g-main-viewport {
+    padding-bottom: var(--g-nav-clearance) !important;
+    scroll-padding-bottom: var(--g-nav-clearance) !important;
+  }
+
+  /* Bottom sheets stop above the navigation, even when the component did not
+     explicitly opt into g-sheet--above-nav. */
+  .g-overlay > .g-sheet:not(.g-sheet--fullscreen) {
+    margin-bottom: var(--g-nav-clearance) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-nav-clearance) - 12px) !important;
+  }
+
+  /* The message viewport already reserves the nav in its fixed geometry.
+     Give the conversation composer a little extra breathing room. */
+  .g-chat-viewport {
+    bottom: calc(var(--g-nav-clearance) - 16px) !important;
+    height: auto !important;
+  }
+
+  /* Transient location errors have their own lane and cannot sit over the
+     fixed navigation or a tab's bottom controls. */
+  .g-location-error {
+    left: 12px !important;
+    right: 12px !important;
+    top: calc(env(safe-area-inset-top, 0px) + 68px) !important;
+    width: auto !important;
+    max-width: 520px !important;
+    margin-inline: auto !important;
+  }
+
+  /* Right Now has its own map chrome: keep the location warning below the
+     state/filter row rather than on top of it. */
+  .g-shell[data-active-tab='right_now'] .g-location-error {
+    top: calc(env(safe-area-inset-top, 0px) + 190px) !important;
+    max-width: 420px !important;
+  }
+
+  /* Toasts use the same side lane on content tabs and never occupy the nav
+     or the central Discover action. */
+  .g-toast {
+    top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+    right: 12px !important;
+    left: auto !important;
+    transform: none !important;
+    width: min(300px, calc(100vw - 92px)) !important;
+    max-width: 300px !important;
+    z-index: 75 !important;
+  }
+
+  /* On Right Now the toast sits beneath the map's state card, on the opposite
+     side of the map controls. */
+  .g-shell[data-active-tab='right_now'] ~ .g-toast,
+  .g-shell[data-active-tab='right_now'] .g-toast {
+    top: calc(env(safe-area-inset-top, 0px) + 190px) !important;
+  }
+
+  /* No tab should let an inline full-width control become wider than the
+     available viewport once the nav is present. */
+  .gayze-premium-page {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .gayze-premium-page > * {
+    min-width: 0;
+  }
+}
