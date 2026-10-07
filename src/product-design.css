@@ -492,3 +492,54 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .g-toast { animation: none !important; }
 }
+
+
+/* Discover empty state: stronger product surface, no ornamental brackets. */
+.g-shell .g-discover-empty {
+  position: relative;
+  overflow: hidden;
+  min-height: 330px;
+  padding: 42px 28px 30px;
+  border: 1px solid var(--g-intent-accent-border);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 0%, var(--g-intent-accent-soft), transparent 48%),
+    linear-gradient(180deg, rgba(18,17,29,.98) 0%, rgba(10,11,17,.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.055),
+    inset 0 -24px 48px rgba(0,0,0,.18),
+    0 16px 38px rgba(0,0,0,.20),
+    0 0 30px rgba(111,60,195,.08);
+}
+.g-shell .g-discover-empty::before {
+  content: "";
+  position: absolute;
+  inset: 0 18% auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--g-intent-accent-strong), transparent);
+  opacity: .72;
+}
+.g-shell .g-discover-empty > * {
+  position: relative;
+  z-index: 1;
+}
+.g-shell .g-discover-empty .g-empty__icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 24px;
+  border-radius: 20px;
+  background: var(--g-intent-accent-soft) !important;
+  border: 1px solid var(--g-intent-accent-border) !important;
+  box-shadow: 0 10px 28px var(--g-intent-accent-glow) !important;
+}
+.g-shell .g-discover-empty h3 {
+  font-size: 19px;
+  letter-spacing: -.02em;
+}
+.g-shell .g-discover-empty p {
+  max-width: 430px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.55;
+  color: rgba(203,207,220,.70);
+}
