@@ -123,6 +123,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const pendingSend = useRef<{ draft: string; id: string } | null>(null);
+  const [optimisticMessages, setOptimisticMessages] = useState<EncryptedMessage[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
   const [inspectedMessageId, setInspectedMessageId] = useState<string | null>(null);
@@ -245,8 +246,22 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     onVisibleRoomChange?.(visibleRoomId);
     return () => onVisibleRoomChange?.(null);
   }, [visibleRoomId, onVisibleRoomChange]);
-  const currentMessages = useMemo(() => (messages[currentRoom?.id || ''] || [])
-    .filter((message) => !message.deletedForMe && (!message.isBurned || message.deletedForEveryone) && (!message.expiresAt || message.expiresAt > now)), [messages, currentRoom?.id, now]);
+  const currentMessages = useMemo(() => {
+    const persisted = messages[currentRoom?.id || ''] || [];
+    const pending = optimisticMessages.filter((message) => message.roomId === currentRoom?.id);
+    const persistedIds = new Set(persisted.map((message) => message.id));
+    const merged = [...persisted, ...pending.filter((message) => !persistedIds.has(message.id))];
+    return merged
+      .filter((message) => !message.deletedForMe && (!message.isBurned || message.deletedForEveryone) && (!message.expiresAt || message.expiresAt > now))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }, [messages, optimisticMessages, currentRoom?.id, now]);
+
+  // Once the authoritative database row arrives, remove its local optimistic twin.
+  useEffect(() => {
+    if (!optimisticMessages.length) return;
+    const persistedIds = new Set((messages[activeRoomId] || []).map((message) => message.id));
+    setOptimisticMessages((prev) => prev.filter((message) => !persistedIds.has(message.id)));
+  }, [messages, activeRoomId, optimisticMessages.length]);
   const [historyWindow, setHistoryWindow] = useState({ roomId: activeRoomId, count: 100 });
   const visibleCount = historyWindow.roomId === activeRoomId ? historyWindow.count : 100;
   const visibleMessages = currentMessages.slice(-visibleCount);
@@ -315,16 +330,40 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
     const draft = JSON.stringify([currentUserId, currentRoom.id, textToSend, mediaToSend, currentRoom.ephemeralTtlSeconds]);
     if (pendingSend.current?.draft !== draft) pendingSend.current = { draft, id: crypto.randomUUID() };
+    const messageId = pendingSend.current.id;
     setSendError(null);
     setIsSending(true);
 
+    // Render the outgoing message immediately. The same stable ID is used by
+    // the encrypted database write, so acknowledgement replaces this bubble
+    // instead of creating a duplicate.
+    setOptimisticMessages((prev) => [
+      ...prev.filter((message) => message.id !== messageId),
+      {
+        id: messageId,
+        roomId: currentRoom.id,
+        senderKey: currentUserId || currentUser.publicKey,
+        senderName: 'You',
+        timestamp: Date.now(),
+        cipherText: '',
+        nonceHex: '',
+        plainText: textToSend,
+        ephemeralTtlSeconds: currentRoom.ephemeralTtlSeconds,
+        mediaUrl: mediaToSend,
+        mediaType: mediaToSend ? 'image' : undefined,
+        sendState: 'sending',
+      },
+    ]);
+    setInputText('');
+    setAttachedMedia(null);
+
     try {
-      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend, pendingSend.current.id);
+      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend, messageId);
       pendingSend.current = null;
-      setInputText('');
-      setAttachedMedia(null);
+      setOptimisticMessages((prev) => prev.filter((message) => message.id !== messageId));
     } catch {
-      setSendError('Send not confirmed. Your draft is kept; retrying this draft will not send it twice.');
+      setSendError('Send not confirmed. Your message is safe to retry.');
+      setOptimisticMessages((prev) => prev.map((message) => message.id === messageId ? { ...message, sendState: 'failed' } : message));
     } finally {
       setIsSending(false);
     }
@@ -724,6 +763,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     <span>{msg.senderName}</span>
                     <span>·</span>
                     <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    {msg.sendState === 'sending' && <span className="text-zinc-500">· Sending…</span>}
+                    {msg.sendState === 'failed' && <span className="text-amber-300">· Not confirmed</span>}
                   </div>
 
                   <div
@@ -790,7 +831,22 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     )}
 
                     <div className="mt-1 flex items-center justify-end gap-1.5 pt-0.5 text-[11px] opacity-70">
-                      <Lock className="w-2.5 h-2.5" />
+                      {msg.sendState === 'failed' ? (
+                        <button
+                          type="button"
+                          className="text-amber-300 underline"
+                          onClick={() => {
+                            setInputText(msg.plainText);
+                            if (msg.mediaUrl) setAttachedMedia(msg.mediaUrl);
+                            setOptimisticMessages((prev) => prev.filter((item) => item.id !== msg.id));
+                            setSendError(null);
+                          }}
+                        >
+                          Retry
+                        </button>
+                      ) : (
+                        <Lock className="w-2.5 h-2.5" />
+                      )}
                       <button
                         type="button"
                         onClick={() => {
