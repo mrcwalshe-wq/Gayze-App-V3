@@ -74,6 +74,7 @@ const formatRemaining = (ms: number): string => {
 };
 
 const MAX_PHOTOS = 6;
+const PHOTO_URL_REFRESH_MS = 50 * 60 * 1000;
 
 /**
  * Profile — authentic identity surface in Obsidian Velvet.
@@ -147,24 +148,47 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     };
   }, []);
 
+  const refreshProfilePhotos = useCallback(async () => {
+    try {
+      const items = await loadProfilePhotos();
+      setPhotos(items);
+      const primary = items.find((p) => p.isPrimary) || items[0];
+      if (primary) onAvatarUpdated?.(primary.url);
+    } catch {
+      // Signed URL refresh is best-effort; keep the existing gallery if it fails.
+    }
+  }, [onAvatarUpdated]);
+
   useEffect(() => {
     let cancelled = false;
-    void loadProfilePhotos()
-      .then((items) => {
+    const load = async () => {
+      try {
+        const items = await loadProfilePhotos();
         if (cancelled) return;
         setPhotos(items);
         const primary = items.find((p) => p.isPrimary) || items[0];
-        if (primary && onAvatarUpdated) {
-          onAvatarUpdated(primary.url);
-        }
-      })
-      .catch(() => {
+        if (primary) onAvatarUpdated?.(primary.url);
+      } catch {
         if (!cancelled) setPhotoMessage('Profile photos are unavailable right now.');
-      });
+      }
+    };
+    void load();
+
+    const refresh = () => {
+      if (!cancelled && document.visibilityState !== 'hidden') void refreshProfilePhotos();
+    };
+    const intervalId = window.setInterval(refresh, PHOTO_URL_REFRESH_MS);
+    window.addEventListener('pageshow', refresh);
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('pageshow', refresh);
+      window.removeEventListener('online', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
-  }, [onAvatarUpdated]);
+  }, [onAvatarUpdated, refreshProfilePhotos]);
 
   const syncPrimaryAvatar = useCallback((updatedPhotos: ProfilePhoto[]) => {
     const primary = updatedPhotos.find((p) => p.isPrimary) || updatedPhotos[0];
