@@ -808,11 +808,35 @@ export default function App() {
         if (!user || isStale()) return;
         setShowProfileOnboarding(user.user_metadata?.profile_complete !== true);
         if (supabaseUserIdRef.current !== user.id) { clearMessageWork(); messageAlertsRef.current.clear(); }
-        supabaseUserIdRef.current = user.id;
-        setSupabaseUserId(user.id);
-
         const identity = await getOrCreateDeviceIdentity();
         if (isStale()) return;
+
+        // Register the cryptographic device before publishing supabaseUserId.
+        // Conversation hydration starts from supabaseUserId and can otherwise
+        // race ahead of device registration, causing key-envelope provisioning
+        // to fail because the database correctly rejects an unregistered creator.
+        try {
+          const registered = await registerIdentityDevice(
+            identity.fingerprint,
+            identity.publicKeyJwkString,
+            navigator.userAgent.slice(0, 48),
+            identity.signingPublicKeyJwkString,
+            identity.deviceId,
+          );
+          if (!registered) throw new Error('Device registration returned no device');
+          await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
+          if (isStale()) return;
+          setCurrentDeviceFingerprint(identity.deviceId);
+          const registeredDevices = await listIdentityDevices();
+          if (!isStale()) setIdentityDevices(registeredDevices);
+        } catch (deviceError) {
+          console.warn('[GAYZE] Device registry unavailable', deviceError);
+          return;
+        }
+
+        // Only now allow conversation/message effects to hydrate.
+        supabaseUserIdRef.current = user.id;
+        setSupabaseUserId(user.id);
         const shortKey = `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`;
 
         // Display name comes from the auth record first — never from demo fixtures.
@@ -897,17 +921,6 @@ export default function App() {
           }
         } catch (error) {
           console.warn('[GAYZE] Intimacy profile load skipped:', error);
-        }
-
-        try {
-          await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48), identity.signingPublicKeyJwkString, identity.deviceId);
-          await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
-          if (isStale()) return;
-          setCurrentDeviceFingerprint(identity.deviceId);
-          const registeredDevices = await listIdentityDevices();
-          if (!isStale()) setIdentityDevices(registeredDevices);
-        } catch (deviceError) {
-          console.warn('[GAYZE] Device registry unavailable', deviceError);
         }
 
         await refreshDiscoveryRef.current();
