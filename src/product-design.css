@@ -270,3 +270,36 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .g-toast { animation: none !important; }
 }
+
+
+/* Discover brand action reflects the live intent mode, not the Social palette.
+   Private is rich violet; Social is amber; no active intent stays neutral. */
+@media (max-width: 767px) {
+  .g-tab--discover[data-intent-mode='private'] .g-discover-action {
+    border-color: rgba(111,60,195,.78) !important;
+    background: linear-gradient(145deg, #171021 0%, #24153d 58%, #11131a 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(111,60,195,.16),
+      0 10px 24px rgba(111,60,195,.26),
+      inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+  .g-tab--discover[data-intent-mode='private'][data-active='true'] .g-discover-action {
+    border-color: rgba(170,132,245,.78) !important;
+    box-shadow:
+      0 0 0 1px rgba(111,60,195,.22),
+      0 0 22px rgba(111,60,195,.24),
+      0 10px 24px rgba(0,0,0,.42),
+      inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+  .g-tab--discover[data-intent-mode='social'] .g-discover-action {
+    border-color: rgba(201,162,77,.72) !important;
+    box-shadow:
+      0 0 0 1px rgba(201,162,77,.12),
+      0 10px 24px rgba(201,162,77,.18),
+      inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+  .g-tab--discover[data-intent-mode='none'] .g-discover-action {
+    border-color: rgba(111,60,195,.58) !important;
+    box-shadow: 0 8px 22px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.07) !important;
+  }
+}
