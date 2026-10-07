@@ -53,40 +53,22 @@ const playGayzePressAnimation = (button: HTMLButtonElement) => {
 
   action.animate(
     [
-      {
-        transform: 'scale(1)',
-        boxShadow:
-          '0 0 0 1px rgba(111,60,195,.28), 0 0 22px rgba(111,60,195,.34), 0 12px 30px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.12)',
-      },
-      {
-        transform: 'scale(.92)',
-        boxShadow:
-          '0 0 0 2px rgba(201,162,77,.48), 0 0 34px rgba(111,60,195,.58), 0 8px 24px rgba(0,0,0,.62), inset 0 1px 0 rgba(255,255,255,.18)',
-        offset: 0.18,
-      },
-      {
-        transform: 'scale(1.07)',
-        boxShadow:
-          '0 0 0 7px rgba(139,92,246,.16), 0 0 54px rgba(201,162,77,.46), 0 16px 34px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.22)',
-        offset: 0.48,
-      },
-      {
-        transform: 'scale(1)',
-        boxShadow:
-          '0 0 0 1px rgba(111,60,195,.28), 0 0 28px rgba(111,60,195,.40), 0 12px 30px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.12)',
-      },
+      { transform: 'scale(1)', opacity: 1 },
+      { transform: 'scale(.965)', opacity: .92, offset: 0.22 },
+      { transform: 'scale(1.015)', opacity: 1, offset: 0.58 },
+      { transform: 'scale(1)', opacity: 1 },
     ],
-    { duration: 520, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' },
+    { duration: 220, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' },
   );
 
   logo?.animate(
     [
-      { transform: 'translate(-50%, -50%) scale(1)', filter: 'drop-shadow(0 0 8px rgba(212,59,222,.30))' },
-      { transform: 'translate(-50%, -50%) scale(.88)', filter: 'drop-shadow(0 0 5px rgba(212,59,222,.22))', offset: 0.18 },
-      { transform: 'translate(-50%, -50%) scale(1.10)', filter: 'drop-shadow(0 0 16px rgba(255,158,44,.62))', offset: 0.48 },
-      { transform: 'translate(-50%, -50%) scale(1)', filter: 'drop-shadow(0 0 9px rgba(212,59,222,.36))' },
+      { transform: 'translate(-50%, -50%) scale(1)' },
+      { transform: 'translate(-50%, -50%) scale(.94)', offset: 0.22 },
+      { transform: 'translate(-50%, -50%) scale(1.025)', offset: 0.58 },
+      { transform: 'translate(-50%, -50%) scale(1)' },
     ],
-    { duration: 520, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' },
+    { duration: 220, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' },
   );
 };
 

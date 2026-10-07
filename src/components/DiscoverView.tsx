@@ -238,7 +238,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         <button
           type="button"
           onClick={() => { hapticLight(); onOpenSetIntent?.(); }}
-          className="w-full text-left p-3.5 rounded-2xl bg-gradient-to-r from-[#6F3CC3]/18 via-[#181926] to-[#C9A24D]/10 border border-[#6F3CC3]/35 shadow-[0_4px_20px_rgba(111,60,195,0.12)] mb-4 flex items-center gap-3 transition-transform active:scale-[0.99] cursor-pointer"
+          className="g-discover-signal-strip mb-4 flex items-center gap-3 text-left cursor-pointer"
         >
           <span
             className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
@@ -262,14 +262,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       )}
 
       {/* Mode segmented control */}
-      <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-[#0e1017] border border-white/[0.08] mb-4">
+      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4">
         {(['All', 'Social', 'Private'] as const).map((mode) => {
           const isSelected = modeFilter === mode;
           return (
             <button
               key={mode}
               type="button"
-              className={`h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
+              className={`g-discover-mode-filter__button h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
                 isSelected
                   ? mode === 'Private'
                     ? 'bg-[#6F3CC3]/30 text-[#f0e8ff] border border-[#6F3CC3]/65 shadow-[0_2px_12px_rgba(111,60,195,0.25)]'

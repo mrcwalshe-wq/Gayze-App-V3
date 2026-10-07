@@ -454,7 +454,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               className="h-full rounded-full transition-all duration-300"
               style={{
                 width: `${completion.percent}%`,
-                background: 'linear-gradient(90deg, var(--brand-purple), var(--brand-amber))',
+                background: 'var(--brand-purple)',
               }}
             />
           </div>
