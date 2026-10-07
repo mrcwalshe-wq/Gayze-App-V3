@@ -1256,8 +1256,8 @@ export default function App() {
     replacePath(path);
     const route = routeFromPath(path);
     setActiveTab(route.tab);
+    if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
     if (route.conversationId) requestConversationOpen(route.conversationId);
-    if (route.openNotifications) setIsNotificationsOpen(true);
   }, [isAuthenticated]);
 
   // Messages posted by the service worker: notification taps and endpoint
