@@ -1098,3 +1098,25 @@ select:focus-visible {
     min-width: 0;
   }
 }
+
+
+@media (max-width: 767px) {
+  /* Right Now: the map key must sit below the live-state card, never through it. */
+  .g-shell[data-active-tab='right_now'] .g-map-legend {
+    margin-top: calc(env(safe-area-inset-top, 0px) + 166px);
+  }
+
+  /* Keep the map utility rail clear of the relocated key. */
+  .g-shell[data-active-tab='right_now'] .g-map-rail {
+    top: calc(env(safe-area-inset-top, 0px) + 66px) !important;
+  }
+
+  /* The persistent Right Now dock and nearby control already reserve nav
+     clearance; make that relationship explicit for small screens. */
+  .g-shell[data-active-tab='right_now'] .g-intent-dock {
+    bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 10px) !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-nearby-float {
+    bottom: auto !important;
+  }
+}
