@@ -3237,7 +3237,7 @@ export default function App() {
         activeIntent={activeUserIntent}
         remainingMinutes={activeUserIntent?.expiresAt ? Math.max(0, Math.ceil((activeUserIntent.expiresAt - Date.now()) / 60000)) : 0}
         onClose={() => setIsIntentHubOpen(false)}
-        onCreateIntent={() => handleOpenIntentSheet(null)}
+        onCreateIntent={(mode) => handleOpenIntentSheet(mode ?? null)}
         onManageIntent={() => {
           setIsIntentHubOpen(false);
           setIsSetIntentOpen(true);
