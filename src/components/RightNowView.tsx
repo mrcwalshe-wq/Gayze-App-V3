@@ -1547,7 +1547,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           ? 'Gayze declined'
                           : interestStatusByPulseId[selectedItem.item.id] === 'pending' || interestedIds.has(selectedItem.item.id)
                             ? 'Gayze sent'
-                            : 'Send Gayze'}
+                            : 'Send GAYZE'}
                   </button>
                 ) : (
                   <button
@@ -1558,7 +1558,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     }`}
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    {gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send Gayze'}
+                    {gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send GAYZE'}
                   </button>
                 )}
                 <button
@@ -1821,12 +1821,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         {interestedIds.has(selectedItem.item.id) ? (
                           <>
                             <Check className="w-4 h-4 text-[#C9A24D]" />
-                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Send Gayze'}</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Send GAYZE'}</span>
                           </>
                         ) : (
                           <>
                             <Zap className="w-4 h-4 text-[#C9A24D]" />
-                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Send Gayze'}</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Send GAYZE'}</span>
                           </>
                         )}
                       </button>
@@ -1840,7 +1840,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
-                        <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send Gayze'}</span>
+                        <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send GAYZE'}</span>
                       </button>
                     )}
 
@@ -2348,7 +2348,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div><div className="flex items-center justify-between"><label className="text-xs font-semibold text-zinc-300">Share album photos <span className="text-zinc-600">(optional)</span></label><span className="text-[10px] text-zinc-600">{selectedInterestPhotoIds.size}/6</span></div>
                 {interestPhotos.length ? <div className="mt-2 grid grid-cols-6 gap-2">{interestPhotos.map((photo) => { const selected=selectedInterestPhotoIds.has(photo.id); return <button key={photo.id} type="button" onClick={() => setSelectedInterestPhotoIds(prev => { const next=new Set(prev); if(selected) next.delete(photo.id); else if(next.size<6) next.add(photo.id); return next; })} className={`relative aspect-square rounded-xl overflow-hidden border-2 ${selected ? 'border-[#C9A24D]' : 'border-white/10'}`}><img src={photo.url} alt="" className="w-full h-full object-cover" />{selected && <span className="absolute inset-0 bg-[#6F3CC3]/35 flex items-center justify-center"><Check className="w-5 h-5 text-white" /></span>}</button>; })}</div> : <div className="mt-2 text-xs text-zinc-600 rounded-2xl border border-dashed border-white/10 p-4 text-center">No album photos available.</div>}
               </div>
-              <button type="button" disabled={interestComposerBusy} onClick={() => void sendInterestRequest()} className="w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D] text-white font-bold disabled:opacity-50">{interestComposerBusy ? 'Sending…' : 'Send Gayze'}</button>
+              <button type="button" disabled={interestComposerBusy} onClick={() => void sendInterestRequest()} className="w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D] text-white font-bold disabled:opacity-50">{interestComposerBusy ? 'Sending…' : 'Send GAYZE'}</button>
               <p className="text-[10.5px] text-center text-zinc-600">A Gayze is an interest signal — they can view your profile and accept or decline. Declines stay private.</p>
             </div>
           </div>
