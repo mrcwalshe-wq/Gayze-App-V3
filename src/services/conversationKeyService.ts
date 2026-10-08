@@ -194,7 +194,7 @@ async function resolveDeviceAwareKey(
   // An existing envelope set proves that the conversation key already exists.
   // Never create a second key merely because this device is not provisioned.
   if (envelopes.length > 0) {
-    return {
+    return directLegacyFallback() ?? {
       key: null,
       status: 'unavailable',
       transient: true,
