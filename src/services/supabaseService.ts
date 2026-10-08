@@ -548,6 +548,41 @@ export async function submitInterest(
 }
 
 
+export interface OutgoingInterestStatus {
+  id: string;
+  toUserId: string;
+  intentId: string | null;
+  status: 'pending' | 'mutual' | 'declined' | 'withdrawn';
+  createdAt: number;
+}
+
+/** Load this user's own interest requests so the sender can see persistent status. */
+export async function loadOutgoingInterestStatuses(intentIds: string[] = []): Promise<OutgoingInterestStatus[]> {
+  if (!supabase) return [];
+  try {
+    const sessionUser = await ensureSupabaseSession();
+    if (!sessionUser) return [];
+    let query = supabase
+      .from('interests')
+      .select('id,to_user_id,intent_id,status,created_at')
+      .eq('from_user_id', sessionUser.id)
+      .order('created_at', { ascending: false });
+    if (intentIds.length) query = query.in('intent_id', intentIds);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      toUserId: row.to_user_id,
+      intentId: row.intent_id ?? null,
+      status: row.status,
+      createdAt: new Date(row.created_at).getTime(),
+    }));
+  } catch (error) {
+    console.warn('[GAYZE] Could not load outgoing interest statuses:', error);
+    return [];
+  }
+}
+
 export interface IncomingInterest {
   id: string;
   fromUserId: string;
