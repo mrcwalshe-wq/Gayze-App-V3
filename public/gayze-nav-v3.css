@@ -711,3 +711,49 @@
     height: 51px !important;
   }
 }
+
+
+/* ==========================================================================
+   GAYZE 2026-10-08 — global mobile nav hardening
+   The nav is a viewport-level chrome element, not part of any scroll viewport.
+   Keep it outside the content stacking context and reserve profile scroll space.
+   ========================================================================== */
+@media (max-width: 767px) {
+  nav.g-tabbar {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    height: 76px !important;
+    min-height: 76px !important;
+    max-height: 76px !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
+    z-index: 10000 !important;
+  }
+
+  .g-main-viewport {
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .g-tabbar__inner {
+    height: 100% !important;
+    min-height: 100% !important;
+  }
+}
+
+@media (max-width: 380px) {
+  nav.g-tabbar {
+    left: 8px !important;
+    right: 8px !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
