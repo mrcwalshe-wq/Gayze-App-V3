@@ -155,8 +155,15 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid rgba(201,162,77,.72) !important;
+  outline: 2px solid var(--g-intent-accent-strong, rgba(170,132,245,.78)) !important;
   outline-offset: 2px !important;
+}
+
+/* The chat composer owns its own thin Gayze gradient; do not add a yellow
+   browser-style focus ring around the text field. */
+.g-chat-composer input:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
