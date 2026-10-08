@@ -2001,9 +2001,9 @@ button, input, select, textarea, [role="button"] {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 20px;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 18px;
   background:
     radial-gradient(130% 180% at 0% 0%, rgba(139,92,246,.28), transparent 52%),
     radial-gradient(100% 150% at 100% 100%, rgba(201,162,77,.16), transparent 55%),
@@ -2025,6 +2025,104 @@ button, input, select, textarea, [role="button"] {
     0 0 30px rgba(201,162,77,.16),
     inset 0 1px 0 rgba(255,255,255,.13);
 }
+/* Compact by default: the user's own intent is a status, not the hero UI. */
+.g-map-state--live.is-collapsed {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: min(100%, 310px);
+  padding: 7px 9px;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(18,14,31,.90), rgba(10,10,17,.88)),
+    rgba(10,10,17,.82);
+  box-shadow:
+    0 0 0 1px rgba(111,60,195,.10),
+    0 10px 26px rgba(0,0,0,.38),
+    inset 0 1px 0 rgba(255,255,255,.09);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+.g-map-state--live.g-map-state--social.is-collapsed {
+  border-color: rgba(236,194,92,.40);
+  box-shadow:
+    0 0 0 1px rgba(201,162,77,.08),
+    0 10px 26px rgba(0,0,0,.38),
+    inset 0 1px 0 rgba(255,255,255,.09);
+}
+
+.g-map-state--live.is-collapsed .g-map-state__summary {
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  padding: 0;
+}
+
+.g-map-state--live.is-collapsed .g-map-state__eyebrow {
+  gap: 5px;
+  font-size: 8px;
+  letter-spacing: .13em;
+  white-space: nowrap;
+}
+
+.g-map-state--live.is-collapsed .g-map-state__title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.g-map-state--live.is-collapsed .g-map-state__details,
+.g-map-state--live.is-collapsed .g-map-state__actions {
+  display: none;
+}
+
+.g-map-state--live.is-collapsed .g-map-state__timer {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-left: 7px;
+  margin-left: 1px;
+  border-left: 1px solid rgba(255,255,255,.10);
+}
+
+.g-map-state--live.is-collapsed .g-map-state__timer span {
+  display: none;
+}
+
+.g-map-state--live.is-collapsed .g-map-state__timer strong {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1;
+  color: rgba(255,255,255,.72);
+}
+
+.g-map-state--live.is-collapsed .g-live-dot {
+  width: 7px;
+  height: 7px;
+}
+
+.g-map-state--live.is-collapsed .g-map-state__summary::after {
+  content: "›";
+  margin-left: 2px;
+  color: rgba(255,255,255,.38);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.g-map-state--live.is-expanded {
+  animation: gayze-intent-expand .2s var(--g-spring);
+}
+
+@keyframes gayze-intent-expand {
+  from { transform: translateY(-2px) scale(.985); opacity: .92; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 .g-map-state__summary {
   display: flex;
   align-items: center;
@@ -2342,7 +2440,8 @@ button, input, select, textarea, [role="button"] {
 }
 
 @media (max-width: 639px) {
-  .g-map-state--live { padding: 10px; border-radius: 18px; gap: 8px; }
+  .g-map-state--live { padding: 9px; border-radius: 17px; gap: 8px; }
+  .g-map-state--live.is-expanded { max-width: 100%; }
   .g-map-state__title { font-size: 14px; }
   .g-map-state__details { font-size: 9.5px; }
   .g-map-state__timer { min-width: 52px; }
