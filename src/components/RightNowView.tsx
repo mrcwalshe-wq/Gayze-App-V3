@@ -282,7 +282,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // 5. "I'm Interested" & Gaze States
   const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
   const [interestPendingIds, setInterestPendingIds] = useState<Set<string>>(new Set());
-  const [interestStatusByPulseId, setInterestStatusByPulseId] = useState<Record<string, 'pending' | 'mutual'>>({});
+  const [interestStatusByPulseId, setInterestStatusByPulseId] = useState<Record<string, 'pending' | 'mutual' | 'declined'>>({});
   const [gazedPeerNames, setGazedPeerNames] = useState<Set<string>>(new Set());
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
   const [interestDraftPulse, setInterestDraftPulse] = useState<Pulse | null>(null);
@@ -291,8 +291,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [selectedInterestPhotoIds, setSelectedInterestPhotoIds] = useState<Set<string>>(new Set());
   const [interestComposerBusy, setInterestComposerBusy] = useState(false);
 
-  // Persist sender-side intent-interest state across reloads. Declines stay
-  // silent to the sender, so only pending/mutual are surfaced here.
+  // Persist sender-side Gayze state across reloads so pending, matched and declined
+  // responses remain truthful after navigation or a full reload.
   useEffect(() => {
     let cancelled = false;
     const refreshInterestStatuses = async () => {
@@ -456,11 +456,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setInterestPendingIds((prev) => new Set(prev).add(interestDraftPulse.id));
     try {
       const result = await onSubmitInterest(interestDraftPulse, interestMessage, Array.from(selectedInterestPhotoIds));
-      if (!result.sent) { showStatusMessage('Intent interest could not be sent — try again.'); return; }
+      if (!result.sent) { showStatusMessage('Gayze could not be sent — try again.'); return; }
       setInterestedIds((prev) => new Set(prev).add(interestDraftPulse.id));
       setInterestStatusByPulseId((prev) => ({ ...prev, [interestDraftPulse.id]: 'pending' }));
       setInterestDraftPulse(null);
-      showStatusMessage(`Intent interest sent to ${interestDraftPulse.peerName} — awaiting their response`, 3500);
+      showStatusMessage(`Gayze sent to ${interestDraftPulse.peerName} — awaiting their response`, 3500);
     } catch (error) {
       console.error('[GAYZE] Intent interest submission failed', error);
       showStatusMessage('Intent interest could not be sent — try again.');
@@ -1215,7 +1215,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
       {/* Small, persistent key so "visible nearby" is not confused with "live". */}
       <div
-        className="absolute top-[calc(env(safe-area-inset-top,0px)+104px)] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+        className="g-map-legend-wrap"
         aria-label="Map key"
       >
         <div className="g-map-legend">
@@ -1233,7 +1233,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
       {/* Status toast */}
       {statusMessage && (
-        <div className="g-toast">
+        <div className="g-toast g-toast--map-status" role="status" aria-live="polite">
           <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] shrink-0" />
           <span className="flex-1 font-semibold">{statusMessage}</span>
           <button
