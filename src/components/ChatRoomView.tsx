@@ -422,27 +422,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             </span>
           </div>
 
-          <div className="gayze-message-subtabs" role="tablist" aria-label="Messages sections">
-            <button type="button" className="gayze-message-subtab gayze-message-subtab--active" role="tab" aria-selected="true">
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Chats</span>
-            </button>
-            <button
-              type="button"
-              className="gayze-message-subtab"
-              role="tab"
-              aria-selected="false"
-              onClick={() => onOpenNotifications?.()}
-              disabled={!onOpenNotifications}
-            >
-              <span className="relative inline-flex">
-                <Bell className="w-3.5 h-3.5" />
-                {notificationCount > 0 && <span className="gayze-message-subtab__badge" aria-label={`${notificationCount} unread notifications`} />}
-              </span>
-              <span>Notifications</span>
-              {notificationCount > 0 && <span className="gayze-message-subtab__count">{notificationCount > 99 ? '99+' : notificationCount}</span>}
-            </button>
-          </div>
+          {/* Chats / Notifications navigation is owned by the Messages hub in App.tsx.
+              Keeping a second tab bar here duplicated the navigation on mobile. */}
         </div>
 
         {/* Room List */}
