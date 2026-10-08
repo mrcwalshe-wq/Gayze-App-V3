@@ -628,7 +628,8 @@ export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
     console.warn('[GAYZE] Could not load incoming interests:', error);
     return [];
   }
-}\n
+}
+
 export interface AcceptIncomingInterestResult {
   accepted: boolean;
   interest_id: string | null;
