@@ -16,23 +16,39 @@ export function PeerIntentBanner({ userId, peerId, peerName, now }: {
   const spicy = intent?.mode === 'private';
   const minutes = (at: number) => Math.max(1, Math.ceil((at - now) / 60_000));
   return (
-    <section aria-label={`${peerName}'s current intent`} className={`shrink-0 px-3 sm:px-4 py-2 border-b text-xs ${intent
-      ? spicy ? 'border-violet-300/40 bg-violet-500/[0.13] text-violet-100' : 'border-amber-300/40 bg-amber-500/[0.13] text-amber-100'
-      : 'border-white/[0.06] text-zinc-500'}`}>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="text-[10px] text-zinc-400">{peerName}'s current intent</span>
-        {intent ? <>
-          <strong>{later ? 'LATER' : 'NOW'}</strong>
-          {spicy ? <Flame className="w-3 h-3" aria-hidden="true" /> : <Users className="w-3 h-3" aria-hidden="true" />}
-          <span>{spicy ? 'Spicy' : 'Social'}</span>
-          <span className="truncate max-w-full">{intent.intent}</span>
-          <span className="flex items-center gap-1 text-[10px] text-zinc-400">
-            <Clock className="w-3 h-3" aria-hidden="true" />
-            {later && `Starts in ${minutes(intent.startsAt)}m · `}Expires in {minutes(intent.expiresAt)}m
+    <section
+      aria-label={`${peerName}'s current intent`}
+      className={`shrink-0 px-3 py-1.5 border-b text-[10.5px] ${
+        intent
+          ? spicy
+            ? 'border-violet-300/20 bg-violet-500/[0.07] text-violet-100'
+            : 'border-amber-300/20 bg-amber-500/[0.07] text-amber-100'
+          : 'border-white/[0.045] bg-white/[0.012] text-zinc-500'
+      }`}
+    >
+      <div className="flex min-h-[28px] items-center gap-2 min-w-0">
+        <span className="shrink-0 text-[9px] uppercase tracking-[0.11em] text-zinc-500">Intent</span>
+        {intent ? (
+          <>
+            <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-bold ${
+              spicy ? 'bg-violet-400/10 text-violet-200 border border-violet-300/15' : 'bg-amber-300/10 text-amber-200 border border-amber-300/15'
+            }`}>
+              {spicy ? <Flame className="w-3 h-3" aria-hidden="true" /> : <Users className="w-3 h-3" aria-hidden="true" />}
+              {later ? 'LATER' : 'NOW'}
+            </span>
+            <span className="truncate font-medium">{intent.intent}</span>
+            <span className="ml-auto shrink-0 inline-flex items-center gap-1 text-[9px] text-zinc-500">
+              <Clock className="w-3 h-3" aria-hidden="true" />
+              {later ? `Starts ${minutes(intent.startsAt)}m` : `Expires ${minutes(intent.expiresAt)}m`}
+            </span>
+          </>
+        ) : (
+          <span className="truncate">
+            {state.status === 'loading' ? 'Loading current intent…'
+              : state.status === 'unavailable' ? 'Current intent unavailable'
+              : 'No current intent shared'}
           </span>
-        </> : <span>{state.status === 'loading' ? 'Loading current intent…'
-          : state.status === 'unavailable' ? 'Current intent unavailable' : 'No current intent shared'}</span>}
+        )}
       </div>
     </section>
-  );
-}
+  )}
