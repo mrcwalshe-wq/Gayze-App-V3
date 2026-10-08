@@ -2954,21 +2954,7 @@ export default function App() {
         data-intent-mode={activeUserIntent?.mode ?? 'none'}
         data-active-tab={activeTab}
       >
-      {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
-      <Navbar
-        activeTab={activeTab}
-        onTabChange={(tab) => { if (tab === 'swarms') beginChatTrace(activeRoomId); setActiveTab(tab); }}
-        unreadCount={unreadMessageCount}
-        notificationCount={notificationInbox?.unread ?? 0}
-        onOpenMask={() => setIsMaskActive(true)}
-        onOpenIdentity={() => setIsIdentityOpen(true)}
-        onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
-        isSafetyTimerActive={checkinState.isActive}
-        onOpenQR={() => handleOpenQRModal()}
-        reliabilityScore={currentUser.reliabilityScore}
-        userNeighborhood={currentUser.neighborhood}
-        activeIntentMode={activeUserIntent?.mode ?? null}
-      />
+
 
       {/* Main Content Viewport Container */}
       <main
@@ -3332,6 +3318,22 @@ export default function App() {
         onSignOut={handleSignOut}
       />
       </div>{/* /g-shell */}
+
+      {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
+      <Navbar
+        activeTab={activeTab}
+        onTabChange={(tab) => { if (tab === 'swarms') beginChatTrace(activeRoomId); setActiveTab(tab); }}
+        unreadCount={unreadMessageCount}
+        notificationCount={notificationInbox?.unread ?? 0}
+        onOpenMask={() => setIsMaskActive(true)}
+        onOpenIdentity={() => setIsIdentityOpen(true)}
+        onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
+        isSafetyTimerActive={checkinState.isActive}
+        onOpenQR={() => handleOpenQRModal()}
+        reliabilityScore={currentUser.reliabilityScore}
+        userNeighborhood={currentUser.neighborhood}
+        activeIntentMode={activeUserIntent?.mode ?? null}
+      />
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
       <Suspense fallback={null}>
