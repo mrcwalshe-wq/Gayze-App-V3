@@ -68,11 +68,15 @@ function isTestPushAvailable(): boolean {
 
 type CategoryKey = Exclude<keyof NotificationPreferences, 'pushEnabled'>;
 
-const notificationLabel = (notice: InboxNotification): string => (
-  notice.category === 'gaze' && notice.event_key?.startsWith('interest:')
-    ? 'Someone is interested in your intent'
-    : notificationCopy[notice.category] ?? 'GAYZE notification'
-);
+const notificationLabel = (notice: InboxNotification): string => {
+  if (notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received')) {
+    return 'Someone sent you a Gayze';
+  }
+  if (notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':declined')) {
+    return 'Your Gayze was declined';
+  }
+  return notificationCopy[notice.category] ?? 'GAYZE notification';
+};
 
 const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta: string }[] = [
   { key: 'messages', icon: <MessageCircle className="w-4 h-4" />, label: 'Messages', meta: 'When someone messages you' },
