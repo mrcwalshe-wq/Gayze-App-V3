@@ -453,6 +453,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const sendInterestRequest = async () => {
     if (!interestDraftPulse || !onSubmitInterest || interestComposerBusy) return;
     setInterestComposerBusy(true);
+    setInterestPendingIds((prev) => new Set(prev).add(interestDraftPulse.id));
     try {
       const result = await onSubmitInterest(interestDraftPulse, interestMessage, Array.from(selectedInterestPhotoIds));
       if (!result.sent) { showStatusMessage('Intent interest could not be sent — try again.'); return; }
@@ -463,7 +464,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     } catch (error) {
       console.error('[GAYZE] Intent interest submission failed', error);
       showStatusMessage('Intent interest could not be sent — try again.');
-    } finally { setInterestComposerBusy(false); }
+    } finally {
+      setInterestPendingIds((prev) => {
+        const next = new Set(prev);
+        if (interestDraftPulse) next.delete(interestDraftPulse.id);
+        return next;
+      });
+      setInterestComposerBusy(false);
+    }
   };
 
   const handleGazeAtPerson = async (name: string, peerId: string, pulseObj?: Pulse) => {
