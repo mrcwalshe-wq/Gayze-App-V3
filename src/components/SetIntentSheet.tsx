@@ -146,7 +146,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       setTravelWillingness('Yes');
       setUseSafeHaven(false);
     }
-  }, [isOpen, existingIntent, defaultWhen]);
+  }, [isOpen, existingIntent, defaultWhen, initialMode]);
 
   // Late haven data can fill an unchosen default, but must never reset the
   // mode/intent/description that the user is currently editing.
