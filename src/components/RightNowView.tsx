@@ -282,7 +282,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // 5. "I'm Interested" & Gaze States
   const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
   const [interestPendingIds, setInterestPendingIds] = useState<Set<string>>(new Set());
-  const [interestStatusByPulseId, setInterestStatusByPulseId] = useState<Record<string, 'pending' | 'mutual' | 'declined'>>({});
+  const [interestStatusByPulseId, setInterestStatusByPulseId] = useState<Record<string, 'pending' | 'mutual' | 'declined' | 'withdrawn'>>({});
   const [gazedPeerNames, setGazedPeerNames] = useState<Set<string>>(new Set());
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
   const [interestDraftPulse, setInterestDraftPulse] = useState<Pulse | null>(null);
@@ -308,7 +308,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       const next: Record<string, 'pending' | 'mutual' | 'declined'> = {};
       const interested = new Set<string>();
       for (const row of rows) {
-        if (!row.intentId || !['pending', 'mutual', 'declined'].includes(row.status)) continue;
+        if (!row.intentId || !['pending', 'mutual', 'declined', 'withdrawn'].includes(row.status)) continue;
         const pulseId = `supabase_${row.intentId}`;
         next[pulseId] = row.status;
         interested.add(pulseId);
