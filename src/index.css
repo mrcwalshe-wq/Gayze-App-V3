@@ -1427,8 +1427,8 @@ button, input, select, textarea, [role="button"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   box-sizing: border-box;
   overflow: hidden;
   border-radius: 50%;
@@ -1490,8 +1490,8 @@ button, input, select, textarea, [role="button"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   box-sizing: border-box;
   overflow: hidden;
   border-radius: 50%;
@@ -1526,7 +1526,7 @@ button, input, select, textarea, [role="button"] {
 .gm-self::after {
   content: "";
   position: absolute;
-  inset: -9px;
+  inset: -7px;
   border-radius: 50%;
   border: 1px solid rgba(170, 132, 245, 0.34);
   animation: g-self-breathe 5.5s ease-in-out infinite;
