@@ -507,8 +507,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             }`}
         >
           {/* Header */}
-          <div className="gayze-chat-header shrink-0 h-14 px-3 sm:px-4 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="gayze-chat-header relative z-10 w-full shrink-0 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
+            <div className="g-chat-header__left flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               {/* Mobile Back Button */}
               <button
                 onClick={() => {
@@ -521,7 +521,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              <div className="w-8 h-8 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0 overflow-hidden">
+              <div className="g-chat-header__avatar w-10 h-10 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0 overflow-hidden">
                 {currentRoom.type === 'gathering' ? (
                   <Users className="w-4 h-4" />
                 ) : (currentRoom.peerAvatar && currentRoom.peerAvatar !== 'user' && (avatarUrls[currentRoom.peerAvatar] || (currentRoom.peerAvatar.startsWith('http') ? currentRoom.peerAvatar : null))) ? (
@@ -535,7 +535,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 )}
               </div>
 
-              <div className="min-w-0">
+              <div className="g-chat-header__identity min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <h2 className="text-xs sm:text-sm font-bold text-white truncate">{currentRoom.name}</h2>
                   {currentRoom.type === 'direct' && isPeerVerified[currentRoom.id] && (
@@ -567,11 +567,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             </div>
 
             {/* Header Actions — keep the direct actions quiet; secondary controls live in one menu on mobile. */}
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="g-chat-header__actions flex items-center gap-1 shrink-0">
               {currentRoom.type === 'direct' && onStartCall && (
                 <button
                   onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId, currentRoom.peerAvatar)}
-                  className="g-icon-btn"
+                  className="g-icon-btn g-chat-header__action"
                   title="Video call"
                   aria-label="Start video call"
                 >
