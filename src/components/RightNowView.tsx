@@ -305,10 +305,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       }
       const rows = await loadOutgoingInterestStatuses(intentIds);
       if (cancelled) return;
-      const next: Record<string, 'pending' | 'mutual'> = {};
+      const next: Record<string, 'pending' | 'mutual' | 'declined'> = {};
       const interested = new Set<string>();
       for (const row of rows) {
-        if (!row.intentId || (row.status !== 'pending' && row.status !== 'mutual')) continue;
+        if (!row.intentId || !['pending', 'mutual', 'declined'].includes(row.status)) continue;
         const pulseId = `supabase_${row.intentId}`;
         next[pulseId] = row.status;
         interested.add(pulseId);
@@ -1543,9 +1543,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       ? 'Sending…'
                       : interestStatusByPulseId[selectedItem.item.id] === 'mutual'
                         ? 'Gayze matched'
-                        : interestStatusByPulseId[selectedItem.item.id] === 'pending' || interestedIds.has(selectedItem.item.id)
-                          ? 'Gayze sent'
-                          : 'Send Gayze'}
+                        : interestStatusByPulseId[selectedItem.item.id] === 'declined'
+                          ? 'Gayze declined'
+                          : interestStatusByPulseId[selectedItem.item.id] === 'pending' || interestedIds.has(selectedItem.item.id)
+                            ? 'Gayze sent'
+                            : 'Send Gayze'}
                   </button>
                 ) : (
                   <button
