@@ -757,3 +757,90 @@
     bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
+
+
+/* 2026-10-08 chat header stabilization: explicit mobile geometry.
+   Keep the header inside the visual viewport and never let avatar/actions
+   inherit or fight global sizing rules. */
+.gayze-chat-header {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-height: calc(68px + env(safe-area-inset-top, 0px)) !important;
+  height: auto !important;
+  padding: max(8px, env(safe-area-inset-top, 0px)) 12px 8px !important;
+  overflow: visible !important;
+  isolation: isolate !important;
+}
+
+.g-chat-header__left {
+  min-width: 0 !important;
+  min-height: 42px !important;
+}
+
+.g-chat-header__avatar {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
+  flex: 0 0 42px !important;
+}
+
+.g-chat-header__identity {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.g-chat-header__identity h2 {
+  max-width: 100% !important;
+  font-size: 14px !important;
+  line-height: 1.15 !important;
+}
+
+.g-chat-header__actions {
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  min-height: 42px !important;
+}
+
+.g-chat-header__action {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  padding: 0 !important;
+  flex: 0 0 42px !important;
+}
+
+@media (max-width: 639px) {
+  .gayze-chat-header {
+    min-height: calc(68px + env(safe-area-inset-top, 0px)) !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .g-chat-header__left {
+    gap: 8px !important;
+  }
+
+  .g-chat-header__action {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    flex-basis: 40px !important;
+  }
+
+  .gayze-chat-header .sm\\:hidden {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
+  }
+}
