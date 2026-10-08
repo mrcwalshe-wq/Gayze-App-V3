@@ -571,10 +571,13 @@ export interface IncomingInterest {
 export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
   if (!supabase) return [];
   try {
+    const sessionUser = await ensureSupabaseSession();
+    if (!sessionUser) return [];
     const [{ data: rows, error }, { data: profiles, error: profileError }] = await Promise.all([
       supabase
         .from('interests')
         .select('id,from_user_id,created_at,status,intent_id,message,shared_photo_ids')
+        .eq('to_user_id', sessionUser.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false }),
       supabase.rpc('get_incoming_interest_profiles'),
