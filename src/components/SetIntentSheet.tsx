@@ -26,6 +26,7 @@ interface SetIntentSheetProps {
   safeHavens?: SafeHaven[];
   userNeighborhood: string;
   defaultWhen?: string;
+  initialMode?: TopLevelIntentMode | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -92,6 +93,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   safeHavens = [],
   userNeighborhood,
   defaultWhen = 'Now',
+  initialMode = null,
 }) => {
   const [mode, setMode] = useState<TopLevelIntentMode | null>(null);
   const [intent, setIntent] = useState<EncounterIntent | null>(null);
@@ -134,7 +136,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
         if (match) setSelectedHaven(match);
       }
     } else {
-      setMode(null);
+      setMode(initialMode);
       setIntent(null);
       setDescription('');
       setWhen(defaultWhen);
