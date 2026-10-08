@@ -205,6 +205,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   };
 
   const [isUserIntentDrawerOpen, setIsUserIntentDrawerOpen] = useState<boolean>(false);
+  // Keep the user's own intent compact so the map remains the primary surface.
+  // Expanding is temporary; the management sheet remains one tap away.
+  const [isUserIntentExpanded, setIsUserIntentExpanded] = useState<boolean>(false);
+  const intentCollapseTimerRef = useRef<number | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const statusTimeoutRef = useRef<number | null>(null);
 
@@ -402,6 +406,50 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     onUpdateActiveUserIntent,
   ]);
 
+  // Map-first behaviour: start compact, then collapse again after inactivity.
+  useEffect(() => {
+    if (intentCollapseTimerRef.current !== null) {
+      window.clearTimeout(intentCollapseTimerRef.current);
+      intentCollapseTimerRef.current = null;
+    }
+
+    setIsUserIntentExpanded(false);
+
+    if (!activeUserIntent) return;
+
+    intentCollapseTimerRef.current = window.setTimeout(() => {
+      setIsUserIntentExpanded(false);
+      intentCollapseTimerRef.current = null;
+    }, 4500);
+
+    return () => {
+      if (intentCollapseTimerRef.current !== null) {
+        window.clearTimeout(intentCollapseTimerRef.current);
+        intentCollapseTimerRef.current = null;
+      }
+    };
+  }, [activeUserIntent?.remoteId]);
+
+  useEffect(() => {
+    if (!isUserIntentExpanded || !activeUserIntent) return;
+
+    if (intentCollapseTimerRef.current !== null) {
+      window.clearTimeout(intentCollapseTimerRef.current);
+    }
+
+    intentCollapseTimerRef.current = window.setTimeout(() => {
+      setIsUserIntentExpanded(false);
+      intentCollapseTimerRef.current = null;
+    }, 6000);
+
+    return () => {
+      if (intentCollapseTimerRef.current !== null) {
+        window.clearTimeout(intentCollapseTimerRef.current);
+        intentCollapseTimerRef.current = null;
+      }
+    };
+  }, [isUserIntentExpanded, activeUserIntent?.remoteId]);
+
   // A slow tick keeps expired intents off the map even between discovery refreshes.
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
@@ -428,6 +476,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     hapticLight();
     const nextPaused = !activeUserIntent.isPaused;
     setActiveUserIntent({ ...activeUserIntent, isPaused: nextPaused });
+    setIsUserIntentExpanded(false);
     showStatusMessage(nextPaused ? 'Pausing your signal…' : 'Resuming your signal…', 2500);
   };
 
@@ -435,6 +484,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const handleEndIntent = () => {
     hapticSensitiveAction();
     setIsUserIntentDrawerOpen(false);
+    setIsUserIntentExpanded(false);
     setActiveUserIntent(null);
     showStatusMessage('Ending your signal…', 2500);
   };
@@ -1185,8 +1235,20 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       <div className="absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-40 flex items-start justify-between gap-2 pointer-events-none">
         <div className="pointer-events-auto min-w-0 flex-1 max-w-[calc(100vw-84px)] sm:max-w-[420px]">
           {activeUserIntent ? (
-            <div className={`g-float g-map-state g-map-state--live g-map-state--${activeUserIntent.mode === 'private' ? 'private' : 'social'} w-full`} role="status">
-              <button type="button" className="g-map-state__summary" onClick={() => { hapticLight(); setIsUserIntentDrawerOpen(true); }} aria-label="Open intent details">
+            <div className={`g-float g-map-state g-map-state--live g-map-state--${activeUserIntent.mode === 'private' ? 'private' : 'social'} ${isUserIntentExpanded ? 'is-expanded' : 'is-collapsed'} w-full`} role="status">
+              <button
+                type="button"
+                className="g-map-state__summary"
+                onClick={() => {
+                  hapticLight();
+                  if (isUserIntentExpanded) {
+                    setIsUserIntentDrawerOpen(true);
+                  } else {
+                    setIsUserIntentExpanded(true);
+                  }
+                }}
+                aria-label={isUserIntentExpanded ? 'Open intent details' : 'Expand live intent'}
+              >
                 <span className={`g-live-dot g-live-dot--${activeUserIntent.mode === 'private' ? 'private' : 'social'} shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`} aria-hidden="true" />
                 <span className="min-w-0 flex-1 text-left">
                   <span className="g-map-state__eyebrow">RIGHT NOW <span className={`g-map-state__live-pill ${activeUserIntent.isPaused ? 'is-paused' : ''}`}><span className="g-map-state__live-dot" />{activeUserIntent.isPaused ? 'PAUSED' : 'LIVE'}</span></span>
