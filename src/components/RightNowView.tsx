@@ -2051,7 +2051,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {isNearbyOpen && (
         <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setIsNearbyOpen(false)}>
-          <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="g-sheet g-sheet--active-signal" onClick={(e) => e.stopPropagation()}>
             <div className="g-sheet__grip" />
             <div className="g-sheet__head">
               <div>
@@ -2222,7 +2222,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {isUserIntentDrawerOpen && activeUserIntent && (
         <div
-          className="g-overlay flex items-end sm:items-center justify-center sm:p-4"
+          className="g-overlay g-overlay--active-signal flex items-end sm:items-center justify-center sm:p-4"
           onClick={() => setIsUserIntentDrawerOpen(false)}
         >
           <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
