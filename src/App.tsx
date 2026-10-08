@@ -16,6 +16,7 @@ import { MessageAlerts } from './services/messageAlerts';
 
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
+import { IntentHub } from './components/IntentHub';
 import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
 import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
@@ -76,7 +77,8 @@ import {
   SafetyCheckin,
   DatingProfile,
   SwarmQRPayload,
-  MeetingProposal
+  MeetingProposal,
+  TopLevelIntentMode
 } from './types';
 import {
   INITIAL_USER,
@@ -605,6 +607,8 @@ export default function App() {
   // Hydrate once from local storage so Discover / Right Now stay consistent
   // across tab changes and reloads.
   const [isSetIntentOpen, setIsSetIntentOpen] = useState(false);
+  const [isIntentHubOpen, setIsIntentHubOpen] = useState(false);
+  const [intentHubMode, setIntentHubMode] = useState<TopLevelIntentMode | null>(null);
   const [intentBusy, setIntentBusy] = useState(false);
   const [conversationKeyState, setConversationKeyState] = useState<{
     roomId: string;
@@ -2753,9 +2757,17 @@ export default function App() {
     handleSaveUserIntent(next);
   };
 
-  const handleOpenIntentSheet = () => {
+  const handleOpenIntentSheet = (mode: TopLevelIntentMode | null = null) => {
     analytics.logEvent('intent_started');
+    setIntentHubMode(mode);
+    setIsIntentHubOpen(false);
     setIsSetIntentOpen(true);
+  };
+
+  const handleOpenIntentHub = () => {
+    analytics.logEvent('intent_hub_opened');
+    setActiveTab('right_now');
+    setIsIntentHubOpen(true);
   };
 
   // Safety Check-in Handlers — persisted in Supabase when the live backend is enabled.
@@ -3219,6 +3231,19 @@ export default function App() {
         onDecline={handleDeclineIncomingCall}
       />
 
+      {/* Map-first GAYZE intent hub */}
+      <IntentHub
+        isOpen={isIntentHubOpen}
+        activeIntent={activeUserIntent}
+        remainingMinutes={activeUserIntent?.expiresAt ? Math.max(0, Math.ceil((activeUserIntent.expiresAt - Date.now()) / 60000)) : 0}
+        onClose={() => setIsIntentHubOpen(false)}
+        onCreateIntent={() => handleOpenIntentSheet(null)}
+        onManageIntent={() => {
+          setIsIntentHubOpen(false);
+          setIsSetIntentOpen(true);
+        }}
+      />
+
       {/* Universal Set Intent Sheet */}
       <SetIntentSheet
         isOpen={isSetIntentOpen}
@@ -3227,6 +3252,7 @@ export default function App() {
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
         userNeighborhood={currentUser.neighborhood}
+        initialMode={intentHubMode}
       />
 
       {/* Sectioned "About you" profile editor */}
@@ -3324,6 +3350,7 @@ export default function App() {
         onTabChange={(tab) => { if (tab === 'swarms') beginChatTrace(activeRoomId); setActiveTab(tab); }}
         unreadCount={unreadMessageCount}
         notificationCount={notificationInbox?.unread ?? 0}
+        onOpenIntentHub={handleOpenIntentHub}
         onOpenMask={() => setIsMaskActive(true)}
         onOpenIdentity={() => setIsIdentityOpen(true)}
         onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
