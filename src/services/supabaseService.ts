@@ -548,6 +548,22 @@ export async function submitInterest(
 }
 
 
+/** Claim the one-time creator slot used to serialize first conversation-key provisioning. */
+export async function claimConversationKeyBootstrap(conversationId: string, deviceId: string): Promise<boolean> {
+  if (!supabase || !conversationId || !deviceId) return false;
+  try {
+    const { data, error } = await supabase.rpc('claim_conversation_key_bootstrap', {
+      p_conversation_id: conversationId,
+      p_device_id: deviceId,
+    });
+    if (error) throw error;
+    return data === true;
+  } catch (error: any) {
+    console.warn('[GAYZE] Could not claim conversation key bootstrap:', error?.message || error);
+    return false;
+  }
+}
+
 export interface OutgoingInterestStatus {
   id: string;
   toUserId: string;
