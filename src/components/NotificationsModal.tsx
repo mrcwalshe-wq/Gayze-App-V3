@@ -10,6 +10,7 @@ import {
   Radio,
   Share,
   ChevronRight,
+  ChevronLeft,
   Shield,
   Sparkles,
   Timer,
@@ -90,6 +91,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const [feedback, setFeedback] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null);
   const [incomingInterests, setIncomingInterests] = useState<IncomingInterest[]>([]);
   const [interestBusyId, setInterestBusyId] = useState<string | null>(null);
+  const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number; name: string } | null>(null);
   const embeddedScrollRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = useCallback(async () => {
@@ -379,23 +381,30 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                       </div>
                       {interest.message && <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] text-zinc-200">{interest.message}</div>}
                       {interest.sharedPhotoUrls?.length ? (
-                        <div className="mt-3 grid grid-cols-4 gap-2">
-                          {interest.sharedPhotoUrls.map((url) => (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10.5px] text-zinc-500">{interest.sharedPhotoUrls.length} shared photo{interest.sharedPhotoUrls.length === 1 ? '' : 's'}</span>
                             <button
-                              key={url}
                               type="button"
-                              className="overflow-hidden rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-[#C9A24D]/60"
-                              aria-label={`View ${interest.fromDisplayName}'s shared photo`}
-                              onClick={() => onOpenPublicProfile?.(interest.fromUserId, {
-                                fallbackName: interest.fromDisplayName,
-                                fallbackAge: interest.fromAge ?? undefined,
-                                fallbackArea: interest.fromNeighborhood ?? undefined,
-                                fallbackPhotoUrl: url,
-                              })}
+                              className="text-[10.5px] font-semibold text-[#C9A24D]"
+                              onClick={() => setPhotoViewer({ urls: interest.sharedPhotoUrls!, index: 0, name: interest.fromDisplayName })}
                             >
-                              <img src={url} alt="" className="aspect-square object-cover w-full h-full" />
+                              Open album
                             </button>
-                          ))}
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            {interest.sharedPhotoUrls.map((url, photoIndex) => (
+                              <button
+                                key={url}
+                                type="button"
+                                className="overflow-hidden rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-[#C9A24D]/60"
+                                aria-label={`Open shared photo ${photoIndex + 1} of ${interest.sharedPhotoUrls!.length}`}
+                                onClick={() => setPhotoViewer({ urls: interest.sharedPhotoUrls!, index: photoIndex, name: interest.fromDisplayName })}
+                              >
+                                <img src={url} alt="" className="aspect-square object-cover w-full h-full" />
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       ) : null}
                       <div className="grid grid-cols-2 gap-2 mt-4">
