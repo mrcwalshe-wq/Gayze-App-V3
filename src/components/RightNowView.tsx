@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../services/profilePhotoService';
+import { loadOutgoingInterestStatuses } from '../services/supabaseService';
 import L from 'leaflet';
 import {
   Pulse,
@@ -281,6 +282,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // 5. "I'm Interested" & Gaze States
   const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
   const [interestPendingIds, setInterestPendingIds] = useState<Set<string>>(new Set());
+  const [interestStatusByPulseId, setInterestStatusByPulseId] = useState<Record<string, 'pending' | 'mutual'>>({});
   const [gazedPeerNames, setGazedPeerNames] = useState<Set<string>>(new Set());
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
   const [interestDraftPulse, setInterestDraftPulse] = useState<Pulse | null>(null);
@@ -288,6 +290,39 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [interestPhotos, setInterestPhotos] = useState<ProfilePhoto[]>([]);
   const [selectedInterestPhotoIds, setSelectedInterestPhotoIds] = useState<Set<string>>(new Set());
   const [interestComposerBusy, setInterestComposerBusy] = useState(false);
+
+  // Persist sender-side intent-interest state across reloads. Declines stay
+  // silent to the sender, so only pending/mutual are surfaced here.
+  useEffect(() => {
+    let cancelled = false;
+    const refreshInterestStatuses = async () => {
+      const intentIds = pulses
+        .map((pulse) => pulse.id.startsWith('supabase_') ? pulse.id.slice('supabase_'.length) : null)
+        .filter((id): id is string => Boolean(id));
+      if (!intentIds.length) {
+        setInterestStatusByPulseId({});
+        return;
+      }
+      const rows = await loadOutgoingInterestStatuses(intentIds);
+      if (cancelled) return;
+      const next: Record<string, 'pending' | 'mutual'> = {};
+      const interested = new Set<string>();
+      for (const row of rows) {
+        if (!row.intentId || (row.status !== 'pending' && row.status !== 'mutual')) continue;
+        const pulseId = `supabase_${row.intentId}`;
+        next[pulseId] = row.status;
+        interested.add(pulseId);
+      }
+      setInterestStatusByPulseId(next);
+      setInterestedIds(interested);
+    };
+    void refreshInterestStatuses();
+    const interval = window.setInterval(() => { void refreshInterestStatuses(); }, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [pulses]);
 
   // 6. Countdown timer for active user intent
   const [remainingMinutes, setRemainingMinutes] = useState<number>(0);
@@ -422,6 +457,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       const result = await onSubmitInterest(interestDraftPulse, interestMessage, Array.from(selectedInterestPhotoIds));
       if (!result.sent) { showStatusMessage('Intent interest could not be sent — try again.'); return; }
       setInterestedIds((prev) => new Set(prev).add(interestDraftPulse.id));
+      setInterestStatusByPulseId((prev) => ({ ...prev, [interestDraftPulse.id]: 'pending' }));
       setInterestDraftPulse(null);
       showStatusMessage(`Intent interest sent to ${interestDraftPulse.peerName} — awaiting their response`, 3500);
     } catch (error) {
@@ -1483,7 +1519,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <button
                     type="button"
                     onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
-                    disabled={interestPendingIds.has(selectedItem.item.id)}
+                    disabled={interestPendingIds.has(selectedItem.item.id) || Boolean(interestStatusByPulseId[selectedItem.item.id])}
                     className={`g-btn !px-3 text-[12px] ${
                       interestedIds.has(selectedItem.item.id)
                         ? 'g-btn--primary'
@@ -1497,9 +1533,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     )}
                     {interestPendingIds.has(selectedItem.item.id)
                       ? 'Sending…'
-                      : interestedIds.has(selectedItem.item.id)
-                        ? 'Interested'
-                        : 'Interest'}
+                      : interestStatusByPulseId[selectedItem.item.id] === 'mutual'
+                        ? 'Mutual'
+                        : interestStatusByPulseId[selectedItem.item.id] === 'pending' || interestedIds.has(selectedItem.item.id)
+                          ? 'Pending'
+                          : 'Interest'}
                   </button>
                 ) : (
                   <button
