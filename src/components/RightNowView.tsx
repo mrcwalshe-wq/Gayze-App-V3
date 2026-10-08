@@ -1053,11 +1053,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         // generic blue so the whole map stays inside one palette.
         L.circle([userLocation.lat, userLocation.lng], {
           radius: userJitterRadius,
-          color: 'rgba(170, 132, 245, 0.55)',
+          color: 'rgba(170, 132, 245, 0.30)',
           weight: 1,
-          dashArray: '3, 5',
+          dashArray: '5, 8',
           fillColor: '#6F3CC3',
-          fillOpacity: 0.05,
+          fillOpacity: 0.028,
         }).addTo(layerGroup);
       }
 
@@ -1070,8 +1070,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 : ''
             }</div>`
           : '<div class="gm-user"></div>',
-        iconSize: isLive ? [34, 34] : [14, 14],
-        iconAnchor: isLive ? [17, 17] : [7, 7],
+        iconSize: isLive ? [32, 32] : [14, 14],
+        iconAnchor: isLive ? [16, 16] : [7, 7],
       });
       L.marker([userLocation.lat, userLocation.lng], { icon: selfIcon, zIndexOffset: 400 })
         .addTo(layerGroup)
@@ -1159,11 +1159,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         if (showJitterCircles) {
           L.circle([lat, lng], {
             radius: jitter,
-            color: isPrivate ? '#6F3CC3' : '#C9A24D',
+            color: isPrivate ? 'rgba(111, 60, 195, 0.34)' : 'rgba(201, 162, 77, 0.34)',
             weight: 1,
-            dashArray: '3, 4',
+            dashArray: '5, 8',
             fillColor: isPrivate ? '#6F3CC3' : '#C9A24D',
-            fillOpacity: 0.06,
+            fillOpacity: 0.025,
           }).addTo(layerGroup);
         }
         const markerCoords = spreadOverlappingCoordinate(lat, lng, occupiedMarkerCoordinates);
@@ -1175,8 +1175,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               ? `<img class="gm-pulse__photo" src="${pulse.peerAvatar.replace(/"/g, '&quot;')}" alt="" />`
               : (pulse.peerName ? pulse.peerName.charAt(0) : 'P')
           }</div>`,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         });
         const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
