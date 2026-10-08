@@ -503,7 +503,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       {/* Main Chat Area */}
       {currentRoom ? (
         <div data-testid="conversation-pane" data-room-id={currentRoom.id}
-          className={`flex-1 flex flex-col bg-[#090a0e] min-w-0 min-h-0 ${mobileView === 'list' ? 'hidden sm:flex' : 'flex'
+          className={`g-chat-shell flex-1 flex flex-col bg-[#090a0e] min-w-0 min-h-0 ${mobileView === 'list' ? 'hidden sm:flex' : 'flex'
             }`}
         >
           {/* Header */}
@@ -877,7 +877,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2 bg-[#141620] border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-[#6F3CC3]/60 transition-colors">
+            <div className="g-chat-composer flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors">
               {/* Photo Upload Action */}
               <label
                 className="w-8 h-8 rounded-lg bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 text-zinc-400 hover:text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
