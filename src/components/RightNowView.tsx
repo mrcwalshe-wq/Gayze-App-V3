@@ -1528,7 +1528,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     type="button"
                     onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                     disabled={interestPendingIds.has(selectedItem.item.id) || Boolean(interestStatusByPulseId[selectedItem.item.id])}
-                    className={`g-btn !px-3 text-[12px] ${
+                    className={`g-btn g-discovery-primary !px-3 text-[12px] ${
                       interestedIds.has(selectedItem.item.id)
                         ? 'g-btn--primary'
                         : 'g-btn--quiet'
@@ -1551,7 +1551,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <button
                     type="button"
                     onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item.id)}
-                    className={`g-btn !px-3 text-[12px] ${
+                    className={`g-btn g-discovery-primary !px-3 text-[12px] ${
                       gazedPeerNames.has(selectedItem.item.id) ? 'g-btn--primary' : 'g-btn--quiet'
                     }`}
                   >
@@ -1871,7 +1871,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenDirectChatWithProfile(selectedItem.item);
                         }
                       }}
-                      className="g-btn g-btn--amber flex-1 !min-h-[46px]"
+                      className="g-btn g-discovery-secondary flex-1 !min-h-[50px]"
                     >
                       <Lock className="w-4 h-4" />
                       <span>Message</span>
