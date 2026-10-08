@@ -1863,3 +1863,58 @@ select:focus-visible {
     max-height: 52px !important;
   }
 }
+
+
+/* Intent-reactive GAYZE mark: the logo itself adopts the active intent hue. */
+@media (max-width: 767px) {
+  .g-shell .g-tab--discover[data-intent-mode='private'] .g-discover-logo-image {
+    filter:
+      drop-shadow(0 0 3px rgba(183,124,255,.98))
+      drop-shadow(0 0 10px rgba(111,60,195,.90))
+      drop-shadow(0 0 22px rgba(111,60,195,.62))
+      drop-shadow(0 0 38px rgba(183,124,255,.34));
+    animation: gayze-intent-purple-pulse 2.6s ease-in-out infinite;
+  }
+
+  .g-shell .g-tab--discover[data-intent-mode='social'] .g-discover-logo-image {
+    filter:
+      drop-shadow(0 0 3px rgba(240,200,102,.98))
+      drop-shadow(0 0 10px rgba(201,162,77,.92))
+      drop-shadow(0 0 22px rgba(201,162,77,.64))
+      drop-shadow(0 0 38px rgba(240,200,102,.34));
+    animation: gayze-intent-amber-pulse 2.6s ease-in-out infinite;
+  }
+
+  .g-shell .g-tab--discover[data-intent-mode='private'] .g-discover-action {
+    box-shadow:
+      0 0 0 1px rgba(183,124,255,.72),
+      0 0 18px rgba(111,60,195,.58),
+      0 0 42px rgba(111,60,195,.34),
+      inset 0 0 20px rgba(111,60,195,.12) !important;
+  }
+
+  .g-shell .g-tab--discover[data-intent-mode='social'] .g-discover-action {
+    box-shadow:
+      0 0 0 1px rgba(240,200,102,.74),
+      0 0 18px rgba(201,162,77,.60),
+      0 0 42px rgba(201,162,77,.34),
+      inset 0 0 20px rgba(201,162,77,.12) !important;
+  }
+}
+
+@keyframes gayze-intent-purple-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(183,124,255,.92)) drop-shadow(0 0 12px rgba(111,60,195,.72)) drop-shadow(0 0 30px rgba(111,60,195,.38)); }
+  50% { filter: drop-shadow(0 0 5px rgba(207,169,255,1)) drop-shadow(0 0 18px rgba(111,60,195,.94)) drop-shadow(0 0 42px rgba(183,124,255,.56)); }
+}
+
+@keyframes gayze-intent-amber-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(240,200,102,.92)) drop-shadow(0 0 12px rgba(201,162,77,.74)) drop-shadow(0 0 30px rgba(201,162,77,.38)); }
+  50% { filter: drop-shadow(0 0 5px rgba(255,226,145,1)) drop-shadow(0 0 18px rgba(201,162,77,.96)) drop-shadow(0 0 42px rgba(240,200,102,.56)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-shell .g-tab--discover[data-intent-mode='private'] .g-discover-logo-image,
+  .g-shell .g-tab--discover[data-intent-mode='social'] .g-discover-logo-image {
+    animation: none !important;
+  }
+}
