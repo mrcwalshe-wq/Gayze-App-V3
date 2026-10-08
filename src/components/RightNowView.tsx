@@ -305,7 +305,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       }
       const rows = await loadOutgoingInterestStatuses(intentIds);
       if (cancelled) return;
-      const next: Record<string, 'pending' | 'mutual' | 'declined'> = {};
+      const next: Record<string, 'pending' | 'mutual' | 'declined' | 'withdrawn'> = {};
       const interested = new Set<string>();
       for (const row of rows) {
         if (!row.intentId || !['pending', 'mutual', 'declined', 'withdrawn'].includes(row.status)) continue;
