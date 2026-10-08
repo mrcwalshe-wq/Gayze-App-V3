@@ -928,7 +928,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 value={inputText}
                 disabled={conversationKeyUnavailable}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={currentRoom.ephemeralTtlSeconds > 0 ? `Message · ${getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}` : 'Message…'}
+                placeholder={conversationKeyUnavailable ? 'Preparing secure chat…' : (currentRoom.ephemeralTtlSeconds > 0 ? `Message · ${getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}` : 'Message…')}
                 className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none py-1"
               />
 
