@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock3, EyeOff, Plus, Radio, Sparkles, UsersRound, X } from 'lucide-react';
-import type { UserActiveIntent } from '../types';
+import type { TopLevelIntentMode, UserActiveIntent } from '../types';
 import { hapticLight } from '../services/hapticService';
 
 interface IntentHubProps {
@@ -8,7 +8,7 @@ interface IntentHubProps {
   activeIntent?: UserActiveIntent | null;
   remainingMinutes?: number;
   onClose: () => void;
-  onCreateIntent: () => void;
+  onCreateIntent: (mode?: TopLevelIntentMode | null) => void;
   onManageIntent: () => void;
 }
 
@@ -81,7 +81,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
           </div>
         ) : (
           <div className="g-intent-hub__choices">
-            <button type="button" className="g-intent-hub__choice is-social" onClick={() => { hapticLight(); onCreateIntent(); }}>
+            <button type="button" className="g-intent-hub__choice is-social" onClick={() => { hapticLight(); onCreateIntent('social'); }}>
               <span className="g-intent-hub__choice-icon"><UsersRound className="w-5 h-5" /></span>
               <span className="g-intent-hub__choice-copy">
                 <strong>Social</strong>
@@ -90,7 +90,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
               <span className="g-intent-hub__choice-arrow">→</span>
             </button>
 
-            <button type="button" className="g-intent-hub__choice is-private" onClick={() => { hapticLight(); onCreateIntent(); }}>
+            <button type="button" className="g-intent-hub__choice is-private" onClick={() => { hapticLight(); onCreateIntent('private'); }}>
               <span className="g-intent-hub__choice-icon"><EyeOff className="w-5 h-5" /></span>
               <span className="g-intent-hub__choice-copy">
                 <strong>Private</strong>
@@ -107,7 +107,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
         </div>
 
         {!hasActive && (
-          <button type="button" className="g-intent-hub__quick" onClick={() => { hapticLight(); onCreateIntent(); }}>
+          <button type="button" className="g-intent-hub__quick" onClick={() => { hapticLight(); onCreateIntent(null); }}>
             <Plus className="w-4 h-4" /> Create an intent
           </button>
         )}
