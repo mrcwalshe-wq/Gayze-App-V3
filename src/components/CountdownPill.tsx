@@ -12,8 +12,10 @@ interface CountdownPillProps {
 /**
  * Isolated CountdownPill component.
  * Manages its own timer tick internally to avoid re-rendering entire parent feeds/grids.
+ * ⚡ Bolt Optimization: Wrapped in React.memo() to prevent unnecessary re-renders
+ * when parent views (like RightNowView) update their own state (e.g. 30s nowTick).
  */
-export const CountdownPill: React.FC<CountdownPillProps> = ({
+export const CountdownPill: React.FC<CountdownPillProps> = React.memo(({
   expiresAt,
   prefix = '',
   className = '',
@@ -86,4 +88,4 @@ export const CountdownPill: React.FC<CountdownPillProps> = ({
       </span>
     </span>
   );
-};
+});
