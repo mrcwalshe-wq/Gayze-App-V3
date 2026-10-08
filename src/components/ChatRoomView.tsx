@@ -30,9 +30,7 @@ import {
   Coffee,
   Image as ImageIcon,
   MoreHorizontal,
-  Trash2,
-  Bell,
-  MessageSquare
+  Trash2
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
@@ -60,8 +58,6 @@ interface ChatRoomViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
-  onOpenNotifications?: () => void;
-  notificationCount?: number;
   onlineUserIds?: Set<string>;
   connectionState?: ChatConnectionState;
   /** True when no conversation key could be resolved on this device. */
@@ -91,8 +87,6 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onOpenScheduleMeeting,
   onAcceptMeeting,
   onReturnToDiscovery,
-  onOpenNotifications,
-  notificationCount = 0,
   onlineUserIds,
   connectionState,
   conversationKeyUnavailable = false,
