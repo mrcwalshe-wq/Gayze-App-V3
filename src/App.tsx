@@ -1880,7 +1880,15 @@ export default function App() {
         return;
       }
       try {
-        const result = await messageProcessorRef.current.key(room, supabaseUserId);
+        let result = await messageProcessorRef.current.key(room, supabaseUserId);
+        // Newly accepted interests create a fresh conversation. Allow the
+        // device registry/envelope provisioning a short, bounded window to
+        // settle before declaring the secure chat unavailable.
+        for (let attempt = 1; !result.key && result.transient && attempt < 5 && !disposed; attempt += 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 350 * attempt));
+          if (disposed) return;
+          result = await messageProcessorRef.current.key(room, supabaseUserId);
+        }
         if (disposed) return;
         keyReady = Boolean(result.key);
         setConversationKeyState({
@@ -3143,7 +3151,7 @@ export default function App() {
                     conversationKeyUnavailable={
                       Boolean(activeRoomId)
                       && conversationKeyState.roomId === activeRoomId
-                      && conversationKeyState.status === 'unavailable'
+                      && conversationKeyState.status !== 'ready'
                     }
                     conversationKeyReason={conversationKeyState.reason}
                   />
