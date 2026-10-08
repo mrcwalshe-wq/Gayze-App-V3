@@ -42,7 +42,7 @@ for (const [type, expectedTitle, expectedPath] of [
   assert(Boolean(n), `${type}: notification shown`);
   assert(n?.title === expectedTitle, `${type}: title`);
   assert(n?.options.data.url === expectedPath, `${type}: route`);
-  assert(n?.options.icon === '/icons/gayze-192.png', `${type}: icon`);
+  assert(n?.options.icon.startsWith('/brand/gayze-app-icon-v3.svg'), `${type}: icon`);
   assert(n?.options.silent === false, `${type}: never silent`);
   assert(n?.options.renotify === true, `${type}: renotify enabled`);
 }
