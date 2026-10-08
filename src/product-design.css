@@ -1863,3 +1863,104 @@ select:focus-visible {
     max-height: 52px !important;
   }
 }
+
+/* 2026-10-08 — notifications typography/spacing correction */
+@media (max-width: 767px) {
+  .g-messages-notifications .g-sheet__head {
+    min-height: 78px;
+    padding: 14px 16px 13px;
+    gap: 12px;
+  }
+  .g-messages-notifications .g-sheet__head .g-notifications-title-icon {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+  }
+  .g-messages-notifications .g-sheet__head h2 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 20px;
+  }
+  .g-messages-notifications .g-sheet__head p {
+    margin: 4px 0 0;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .g-messages-notifications .g-sheet__body {
+    padding: 14px 12px 4px;
+  }
+
+  .g-messages-notifications .g-notification-status {
+    padding: 16px;
+  }
+  .g-messages-notifications .g-notification-status__top {
+    align-items: center;
+    gap: 12px;
+  }
+  .g-messages-notifications .g-notification-status .g-label {
+    margin: 0 0 4px;
+    font-size: 10px;
+    line-height: 13px;
+  }
+  .g-messages-notifications .g-notification-status h3 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 21px;
+  }
+  .g-messages-notifications .g-notification-status p {
+    margin: 5px 0 0;
+    font-size: 11.5px;
+    line-height: 16px;
+  }
+  .g-messages-notifications .g-notification-status__ready {
+    margin-top: 15px;
+    line-height: 16px;
+  }
+
+  .g-messages-notifications .g-notification-section-head {
+    min-height: 68px;
+    padding: 14px 15px 11px;
+    align-items: center;
+  }
+  .g-messages-notifications .g-notification-section-head .g-label {
+    margin-bottom: 4px;
+    font-size: 10px;
+    line-height: 13px;
+  }
+  .g-messages-notifications .g-notification-section-head h3 {
+    margin: 0;
+    font-size: 14px;
+    line-height: 19px;
+  }
+
+  .g-messages-notifications .g-notification-preferences .g-row {
+    min-height: 70px;
+    padding: 10px 15px;
+    gap: 12px;
+  }
+  .g-messages-notifications .g-row > span:nth-child(2) {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+  }
+  .g-messages-notifications .g-row > span:nth-child(2) > span:first-child {
+    font-size: 14px !important;
+    line-height: 18px !important;
+  }
+  .g-messages-notifications .g-row > span:nth-child(2) > span:last-child {
+    margin: 0 !important;
+    font-size: 10.5px !important;
+    line-height: 14px !important;
+  }
+
+  .g-messages-notifications .g-notification-inbox .g-notification-section-head {
+    min-height: 68px;
+  }
+  .g-messages-notifications .g-notification-row {
+    min-height: 62px;
+    padding: 10px 15px;
+  }
+}

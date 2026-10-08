@@ -535,16 +535,16 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 )}
               </div>
 
-              <div className="g-chat-header__identity min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <h2 className="text-xs sm:text-sm font-bold text-white truncate">{currentRoom.name}</h2>
+              <div className="g-chat-header__identity min-w-0 flex-1 flex flex-col justify-center gap-1">
+                <div className="g-chat-header__name-row flex items-center min-w-0 gap-1.5">
+                  <h2 className="text-xs sm:text-sm font-bold text-white truncate leading-[17px]">{currentRoom.name}</h2>
                   {currentRoom.type === 'direct' && isPeerVerified[currentRoom.id] && (
                     <span title="Safety Fingerprint Verified" className="shrink-0 inline-flex">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                     </span>
                   )}
                 </div>
-                <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1.5">
+                <div className="g-chat-header__presence text-[10px] text-zinc-400 truncate flex items-center gap-1.5 min-w-0 leading-[14px]">
                   {currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] inline-block g-breathe" />
@@ -557,7 +557,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         {currentRoom.type === 'direct'
                           ? (currentRoom.peerLastSeenAt
                             ? 'Last seen ' + new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                            : 'Last seen unavailable')
+                            : 'Offline · last seen unavailable')
                           : 'Group conversation'}
                       </span>
                     </>
