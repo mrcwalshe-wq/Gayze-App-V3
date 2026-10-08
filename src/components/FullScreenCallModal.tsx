@@ -48,7 +48,6 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   const [isVideoEnabled, setIsVideoEnabled] = useState(initialCallType === 'video');
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [showControls, setShowControls] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -304,10 +303,6 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
     void webrtcCallService.flipCamera();
   };
 
-  const handleToggleMinimize = () => {
-    setIsMinimized(!isMinimized);
-  };
-
   const formatDuration = (secs: number) => {
     const mins = Math.floor(secs / 60);
     const s = secs % 60;
@@ -448,7 +443,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
           </div>
         )}
 
-        <div className={'absolute inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-20 transition-opacity duration-300 sm:px-6 ' + (showControls || isMinimized ? 'opacity-100' : 'opacity-0')}>
+        <div className={'absolute inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-20 transition-opacity duration-300 sm:px-6 ' + (showControls ? 'opacity-100' : 'opacity-0')}>
           <div className="mx-auto flex max-w-md items-center justify-center gap-2.5 rounded-[28px] border border-white/10 bg-[#0c0c13]/75 p-2.5 shadow-[0_-18px_60px_rgba(0,0,0,.35)] backdrop-blur-2xl">
             <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleMute(); }} className={'flex h-12 w-12 items-center justify-center rounded-full border transition active:scale-95 ' + (isMuted ? 'border-rose-400/40 bg-rose-500/15 text-rose-300' : 'border-white/10 bg-white/[0.06] text-white/85')} aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}>
               {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
