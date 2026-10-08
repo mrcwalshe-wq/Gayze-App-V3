@@ -537,7 +537,6 @@ export default function App() {
     setChatOpenRequest(previous => ({ roomId, sequence: (previous?.sequence ?? 0) + 1 }));
     setActiveRoomId(roomId);
     setMessagesSubTab('chats');
-    setMessagesSubTab('chats');
     setActiveTab('swarms');
   }
 
