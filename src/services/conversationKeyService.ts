@@ -214,21 +214,25 @@ async function resolveDeviceAwareKey(
   // currently authorised device. Existing message ciphertext is untouched.
   try {
     const conversationKey = await deps.createKey();
-    let saved = 0;
-    for (const device of devices) {
+    const results = await Promise.all(devices.map(async (device) => {
       const deviceJwk = parseJwk(device.public_key);
-      if (!deviceJwk) continue;
-      const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
-      const stored = await deps.saveEnvelope({
-        conversation_id: room.id,
-        user_id: device.user_id,
-        device_id: device.device_id,
-        wrapped_key: wrapped.wrappedKeyHex,
-        nonce: wrapped.nonceHex,
-        created_by_device_id: identity.deviceId,
-      });
-      if (stored) saved += 1;
-    }
+      if (!deviceJwk) return false;
+      try {
+        const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
+        const stored = await deps.saveEnvelope({
+          conversation_id: room.id,
+          user_id: device.user_id,
+          device_id: device.device_id,
+          wrapped_key: wrapped.wrappedKeyHex,
+          nonce: wrapped.nonceHex,
+          created_by_device_id: identity.deviceId,
+        });
+        return Boolean(stored);
+      } catch {
+        return false;
+      }
+    }));
+    const saved = results.filter(Boolean).length;
 
     if (saved === 0) {
       return {
