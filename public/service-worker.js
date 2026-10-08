@@ -2,7 +2,7 @@
  * GAYZE production service worker.
  * Web Push is always user-visible on iOS; no silent/invisible push path.
  */
-const SW_VERSION = 'gayze-sw-v21-png-icon';
+const SW_VERSION = 'gayze-sw-v22-chat-e2ee-photo';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 const APP_SHELL_URL = '/index.html';
