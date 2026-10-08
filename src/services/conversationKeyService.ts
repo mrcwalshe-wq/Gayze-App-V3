@@ -127,6 +127,13 @@ async function resolveDeviceAwareKey(
   const envelopes = envelopeRead.envelopes;
   const devices = deviceRead.devices.filter((device) => device.status !== 'revoked');
 
+  // Direct-chat recovery path: if the conversation predates device envelopes,
+  // use the established ECDH key immediately. Do not block the message composer
+  // waiting for an envelope migration that has not succeeded.
+  if (room.type === 'direct' && envelopes.length === 0 && legacyKey) {
+    return { key: legacyKey, status: 'ready', legacyKey };
+  }
+
   // Never generate or persist a conversation key until this browser's device
   // is present in the authorised device registry. Without this guard, a chat
   // hydration race can create a key and then have every envelope write rejected
