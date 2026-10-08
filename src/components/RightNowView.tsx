@@ -1070,8 +1070,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 : ''
             }</div>`
           : '<div class="gm-user"></div>',
-        iconSize: isLive ? [34, 34] : [14, 14],
-        iconAnchor: isLive ? [17, 17] : [7, 7],
+        iconSize: isLive ? [42, 42] : [14, 14],
+        iconAnchor: isLive ? [21, 21] : [7, 7],
       });
       L.marker([userLocation.lat, userLocation.lng], { icon: selfIcon, zIndexOffset: 400 })
         .addTo(layerGroup)
@@ -1175,8 +1175,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               ? `<img class="gm-pulse__photo" src="${pulse.peerAvatar.replace(/"/g, '&quot;')}" alt="" />`
               : (pulse.peerName ? pulse.peerName.charAt(0) : 'P')
           }</div>`,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
         });
         const marker = L.marker(markerCoords, { icon }).addTo(layerGroup);
         marker.on('click', () => {
