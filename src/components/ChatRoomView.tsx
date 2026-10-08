@@ -557,7 +557,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         {currentRoom.type === 'direct'
                           ? (currentRoom.peerLastSeenAt
                             ? 'Last seen ' + new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                            : 'Last seen unavailable')
+                            : 'Offline · last seen unavailable')
                           : 'Group conversation'}
                       </span>
                     </>
