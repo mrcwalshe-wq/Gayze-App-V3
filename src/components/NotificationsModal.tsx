@@ -39,6 +39,15 @@ interface NotificationsModalProps {
   inbox?: NotificationInbox | null;
   inboxStatus?: ChatConnectionState;
   onOpenNotification?: (notice: InboxNotification) => void;
+  onOpenPublicProfile?: (
+    userId: string,
+    fallback?: {
+      fallbackName?: string;
+      fallbackAge?: number;
+      fallbackArea?: string;
+      fallbackPhotoUrl?: string;
+    },
+  ) => void;
   onInterestAccepted?: (conversationId: string) => void;
   embedded?: boolean;
 }
@@ -72,7 +81,7 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, onInterestAccepted, embedded = false }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, onOpenPublicProfile, onInterestAccepted, embedded = false }) => {
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -321,19 +330,29 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                   {incomingInterests.map((interest) => (
                     <div key={interest.id} className="border-t border-white/[0.06] p-4">
                       <div className="flex items-start gap-3">
-                        <div className="relative w-16 h-16 shrink-0 rounded-2xl overflow-hidden border border-[#C9A24D]/45 bg-[#171922]">
+                        <button
+                          type="button"
+                          className="relative w-16 h-16 shrink-0 rounded-2xl overflow-hidden border border-[#C9A24D]/45 bg-[#171922] focus:outline-none focus:ring-2 focus:ring-[#C9A24D]/60"
+                          aria-label={`View ${interest.fromDisplayName}'s profile`}
+                          onClick={() => onOpenPublicProfile?.(interest.fromUserId, {
+                            fallbackName: interest.fromDisplayName,
+                            fallbackAge: interest.fromAge ?? undefined,
+                            fallbackArea: interest.fromNeighborhood ?? undefined,
+                            fallbackPhotoUrl: interest.fromAvatarUrl ?? undefined,
+                          })}
+                        >
                           <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white">
                             {interest.fromDisplayName.slice(0, 1).toUpperCase()}
                           </span>
                           {interest.fromAvatarUrl && (
                             <img
                               src={interest.fromAvatarUrl}
-                              alt={interest.fromDisplayName}
+                              alt=""
                               className="absolute inset-0 w-full h-full object-cover"
                               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                             />
                           )}
-                        </div>
+                        </button>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <div className="text-sm font-semibold text-white truncate">
@@ -361,7 +380,22 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                       {interest.message && <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] text-zinc-200">{interest.message}</div>}
                       {interest.sharedPhotoUrls?.length ? (
                         <div className="mt-3 grid grid-cols-4 gap-2">
-                          {interest.sharedPhotoUrls.map((url) => <img key={url} src={url} alt="" className="aspect-square object-cover rounded-xl border border-white/10" />)}
+                          {interest.sharedPhotoUrls.map((url) => (
+                            <button
+                              key={url}
+                              type="button"
+                              className="overflow-hidden rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-[#C9A24D]/60"
+                              aria-label={`View ${interest.fromDisplayName}'s shared photo`}
+                              onClick={() => onOpenPublicProfile?.(interest.fromUserId, {
+                                fallbackName: interest.fromDisplayName,
+                                fallbackAge: interest.fromAge ?? undefined,
+                                fallbackArea: interest.fromNeighborhood ?? undefined,
+                                fallbackPhotoUrl: url,
+                              })}
+                            >
+                              <img src={url} alt="" className="aspect-square object-cover w-full h-full" />
+                            </button>
+                          ))}
                         </div>
                       ) : null}
                       <div className="grid grid-cols-2 gap-2 mt-4">
