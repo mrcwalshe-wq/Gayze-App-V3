@@ -1470,8 +1470,10 @@ button, input, select, textarea, [role="button"] {
     0 10px 24px rgba(0, 0, 0, 0.52);
 }
 .gm-pulse--private.gm-pulse--sel {
-  border-color: rgba(201, 162, 77, 0.85);
-  box-shadow: 0 0 0 5px var(--g-amber-line-soft), 0 10px 26px rgba(0, 0, 0, 0.55);
+  border-color: rgba(201, 162, 77, 0.96);
+  box-shadow:
+    0 0 0 4px rgba(201, 162, 77, 0.16),
+    0 10px 24px rgba(0, 0, 0, 0.52);
 }
 .gm-pulse__live {
   position: absolute;
@@ -1497,7 +1499,10 @@ button, input, select, textarea, [role="button"] {
   border-radius: 50%;
   background: radial-gradient(circle at 50% 38%, #fdfbff 0%, #cbb0f7 46%, #8b5cf6 100%);
   border: 1.5px solid rgba(226, 214, 255, 0.9);
-  box-shadow: 0 0 0 8px var(--g-violet-18), 0 0 22px rgba(139, 92, 246, 0.5), 0 10px 24px rgba(0, 0, 0, 0.55);
+  box-shadow:
+    0 0 0 4px rgba(111, 60, 195, 0.10),
+    0 0 16px rgba(139, 92, 246, 0.34),
+    0 8px 20px rgba(0, 0, 0, 0.48);
 }
 
 /* The user's live marker follows the same mode language as every other
@@ -1505,7 +1510,10 @@ button, input, select, textarea, [role="button"] {
 .gm-self--social {
   background: radial-gradient(circle at 50% 38%, #fffdf6 0%, #efdca0 46%, #c9a24d 100%);
   border-color: rgba(255, 232, 161, 0.92);
-  box-shadow: 0 0 0 8px rgba(201, 162, 77, 0.13), 0 0 22px rgba(201, 162, 77, 0.48), 0 10px 24px rgba(0, 0, 0, 0.55);
+  box-shadow:
+    0 0 0 4px rgba(201, 162, 77, 0.12),
+    0 0 16px rgba(201, 162, 77, 0.34),
+    0 8px 20px rgba(0, 0, 0, 0.48);
 }
 .gm-self--social::after { border-color: rgba(201, 162, 77, 0.30); }
 
