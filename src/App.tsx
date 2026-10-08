@@ -3103,6 +3103,9 @@ export default function App() {
                     inbox={notificationInbox}
                     inboxStatus={notificationInboxStatus}
                     onOpenNotification={openInboxNotification}
+                    onOpenPublicProfile={(userId, fallback) => {
+                      setViewingPublicProfile({ userId, ...fallback });
+                    }}
                     onInterestAccepted={async (conversationId) => {
                       await refreshConversationListRef.current();
                       requestConversationOpen(conversationId);
