@@ -1518,7 +1518,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       onOpenDirectChatWithProfile(selectedItem.item);
                     }
                   }}
-                  className="g-btn g-btn--amber flex-1"
+                  className="g-btn g-discovery-secondary flex-1"
                 >
                   <Lock className="w-4 h-4" />
                   Message
@@ -1542,10 +1542,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {interestPendingIds.has(selectedItem.item.id)
                       ? 'Sending…'
                       : interestStatusByPulseId[selectedItem.item.id] === 'mutual'
-                        ? 'Mutual'
+                        ? 'Gayze matched'
                         : interestStatusByPulseId[selectedItem.item.id] === 'pending' || interestedIds.has(selectedItem.item.id)
-                          ? 'Pending'
-                          : 'Interest'}
+                          ? 'Gayze sent'
+                          : 'Send Gayze'}
                   </button>
                 ) : (
                   <button
@@ -1556,7 +1556,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     }`}
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    {gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}
+                    {gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send Gayze'}
                   </button>
                 )}
                 <button
@@ -1782,7 +1782,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         onSelectHaven(selectedItem.item);
                         setIsCardExpanded(false);
                       }}
-                      className="g-btn g-btn--amber flex-1 !min-h-[46px]"
+                      className="g-btn g-discovery-secondary flex-1 !min-h-[50px]"
                     >
                       <MapPin className="w-4 h-4" />
                       <span>View Safe Haven</span>
@@ -1819,12 +1819,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         {interestedIds.has(selectedItem.item.id) ? (
                           <>
                             <Check className="w-4 h-4 text-[#C9A24D]" />
-                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Send Gayze'}</span>
                           </>
                         ) : (
                           <>
                             <Zap className="w-4 h-4 text-[#C9A24D]" />
-                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Send Gayze'}</span>
                           </>
                         )}
                       </button>
@@ -1838,7 +1838,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
-                        <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}</span>
+                        <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send Gayze'}</span>
                       </button>
                     )}
 
@@ -1853,7 +1853,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenScheduleMeeting(peerName);
                         }
                       }}
-                      className="h-12 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#141620] hover:bg-[#1c1f2e] border border-white/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 font-mono"
+                      className="g-btn g-discovery-secondary !min-h-[50px] !px-2 text-xs"
                     >
                       <Calendar className="w-4 h-4" />
                       <span>Safe Meet</span>
@@ -2334,20 +2334,20 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <span className="g-label text-[#C9A24D]">Intent interest</span>
-                <h3 className="text-[15px] font-semibold text-white truncate">Respond to {interestDraftPulse.peerName}</h3>
+                <span className="g-label text-[#C9A24D]">SEND A GAYZE</span>
+                <h3 className="text-[15px] font-semibold text-white truncate">Show {interestDraftPulse.peerName} you’re interested</h3>
                 <p className="text-[10.5px] text-zinc-500 truncate">{interestDraftPulse.peerAge ? String(interestDraftPulse.peerAge) + ' · ' : ''}{interestDraftPulse.neighborhood}</p>
               </div>
               <button type="button" onClick={() => setInterestDraftPulse(null)} className="g-icon-btn g-icon-btn--bare !w-11 !h-11 shrink-0" aria-label="Close"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Their intent</div><div className="text-sm text-white mt-1">{interestDraftPulse.title || interestDraftPulse.intent || 'Right Now'}</div></div>
-              <div><label className="text-xs font-semibold text-zinc-300">Add a note <span className="text-zinc-600">(optional)</span></label><textarea value={interestMessage} onChange={(e) => setInterestMessage(e.target.value.slice(0,500))} rows={3} placeholder="Tell them why you are interested…" className="mt-2 w-full resize-none rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#C9A24D]/60" /></div>
+              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Their current intent</div><div className="text-sm text-white mt-1">{interestDraftPulse.title || interestDraftPulse.intent || 'Right Now'}</div></div>
+              <div><label className="text-xs font-semibold text-zinc-300">Add a note <span className="text-zinc-600">(optional)</span></label><textarea value={interestMessage} onChange={(e) => setInterestMessage(e.target.value.slice(0,500))} rows={3} placeholder="Add a note about why you’re interested… (optional)" className="mt-2 w-full resize-none rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#C9A24D]/60" /></div>
               <div><div className="flex items-center justify-between"><label className="text-xs font-semibold text-zinc-300">Share album photos <span className="text-zinc-600">(optional)</span></label><span className="text-[10px] text-zinc-600">{selectedInterestPhotoIds.size}/6</span></div>
                 {interestPhotos.length ? <div className="mt-2 grid grid-cols-6 gap-2">{interestPhotos.map((photo) => { const selected=selectedInterestPhotoIds.has(photo.id); return <button key={photo.id} type="button" onClick={() => setSelectedInterestPhotoIds(prev => { const next=new Set(prev); if(selected) next.delete(photo.id); else if(next.size<6) next.add(photo.id); return next; })} className={`relative aspect-square rounded-xl overflow-hidden border-2 ${selected ? 'border-[#C9A24D]' : 'border-white/10'}`}><img src={photo.url} alt="" className="w-full h-full object-cover" />{selected && <span className="absolute inset-0 bg-[#6F3CC3]/35 flex items-center justify-center"><Check className="w-5 h-5 text-white" /></span>}</button>; })}</div> : <div className="mt-2 text-xs text-zinc-600 rounded-2xl border border-dashed border-white/10 p-4 text-center">No album photos available.</div>}
               </div>
-              <button type="button" disabled={interestComposerBusy} onClick={() => void sendInterestRequest()} className="w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D] text-white font-bold disabled:opacity-50">{interestComposerBusy ? 'Sending…' : 'Send intent interest'}</button>
-              <p className="text-[10.5px] text-center text-zinc-600">They can accept or decline. If they decline, you will not be notified.</p>
+              <button type="button" disabled={interestComposerBusy} onClick={() => void sendInterestRequest()} className="w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D] text-white font-bold disabled:opacity-50">{interestComposerBusy ? 'Sending…' : 'Send Gayze'}</button>
+              <p className="text-[10.5px] text-center text-zinc-600">A Gayze is an interest signal — they can view your profile and accept or decline. Declines stay private.</p>
             </div>
           </div>
         </div>
