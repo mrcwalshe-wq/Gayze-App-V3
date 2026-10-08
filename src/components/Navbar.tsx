@@ -7,7 +7,6 @@ import {
   Radio,
   Clock,
   MessageSquare,
-  EyeOff,
   UsersRound,
   UserRound,
 } from 'lucide-react';
