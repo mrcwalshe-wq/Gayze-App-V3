@@ -5,6 +5,7 @@ export type AnalyticsEvent =
   | 'signup_completed'
   | 'right_now_open'
   | 'intent_started'
+  | 'intent_hub_opened'
   | 'location_permission_granted'
   | 'location_permission_denied'
   | 'active_session'
