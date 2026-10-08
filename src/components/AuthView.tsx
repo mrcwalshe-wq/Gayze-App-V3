@@ -249,9 +249,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
           <form onSubmit={submit} className="space-y-3.5">
             {mode === 'signup' && (
-              <label className="block">
+              <label className="block" htmlFor="auth-display-name">
                 <span className="sr-only">Display name</span>
                 <input
+                  id="auth-display-name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Display name"
@@ -262,9 +263,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
             )}
 
             {(mode === 'signin' || mode === 'signup' || mode === 'forgot' || mode === 'confirm_pending') && (
-              <label className="relative block">
+              <label className="relative block" htmlFor="auth-email">
+                <span className="sr-only">Email address</span>
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
+                  id="auth-email"
                   required={mode !== 'confirm_pending' || !email.trim()}
                   type="email"
                   value={email}
@@ -278,9 +281,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
             )}
 
             {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
-              <label className="relative block">
+              <label className="relative block" htmlFor="auth-password">
+                <span className="sr-only">Password</span>
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
+                  id="auth-password"
                   required
                   minLength={8}
                   type="password"
@@ -294,9 +299,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
             )}
 
             {mode === 'reset' && (
-              <label className="relative block">
+              <label className="relative block" htmlFor="auth-confirm-password">
+                <span className="sr-only">Confirm new password</span>
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
+                  id="auth-confirm-password"
                   required
                   minLength={8}
                   type="password"
