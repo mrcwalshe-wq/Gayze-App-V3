@@ -7,6 +7,8 @@ import {
   Radio,
   Clock,
   MessageSquare,
+  EyeOff,
+  UsersRound,
   UserRound,
 } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
@@ -26,6 +28,7 @@ interface NavbarProps {
   reliabilityScore?: number;
   userNeighborhood?: string;
   activeIntentMode?: 'social' | 'private' | null;
+  onOpenIntentHub?: () => void;
 }
 
 interface TabDef {
@@ -37,7 +40,7 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { id: 'later', label: 'Later', icon: <Clock />, group: 'later' },
-  { id: 'right_now', label: 'Now Map', icon: <Radio />, group: 'right_now' },
+  { id: 'right_now', label: 'Intents', icon: <Radio />, group: 'right_now' },
   { id: 'dating', label: 'Discover', icon: <Compass />, group: 'dating' },
   { id: 'swarms', label: 'Messages', icon: <MessageSquare />, group: 'swarms' },
   { id: 'profile', label: 'Profile', icon: <UserRound />, group: 'profile' },
@@ -83,14 +86,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSafetyTimerActive,
   userNeighborhood,
   activeIntentMode = null,
+  onOpenIntentHub,
 }) => {
   const activeGroup = activeTab === 'safe_havens' ? 'profile' : activeTab;
 
   const renderTabIcon = (tab: TabDef, mobile = false) => {
     if (tab.id !== 'dating') {
+      const intentIcon = tab.id === 'right_now'
+        ? (activeIntentMode === 'private' ? <EyeOff /> : activeIntentMode === 'social' ? <UsersRound /> : <Radio />)
+        : tab.icon;
       return (
         <span className={mobile ? '[&>svg]:w-5 [&>svg]:h-5 transition-transform duration-150' : '[&>svg]:w-[15px] [&>svg]:h-[15px]'}>
-          {tab.icon}
+          {intentIcon}
         </span>
       );
     }
@@ -171,10 +178,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 data-active={isActive}
                 data-intent-mode={isGayzeAction ? (activeIntentMode || 'none') : undefined}
                 aria-current={isActive ? 'page' : undefined}
-                aria-label={isGayzeAction ? 'GAYZE Discover' : tab.label}
+                aria-label={isGayzeAction ? 'Open GAYZE intents' : tab.label}
                 onClick={(event) => {
                   hapticLight();
-                  if (isGayzeAction) playGayzePressAnimation(event.currentTarget);
+                  if (isGayzeAction) {
+                    playGayzePressAnimation(event.currentTarget);
+                    onOpenIntentHub?.();
+                    return;
+                  }
                   onTabChange(tab.id);
                 }}
               >
