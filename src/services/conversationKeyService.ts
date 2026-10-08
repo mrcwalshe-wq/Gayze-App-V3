@@ -99,14 +99,22 @@ async function resolveDeviceAwareKey(
   deps: GroupKeyDeps = defaultGroupKeyDeps,
 ): Promise<ConversationKeyResult> {
   const identity = await getOrCreateDeviceIdentity();
+
+  // Direct chats must never be blocked by the device-envelope migration.
+  // Resolve the established ECDH key first, before any envelope/device reads.
+  // This makes messaging resilient even when device registration or envelope
+  // provisioning is temporarily unavailable.
+  const legacyKey = room.type === 'direct'
+    ? await resolveLegacyDirectKey(room)
+    : null;
+  if (room.type === 'direct' && legacyKey) {
+    return { key: legacyKey, status: 'ready', legacyKey };
+  }
+
   const [envelopeRead, deviceRead] = await Promise.all([
     readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs),
     readWithRetry(() => readConversationMemberDevices(room.id), deps.retryDelayMs),
   ]);
-
-  const legacyKey = room.type === 'direct'
-    ? await resolveLegacyDirectKey(room)
-    : null;
 
   // Failed reads are never treated as an empty keyset. This is critical:
   // no key generation and no envelope writes may occur after an ambiguous read.
