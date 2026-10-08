@@ -120,6 +120,10 @@ async function resolveDeviceAwareKey(
     };
   }
 
+  const directLegacyFallback = (): ConversationKeyResult | null => legacyKey
+    ? { key: legacyKey, status: 'ready', reason: 'Using the device-local legacy direct-chat key while the new device envelope is repaired.' }
+    : null;
+
   const envelopes = envelopeRead.envelopes;
   const devices = deviceRead.devices.filter((device) => device.status !== 'revoked');
 
@@ -129,7 +133,7 @@ async function resolveDeviceAwareKey(
   // because the database correctly requires the creator device to be registered.
   const currentDevice = devices.find((device) => device.device_id === identity.deviceId);
   if (!currentDevice) {
-    return {
+    return directLegacyFallback() ?? {
       key: null,
       status: 'unavailable',
       transient: true,
@@ -235,7 +239,7 @@ async function resolveDeviceAwareKey(
     const saved = results.filter(Boolean).length;
 
     if (saved === 0) {
-      return {
+      return directLegacyFallback() ?? {
         key: null,
         status: 'unavailable',
         legacyKey: legacyKey ?? undefined,
