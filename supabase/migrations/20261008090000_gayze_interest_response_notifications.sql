@@ -4,7 +4,7 @@
 -- INSERT pending       -> recipient gets "Someone sent you a Gayze".
 -- pending -> mutual    -> handled by accept_incoming_interest via
 --                         gayze_connection_notification (no duplicate here).
--- pending -> declined  -> sender gets "Your Gayze was declined".
+-- pending -> declined  -> sender gets "Your Gayze was declined" under the Gayzes preference.
 --
 -- Fail fast if either the interest table or durable notification function
 -- is missing. This migration does not guess at the production schema.
@@ -66,7 +66,7 @@ begin
     perform public.gayze_enqueue_notification(
       new.from_user_id,
       new.to_user_id,
-      'connection',
+      'gaze',
       'interest:' || new.id::text || ':declined',
       '/notifications'
     );
