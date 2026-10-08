@@ -694,12 +694,6 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               peerName={currentRoom.peerName || currentRoom.name} now={now} />
           )}
 
-          {conversationKeyUnavailable && (
-            <div className="px-3 sm:px-4 py-2 bg-amber-500/10 border-b border-amber-500/25 text-[11px] text-amber-200">
-              {conversationKeyReason || 'This conversation cannot be decrypted on this device yet.'}
-            </div>
-          )}
-
           {currentRoom.connectionContext && (
             <div className="px-3 sm:px-4 py-2 border-b border-white/[0.06] flex items-center justify-between gap-2 text-[11px]">
               <span className="min-w-0 truncate text-zinc-300">
