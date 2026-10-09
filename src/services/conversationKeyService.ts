@@ -13,6 +13,7 @@ import {
   readConversationMemberDevices,
   readConversationPeerDevices,
   saveConversationKeyEnvelope,
+  claimConversationKeyBootstrap,
 } from './supabaseService';
 import type { ConversationKeyEnvelopeRead } from './supabaseService';
 
@@ -100,16 +101,13 @@ async function resolveDeviceAwareKey(
 ): Promise<ConversationKeyResult> {
   const identity = await getOrCreateDeviceIdentity();
 
-  // Direct chats must never be blocked by the device-envelope migration.
-  // Resolve the established ECDH key first, before any envelope/device reads.
-  // This makes messaging resilient even when device registration or envelope
-  // provisioning is temporarily unavailable.
+  // Legacy ECDH remains a read fallback for older ciphertext, but it must
+  // never short-circuit the device-envelope path for direct chats. Previously
+  // every direct chat returned here, which meant conversation_key_envelopes
+  // stayed empty forever and multi-device recipients could not decrypt.
   const legacyKey = room.type === 'direct'
     ? await resolveLegacyDirectKey(room)
     : null;
-  if (room.type === 'direct' && legacyKey) {
-    return { key: legacyKey, status: 'ready', legacyKey };
-  }
 
   const [envelopeRead, deviceRead] = await Promise.all([
     readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs),
@@ -228,10 +226,40 @@ async function resolveDeviceAwareKey(
     };
   }
 
-  // No envelope exists at all. This is the one safe point where the first
-  // authorised device creates the conversation key and wraps it for every
-  // currently authorised device. Existing message ciphertext is untouched.
+  // No envelope exists at all. Serialize the first-key creator so two
+  // devices cannot generate different conversation keys at the same time.
+  // Existing legacy ciphertext remains readable through legacyKey.
   try {
+    const claimed = await claimConversationKeyBootstrap(room.id, identity.deviceId);
+    if (!claimed) {
+      // Another authorised device is creating the key. Give it a short window,
+      // then re-read the envelopes rather than creating a competing key.
+      await new Promise((resolve) => setTimeout(resolve, deps.retryDelayMs * 2));
+      const retryRead = await readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs);
+      if (retryRead.ok && retryRead.envelopes.length > 0) {
+        const mineAfterClaim = retryRead.envelopes.find((envelope) => envelope.device_id === identity.deviceId);
+        if (mineAfterClaim) {
+          const creatorDeviceId = mineAfterClaim.created_by_device_id || mineAfterClaim.device_id;
+          const creator = devices.find((device) => device.device_id === creatorDeviceId)
+            ?? (creatorDeviceId === identity.deviceId ? { public_key: identity.publicKeyJwkString } : undefined);
+          const creatorJwk = parseJwk(creator?.public_key);
+          if (creatorJwk) {
+            try {
+              const key = await unwrapConversationKey(room.id, mineAfterClaim.wrapped_key, mineAfterClaim.nonce, creatorJwk);
+              return { key, status: 'ready', legacyKey: legacyKey ?? undefined };
+            } catch { /* fall through to retry state */ }
+          }
+        }
+      }
+      return {
+        key: null,
+        status: 'unavailable',
+        transient: true,
+        legacyKey: legacyKey ?? undefined,
+        reason: 'Another authorised device is setting up this conversation. Please retry in a moment.',
+      };
+    }
+
     const conversationKey = await deps.createKey();
     const results = await Promise.all(devices.map(async (device) => {
       const deviceJwk = parseJwk(device.public_key);
@@ -253,12 +281,17 @@ async function resolveDeviceAwareKey(
     }));
     const saved = results.filter(Boolean).length;
 
-    if (saved === 0) {
-      return directLegacyFallback() ?? {
+    // The creator's own envelope is mandatory. If the recipient/device set was
+    // only partially provisioned, do not advertise a usable new key: that would
+    // create ciphertext which an authorised recipient cannot decrypt.
+    const ownEnvelopeSaved = results[devices.findIndex((device) => device.device_id === identity.deviceId)] === true;
+    if (!ownEnvelopeSaved || saved !== devices.length) {
+      return {
         key: null,
         status: 'unavailable',
+        transient: true,
         legacyKey: legacyKey ?? undefined,
-        reason: 'The conversation key could not be provisioned to an authorised device.',
+        reason: 'The conversation key was not provisioned to every authorised device. Retrying is safe.',
       };
     }
 
