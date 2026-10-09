@@ -1926,6 +1926,15 @@ export default function App() {
           status: result.status,
           reason: result.reason,
         });
+        // Keep recovering while this chat remains open. The initial realtime
+        // "connected" event can fire while keyLoad is still running; in that
+        // case its refresh request is coalesced and otherwise no retry occurs.
+        // Retry only transient key failures, with a delay and disposal guard.
+        if (!result.key && result.transient && !disposed) {
+          window.setTimeout(() => {
+            if (!disposed) refreshKeys();
+          }, 2000);
+        }
       } catch (error: any) {
         if (disposed) return;
         setConversationKeyState({
