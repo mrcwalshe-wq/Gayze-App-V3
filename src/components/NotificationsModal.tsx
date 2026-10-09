@@ -97,6 +97,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const [interestBusyId, setInterestBusyId] = useState<string | null>(null);
   const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number; name: string } | null>(null);
   const embeddedScrollRef = useRef<HTMLDivElement | null>(null);
+  const incomingInterestsRef = useRef<HTMLElement | null>(null);
   const latestIncomingGayzeNoticeId = inbox?.rows.find((notice) =>
     notice.event_key.startsWith('interest:') && notice.event_key.endsWith(':received'),
   )?.id ?? null;
@@ -127,7 +128,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
     if (!isOpen || !embedded || !latestIncomingGayzeNoticeId) return;
     let cancelled = false;
     void loadIncomingInterests().then((interests) => {
-      if (!cancelled) setIncomingInterests(interests);
+      if (!cancelled) {
+        setIncomingInterests(interests);
+        if (interests.length) requestAnimationFrame(() => incomingInterestsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
     }).catch((error) => {
       console.warn('[GAYZE] Could not refresh incoming Gayze cards:', error);
     });
