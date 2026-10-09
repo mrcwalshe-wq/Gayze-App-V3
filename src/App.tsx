@@ -53,6 +53,7 @@ import {
   consumeNotificationPath,
 } from './services/notificationRouting';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
+import { getProfilePhotoUrl } from './services/profilePhotoService';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
@@ -2507,7 +2508,20 @@ export default function App() {
     primeCallAudio();
     setIncomingCall(null);
     setCallPeerName(call.callerName);
-    setCallPeerAvatar(undefined); // Will be fetched from profile if needed
+    setCallPeerAvatar(undefined);
+    // Incoming signalling carries identity, not a photo URL. Resolve the
+    // caller's own profile avatar instead of leaving the call screen on initials.
+    if (supabase && call.callerId) {
+      void (async () => {
+        try {
+          const { data } = await supabase.from('profiles').select('avatar_path').eq('id', call.callerId).maybeSingle();
+          const avatar = await getProfilePhotoUrl(data?.avatar_path);
+          if (avatar) setCallPeerAvatar((current) => current || avatar);
+        } catch (error) {
+          console.warn('[GAYZE Call] Caller avatar could not be loaded');
+        }
+      })();
+    }
     setCallType(call.callType);
     setCallTargetUserId(call.callerId);
     setActiveRoomId(call.conversationId);
@@ -2778,14 +2792,15 @@ export default function App() {
   };
 
   const handleOpenIntentHub = () => {
-    // The centre GAYZE button is a true toggle: tap once to open intents,
-    // tap again to dismiss the panel and leave the map visible.
-    if (isIntentHubOpen) {
+    // GAYZE is a single toggle for all intent overlays: tapping it while either
+    // sheet is open closes everything and returns to the unobstructed map.
+    if (isIntentHubOpen || isSetIntentOpen) {
       setIsIntentHubOpen(false);
+      setIsSetIntentOpen(false);
+      setActiveTab('right_now');
       return;
     }
     analytics.logEvent('intent_hub_opened');
-    setIsSetIntentOpen(false);
     setActiveTab('right_now');
     setIsIntentHubOpen(true);
   };
@@ -3055,6 +3070,7 @@ export default function App() {
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
               userAvatarUrl={currentUser.avatarUrl}
+              isIntentOverlayOpen={isIntentHubOpen || isSetIntentOpen}
               // Live discovery rows already carry the person's real
               // (privacy-jittered) coordinates. Derived photo-grid profiles are
               // demo-only data and are never mixed into the live map.

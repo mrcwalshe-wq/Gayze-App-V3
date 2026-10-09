@@ -874,7 +874,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
+      className="fixed inset-0 z-[10000] bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
       onClick={handleUserActivity}
       onTouchStart={handleUserActivity}
       onMouseMove={handleUserActivity}
@@ -915,10 +915,14 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
           {/* Avatar and info */}
           <div className="relative">
             <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#C9A24D]/20 to-[#171922] border-2 border-[#C9A24D]/40 flex items-center justify-center text-5xl font-bold text-[#C9A24D] shadow-2xl overflow-hidden ring-4 ring-[#C9A24D]/20 ring-offset-2 ring-offset-[#0a0a0f]">
-              {peerAvatar ? (
-                <img src={peerAvatar} alt={peerName} className="w-full h-full object-cover" />
-              ) : (
-                peerName.charAt(0).toUpperCase()
+              <span aria-hidden="true">{peerName.charAt(0).toUpperCase()}</span>
+              {peerAvatar && (
+                <img
+                  src={peerAvatar}
+                  alt={peerName}
+                  onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
               )}
             </div>
             {callState === 'connected' && (
