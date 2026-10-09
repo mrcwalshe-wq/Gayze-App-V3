@@ -323,19 +323,17 @@ export class WebRTCCallService {
     this.targetUserNameForHistory = params.targetUserName;
 
     try {
-      // 1. Acquire local media stream first to verify permissions
-      await this.acquireLocalMedia(params.callType, generation);
-      if (generation !== this.callGeneration) return;
-
-      // 2. Load short-lived TURN credentials before creating the peer connection
+      // Do not request microphone/camera access while the recipient is still
+      // deciding whether to answer. Establish signalling first; local media is
+      // acquired only after an explicit call-accept signal arrives.
       await this.loadIceServers();
       if (generation !== this.callGeneration) return;
 
-      // 3. Set up signaling channel for conversation
+      // Set up the signalling channel without local media tracks.
       await this.setupCallSignaling(params.conversationId, params.callerId, true);
       if (generation !== this.callGeneration) return;
 
-      // 3. Send call-request to target user's personal channel
+      // Send call-request before requesting any microphone/camera permission.
       if (params.targetUserId) {
         void this.sendTransientSignal(`gayze-user-${params.targetUserId}`, {
           type: 'call-request', conversationId: params.conversationId,
@@ -575,6 +573,27 @@ export class WebRTCCallService {
         if (this.caller) {
           if (this.ringingTimeoutTimer) clearTimeout(this.ringingTimeoutTimer);
           this.ringingTimeoutTimer = null;
+          this.setState('connecting');
+
+          // A caller must not capture audio/video while the recipient is still
+          // being rung. Acquire media only after their explicit acceptance.
+          if (!this.localStream) {
+            const generation = this.callGeneration;
+            await this.acquireLocalMedia(this.currentCallType, generation);
+            if (this.pc !== pc || generation !== this.callGeneration) return;
+          }
+
+          // The peer connection was created for signalling before acceptance,
+          // so attach the newly-authorised tracks now, exactly once.
+          if (this.localStream) {
+            const attachedTrackIds = new Set(
+              pc.getSenders().map((sender) => sender.track?.id).filter(Boolean),
+            );
+            this.localStream.getTracks().forEach((track) => {
+              if (!attachedTrackIds.has(track.id)) pc.addTrack(track, this.localStream!);
+            });
+          }
+
           if (!pc.remoteDescription) await this.sendOffer(false);
         }
         break;
