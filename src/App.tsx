@@ -3178,7 +3178,31 @@ export default function App() {
                     onClose={() => setMessagesSubTab('chats')}
                   />
                 ) : (
-                  <ChatRoomView
+                  <>
+                    {notificationInbox?.rows
+                      .filter((notice) => notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received'))
+                      .slice(0, 5)
+                      .map((notice) => (
+                        <button
+                          key={notice.id}
+                          type="button"
+                          onClick={() => setMessagesSubTab('notifications')}
+                          className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-2xl border border-violet-400/40 bg-gradient-to-r from-violet-950/80 via-fuchsia-950/50 to-amber-950/30 px-4 py-3 text-left shadow-[0_0_22px_rgba(139,92,246,0.12)] transition hover:border-violet-300/70 hover:shadow-[0_0_26px_rgba(139,92,246,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                          aria-label="View and respond to a received Gayze"
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-300/50 bg-gradient-to-br from-violet-500/30 to-amber-400/20 text-lg text-violet-100">✦</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-white">Someone sent you a Gayze</span>
+                              {!notice.read_at && <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>}
+                            </span>
+                            <span className="mt-1 block text-xs text-violet-100/75">View the request and choose whether to connect</span>
+                            <span className="mt-2 block h-[2px] w-full overflow-hidden rounded-full bg-white/10"><span className="block h-full w-2/3 rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300" /></span>
+                          </span>
+                          <span className="shrink-0 text-sm font-semibold text-violet-100">View <span aria-hidden="true">›</span></span>
+                        </button>
+                      ))}
+                    <ChatRoomView
                     rooms={rooms}
                     messages={messages}
                     activeRoomId={activeRoomId}
