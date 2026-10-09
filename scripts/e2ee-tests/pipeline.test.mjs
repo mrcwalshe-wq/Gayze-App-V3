@@ -223,6 +223,7 @@ test('direct chat bootstraps device envelopes while preserving legacy history re
   assert.ok(envelopes.some((row) => row.device_id === identityB.deviceId));
 
   const recipientEnvelope = envelopes.find((row) => row.device_id === identityB.deviceId);
+  activate(deviceB);
   const recipientKey = await crypto.unwrapConversationKey(
     conversationId,
     recipientEnvelope.wrapped_key,
