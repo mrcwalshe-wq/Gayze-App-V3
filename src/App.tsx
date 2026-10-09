@@ -3211,7 +3211,9 @@ export default function App() {
                       && conversationKeyState.status !== 'ready'
                     }
                     conversationKeyReason={conversationKeyState.reason}
+                    activeIntentMode={activeUserIntent?.mode}
                   />
+                  </>
                 )}
               </div>
             </div>
