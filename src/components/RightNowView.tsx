@@ -1263,9 +1263,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="g-float g-map-state !cursor-default">
-              <span className="w-2 h-2 rounded-full shrink-0 bg-[#6F3CC3]/70" aria-hidden="true" />
-              <span className="min-w-0 text-left"><span className="flex items-baseline gap-1.5"><span>Right Now</span><span className="g-map-state__meta">{liveMembersCount} live</span></span><span className="block g-map-state__meta font-normal">Tap Set intent to go live</span></span>
+            <div className="g-map-state g-map-state--empty !cursor-default" role="status" aria-label={`Right Now, ${liveMembersCount} live`}>
+              <span className="g-map-state__empty-dot" aria-hidden="true" />
+              <span className="g-map-state__empty-label">RIGHT NOW</span>
+              <span className="g-map-state__meta">{liveMembersCount} live</span>
             </div>
           )}
         </div>
@@ -1359,46 +1360,35 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {/* =========================================================================
           4.5. EMPTY STATE — honest, compact, map stays visible
          ========================================================================= */}
-      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-30 w-[min(92vw,330px)] pointer-events-auto"
-          style={{ bottom: 'calc(var(--g-tabbar-h) + env(safe-area-inset-bottom,0px) + 82px)' }}
-        >
-          <div className="g-empty">
-            <div className="g-empty__icon">
-              <Radio className="w-5 h-5" />
-            </div>
-            <h3>No active intent nearby</h3>
-            <p>
-              Nothing is live within {maxDistanceKm} km right now. Set your intent and the map
-              lights up around you.
-            </p>
-            {onOpenSetIntent && (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  onOpenSetIntent();
-                }}
-                className="g-btn g-btn--primary w-full mt-1"
-              >
-                <Plus className="w-4 h-4" />
-                Create your intent
-              </button>
-            )}
-            {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
-                }}
-                className="g-btn g-btn--ghost w-full !min-h-[44px] text-[12px]"
-              >
-                Widen radius to {MAX_TRAVEL_DISTANCE_KM} km
-              </button>
-            )}
-          </div>
+      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && !isNearbyOpen && (
+        <div className="g-map-empty-state" role="status">
+          <span className="g-map-empty-state__title">No active intent nearby</span>
+          <span className="g-map-empty-state__copy">Within {maxDistanceKm} km</span>
+          {onOpenSetIntent && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                onOpenSetIntent();
+              }}
+              className="g-map-empty-state__action"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Set intent
+            </button>
+          )}
+          {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
+              }}
+              className="g-map-empty-state__radius"
+            >
+              Expand to {MAX_TRAVEL_DISTANCE_KM} km
+            </button>
+          )}
         </div>
       )}
 
