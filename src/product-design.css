@@ -1918,3 +1918,10 @@ select:focus-visible {
     animation: none !important;
   }
 }
+
+
+/* Right Now map header: full-width live status card and no redundant bottom legend. */
+@media (max-width: 767px) {
+  .g-shell[data-active-tab='right_now'] .g-map-state--live.is-collapsed { width: 100% !important; max-width: none !important; }
+  .g-shell[data-active-tab='right_now'] .g-map-legend-wrap { display: none !important; }
+}
