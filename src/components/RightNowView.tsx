@@ -1520,7 +1520,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </p>
 
           {/* Actions — one primary, two quiet */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="g-discovery-actions flex items-stretch gap-2 mt-3 min-w-0">
             {selectedItem.type === 'haven' ? (
               <>
                 <button
@@ -1555,7 +1555,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       onOpenDirectChatWithProfile(selectedItem.item);
                     }
                   }}
-                  className="g-btn g-discovery-secondary flex-1"
+                  className="g-btn g-discovery-secondary g-discovery-action flex-1 min-w-0"
                 >
                   <Lock className="w-4 h-4" />
                   Message
@@ -1565,12 +1565,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     type="button"
                     onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                     disabled={interestPendingIds.has(selectedItem.item.id) || Boolean(interestStatusByPulseId[selectedItem.item.id])}
-                    className={`g-btn g-discovery-primary !px-3 text-[12px] ${
+                    className={`g-btn g-discovery-primary g-discovery-action g-discovery-action--primary flex-1 min-w-0 !px-2 text-[12px] ${
                       interestedIds.has(selectedItem.item.id)
                         ? 'g-btn--primary'
                         : 'g-btn--quiet'
                     }`}
                   >
+                    <span className="g-gayze-particles" aria-hidden="true">
+                      <span className="g-gayze-particle g-gayze-particle--one" />
+                      <span className="g-gayze-particle g-gayze-particle--two" />
+                      <span className="g-gayze-particle g-gayze-particle--three" />
+                      <span className="g-gayze-particle g-gayze-particle--four" />
+                    </span>
                     {interestedIds.has(selectedItem.item.id) ? (
                       <Check className="w-3.5 h-3.5" />
                     ) : (
@@ -1590,10 +1596,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <button
                     type="button"
                     onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item.id)}
-                    className={`g-btn g-discovery-primary !px-3 text-[12px] ${
+                    className={`g-btn g-discovery-primary g-discovery-action g-discovery-action--primary flex-1 min-w-0 !px-2 text-[12px] ${
                       gazedPeerNames.has(selectedItem.item.id) ? 'g-btn--primary' : 'g-btn--quiet'
                     }`}
                   >
+                    <span className="g-gayze-particles" aria-hidden="true">
+                      <span className="g-gayze-particle g-gayze-particle--one" />
+                      <span className="g-gayze-particle g-gayze-particle--two" />
+                      <span className="g-gayze-particle g-gayze-particle--three" />
+                      <span className="g-gayze-particle g-gayze-particle--four" />
+                    </span>
                     <Eye className="w-3.5 h-3.5" />
                     {gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send GAYZE'}
                   </button>
@@ -1606,7 +1618,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       selectedItem.type === 'pulse' ? selectedItem.item.peerName : selectedItem.item.name,
                     );
                   }}
-                  className="g-btn g-btn--quiet !px-3 text-[12px]"
+                  className="g-btn g-discovery-meet g-discovery-action flex-1 min-w-0 !px-2 text-[12px]"
                   aria-label="Safe meet"
                 >
                   <Calendar className="w-3.5 h-3.5" />
