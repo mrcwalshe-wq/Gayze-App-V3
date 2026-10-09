@@ -27,3 +27,6 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+      - name: E2EE regression tests
+        run: npm run test:e2ee

@@ -997,11 +997,17 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
       console.warn('[GAYZE] Supabase profile upsert unavailable:', error.message);
       return null;
     }
-    // Bootstrap defaults must NEVER overwrite an existing privacy/profile row.
-    // Only the device identity is intentionally rotated by this operation.
+    // The profile key is a legacy single-device compatibility key. Never rotate
+    // it merely because another browser/device signs in: doing so changes the
+    // public half of the legacy ECDH pair and makes older ciphertext unreadable.
+    // Multi-device encryption is handled by conversation_key_envelopes instead.
     if (identityPublicKey) {
-      const updated = await supabase.from('profiles').update({ identity_public_key: identityPublicKey }).eq('id', userId);
-      if (updated.error) throw updated.error;
+      const existing = await supabase.from('profiles').select('identity_public_key').eq('id', userId).maybeSingle();
+      if (existing.error) throw existing.error;
+      if (!existing.data?.identity_public_key) {
+        const updated = await supabase.from('profiles').update({ identity_public_key: identityPublicKey }).eq('id', userId);
+        if (updated.error) throw updated.error;
+      }
     }
     const result = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (result.error) throw result.error;
