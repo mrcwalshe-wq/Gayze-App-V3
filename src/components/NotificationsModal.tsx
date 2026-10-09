@@ -99,7 +99,12 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const embeddedScrollRef = useRef<HTMLDivElement | null>(null);
   const incomingInterestsRef = useRef<HTMLElement | null>(null);
   const latestIncomingGayzeNoticeId = inbox?.rows.find((notice) =>
-    notice.event_key.startsWith('interest:') && notice.event_key.endsWith(':received'),
+    notice.event_key.endsWith(':received')
+      ? notice.event_key.startsWith('interest:')
+      // Backwards compatibility: the currently deployed trigger writes
+      // interest:<request-id>:<intent-id-or-none>, not :received.
+      : notice.category === 'gaze'
+        && /^interest:[0-9a-f-]{36}:(?:[0-9a-f-]{36}|none)$/i.test(notice.event_key),
   )?.id ?? null;
 
   const refresh = useCallback(async () => {
