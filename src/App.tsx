@@ -115,7 +115,6 @@ import {
   endActiveIntent,
   subscribeToRightNow,
   submitInterest,
-  submitGaze,
   saveIntimacyProfile,
   updateProfileDetails,
   loadIntimacyProfile,
