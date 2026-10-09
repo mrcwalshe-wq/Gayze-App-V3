@@ -2728,6 +2728,10 @@ export default function App() {
     if (!intent) return;
     hapticSensitiveAction();
 
+    // Use one shared toast lane for the pending and final states. Replacing
+    // this message avoids stacking the map-local toast over the app-level result.
+    showToast('Ending your signal…');
+
     if (!IS_LIVE_BACKEND) {
       setActiveUserIntent(null);
       showToast('Intent ended');
