@@ -57,7 +57,7 @@ const WHEN_OPTIONS: { value: string; label: string }[] = [
   { value: 'Tonight', label: 'Tonight' },
 ];
 
-const DURATION_OPTIONS = ['1 hr', '2 hrs'] as const;
+const DURATION_OPTIONS = ['1 hr', '2 hrs', '4+ hrs'] as const;
 const DISTANCE_OPTIONS = ['Walking distance', 'Within 2 km', 'Within 5 km', 'Willing to travel'];
 const HOST_OPTIONS = ['Can host', 'Cannot host', 'Depends'] as const;
 const TRAVEL_OPTIONS = ['Yes', 'Within reason', 'Car required'] as const;
@@ -99,7 +99,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   const [intent, setIntent] = useState<EncounterIntent | null>(null);
   const [description, setDescription] = useState('');
   const [when, setWhen] = useState<string>(defaultWhen);
-  const [duration, setDuration] = useState<'1 hr' | '2 hrs'>('2 hrs');
+  const [duration, setDuration] = useState<'1 hr' | '2 hrs' | '4+ hrs'>('2 hrs');
   const [travelDistance, setTravelDistance] = useState('Within 2 km');
   const [canHost, setCanHost] = useState<'Can host' | 'Cannot host' | 'Depends'>('Can host');
   const [travelWillingness, setTravelWillingness] = useState<'Yes' | 'Within reason' | 'Car required'>('Yes');
@@ -126,7 +126,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       setIntent(existingIntent.intent);
       setDescription(existingIntent.description || '');
       setWhen(existingIntent.when || defaultWhen);
-      setDuration(existingIntent.duration === '1 hr' ? '1 hr' : '2 hrs');
+      setDuration(existingIntent.duration === '1 hr' ? '1 hr' : existingIntent.duration === '4+ hrs' ? '4+ hrs' : '2 hrs');
       setTravelDistance(existingIntent.travelDistance || 'Within 2 km');
       setCanHost(existingIntent.canHost || 'Can host');
       setTravelWillingness(existingIntent.travelWillingness || 'Yes');
@@ -185,7 +185,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const durationMs = (duration === '1 hr' ? 1 : 2) * 3600 * 1000;
+    const durationMs = (duration === '1 hr' ? 1 : duration === '4+ hrs' ? 4 : 2) * 3600 * 1000;
     const activatedAt = intentStartsAt(when);
     const expiresAt = activatedAt + durationMs;
 
