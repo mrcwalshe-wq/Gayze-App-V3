@@ -354,7 +354,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
           <div className="flex items-center justify-center mt-2">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-mono text-xs">
               <Lock className="w-3 h-3 text-emerald-400" />
-              <span>P2P WEBRTC ENCRYPTED</span>
+              <span>{callState === 'connected' ? 'P2P WEBRTC ENCRYPTED' : callState === 'calling' || callState === 'ringing' ? 'SECURE CALL REQUEST' : callState === 'connecting' ? 'NEGOTIATING SECURELY' : 'CALL ENDED'}</span>
             </div>
           </div>
         </div>
@@ -377,10 +377,9 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a0a0f] via-[#1a1a22] to-[#0a0a0f] p-6 text-center">
               <div className="relative">
                 <div className="w-28 h-28 rounded-full bg-[#171922] border-2 border-[#C9A24D]/40 flex items-center justify-center text-4xl font-bold text-[#C9A24D] shadow-2xl overflow-hidden ring-4 ring-[#C9A24D]/20 ring-offset-2 ring-offset-[#0a0a0f]">
-                  {peerAvatar ? (
-                    <img src={peerAvatar} alt={peerName} onError={(event) => { event.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
-                  ) : (
-                    peerName.charAt(0).toUpperCase()
+                  <span aria-hidden="true">{peerName.charAt(0).toUpperCase() || 'G'}</span>
+                  {peerAvatar && (
+                    <img src={peerAvatar} alt={peerName} onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
                   )}
                 </div>
                 {callState === 'connected' && (
