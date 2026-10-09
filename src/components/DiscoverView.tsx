@@ -286,7 +286,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           </div>
           <h3>No active intent nearby</h3>
           <p>
-            Nobody matches this view right now. Set your own signal — it shows here and on the map
+            Nobody matches this view right now. Set your own intent — it appears here and on the map
             the moment you go live.
           </p>
           {onOpenSetIntent && !activeUserIntent && (
