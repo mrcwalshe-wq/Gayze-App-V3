@@ -2131,3 +2131,28 @@ select:focus-visible {
     border-color: rgba(255,69,58,.48) !important;
   }
 }
+
+
+/* Map-first anonymous nearby-intent drawer */
+.g-nearby-intents-overlay{z-index:90;background:rgba(3,4,8,.28);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.g-nearby-intents-drawer{width:min(calc(100% - 20px),560px);max-height:min(72dvh,680px);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(167,132,236,.24);border-radius:24px 24px 20px 20px;background:linear-gradient(155deg,rgba(20,19,29,.98),rgba(10,12,18,.985));box-shadow:0 24px 70px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.055);animation:nearby-intents-enter .22s cubic-bezier(.2,.8,.2,1) both}
+.g-nearby-intents-drawer .g-sheet__head{flex:0 0 auto;align-items:center;padding:14px 16px 13px;border-bottom:1px solid rgba(255,255,255,.07)}
+.g-nearby-intents-count{display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;margin-left:5px;padding:0 7px;border-radius:999px;color:#D9C5FF;background:rgba(111,60,195,.20);border:1px solid rgba(167,132,236,.26);font-size:11px;font-weight:800}
+.g-nearby-intents-list{overflow-y:auto;overscroll-behavior:contain;padding:12px 12px 8px}
+.g-nearby-intent-card{display:flex;align-items:center;gap:11px;padding:12px 10px;margin-bottom:8px;min-height:78px;border:1px solid rgba(255,255,255,.075);border-radius:16px;background:linear-gradient(110deg,rgba(111,60,195,.075),rgba(255,255,255,.018))}
+.g-nearby-intent-card.is-private{background:linear-gradient(110deg,rgba(201,162,77,.085),rgba(255,255,255,.018));border-color:rgba(201,162,77,.15)}
+.g-nearby-intent-card.is-haven{background:rgba(16,185,129,.045);border-color:rgba(16,185,129,.15)}
+.g-nearby-intent-card__icon{width:40px;height:40px;flex:0 0 40px;display:flex;align-items:center;justify-content:center;border-radius:13px;color:#C5A8FF;background:rgba(111,60,195,.17);border:1px solid rgba(167,132,236,.18)}
+.g-nearby-intent-card.is-private .g-nearby-intent-card__icon{color:#D8BA70;background:rgba(201,162,77,.12);border-color:rgba(201,162,77,.20)}
+.g-nearby-intent-card.is-haven .g-nearby-intent-card__icon{color:#6EE7B7;background:rgba(16,185,129,.10);border-color:rgba(16,185,129,.17)}
+.g-nearby-intent-card__copy{min-width:0;flex:1 1 auto}
+.g-nearby-intent-card__eyebrow{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.49);font-size:8px;font-weight:800;line-height:1.2;letter-spacing:.13em}
+.g-nearby-anonymous{color:#C6A9FF;letter-spacing:.08em}
+.g-nearby-intent-card h3{overflow:hidden;margin:5px 0 0;color:#F7F5FB;font-size:13px;font-weight:750;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+.g-nearby-intent-card__meta{display:flex;align-items:center;gap:6px;margin-top:5px;color:rgba(255,255,255,.53);font-size:10px;line-height:1.25}
+.g-nearby-intent-card__action{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;flex:0 0 auto;padding:0 10px;border-radius:11px;border:1px solid rgba(167,132,236,.22);color:#E5D9FF;background:rgba(111,60,195,.13);font-size:10px;font-weight:750}
+.g-nearby-intent-card__action:active{transform:scale(.97)}
+.g-nearby-intents-footer{flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));color:rgba(255,255,255,.45);border-top:1px solid rgba(255,255,255,.065);font-size:10px;line-height:1.35}
+@keyframes nearby-intents-enter{from{opacity:0;transform:translateY(18px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.g-nearby-intents-drawer{animation:none}}
+@media(max-width:767px){.g-nearby-intents-drawer{width:calc(100% - 16px);max-height:min(68dvh,620px);margin-bottom:calc(var(--g-tabbar-h,78px) + 8px + env(safe-area-inset-bottom,0px))}.g-nearby-intents-drawer .g-sheet__head{padding:12px 12px 11px}.g-nearby-intents-list{padding:10px 9px 6px}.g-nearby-intent-card{gap:9px;padding:10px 8px;min-height:72px}.g-nearby-intent-card__icon{width:36px;height:36px;flex-basis:36px}.g-nearby-intent-card__action{padding:0 8px}}
