@@ -535,31 +535,39 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 )}
               </div>
 
-              <div className="g-chat-header__identity min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <h2 className="text-xs sm:text-sm font-bold text-white truncate">{currentRoom.name}</h2>
+              <div className="g-chat-header__identity min-w-0 flex-1 flex flex-col items-start justify-center gap-1">
+                <div className="flex min-w-0 max-w-full items-center gap-1.5">
+                  <h2 className="m-0 text-sm sm:text-base font-semibold leading-tight text-white truncate">{currentRoom.name}</h2>
                   {currentRoom.type === 'direct' && isPeerVerified[currentRoom.id] && (
                     <span title="Safety Fingerprint Verified" className="shrink-0 inline-flex">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                     </span>
                   )}
                 </div>
-                <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1.5">
-                  {currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
+                <div className="flex min-w-0 max-w-full items-center gap-1.5 text-[11px] leading-tight">
+                  {currentRoom.type !== 'direct' ? (
+                    <span className="text-zinc-400">Group conversation</span>
+                  ) : currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] inline-block g-breathe" />
-                      <span className="text-[#C9A24D] font-semibold font-mono">Online now</span>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 g-breathe" aria-hidden="true" />
+                      <span className="truncate font-medium text-emerald-400">Online now</span>
+                    </>
+                  ) : currentRoom.peerLastSeenAt && Date.now() - currentRoom.peerLastSeenAt >= 0 && Date.now() - currentRoom.peerLastSeenAt < 15 * 60 * 1000 ? (
+                    <>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/80" aria-hidden="true" />
+                      <span className="truncate font-medium text-emerald-300">Recently online · {Math.max(1, Math.floor((Date.now() - currentRoom.peerLastSeenAt) / 60000))} min ago</span>
+                    </>
+                  ) : currentRoom.peerLastSeenAt ? (
+                    <>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-500" aria-hidden="true" />
+                      <span className="truncate text-zinc-400">Offline · last seen {Math.floor(Math.max(0, Date.now() - currentRoom.peerLastSeenAt) / 60000) < 60
+                        ? `${Math.max(1, Math.floor((Date.now() - currentRoom.peerLastSeenAt) / 60000))} min ago`
+                        : new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                     </>
                   ) : (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 inline-block" />
-                      <span className="truncate font-mono">
-                        {currentRoom.type === 'direct'
-                          ? (currentRoom.peerLastSeenAt
-                            ? 'Last seen ' + new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                            : 'Last seen unavailable')
-                          : 'Group conversation'}
-                      </span>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-500" aria-hidden="true" />
+                      <span className="truncate text-zinc-400">Offline</span>
                     </>
                   )}
                 </div>
