@@ -395,10 +395,11 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 </p>
               )}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                <label htmlFor="gathering-title" className="block text-xs font-medium text-zinc-300 mb-1">
                   Gathering Title
                 </label>
                 <input
+                  id="gathering-title"
                   type="text"
                   required
                   placeholder="e.g. Queer Sci-Fi Book Club & Wine"
@@ -410,8 +411,9 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">Category</label>
+                  <label htmlFor="gathering-category" className="block text-xs font-medium text-zinc-300 mb-1">Category</label>
                   <select
+                    id="gathering-category"
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value as any)}
                     className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D] cursor-pointer"
@@ -425,8 +427,9 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">Capacity</label>
+                  <label htmlFor="gathering-capacity" className="block text-xs font-medium text-zinc-300 mb-1">Capacity</label>
                   <input
+                    id="gathering-capacity"
                     type="number"
                     min={3}
                     max={100}
@@ -438,8 +441,9 @@ export const LaterView: React.FC<LaterViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">Date & Time</label>
+                <label htmlFor="gathering-datetime" className="block text-xs font-medium text-zinc-300 mb-1">Date & Time</label>
                 <input
+                  id="gathering-datetime"
                   type="datetime-local"
                   required
                   value={formDate}
@@ -449,8 +453,9 @@ export const LaterView: React.FC<LaterViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">Venue Name</label>
+                <label htmlFor="gathering-venue" className="block text-xs font-medium text-zinc-300 mb-1">Venue Name</label>
                 <input
+                  id="gathering-venue"
                   type="text"
                   required
                   value={formLocation}
@@ -461,8 +466,9 @@ export const LaterView: React.FC<LaterViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">Address & Neighborhood</label>
+                <label htmlFor="gathering-address" className="block text-xs font-medium text-zinc-300 mb-1">Address & Neighborhood</label>
                 <input
+                  id="gathering-address"
                   type="text"
                   required
                   value={formAddress}
@@ -473,8 +479,9 @@ export const LaterView: React.FC<LaterViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">Description & Guidelines</label>
+                <label htmlFor="gathering-description" className="block text-xs font-medium text-zinc-300 mb-1">Description & Guidelines</label>
                 <textarea
+                  id="gathering-description"
                   rows={2}
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}

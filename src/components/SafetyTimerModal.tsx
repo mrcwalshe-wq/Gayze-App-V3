@@ -142,8 +142,9 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
             </p>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">Who are you meeting?</label>
+              <label htmlFor="safety-partner-name" className="block text-xs font-medium text-zinc-300 mb-1">Who are you meeting?</label>
               <input
+                id="safety-partner-name"
                 type="text"
                 required
                 value={partnerName}
@@ -154,8 +155,9 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">Meetup Location / Venue</label>
+              <label htmlFor="safety-venue-name" className="block text-xs font-medium text-zinc-300 mb-1">Meetup Location / Venue</label>
               <input
+                id="safety-venue-name"
                 type="text"
                 required
                 value={venueName}
@@ -167,8 +169,9 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">Check-in Duration</label>
+                <label htmlFor="safety-duration" className="block text-xs font-medium text-zinc-300 mb-1">Check-in Duration</label>
                 <select
+                  id="safety-duration"
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(Number(e.target.value))}
                   className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-[#C9A24D] focus:outline-none cursor-pointer"
@@ -190,8 +193,9 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">Private Safe Word / Notes (Optional)</label>
+              <label htmlFor="safety-notes" className="block text-xs font-medium text-zinc-300 mb-1">Private Safe Word / Notes (Optional)</label>
               <input
+                id="safety-notes"
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

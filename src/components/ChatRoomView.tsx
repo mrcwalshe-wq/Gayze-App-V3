@@ -595,6 +595,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     {currentRoom.type === 'direct' && onStartCall && (
                       <button
                         type="button"
+                        aria-label="Audio call"
                         className="g-row !min-h-[42px] !rounded-xl"
                         onClick={() => {
                           setShowChatActions(false);
@@ -608,6 +609,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
                       <button
                         type="button"
+                        aria-label="Plan a safe meetup"
                         className="g-row !min-h-[42px] !rounded-xl"
                         onClick={() => {
                           setShowChatActions(false);
@@ -620,6 +622,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     )}
                     <button
                       type="button"
+                      aria-label="Disappearing messages"
                       className="g-row !min-h-[42px] !rounded-xl"
                       onClick={() => {
                         setShowChatActions(false);
@@ -634,6 +637,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     </button>
                     <button
                       type="button"
+                      aria-label="Verify safety code"
                       className="g-row !min-h-[42px] !rounded-xl"
                       onClick={() => {
                         setShowChatActions(false);
@@ -646,6 +650,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     {onDeleteChat && (
                       <button
                         type="button"
+                        aria-label="Delete Chat"
                         className="g-row !min-h-[42px] !rounded-xl"
                         onClick={() => {
                           setShowChatActions(false);
