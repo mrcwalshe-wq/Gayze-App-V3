@@ -1972,7 +1972,7 @@ select:focus-visible {
     padding: 0 !important;
     min-height: 0 !important;
   }
-  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed > .g-live-dot {
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__summary > .g-live-dot {
     display: none !important;
   }
   .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__summary > span:nth-child(2) {
