@@ -1,0 +1,165 @@
+/* Focused Right Now map chrome refinement.
+   Loaded after the existing design layers; does not change map, intent or counter logic. */
+@media (max-width: 767px) {
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed {
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: calc(100vw - 82px) !important;
+    min-height: 0 !important;
+    padding: 7px 10px !important;
+    gap: 0 !important;
+    border: 1px solid transparent !important;
+    border-radius: 15px !important;
+    background:
+      linear-gradient(155deg, rgba(12, 12, 20, .94), rgba(17, 13, 25, .91)) padding-box,
+      linear-gradient(112deg, rgba(154, 101, 239, .82), rgba(111, 60, 195, .58) 48%, rgba(201, 162, 77, .52)) border-box !important;
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, .25),
+      0 0 18px rgba(111, 60, 195, .09),
+      inset 0 1px 0 rgba(255,255,255,.055) !important;
+    backdrop-filter: blur(20px) saturate(1.12) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(1.12) !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__summary {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: auto auto !important;
+    column-gap: 9px !important;
+    row-gap: 3px !important;
+    align-items: center !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__summary > .g-live-dot,
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__details {
+    display: none !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__summary > span:nth-child(2) {
+    display: contents !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__eyebrow {
+    grid-column: 1;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 8px !important;
+    line-height: 1.1 !important;
+    letter-spacing: .13em !important;
+    color: rgba(235, 225, 250, .68) !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__live-pill {
+    min-height: 17px !important;
+    padding: 2px 6px !important;
+    border-radius: 999px !important;
+    font-size: 8px !important;
+    letter-spacing: .07em !important;
+    background: rgba(111, 60, 195, .12) !important;
+    border-color: rgba(170, 132, 245, .34) !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__title {
+    grid-column: 1;
+    display: block !important;
+    max-width: min(43vw, 190px) !important;
+    margin: 0 !important;
+    font-size: 15px !important;
+    line-height: 1.12 !important;
+    font-weight: 730 !important;
+    letter-spacing: -.025em !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__timer {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    padding-left: 9px !important;
+    border-left: 1px solid rgba(190, 160, 235, .18) !important;
+    white-space: nowrap !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__timer span {
+    font-size: 7px !important;
+    line-height: 1 !important;
+    letter-spacing: .12em !important;
+    color: rgba(225, 215, 239, .5) !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__timer strong {
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+    font-weight: 750 !important;
+    color: #f3eaff !important;
+  }
+
+  /* The live status is compact and left-anchored; filters remain an independent
+     control with a clear tap target instead of being covered by the card. */
+  .g-shell[data-active-tab='right_now'] .g-map-rail {
+    top: calc(env(safe-area-inset-top, 0px) + 66px) !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-nearby-float {
+    left: 12px !important;
+    right: auto !important;
+    bottom: calc(var(--g-tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 28px) !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-nearby-btn {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 12px !important;
+    gap: 8px !important;
+    border: 1px solid transparent !important;
+    border-radius: 999px !important;
+    background:
+      linear-gradient(145deg, rgba(13, 13, 21, .94), rgba(18, 14, 27, .94)) padding-box,
+      linear-gradient(110deg, rgba(154, 101, 239, .76), rgba(111, 60, 195, .52) 58%, rgba(201, 162, 77, .45)) border-box !important;
+    color: rgba(250, 247, 255, .92) !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.05) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-nearby-btn > span:not(.g-nearby-btn__chevron) {
+    font-size: 12px !important;
+    font-weight: 650 !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-nearby-btn svg {
+    color: #b995f6 !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-nearby-btn__chevron {
+    color: #c9a8ff !important;
+    font-size: 18px !important;
+    line-height: 1 !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed {
+    max-width: calc(100vw - 76px) !important;
+    padding: 7px 8px !important;
+  }
+
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__title {
+    max-width: 38vw !important;
+    font-size: 14px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live,
+  .g-shell[data-active-tab='right_now'] .g-nearby-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}
