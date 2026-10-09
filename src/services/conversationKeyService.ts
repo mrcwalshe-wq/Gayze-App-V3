@@ -1,4 +1,5 @@
 import type { SwarmRoom } from '../types';
+import type { DeviceIdentity } from './cryptoService';
 import {
   deriveConversationKey,
   createConversationKey,
@@ -31,7 +32,12 @@ export interface ConversationKeyResult {
 /** Injectable for tests; production uses the Supabase-backed implementations. */
 export interface GroupKeyDeps {
   readEnvelopes: (conversationId: string) => Promise<ConversationKeyEnvelopeRead>;
-  readDevices: (conversationId: string) => Promise<{ ok: boolean; devices: Array<{ user_id: string; device_id: string; public_key: string }> }>;
+  readDevices: (conversationId: string) => Promise<{ ok: boolean; devices: Array<{ user_id: string; device_id: string; public_key: string; status?: string }> }>;
+  /** Full member-device read used by direct-chat bootstrap; injectable for regression tests. */
+  readMemberDevices?: (conversationId: string) => Promise<{ ok: boolean; devices: Array<{ user_id: string; device_id: string; public_key: string; status?: string }> }>;
+  getIdentity?: () => Promise<DeviceIdentity>;
+  resolveLegacyKey?: (room: SwarmRoom) => Promise<CryptoKey | null>;
+  claimBootstrap?: typeof claimConversationKeyBootstrap;
   saveEnvelope: typeof saveConversationKeyEnvelope;
   createKey: typeof createConversationKey;
   retryDelayMs: number;
@@ -40,6 +46,10 @@ export interface GroupKeyDeps {
 const defaultGroupKeyDeps: GroupKeyDeps = {
   readEnvelopes: readConversationKeyEnvelopes,
   readDevices: readConversationPeerDevices,
+  readMemberDevices: readConversationMemberDevices,
+  getIdentity: getOrCreateDeviceIdentity,
+  resolveLegacyKey: resolveLegacyDirectKey,
+  claimBootstrap: claimConversationKeyBootstrap,
   saveEnvelope: saveConversationKeyEnvelope,
   createKey: createConversationKey,
   retryDelayMs: 250,
@@ -99,19 +109,19 @@ async function resolveDeviceAwareKey(
   currentUserId?: string,
   deps: GroupKeyDeps = defaultGroupKeyDeps,
 ): Promise<ConversationKeyResult> {
-  const identity = await getOrCreateDeviceIdentity();
+  const identity = await (deps.getIdentity ?? getOrCreateDeviceIdentity)();
 
   // Legacy ECDH remains a read fallback for older ciphertext, but it must
   // never short-circuit the device-envelope path for direct chats. Previously
   // every direct chat returned here, which meant conversation_key_envelopes
   // stayed empty forever and multi-device recipients could not decrypt.
   const legacyKey = room.type === 'direct'
-    ? await resolveLegacyDirectKey(room)
+    ? await (deps.resolveLegacyKey ?? resolveLegacyDirectKey)(room)
     : null;
 
   const [envelopeRead, deviceRead] = await Promise.all([
     readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs),
-    readWithRetry(() => readConversationMemberDevices(room.id), deps.retryDelayMs),
+    readWithRetry(() => (deps.readMemberDevices ?? readConversationMemberDevices)(room.id), deps.retryDelayMs),
   ]);
 
   // Failed reads are never treated as an empty keyset. This is critical:
@@ -221,7 +231,7 @@ async function resolveDeviceAwareKey(
   // devices cannot generate different conversation keys at the same time.
   // Existing legacy ciphertext remains readable through legacyKey.
   try {
-    const claimed = await claimConversationKeyBootstrap(room.id, identity.deviceId);
+    const claimed = await (deps.claimBootstrap ?? claimConversationKeyBootstrap)(room.id, identity.deviceId);
     if (!claimed) {
       // Another authorised device is creating the key. Give it a short window,
       // then re-read the envelopes rather than creating a competing key.
@@ -366,4 +376,13 @@ export async function resolveConversationKey(
   currentUserId?: string,
 ): Promise<ConversationKeyResult> {
   return resolveDeviceAwareKey(room, currentUserId);
+}
+
+/** Test-only injection point for exercising direct-chat bootstrap without a live account or database writes. */
+export async function resolveConversationKeyForTest(
+  room: SwarmRoom,
+  currentUserId: string,
+  deps: GroupKeyDeps,
+): Promise<ConversationKeyResult> {
+  return resolveDeviceAwareKey(room, currentUserId, { ...defaultGroupKeyDeps, ...deps });
 }
