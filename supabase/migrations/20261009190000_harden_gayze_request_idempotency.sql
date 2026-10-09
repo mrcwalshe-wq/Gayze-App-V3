@@ -113,3 +113,20 @@ $function$;
 
 revoke all on function public.submit_interest(uuid,uuid,text,uuid[]) from public,anon;
 grant execute on function public.submit_interest(uuid,uuid,text,uuid[]) to authenticated;
+
+-- Keep the legacy two-argument RPC compatible without retaining its former
+-- auto-mutual behaviour. Every API signature now follows the explicit gate.
+create or replace function public.submit_interest(
+  p_to_user uuid,
+  p_intent_id uuid default null
+)
+returns jsonb
+language sql
+security definer
+set search_path=public,private
+as $function$
+  select public.submit_interest(p_to_user, p_intent_id, null, '{}'::uuid[]);
+$function$;
+
+revoke all on function public.submit_interest(uuid,uuid) from public,anon;
+grant execute on function public.submit_interest(uuid,uuid) to authenticated;
