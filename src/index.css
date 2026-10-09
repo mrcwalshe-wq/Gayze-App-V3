@@ -3883,3 +3883,111 @@ button, input, select, textarea, [role="button"] {
     display: none;
   }
 }
+
+
+/* ==========================================================================
+   Mobile overlap guard — Oct 2026
+   Reserve real space for the fixed five-item nav and iOS safe area. Keep
+   floating map UI inside the remaining viewport instead of under the nav.
+   ========================================================================== */
+@media (max-width: 767px) {
+  :root {
+    --g-tabbar-h: 64px;
+    --g-chrome-gap: 22px;
+  }
+
+  /* The nav owns its own bottom safe-area; floating content must clear both. */
+  .g-tabbar {
+    z-index: 120;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  }
+  .g-tabbar__inner {
+    min-height: var(--g-tabbar-h);
+  }
+
+  /* Active intent / preview cards must never touch the navigation capsule. */
+  .g-intent-hub__sheet,
+  .g-intent-hub__sheet--status {
+    margin-bottom: calc(var(--g-tabbar-h) + max(env(safe-area-inset-bottom, 0px), 8px) + var(--g-chrome-gap)) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-tabbar-h) - max(env(safe-area-inset-bottom, 0px), 8px) - var(--g-chrome-gap) - 12px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .g-preview {
+    bottom: calc(var(--g-tabbar-h) + max(env(safe-area-inset-bottom, 0px), 8px) + var(--g-chrome-gap)) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-tabbar-h) - max(env(safe-area-inset-bottom, 0px), 8px) - var(--g-chrome-gap) - 16px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .g-intent-dock {
+    bottom: calc(var(--g-tabbar-h) + max(env(safe-area-inset-bottom, 0px), 8px) + var(--g-chrome-gap)) !important;
+    max-width: calc(100vw - 28px);
+  }
+  .g-map-bar {
+    bottom: calc(var(--g-tabbar-h) + max(env(safe-area-inset-bottom, 0px), 8px) + var(--g-chrome-gap)) !important;
+  }
+  .g-sheet,
+  .g-sheet.g-sheet--nearby,
+  .g-sheet.g-sheet--active-signal,
+  .g-sheet.g-sheet--above-nav {
+    margin-bottom: calc(var(--g-tabbar-h) + max(env(safe-area-inset-bottom, 0px), 8px) + var(--g-chrome-gap)) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-tabbar-h) - max(env(safe-area-inset-bottom, 0px), 8px) - var(--g-chrome-gap) - 12px);
+  }
+
+  /* Keep transient messages clear of the live-intent card and thumb controls. */
+  .g-toast--map-status {
+    top: calc(env(safe-area-inset-top, 0px) + 250px) !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    z-index: 80;
+  }
+
+  /* Respect narrow phone widths: no rail/card collision or clipped controls. */
+  .g-map-rail {
+    top: calc(env(safe-area-inset-top, 0px) + 70px) !important;
+    right: 10px !important;
+    gap: 7px;
+  }
+  .g-map-rail .g-icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+  .g-map-state--live.is-collapsed {
+    max-width: calc(100vw - 88px);
+  }
+  .g-map-state--live.is-collapsed .g-map-state__timer {
+    flex: 0 0 auto;
+  }
+  .g-right-now-shell .g-map-empty-state {
+    bottom: calc(var(--g-tabbar-h) + max(env(safe-area-inset-bottom, 0px), 8px) + 88px) !important;
+    max-width: calc(100vw - 96px);
+  }
+}
+
+@media (max-width: 380px) {
+  .g-intent-hub__sheet,
+  .g-intent-hub__sheet--status {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .g-intent-hub__sheet--status .g-intent-hub__live {
+    gap: 7px;
+    padding: 6px 2px;
+  }
+  .g-intent-hub__sheet--status .g-intent-hub__live > div > span:last-child {
+    max-width: 145px;
+  }
+  .g-intent-hub__sheet--status .g-intent-hub__manage {
+    padding: 0 8px;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-intent-hub__sheet,
+  .g-preview {
+    animation: none !important;
+  }
+}
