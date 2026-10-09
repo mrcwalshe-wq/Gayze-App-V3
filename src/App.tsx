@@ -30,6 +30,7 @@ import { sendMissedCallNotification, sendIncomingCallNotification, markCallNotif
 import type { EditSectionKey } from './config/profileOptions';
 import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
+import { LiveActivationOverlay } from './components/LiveActivationOverlay';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -603,6 +604,7 @@ export default function App() {
   const [isIntentHubOpen, setIsIntentHubOpen] = useState(false);
   const [intentHubMode, setIntentHubMode] = useState<TopLevelIntentMode | null>(null);
   const [intentBusy, setIntentBusy] = useState(false);
+  const [liveActivation, setLiveActivation] = useState<{ stage: 'connecting' | 'live'; mode: TopLevelIntentMode; intent: string } | null>(null);
   const [conversationKeyState, setConversationKeyState] = useState<{
     roomId: string;
     status: 'loading' | 'ready' | 'unavailable';
@@ -2620,6 +2622,9 @@ export default function App() {
     if (!IS_LIVE_BACKEND) {
       setActiveUserIntent(intent);
       setIsSetIntentOpen(false);
+      if (isFirstPublish && intent.when === 'Now') {
+        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
+      }
       showToast(`Status updated: ${intent.intent} (${intent.when})`);
       return;
     }
@@ -2627,6 +2632,12 @@ export default function App() {
     if (!isAuthenticated) {
       showToast('Sign in to publish a live intent.');
       return;
+    }
+
+    // Start the AirDrop-inspired handshake only for a brand-new, immediate live signal.
+    // The success state is withheld until Supabase confirms the publish.
+    if (isFirstPublish && intent.when === 'Now') {
+      setLiveActivation({ stage: 'connecting', mode: intent.mode, intent: String(intent.intent) });
     }
 
     // Responsive UI: show the change immediately, then reconcile with the write.
@@ -2646,6 +2657,7 @@ export default function App() {
         if (!saved) {
           // Honest failure: revert instead of showing a live signal that is not live.
           setActiveUserIntent(previous);
+          setLiveActivation(null);
           showToast('Could not publish your intent. Nothing was saved.');
           return;
         }
@@ -2656,6 +2668,9 @@ export default function App() {
           expiresAt: saved.expiresAt,
           isPaused: saved.isPaused,
         }));
+        if (isFirstPublish && intent.when === 'Now') {
+          setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
+        }
         await refreshDiscoveryRef.current();
         analytics.logEvent('intent_published', {
           mode: intent.mode,
@@ -2675,6 +2690,7 @@ export default function App() {
       } catch (error) {
         console.error('[GAYZE] Failed to persist Right Now intent', error);
         setActiveUserIntent(previous);
+        setLiveActivation(null);
         showToast('Could not publish your intent. Nothing was saved.');
       } finally {
         setIntentBusy(false);
@@ -3252,6 +3268,15 @@ export default function App() {
         userNeighborhood={currentUser.neighborhood}
         initialMode={intentHubMode}
       />
+
+      {liveActivation && (
+        <LiveActivationOverlay
+          stage={liveActivation.stage}
+          mode={liveActivation.mode}
+          intent={liveActivation.intent}
+          onComplete={() => setLiveActivation(null)}
+        />
+      )}
 
       {/* Sectioned "About you" profile editor */}
       {isProfileEditOpen && (
