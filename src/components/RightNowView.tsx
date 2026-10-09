@@ -1233,7 +1233,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           The map stays clear; state reads at a glance.
          ========================================================================= */}
       <div className="absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-40 flex items-start justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto min-w-0 flex-1 max-w-[calc(100vw-84px)] sm:max-w-[420px]">
+        <div className="pointer-events-auto min-w-0 flex-1">
           {activeUserIntent ? (
             <div className={`g-float g-map-state g-map-state--live g-map-state--${activeUserIntent.mode === 'private' ? 'private' : 'social'} ${isUserIntentExpanded ? 'is-expanded' : 'is-collapsed'} w-full`} role="status">
               <button
@@ -1269,28 +1269,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </div>
           )}
         </div>
-        <button type="button" onClick={() => { hapticLight(); setIsFilterDrawerOpen(true); }} className={`g-float g-icon-btn shrink-0 relative ${activeFilterCount > 0 ? '!border-[#6F3CC3]/70 !text-white' : ''}`} aria-label="Open discovery filters">
+        <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className={`g-float g-icon-btn shrink-0 relative ${activeFilterCount > 0 ? '!border-[#6F3CC3]/70 !text-white' : ''}`} aria-label="Open discovery filters">
           <SlidersHorizontal className="w-4 h-4" />
           {activeFilterCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0b0c11]">{activeFilterCount}</span>}
         </button>
-      </div>
-
-      {/* Small, persistent key so "visible nearby" is not confused with "live". */}
-      <div
-        className="g-map-legend-wrap"
-        aria-label="Map key"
-      >
-        <div className="g-map-legend">
-          <span className="g-map-legend__item">
-            <span className="g-map-legend__dot g-map-legend__dot--live" aria-hidden="true" />
-            Live · available now
-          </span>
-          <span className="g-map-legend__sep" aria-hidden="true" />
-          <span className="g-map-legend__item">
-            <span className="g-map-legend__dot g-map-legend__dot--nearby" aria-hidden="true" />
-            Nearby · not live
-          </span>
-        </div>
       </div>
 
       {/* Status toast */}
@@ -2119,7 +2101,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div>
                 <span className="g-label">Right Now</span>
                 <h2 className="text-[15px] font-extrabold text-white mt-0.5">
-                  {liveMembersCount} live nearby
+                  {nearbyItems.length} available nearby
                 </h2>
               </div>
               <div className="flex items-center gap-1.5">
