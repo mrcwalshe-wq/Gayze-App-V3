@@ -1,4 +1,5 @@
 import type { SwarmRoom } from '../types';
+import type { DeviceIdentity } from './cryptoService';
 import {
   deriveConversationKey,
   createConversationKey,
@@ -13,6 +14,7 @@ import {
   readConversationMemberDevices,
   readConversationPeerDevices,
   saveConversationKeyEnvelope,
+  claimConversationKeyBootstrap,
 } from './supabaseService';
 import type { ConversationKeyEnvelopeRead } from './supabaseService';
 
@@ -30,7 +32,12 @@ export interface ConversationKeyResult {
 /** Injectable for tests; production uses the Supabase-backed implementations. */
 export interface GroupKeyDeps {
   readEnvelopes: (conversationId: string) => Promise<ConversationKeyEnvelopeRead>;
-  readDevices: (conversationId: string) => Promise<{ ok: boolean; devices: Array<{ user_id: string; device_id: string; public_key: string }> }>;
+  readDevices: (conversationId: string) => Promise<{ ok: boolean; devices: Array<{ user_id: string; device_id: string; public_key: string; status?: string }> }>;
+  /** Full member-device read used by direct-chat bootstrap; injectable for regression tests. */
+  readMemberDevices?: (conversationId: string) => Promise<{ ok: boolean; devices: Array<{ user_id: string; device_id: string; public_key: string; status?: string }> }>;
+  getIdentity?: () => Promise<DeviceIdentity>;
+  resolveLegacyKey?: (room: SwarmRoom) => Promise<CryptoKey | null>;
+  claimBootstrap?: typeof claimConversationKeyBootstrap;
   saveEnvelope: typeof saveConversationKeyEnvelope;
   createKey: typeof createConversationKey;
   retryDelayMs: number;
@@ -39,6 +46,10 @@ export interface GroupKeyDeps {
 const defaultGroupKeyDeps: GroupKeyDeps = {
   readEnvelopes: readConversationKeyEnvelopes,
   readDevices: readConversationPeerDevices,
+  readMemberDevices: readConversationMemberDevices,
+  getIdentity: getOrCreateDeviceIdentity,
+  resolveLegacyKey: resolveLegacyDirectKey,
+  claimBootstrap: claimConversationKeyBootstrap,
   saveEnvelope: saveConversationKeyEnvelope,
   createKey: createConversationKey,
   retryDelayMs: 250,
@@ -98,6 +109,7 @@ async function resolveDeviceAwareKey(
   currentUserId?: string,
   deps: GroupKeyDeps = defaultGroupKeyDeps,
 ): Promise<ConversationKeyResult> {
+<<<<<<< HEAD
   const identity = await getOrCreateDeviceIdentity();
   const [envelopeRead, deviceRead] = await Promise.all([
     readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs),
@@ -108,6 +120,23 @@ async function resolveDeviceAwareKey(
     ? await resolveLegacyDirectKey(room)
     : null;
 
+=======
+  const identity = await (deps.getIdentity ?? getOrCreateDeviceIdentity)();
+
+  // Legacy ECDH remains a read fallback for older ciphertext, but it must
+  // never short-circuit the device-envelope path for direct chats. Previously
+  // every direct chat returned here, which meant conversation_key_envelopes
+  // stayed empty forever and multi-device recipients could not decrypt.
+  const legacyKey = room.type === 'direct'
+    ? await (deps.resolveLegacyKey ?? resolveLegacyDirectKey)(room)
+    : null;
+
+  const [envelopeRead, deviceRead] = await Promise.all([
+    readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs),
+    readWithRetry(() => (deps.readMemberDevices ?? readConversationMemberDevices)(room.id), deps.retryDelayMs),
+  ]);
+
+>>>>>>> origin/main
   // Failed reads are never treated as an empty keyset. This is critical:
   // no key generation and no envelope writes may occur after an ambiguous read.
   if (!envelopeRead.ok || !deviceRead.ok) {
@@ -120,9 +149,35 @@ async function resolveDeviceAwareKey(
     };
   }
 
+<<<<<<< HEAD
   const envelopes = envelopeRead.envelopes;
   const devices = deviceRead.devices.filter((device) => device.status !== 'revoked');
 
+=======
+  // Legacy keys are read-only compatibility candidates. Never return one as
+  // the active key: sends use result.key, so doing so would continue writing
+  // legacy ciphertext and bypass device-envelope provisioning indefinitely.
+  const legacyReadFallback = (reason: string): ConversationKeyResult => ({
+    key: null,
+    status: 'unavailable',
+    transient: true,
+    legacyKey: legacyKey ?? undefined,
+    reason,
+  });
+
+  const envelopes = envelopeRead.envelopes;
+  const devices = deviceRead.devices.filter((device) => device.status !== 'revoked');
+
+  // Never generate or persist a conversation key until this browser's device
+  // is present in the authorised device registry. Without this guard, a chat
+  // hydration race can create a key and then have every envelope write rejected
+  // because the database correctly requires the creator device to be registered.
+  const currentDevice = devices.find((device) => device.device_id === identity.deviceId);
+  if (!currentDevice) {
+    return legacyReadFallback('This device is still being registered for encrypted conversations. Please retry.');
+  }
+
+>>>>>>> origin/main
   const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId);
   if (mine) {
     const creatorDeviceId = mine.created_by_device_id || mine.device_id;
@@ -175,11 +230,19 @@ async function resolveDeviceAwareKey(
   // An existing envelope set proves that the conversation key already exists.
   // Never create a second key merely because this device is not provisioned.
   if (envelopes.length > 0) {
+    // The envelope key is authoritative for new sends. A legacy key may still
+    // decrypt historical rows, but must never unlock the composer on a device
+    // that has not received its envelope.
+    return legacyReadFallback('This device has not been provisioned with the existing conversation key yet.');
+  }
+
+  if (devices.length === 0) {
     return {
       key: null,
       status: 'unavailable',
       transient: true,
       legacyKey: legacyKey ?? undefined,
+<<<<<<< HEAD
       reason: 'This device has not been provisioned with the existing conversation key yet.',
     };
   }
@@ -221,6 +284,78 @@ async function resolveDeviceAwareKey(
         status: 'unavailable',
         legacyKey: legacyKey ?? undefined,
         reason: 'The conversation key could not be provisioned to an authorised device.',
+=======
+      reason: 'No authorised device identities are available for this conversation.',
+    };
+  }
+
+  // No envelope exists at all. Serialize the first-key creator so two
+  // devices cannot generate different conversation keys at the same time.
+  // Existing legacy ciphertext remains readable through legacyKey.
+  try {
+    const claimed = await (deps.claimBootstrap ?? claimConversationKeyBootstrap)(room.id, identity.deviceId);
+    if (!claimed) {
+      // Another authorised device is creating the key. Give it a short window,
+      // then re-read the envelopes rather than creating a competing key.
+      await new Promise((resolve) => setTimeout(resolve, deps.retryDelayMs * 2));
+      const retryRead = await readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs);
+      if (retryRead.ok && retryRead.envelopes.length > 0) {
+        const mineAfterClaim = retryRead.envelopes.find((envelope) => envelope.device_id === identity.deviceId);
+        if (mineAfterClaim) {
+          const creatorDeviceId = mineAfterClaim.created_by_device_id || mineAfterClaim.device_id;
+          const creator = devices.find((device) => device.device_id === creatorDeviceId)
+            ?? (creatorDeviceId === identity.deviceId ? { public_key: identity.publicKeyJwkString } : undefined);
+          const creatorJwk = parseJwk(creator?.public_key);
+          if (creatorJwk) {
+            try {
+              const key = await unwrapConversationKey(room.id, mineAfterClaim.wrapped_key, mineAfterClaim.nonce, creatorJwk);
+              return { key, status: 'ready', legacyKey: legacyKey ?? undefined };
+            } catch { /* fall through to retry state */ }
+          }
+        }
+      }
+      return {
+        key: null,
+        status: 'unavailable',
+        transient: true,
+        legacyKey: legacyKey ?? undefined,
+        reason: 'Another authorised device is setting up this conversation. Please retry in a moment.',
+      };
+    }
+
+    const conversationKey = await deps.createKey();
+    const results = await Promise.all(devices.map(async (device) => {
+      const deviceJwk = parseJwk(device.public_key);
+      if (!deviceJwk) return false;
+      try {
+        const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
+        const stored = await deps.saveEnvelope({
+          conversation_id: room.id,
+          user_id: device.user_id,
+          device_id: device.device_id,
+          wrapped_key: wrapped.wrappedKeyHex,
+          nonce: wrapped.nonceHex,
+          created_by_device_id: identity.deviceId,
+        });
+        return Boolean(stored);
+      } catch {
+        return false;
+      }
+    }));
+    const saved = results.filter(Boolean).length;
+
+    // The creator's own envelope is mandatory. If the recipient/device set was
+    // only partially provisioned, do not advertise a usable new key: that would
+    // create ciphertext which an authorised recipient cannot decrypt.
+    const ownEnvelopeSaved = results[devices.findIndex((device) => device.device_id === identity.deviceId)] === true;
+    if (!ownEnvelopeSaved || saved !== devices.length) {
+      return {
+        key: null,
+        status: 'unavailable',
+        transient: true,
+        legacyKey: legacyKey ?? undefined,
+        reason: 'The conversation key was not provisioned to every authorised device. Retrying is safe.',
+>>>>>>> origin/main
       };
     }
 
@@ -304,4 +439,16 @@ export async function resolveConversationKey(
   currentUserId?: string,
 ): Promise<ConversationKeyResult> {
   return resolveDeviceAwareKey(room, currentUserId);
+<<<<<<< HEAD
+=======
+}
+
+/** Test-only injection point for exercising direct-chat bootstrap without a live account or database writes. */
+export async function resolveConversationKeyForTest(
+  room: SwarmRoom,
+  currentUserId: string,
+  deps: GroupKeyDeps,
+): Promise<ConversationKeyResult> {
+  return resolveDeviceAwareKey(room, currentUserId, { ...defaultGroupKeyDeps, ...deps });
+>>>>>>> origin/main
 }

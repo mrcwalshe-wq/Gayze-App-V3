@@ -7,6 +7,7 @@ import {
   Radio,
   Clock,
   MessageSquare,
+  UsersRound,
   UserRound,
 } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
@@ -26,6 +27,7 @@ interface NavbarProps {
   reliabilityScore?: number;
   userNeighborhood?: string;
   activeIntentMode?: 'social' | 'private' | null;
+  onOpenIntentHub?: () => void;
 }
 
 interface TabDef {
@@ -37,8 +39,8 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { id: 'later', label: 'Later', icon: <Clock />, group: 'later' },
-  { id: 'right_now', label: 'Now Map', icon: <Radio />, group: 'right_now' },
-  { id: 'dating', label: 'Discover', icon: <Compass />, group: 'dating' },
+  { id: 'right_now', label: 'Intents', icon: <Radio />, group: 'right_now' },
+  { id: 'dating', label: 'GAYZE', icon: <Compass />, group: 'dating' },
   { id: 'swarms', label: 'Messages', icon: <MessageSquare />, group: 'swarms' },
   { id: 'profile', label: 'Profile', icon: <UserRound />, group: 'profile' },
 ];
@@ -83,14 +85,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSafetyTimerActive,
   userNeighborhood,
   activeIntentMode = null,
+  onOpenIntentHub,
 }) => {
   const activeGroup = activeTab === 'safe_havens' ? 'profile' : activeTab;
 
   const renderTabIcon = (tab: TabDef, mobile = false) => {
     if (tab.id !== 'dating') {
+      const intentIcon = tab.id === 'right_now'
+        ? (activeIntentMode === 'private' ? <EyeOff /> : activeIntentMode === 'social' ? <UsersRound /> : <Radio />)
+        : tab.icon;
       return (
         <span className={mobile ? '[&>svg]:w-5 [&>svg]:h-5 transition-transform duration-150' : '[&>svg]:w-[15px] [&>svg]:h-[15px]'}>
-          {tab.icon}
+          {intentIcon}
         </span>
       );
     }
@@ -102,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="g-discover-action relative flex items-center justify-center transition-transform duration-200"
         >
           <img
-            src="/brand/gayze-nav-v3.svg?v=20261008-8"
+            src={activeIntentMode === 'private' ? "/brand/gayze-nav-private.svg?v=20261008-1" : activeIntentMode === 'social' ? "/brand/gayze-nav-social.svg?v=20261008-1" : "/brand/gayze-nav-v3.svg?v=20261008-8"}
             alt=""
             className="g-discover-logo-image object-contain"
             draggable={false}
@@ -171,18 +177,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                 data-active={isActive}
                 data-intent-mode={isGayzeAction ? (activeIntentMode || 'none') : undefined}
                 aria-current={isActive ? 'page' : undefined}
-                aria-label={isGayzeAction ? 'GAYZE Discover' : tab.label}
+                aria-label={isGayzeAction ? 'Open GAYZE intents' : tab.label}
                 onClick={(event) => {
                   hapticLight();
-                  if (isGayzeAction) playGayzePressAnimation(event.currentTarget);
+                  if (isGayzeAction) {
+                    playGayzePressAnimation(event.currentTarget);
+                    onOpenIntentHub?.();
+                    return;
+                  }
                   onTabChange(tab.id);
                 }}
               >
                 <span className="g-tab__ind" />
                 {renderTabIcon(tab, true)}
                 <span className={`g-tab__label text-[10px] font-medium tracking-tight mt-0.5 transition-colors duration-150 ${isActive ? 'text-white' : 'text-zinc-500'}`}>{tab.label}</span>
-                {((tab.id === 'swarms' && unreadCount > 0) || (tab.id === 'profile' && notificationCount > 0)) && (
-                  <span className="g-tab__badge" aria-label={tab.id === 'profile' ? `${notificationCount} unread notifications` : `${unreadCount} unread messages`} />
+                {(tab.id === 'swarms' && (unreadCount > 0 || notificationCount > 0)) && (
+                  <span className="g-tab__badge" aria-label={`${notificationCount} unread GAYZE activity`} />
                 )}
               </button>
             );

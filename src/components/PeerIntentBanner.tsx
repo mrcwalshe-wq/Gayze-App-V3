@@ -17,7 +17,7 @@ export function PeerIntentBanner({ userId, peerId, peerName, now }: {
   const minutes = (at: number) => Math.max(1, Math.ceil((at - now) / 60_000));
   return (
     <section aria-label={`${peerName}'s current intent`} className={`shrink-0 px-3 sm:px-4 py-2 border-b text-xs ${intent
-      ? spicy ? 'border-violet-400/20 bg-violet-500/10 text-violet-200' : 'border-amber-400/20 bg-amber-500/10 text-amber-200'
+      ? spicy ? 'border-violet-300/40 bg-violet-500/[0.13] text-violet-100' : 'border-amber-300/40 bg-amber-500/[0.13] text-amber-100'
       : 'border-white/[0.06] text-zinc-500'}`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-[10px] text-zinc-400">{peerName}'s current intent</span>

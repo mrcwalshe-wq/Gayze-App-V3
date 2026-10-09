@@ -66,6 +66,115 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Forbidden' }, 403);
     }
 
+    // Durable notification bridge. Database triggers send only the notificationId;
+    // the server derives recipient, category and copy from the trusted inbox row.
+    if (body.notificationId) {
+      const notificationId = body.notificationId;
+      if (!isValidUuid(notificationId)) {
+        return jsonResponse({ error: 'Invalid notification' }, 400);
+      }
+
+      const { data: notice, error: noticeErr } = await admin
+        .from('gayze_notifications')
+        .select('id, user_id, category, event_key, url, read_at')
+        .eq('id', notificationId)
+        .maybeSingle();
+
+      if (noticeErr || !notice) {
+        return jsonResponse({ delivered: 0, reason: noticeErr?.message || 'notification_not_found' });
+      }
+
+      // Read notifications are intentionally not pushed.
+      if (notice.read_at) {
+        return jsonResponse({ delivered: 0, reason: 'notification_already_read' });
+      }
+
+      const preferenceColumn: Record<string, string | null> = {
+        message: 'messages',
+        gaze: 'intent_activity',
+        connection: 'connections',
+        intent_expiring: 'intent_expiry',
+        safety: 'safety',
+        test: null,
+      };
+      const preference = preferenceColumn[notice.category];
+
+      let prefQuery = admin
+        .from('notification_preferences')
+        .select(preference ? `push_enabled,${preference}` : 'push_enabled')
+        .eq('user_id', notice.user_id)
+        .maybeSingle();
+      const { data: pref } = await prefQuery;
+
+      if (pref?.push_enabled === false || (preference && pref?.[preference] === false)) {
+        return jsonResponse({ delivered: 0, reason: 'notifications_disabled' });
+      }
+
+      const { data: subs, error: subErr } = await admin
+        .from('push_subscriptions')
+        .select('endpoint, p256dh, auth')
+        .eq('user_id', notice.user_id);
+
+      if (subErr || !subs || subs.length === 0) {
+        return jsonResponse({ delivered: 0, reason: subErr?.message || 'no_subscriptions' });
+      }
+
+      let title = 'GAYZE notification';
+      let bodyText = 'You have a new GAYZE notification.';
+      if (notice.event_key.endsWith(':received')) {
+        title = 'New Gayze';
+        bodyText = 'Someone sent you a Gayze.';
+      } else if (notice.event_key.endsWith(':declined')) {
+        title = 'Gayze update';
+        bodyText = 'Your Gayze was declined.';
+      } else if (notice.category === 'message') {
+        title = 'New message';
+        bodyText = 'Someone sent you a message.';
+      } else if (notice.category === 'connection') {
+        title = 'New connection';
+        bodyText = 'You and someone nearby are both interested.';
+      } else if (notice.category === 'intent_expiring') {
+        title = 'Intent expiring soon';
+        bodyText = 'Your Right Now intent is about to expire.';
+      } else if (notice.category === 'safety') {
+        title = 'Safety alert';
+        bodyText = 'You have a new safety notification.';
+      }
+
+      const payload = {
+        type: notice.category,
+        title,
+        body: bodyText,
+        url: notice.url,
+        tag: `gayze-notification-${notice.id}`,
+      };
+
+      let delivered = 0;
+      for (const sub of subs) {
+        try {
+          await (globalThis as any).__webpush?.(sub, JSON.stringify(payload)) ??
+            webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              JSON.stringify(payload),
+            );
+          delivered += 1;
+        } catch (err: any) {
+          if (err?.statusCode === 404 || err?.statusCode === 410) {
+            await admin.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          }
+        }
+      }
+
+      if (delivered > 0) {
+        await admin
+          .from('gayze_notifications')
+          .update({ push_processed_at: new Date().toISOString() })
+          .eq('id', notice.id);
+      }
+
+      return jsonResponse({ delivered });
+    }
+
     if (body.event === 'connection') {
       return jsonResponse({ error: 'Invalid event' }, 400);
     }

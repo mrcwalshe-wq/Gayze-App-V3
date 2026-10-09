@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { getProfilePhotoUrl } from '../services/profilePhotoService';
+import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../services/profilePhotoService';
+import { loadOutgoingInterestStatuses } from '../services/supabaseService';
 import L from 'leaflet';
 import {
   Pulse,
@@ -160,7 +161,7 @@ interface RightNowViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
-  onSubmitInterest?: (pulse: Pulse) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null }>;
+  onSubmitInterest?: (pulse: Pulse, message?: string, sharedPhotoIds?: string[]) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null }>;
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
   onSwitchToLater?: () => void;
   onRequestLocation?: () => void;
@@ -171,6 +172,8 @@ interface RightNowViewProps {
   onMaxDistanceKmChange?: (km: number) => void;
   /** Signed/public URL for the current user's primary profile photo. */
   userAvatarUrl?: string;
+  /** Suppress map empty-state chrome while an intent sheet is open. */
+  isIntentOverlayOpen?: boolean;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -195,6 +198,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onRequestLocation,
   onMaxDistanceKmChange,
   userAvatarUrl,
+  isIntentOverlayOpen = false,
 }) => {
   // 1. The active Right Now signal is owned by App (Supabase in live mode).
   //    Right Now renders it and routes every change through
@@ -204,6 +208,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   };
 
   const [isUserIntentDrawerOpen, setIsUserIntentDrawerOpen] = useState<boolean>(false);
+  // Keep the user's own intent compact so the map remains the primary surface.
+  // Expanding is temporary; the management sheet remains one tap away.
+  const [isUserIntentExpanded, setIsUserIntentExpanded] = useState<boolean>(false);
+  const intentCollapseTimerRef = useRef<number | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const statusTimeoutRef = useRef<number | null>(null);
 
@@ -281,8 +289,47 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // 5. "I'm Interested" & Gaze States
   const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
   const [interestPendingIds, setInterestPendingIds] = useState<Set<string>>(new Set());
+  const [interestStatusByPulseId, setInterestStatusByPulseId] = useState<Record<string, 'pending' | 'mutual' | 'declined' | 'withdrawn'>>({});
   const [gazedPeerNames, setGazedPeerNames] = useState<Set<string>>(new Set());
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
+  const [interestDraftPulse, setInterestDraftPulse] = useState<Pulse | null>(null);
+  const [interestMessage, setInterestMessage] = useState('');
+  const [interestPhotos, setInterestPhotos] = useState<ProfilePhoto[]>([]);
+  const [selectedInterestPhotoIds, setSelectedInterestPhotoIds] = useState<Set<string>>(new Set());
+  const [interestComposerBusy, setInterestComposerBusy] = useState(false);
+
+  // Persist sender-side Gayze state across reloads so pending, matched and declined
+  // responses remain truthful after navigation or a full reload.
+  useEffect(() => {
+    let cancelled = false;
+    const refreshInterestStatuses = async () => {
+      const intentIds = pulses
+        .map((pulse) => pulse.id.startsWith('supabase_') ? pulse.id.slice('supabase_'.length) : null)
+        .filter((id): id is string => Boolean(id));
+      if (!intentIds.length) {
+        setInterestStatusByPulseId({});
+        return;
+      }
+      const rows = await loadOutgoingInterestStatuses(intentIds);
+      if (cancelled) return;
+      const next: Record<string, 'pending' | 'mutual' | 'declined' | 'withdrawn'> = {};
+      const interested = new Set<string>();
+      for (const row of rows) {
+        if (!row.intentId || !['pending', 'mutual', 'declined', 'withdrawn'].includes(row.status)) continue;
+        const pulseId = `supabase_${row.intentId}`;
+        next[pulseId] = row.status;
+        interested.add(pulseId);
+      }
+      setInterestStatusByPulseId(next);
+      setInterestedIds(interested);
+    };
+    void refreshInterestStatuses();
+    const interval = window.setInterval(() => { void refreshInterestStatuses(); }, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [pulses]);
 
   // 6. Countdown timer for active user intent
   const [remainingMinutes, setRemainingMinutes] = useState<number>(0);
@@ -362,6 +409,50 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     onUpdateActiveUserIntent,
   ]);
 
+  // Map-first behaviour: start compact, then collapse again after inactivity.
+  useEffect(() => {
+    if (intentCollapseTimerRef.current !== null) {
+      window.clearTimeout(intentCollapseTimerRef.current);
+      intentCollapseTimerRef.current = null;
+    }
+
+    setIsUserIntentExpanded(false);
+
+    if (!activeUserIntent) return;
+
+    intentCollapseTimerRef.current = window.setTimeout(() => {
+      setIsUserIntentExpanded(false);
+      intentCollapseTimerRef.current = null;
+    }, 4500);
+
+    return () => {
+      if (intentCollapseTimerRef.current !== null) {
+        window.clearTimeout(intentCollapseTimerRef.current);
+        intentCollapseTimerRef.current = null;
+      }
+    };
+  }, [activeUserIntent?.remoteId]);
+
+  useEffect(() => {
+    if (!isUserIntentExpanded || !activeUserIntent) return;
+
+    if (intentCollapseTimerRef.current !== null) {
+      window.clearTimeout(intentCollapseTimerRef.current);
+    }
+
+    intentCollapseTimerRef.current = window.setTimeout(() => {
+      setIsUserIntentExpanded(false);
+      intentCollapseTimerRef.current = null;
+    }, 6000);
+
+    return () => {
+      if (intentCollapseTimerRef.current !== null) {
+        window.clearTimeout(intentCollapseTimerRef.current);
+        intentCollapseTimerRef.current = null;
+      }
+    };
+  }, [isUserIntentExpanded, activeUserIntent?.remoteId]);
+
   // A slow tick keeps expired intents off the map even between discovery refreshes.
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
@@ -388,70 +479,51 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     hapticLight();
     const nextPaused = !activeUserIntent.isPaused;
     setActiveUserIntent({ ...activeUserIntent, isPaused: nextPaused });
-    showStatusMessage(nextPaused ? 'Pausing your signal…' : 'Resuming your signal…', 2500);
+    setIsUserIntentExpanded(false);
+    // App owns the single authoritative toast for the async pause/resume result.
   };
 
   // End active intent early
   const handleEndIntent = () => {
     hapticSensitiveAction();
     setIsUserIntentDrawerOpen(false);
+    setIsUserIntentExpanded(false);
     setActiveUserIntent(null);
-    showStatusMessage('Ending your signal…', 2500);
+    // App owns the pending + confirmed/error toast in one shared lane.
   };
 
-  // Express interest in a pulse / profile
+  // Express an intent interest with optional note and selected album photos.
   const handleTapInterested = async (id: string, pulseObj?: Pulse) => {
     hapticLight();
-    if (!pulseObj) return;
+    if (!pulseObj || interestComposerBusy) return;
+    if (interestedIds.has(id)) return;
+    setInterestDraftPulse(pulseObj);
+    setInterestMessage('');
+    setSelectedInterestPhotoIds(new Set());
+    try { setInterestPhotos(await loadProfilePhotos()); } catch { setInterestPhotos([]); }
+  };
 
-    if (interestedIds.has(id)) {
-      setInterestedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      return;
-    }
-
-    setInterestPendingIds((prev) => new Set(prev).add(id));
-
+  const sendInterestRequest = async () => {
+    if (!interestDraftPulse || !onSubmitInterest || interestComposerBusy) return;
+    setInterestComposerBusy(true);
+    setInterestPendingIds((prev) => new Set(prev).add(interestDraftPulse.id));
     try {
-      let result = { sent: false, mutual: false, conversation_id: null as string | null };
-      const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulseObj.peerId);
-
-      if (looksLikeUuid && onSubmitInterest) {
-        result = await onSubmitInterest(pulseObj);
-      }
-
-      if (!result.sent) {
-        showStatusMessage('Interest could not be sent. Connect to live discovery and try again.');
-        return;
-      }
-
-      setInterestedIds((prev) => {
-        const next = new Set(prev);
-        next.add(id);
-        return next;
-      });
-
-      if (result.mutual) {
-        triggerVibration([40, 60, 100]);
-        setMutualMatchPulse(pulseObj);
-        showStatusMessage('Mutual interest — opening your chat', 2500);
-        setSelectedItem(null);
-        setIsCardExpanded(false);
-      } else {
-        showStatusMessage('Interest sent — they can now respond', 2500);
-      }
+      const result = await onSubmitInterest(interestDraftPulse, interestMessage, Array.from(selectedInterestPhotoIds));
+      if (!result.sent) { showStatusMessage('Gayze could not be sent — try again.'); return; }
+      setInterestedIds((prev) => new Set(prev).add(interestDraftPulse.id));
+      setInterestStatusByPulseId((prev) => ({ ...prev, [interestDraftPulse.id]: 'pending' }));
+      setInterestDraftPulse(null);
+      showStatusMessage(`Gayze sent to ${interestDraftPulse.peerName} — awaiting their response`, 3500);
     } catch (error) {
-      console.error('[GAYZE] Interest submission failed', error);
-      showStatusMessage('Interest could not be sent — try again');
+      console.error('[GAYZE] Intent interest submission failed', error);
+      showStatusMessage('Intent interest could not be sent — try again.');
     } finally {
       setInterestPendingIds((prev) => {
         const next = new Set(prev);
-        next.delete(id);
+        if (interestDraftPulse) next.delete(interestDraftPulse.id);
         return next;
       });
+      setInterestComposerBusy(false);
     }
   };
 
@@ -1164,10 +1236,22 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           The map stays clear; state reads at a glance.
          ========================================================================= */}
       <div className="absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-40 flex items-start justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto min-w-0 flex-1 max-w-[calc(100vw-84px)] sm:max-w-[420px]">
+        <div className="pointer-events-auto min-w-0 flex-1">
           {activeUserIntent ? (
-            <div className={`g-float g-map-state g-map-state--live g-map-state--${activeUserIntent.mode === 'private' ? 'private' : 'social'} w-full`} role="status">
-              <button type="button" className="g-map-state__summary" onClick={() => { hapticLight(); setIsUserIntentDrawerOpen(true); }} aria-label="Open intent details">
+            <div className={`g-float g-map-state g-map-state--live g-map-state--${activeUserIntent.mode === 'private' ? 'private' : 'social'} ${isUserIntentExpanded ? 'is-expanded' : 'is-collapsed'} w-full`} role="status">
+              <button
+                type="button"
+                className="g-map-state__summary"
+                onClick={() => {
+                  hapticLight();
+                  if (isUserIntentExpanded) {
+                    setIsUserIntentDrawerOpen(true);
+                  } else {
+                    setIsUserIntentExpanded(true);
+                  }
+                }}
+                aria-label={isUserIntentExpanded ? 'Open intent details' : 'Expand live intent'}
+              >
                 <span className={`g-live-dot g-live-dot--${activeUserIntent.mode === 'private' ? 'private' : 'social'} shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`} aria-hidden="true" />
                 <span className="min-w-0 flex-1 text-left">
                   <span className="g-map-state__eyebrow">RIGHT NOW <span className={`g-map-state__live-pill ${activeUserIntent.isPaused ? 'is-paused' : ''}`}><span className="g-map-state__live-dot" />{activeUserIntent.isPaused ? 'PAUSED' : 'LIVE'}</span></span>
@@ -1182,39 +1266,22 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="g-float g-map-state !cursor-default">
-              <span className="w-2 h-2 rounded-full shrink-0 bg-[#6F3CC3]/70" aria-hidden="true" />
-              <span className="min-w-0 text-left"><span className="flex items-baseline gap-1.5"><span>Right Now</span><span className="g-map-state__meta">{liveMembersCount} live</span></span><span className="block g-map-state__meta font-normal">Tap Set intent to go live</span></span>
+            <div className="g-map-state g-map-state--empty !cursor-default" role="status" aria-label={`Right Now, ${liveMembersCount} live`}>
+              <span className="g-map-state__empty-dot" aria-hidden="true" />
+              <span className="g-map-state__empty-label">RIGHT NOW</span>
+              <span className="g-map-state__meta">{liveMembersCount} live</span>
             </div>
           )}
         </div>
-        <button type="button" onClick={() => { hapticLight(); setIsFilterDrawerOpen(true); }} className={`g-float g-icon-btn shrink-0 relative ${activeFilterCount > 0 ? '!border-[#6F3CC3]/70 !text-white' : ''}`} aria-label="Open discovery filters">
+        <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className={`g-float g-icon-btn shrink-0 relative ${activeFilterCount > 0 ? '!border-[#6F3CC3]/70 !text-white' : ''}`} aria-label="Open discovery filters">
           <SlidersHorizontal className="w-4 h-4" />
           {activeFilterCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0b0c11]">{activeFilterCount}</span>}
         </button>
       </div>
 
-      {/* Small, persistent key so "visible nearby" is not confused with "live". */}
-      <div
-        className="absolute top-[calc(env(safe-area-inset-top,0px)+104px)] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
-        aria-label="Map key"
-      >
-        <div className="g-map-legend">
-          <span className="g-map-legend__item">
-            <span className="g-map-legend__dot g-map-legend__dot--live" aria-hidden="true" />
-            Live · available now
-          </span>
-          <span className="g-map-legend__sep" aria-hidden="true" />
-          <span className="g-map-legend__item">
-            <span className="g-map-legend__dot g-map-legend__dot--nearby" aria-hidden="true" />
-            Nearby · not live
-          </span>
-        </div>
-      </div>
-
       {/* Status toast */}
       {statusMessage && (
-        <div className="g-toast">
+        <div className="g-toast g-toast--map-status" role="status" aria-live="polite">
           <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] shrink-0" />
           <span className="flex-1 font-semibold">{statusMessage}</span>
           <button
@@ -1296,46 +1363,35 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {/* =========================================================================
           4.5. EMPTY STATE — honest, compact, map stays visible
          ========================================================================= */}
-      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-30 w-[min(92vw,330px)] pointer-events-auto"
-          style={{ bottom: 'calc(var(--g-tabbar-h) + env(safe-area-inset-bottom,0px) + 82px)' }}
-        >
-          <div className="g-empty">
-            <div className="g-empty__icon">
-              <Radio className="w-5 h-5" />
-            </div>
-            <h3>No active intent nearby</h3>
-            <p>
-              Nothing is live within {maxDistanceKm} km right now. Set your intent and the map
-              lights up around you.
-            </p>
-            {onOpenSetIntent && (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  onOpenSetIntent();
-                }}
-                className="g-btn g-btn--primary w-full mt-1"
-              >
-                <Plus className="w-4 h-4" />
-                Create your intent
-              </button>
-            )}
-            {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
-                }}
-                className="g-btn g-btn--ghost w-full !min-h-[44px] text-[12px]"
-              >
-                Widen radius to {MAX_TRAVEL_DISTANCE_KM} km
-              </button>
-            )}
-          </div>
+      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && !isNearbyOpen && !isIntentOverlayOpen && (
+        <div className="g-map-empty-state" role="status">
+          <span className="g-map-empty-state__title">No active intent nearby</span>
+          <span className="g-map-empty-state__copy">Within {maxDistanceKm} km</span>
+          {onOpenSetIntent && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                onOpenSetIntent();
+              }}
+              className="g-map-empty-state__action"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Set intent
+            </button>
+          )}
+          {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
+              }}
+              className="g-map-empty-state__radius"
+            >
+              Expand to {MAX_TRAVEL_DISTANCE_KM} km
+            </button>
+          )}
         </div>
       )}
 
@@ -1464,7 +1520,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </p>
 
           {/* Actions — one primary, two quiet */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="g-discovery-actions flex items-stretch gap-2 mt-3 min-w-0">
             {selectedItem.type === 'haven' ? (
               <>
                 <button
@@ -1499,7 +1555,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       onOpenDirectChatWithProfile(selectedItem.item);
                     }
                   }}
-                  className="g-btn g-btn--amber flex-1"
+                  className="g-btn g-discovery-secondary g-discovery-action flex-1 min-w-0"
                 >
                   <Lock className="w-4 h-4" />
                   Message
@@ -1508,13 +1564,19 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <button
                     type="button"
                     onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
-                    disabled={interestPendingIds.has(selectedItem.item.id)}
-                    className={`g-btn !px-3 text-[12px] ${
+                    disabled={interestPendingIds.has(selectedItem.item.id) || Boolean(interestStatusByPulseId[selectedItem.item.id])}
+                    className={`g-btn g-discovery-primary g-discovery-action g-discovery-action--primary flex-1 min-w-0 !px-2 text-[12px] ${
                       interestedIds.has(selectedItem.item.id)
                         ? 'g-btn--primary'
                         : 'g-btn--quiet'
                     }`}
                   >
+                    <span className="g-gayze-particles" aria-hidden="true">
+                      <span className="g-gayze-particle g-gayze-particle--one" />
+                      <span className="g-gayze-particle g-gayze-particle--two" />
+                      <span className="g-gayze-particle g-gayze-particle--three" />
+                      <span className="g-gayze-particle g-gayze-particle--four" />
+                    </span>
                     {interestedIds.has(selectedItem.item.id) ? (
                       <Check className="w-3.5 h-3.5" />
                     ) : (
@@ -1522,20 +1584,30 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     )}
                     {interestPendingIds.has(selectedItem.item.id)
                       ? 'Sending…'
-                      : interestedIds.has(selectedItem.item.id)
-                        ? 'Interested'
-                        : 'Interest'}
+                      : interestStatusByPulseId[selectedItem.item.id] === 'mutual'
+                        ? 'Gayze matched'
+                        : interestStatusByPulseId[selectedItem.item.id] === 'declined'
+                          ? 'Gayze declined'
+                          : interestStatusByPulseId[selectedItem.item.id] === 'pending' || interestedIds.has(selectedItem.item.id)
+                            ? 'Gayze sent'
+                            : 'Send GAYZE'}
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item.id)}
-                    className={`g-btn !px-3 text-[12px] ${
+                    className={`g-btn g-discovery-primary g-discovery-action g-discovery-action--primary flex-1 min-w-0 !px-2 text-[12px] ${
                       gazedPeerNames.has(selectedItem.item.id) ? 'g-btn--primary' : 'g-btn--quiet'
                     }`}
                   >
+                    <span className="g-gayze-particles" aria-hidden="true">
+                      <span className="g-gayze-particle g-gayze-particle--one" />
+                      <span className="g-gayze-particle g-gayze-particle--two" />
+                      <span className="g-gayze-particle g-gayze-particle--three" />
+                      <span className="g-gayze-particle g-gayze-particle--four" />
+                    </span>
                     <Eye className="w-3.5 h-3.5" />
-                    {gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}
+                    {gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send GAYZE'}
                   </button>
                 )}
                 <button
@@ -1546,7 +1618,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       selectedItem.type === 'pulse' ? selectedItem.item.peerName : selectedItem.item.name,
                     );
                   }}
-                  className="g-btn g-btn--quiet !px-3 text-[12px]"
+                  className="g-btn g-discovery-meet g-discovery-action flex-1 min-w-0 !px-2 text-[12px]"
                   aria-label="Safe meet"
                 >
                   <Calendar className="w-3.5 h-3.5" />
@@ -1761,7 +1833,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         onSelectHaven(selectedItem.item);
                         setIsCardExpanded(false);
                       }}
-                      className="g-btn g-btn--amber flex-1 !min-h-[46px]"
+                      className="g-btn g-discovery-secondary flex-1 !min-h-[50px]"
                     >
                       <MapPin className="w-4 h-4" />
                       <span>View Safe Haven</span>
@@ -1798,12 +1870,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         {interestedIds.has(selectedItem.item.id) ? (
                           <>
                             <Check className="w-4 h-4 text-[#C9A24D]" />
-                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Send GAYZE'}</span>
                           </>
                         ) : (
                           <>
                             <Zap className="w-4 h-4 text-[#C9A24D]" />
-                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Interested'}</span>
+                            <span>{interestPendingIds.has(selectedItem.item.id) ? 'Sending…' : 'Send GAYZE'}</span>
                           </>
                         )}
                       </button>
@@ -1817,7 +1889,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           }`}
                       >
                         <Eye className="w-4 h-4 text-[#C9A24D]" />
-                        <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gazed' : 'Gaze'}</span>
+                        <span>{gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send GAYZE'}</span>
                       </button>
                     )}
 
@@ -1832,7 +1904,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenScheduleMeeting(peerName);
                         }
                       }}
-                      className="h-12 min-h-[44px] px-2 text-xs font-bold text-[#C9A24D] hover:text-white bg-[#141620] hover:bg-[#1c1f2e] border border-white/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 font-mono"
+                      className="g-btn g-discovery-secondary !min-h-[50px] !px-2 text-xs"
                     >
                       <Calendar className="w-4 h-4" />
                       <span>Safe Meet</span>
@@ -1850,7 +1922,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenDirectChatWithProfile(selectedItem.item);
                         }
                       }}
-                      className="g-btn g-btn--amber flex-1 !min-h-[46px]"
+                      className="g-btn g-discovery-secondary flex-1 !min-h-[50px]"
                     >
                       <Lock className="w-4 h-4" />
                       <span>Message</span>
@@ -2028,13 +2100,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {isNearbyOpen && (
         <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setIsNearbyOpen(false)}>
-          <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="g-sheet g-sheet--active-signal" onClick={(e) => e.stopPropagation()}>
             <div className="g-sheet__grip" />
             <div className="g-sheet__head">
               <div>
                 <span className="g-label">Right Now</span>
                 <h2 className="text-[15px] font-extrabold text-white mt-0.5">
-                  {liveMembersCount} live nearby
+                  {nearbyItems.length} available nearby
                 </h2>
               </div>
               <div className="flex items-center gap-1.5">
@@ -2199,7 +2271,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
          ========================================================================= */}
       {isUserIntentDrawerOpen && activeUserIntent && (
         <div
-          className="g-overlay flex items-end sm:items-center justify-center sm:p-4"
+          className="g-overlay g-overlay--active-signal flex items-end sm:items-center justify-center sm:p-4"
           onClick={() => setIsUserIntentDrawerOpen(false)}
         >
           <div className="g-sheet" onClick={(e) => e.stopPropagation()}>
@@ -2292,6 +2364,41 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               >
                 <Edit3 className="w-4 h-4" /> {intentBusy ? 'Saving…' : 'Edit'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {interestDraftPulse && (
+        <div className="g-overlay flex items-end sm:items-center justify-center p-3" onClick={() => !interestComposerBusy && setInterestDraftPulse(null)}>
+          <div className="w-full max-w-md g-panel !rounded-[28px] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 flex items-center gap-3 border-b border-white/[0.08]">
+              <div className="relative w-12 h-12 shrink-0 rounded-2xl overflow-hidden border border-[#C9A24D]/45 bg-[#171922] shadow-[0_8px_20px_rgba(0,0,0,.35)]">
+                <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-white">{interestDraftPulse.peerName.slice(0,1).toUpperCase()}</span>
+                {interestDraftPulse.peerAvatar && /^https?:\/\//i.test(interestDraftPulse.peerAvatar) && (
+                  <img
+                    src={interestDraftPulse.peerAvatar}
+                    alt={interestDraftPulse.peerName}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="g-label text-[#C9A24D]">SEND A GAYZE</span>
+                <h3 className="text-[15px] font-semibold text-white truncate">Show {interestDraftPulse.peerName} you’re interested</h3>
+                <p className="text-[10.5px] text-zinc-500 truncate">{interestDraftPulse.peerAge ? String(interestDraftPulse.peerAge) + ' · ' : ''}{interestDraftPulse.neighborhood}</p>
+              </div>
+              <button type="button" onClick={() => setInterestDraftPulse(null)} className="g-icon-btn g-icon-btn--bare !w-11 !h-11 shrink-0" aria-label="Close"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Their current intent</div><div className="text-sm text-white mt-1">{interestDraftPulse.title || interestDraftPulse.intent || 'Right Now'}</div></div>
+              <div><label className="text-xs font-semibold text-zinc-300">Add a note <span className="text-zinc-600">(optional)</span></label><textarea value={interestMessage} onChange={(e) => setInterestMessage(e.target.value.slice(0,500))} rows={3} placeholder="Add a note about why you’re interested… (optional)" className="mt-2 w-full resize-none rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#C9A24D]/60" /></div>
+              <div><div className="flex items-center justify-between"><label className="text-xs font-semibold text-zinc-300">Share album photos <span className="text-zinc-600">(optional)</span></label><span className="text-[10px] text-zinc-600">{selectedInterestPhotoIds.size}/6</span></div>
+                {interestPhotos.length ? <div className="mt-2 grid grid-cols-6 gap-2">{interestPhotos.map((photo) => { const selected=selectedInterestPhotoIds.has(photo.id); return <button key={photo.id} type="button" onClick={() => setSelectedInterestPhotoIds(prev => { const next=new Set(prev); if(selected) next.delete(photo.id); else if(next.size<6) next.add(photo.id); return next; })} className={`relative aspect-square rounded-xl overflow-hidden border-2 ${selected ? 'border-[#C9A24D]' : 'border-white/10'}`}><img src={photo.url} alt="" className="w-full h-full object-cover" />{selected && <span className="absolute inset-0 bg-[#6F3CC3]/35 flex items-center justify-center"><Check className="w-5 h-5 text-white" /></span>}</button>; })}</div> : <div className="mt-2 text-xs text-zinc-600 rounded-2xl border border-dashed border-white/10 p-4 text-center">No album photos available.</div>}
+              </div>
+              <button type="button" disabled={interestComposerBusy} onClick={() => void sendInterestRequest()} className="w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#6F3CC3] to-[#C9A24D] text-white font-bold disabled:opacity-50">{interestComposerBusy ? 'Sending…' : 'Send GAYZE'}</button>
+              <p className="text-[10.5px] text-center text-zinc-600">A Gayze is an interest signal — they can view your profile and accept or decline. Declines stay private.</p>
             </div>
           </div>
         </div>

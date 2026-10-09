@@ -485,9 +485,9 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   <span>Profile</span>
                 </button>
               )}
-              <button type="button" className="g-btn g-btn--quiet !px-3" onClick={() => handleGaze(selected)} aria-label="Gaze">
+              <button type="button" className="g-btn g-btn--quiet !px-3" onClick={() => handleGaze(selected)} aria-label="Send Gayze request">
                 <Eye className="w-4 h-4" />
-                {gazedNames.has(selected.kind === 'pulse' ? selected.item.peerId : selected.item.id) ? 'Gazed' : 'Gaze'}
+                {gazedNames.has(selected.kind === 'pulse' ? selected.item.peerId : selected.item.id) ? 'Gayze sent' : 'Send Gayze'}
               </button>
               <button
                 type="button"

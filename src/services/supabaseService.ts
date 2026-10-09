@@ -479,6 +479,7 @@ export interface SubmitInterestResult {
   sent: boolean;
   mutual: boolean;
   conversation_id: string | null;
+  interest_id?: string | null;
 }
 
 export async function verifyPeerIdentity(
@@ -504,15 +505,30 @@ export async function verifyPeerIdentity(
   }
 }
 
-export async function submitInterest(toUserId: string, intentId?: string): Promise<SubmitInterestResult> {
-  if (!supabase) return { sent: false, mutual: false, conversation_id: null };
+export async function submitInterest(
+  toUserId: string,
+  intentId?: string,
+  message?: string,
+  sharedPhotoIds: string[] = [],
+): Promise<SubmitInterestResult> {
+  if (!supabase) return { sent: false, mutual: false, conversation_id: null, interest_id: null };
   try {
-    const { data, error } = await supabase.rpc('submit_interest', { p_to_user: toUserId, p_intent_id: intentId ?? null });
+    const { data, error } = await supabase.rpc('submit_interest', {
+      p_to_user: toUserId,
+      p_intent_id: intentId ?? null,
+      p_message: message?.trim() || null,
+      p_shared_photo_ids: sharedPhotoIds,
+    });
     if (error) {
       console.warn('[GAYZE] Supabase submit_interest unavailable:', error.message);
-      return { sent: false, mutual: false, conversation_id: null };
+      return { sent: false, mutual: false, conversation_id: null, interest_id: null };
     }
-    const result = data as { mutual?: boolean; conversation_id?: string | null };
+    const result = data as {
+      sent?: boolean;
+      mutual?: boolean;
+      conversation_id?: string | null;
+      interest_id?: string | null;
+    };
     // The RPC result is the authoritative "mutual was just created" signal.
     // Forward it so the other member is notified (server enforces exactly-once
     // and the recipient's preferences). Fire-and-forget: no effect on the flow.
@@ -520,44 +536,197 @@ export async function submitInterest(toUserId: string, intentId?: string): Promi
       void requestConnectionPush(result.conversation_id);
     }
     return {
-      sent: true,
+      sent: result.sent !== false,
       mutual: Boolean(result.mutual),
       conversation_id: result.conversation_id ?? null,
+      interest_id: result.interest_id ?? null,
     };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase submit_interest exception:', err?.message || err);
-    return { sent: false, mutual: false, conversation_id: null };
+    return { sent: false, mutual: false, conversation_id: null, interest_id: null };
   }
 }
 
+
+/** Claim the one-time creator slot used to serialize first conversation-key provisioning. */
+export async function claimConversationKeyBootstrap(conversationId: string, deviceId: string): Promise<boolean> {
+  if (!supabase || !conversationId || !deviceId) return false;
+  try {
+    const { data, error } = await supabase.rpc('claim_conversation_key_bootstrap', {
+      p_conversation_id: conversationId,
+      p_device_id: deviceId,
+    });
+    if (error) throw error;
+    return data === true;
+  } catch (error: any) {
+    console.warn('[GAYZE] Could not claim conversation key bootstrap:', error?.message || error);
+    return false;
+  }
+}
+
+export interface OutgoingInterestStatus {
+  id: string;
+  toUserId: string;
+  intentId: string | null;
+  status: 'pending' | 'mutual' | 'declined' | 'withdrawn';
+  createdAt: number;
+}
+
+/** Load this user's own interest requests so the sender can see persistent status. */
+export async function loadOutgoingInterestStatuses(intentIds: string[] = []): Promise<OutgoingInterestStatus[]> {
+  if (!supabase) return [];
+  try {
+    const sessionUser = await ensureSupabaseSession();
+    if (!sessionUser) return [];
+    let query = supabase
+      .from('interests')
+      .select('id,to_user_id,intent_id,status,created_at')
+      .eq('from_user_id', sessionUser.id)
+      .order('created_at', { ascending: false });
+    if (intentIds.length) query = query.in('intent_id', intentIds);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      toUserId: row.to_user_id,
+      intentId: row.intent_id ?? null,
+      status: row.status,
+      createdAt: new Date(row.created_at).getTime(),
+    }));
+  } catch (error) {
+    console.warn('[GAYZE] Could not load outgoing interest statuses:', error);
+    return [];
+  }
+}
 
 export interface IncomingInterest {
   id: string;
   fromUserId: string;
   fromDisplayName: string;
+  fromHandle?: string | null;
+  fromAge?: number | null;
+  fromBio?: string | null;
+  fromNeighborhood?: string | null;
+  fromAvatarUrl?: string | null;
+  fromInterests?: string[];
+  fromReliabilityScore?: number;
+  fromVerifiedPeersCount?: number;
+  fromSafetyVerified?: boolean;
   createdAt: number;
   status: 'pending' | 'mutual' | 'declined' | 'withdrawn';
+  intentId?: string | null;
+  message?: string | null;
+  sharedPhotoUrls?: string[];
 }
 
 export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
   if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from('interests')
-      .select('id,from_user_id,created_at,status,from_profile:profiles!interests_from_user_id_fkey(display_name)')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+    const sessionUser = await ensureSupabaseSession();
+    if (!sessionUser) return [];
+    const [{ data: rows, error }, { data: profiles, error: profileError }] = await Promise.all([
+      supabase
+        .from('interests')
+        .select('id,from_user_id,created_at,status,intent_id,message,shared_photo_ids')
+        .eq('to_user_id', sessionUser.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      supabase.rpc('get_incoming_interest_profiles'),
+    ]);
     if (error) throw error;
-    return (data ?? []).map((row: any) => ({
-      id: row.id,
-      fromUserId: row.from_user_id,
-      fromDisplayName: row.from_profile?.display_name || 'Someone',
-      createdAt: new Date(row.created_at).getTime(),
-      status: row.status,
+    if (profileError) throw profileError;
+
+    const profileMap = new Map<string, any>(
+      (profiles ?? []).map((row: any) => [row.interest_id, row]),
+    );
+
+    const photoIds = Array.from(new Set((rows ?? []).flatMap((row: any) => row.shared_photo_ids ?? [])));
+    const photoMap = new Map<string, string>();
+    if (photoIds.length) {
+      const { data: photos } = await supabase
+        .from('profile_photos')
+        .select('id,storage_path')
+        .in('id', photoIds);
+      for (const photo of photos ?? []) {
+        const url = await getProfilePhotoUrl(photo.storage_path);
+        if (url) photoMap.set(photo.id, url);
+      }
+    }
+
+    return Promise.all((rows ?? []).map(async (row: any): Promise<IncomingInterest> => {
+      const profile = profileMap.get(row.id);
+      return {
+        id: row.id,
+        fromUserId: row.from_user_id,
+        fromDisplayName: profile?.display_name || 'Someone',
+        fromHandle: profile?.handle ?? null,
+        fromAge: profile?.age ?? null,
+        fromBio: profile?.bio ?? null,
+        fromNeighborhood: profile?.neighborhood ?? null,
+        fromAvatarUrl: profile?.avatar_path ? ((await getProfilePhotoUrl(profile.avatar_path)) || null) : null,
+        fromInterests: Array.isArray(profile?.interests) ? profile.interests : [],
+        fromReliabilityScore: Number(profile?.reliability_score) || 0,
+        fromVerifiedPeersCount: Number(profile?.verified_peers_count) || 0,
+        fromSafetyVerified: Boolean(profile?.safety_verified),
+        createdAt: new Date(row.created_at).getTime(),
+        status: row.status,
+        intentId: row.intent_id ?? null,
+        message: row.message ?? null,
+        sharedPhotoUrls: (row.shared_photo_ids ?? []).map((id: string) => photoMap.get(id)).filter(Boolean),
+      };
     }));
   } catch (error) {
     console.warn('[GAYZE] Could not load incoming interests:', error);
     return [];
+  }
+}
+
+export interface AcceptIncomingInterestResult {
+  accepted: boolean;
+  interest_id: string | null;
+  conversation_id: string | null;
+  recipient_id: string | null;
+  error?: string;
+}
+
+/** Accept an incoming intent-interest request and return the server-created conversation. */
+export async function acceptIncomingInterest(interestId: string): Promise<AcceptIncomingInterestResult> {
+  if (!supabase || !interestId) {
+    return { accepted: false, interest_id: interestId || null, conversation_id: null, recipient_id: null, error: 'Not connected' };
+  }
+  try {
+    const sessionUser = await ensureSupabaseSession();
+    if (!sessionUser) {
+      return { accepted: false, interest_id: interestId, conversation_id: null, recipient_id: null, error: 'Not authenticated' };
+    }
+    const { data, error } = await supabase.rpc('accept_interest', { p_interest_id: interestId });
+    if (error) throw error;
+    const result = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
+    const conversationId = typeof result.conversation_id === 'string' ? result.conversation_id : null;
+    return {
+      accepted: result.accepted === true && Boolean(conversationId),
+      interest_id: typeof result.interest_id === 'string' ? result.interest_id : interestId,
+      conversation_id: conversationId,
+      recipient_id: typeof result.recipient_id === 'string' ? result.recipient_id : null,
+    };
+  } catch (error: any) {
+    console.warn('[GAYZE] Could not accept incoming interest:', error?.message || error);
+    return { accepted: false, interest_id: interestId, conversation_id: null, recipient_id: null, error: error?.message || 'Accept failed' };
+  }
+}
+
+/** Decline an incoming intent-interest request without notifying the sender. */
+export async function declineIncomingInterest(interestId: string): Promise<boolean> {
+  if (!supabase || !interestId) return false;
+  try {
+    const sessionUser = await ensureSupabaseSession();
+    if (!sessionUser) return false;
+    const { data, error } = await supabase.rpc('decline_interest', { p_interest_id: interestId });
+    if (error) throw error;
+    return Boolean(data && typeof data === 'object' && (data as Record<string, unknown>).declined === true);
+  } catch (error: any) {
+    console.warn('[GAYZE] Could not decline incoming interest:', error?.message || error);
+    return false;
   }
 }
 
@@ -730,19 +899,73 @@ export async function loadSupabaseProfile(userId: string): Promise<Partial<UserP
 }
 
 export async function updateSupabaseProfile(userId: string, profile: { displayName: string; handle: string; bio: string; age: number; privacySetting: LocationPrivacy; interests: string[] }) {
-  if (!supabase) return false;
+  if (!supabase || !userId) return false;
   try {
-    const { error } = await supabase.from('profiles').update({
-      display_name: profile.displayName.trim(),
-      handle: profile.handle.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 32),
-      bio: profile.bio.trim(),
-      age: profile.age,
-      privacy_setting: profile.privacySetting,
-      interests: profile.interests,
-      updated_at: new Date().toISOString(),
-    }).eq('id', userId);
-    if (error) throw error;
-    return true;
+    // Do not report success for a local-only update. The authenticated user must
+    // be the profile owner and the database must return the persisted row.
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user || authData.user.id !== userId) {
+      console.warn('[GAYZE] Profile save rejected: authenticated user does not match profile owner');
+      return false;
+    }
+
+    const displayName = profile.displayName.trim();
+    const handle = profile.handle.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 32);
+    const interests = Array.isArray(profile.interests) ? profile.interests : [];
+    if (!displayName || !handle) {
+      console.warn('[GAYZE] Profile save rejected: display name and handle are required');
+      return false;
+    }
+
+    // UPDATE-only was a silent failure when a profile row was missing: PostgREST
+    // can return no error for zero affected rows. Upsert the user-owned columns
+    // instead, so a missing profile is repaired without touching server-managed
+    // reliability/verification fields.
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: userId,
+        display_name: displayName,
+        handle,
+        bio: profile.bio.trim() || null,
+        age: profile.age,
+        privacy_setting: profile.privacySetting,
+        interests,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select('id,display_name,handle,bio,age,privacy_setting,interests,updated_at')
+      .maybeSingle();
+
+    if (error || !data || data.id !== userId) {
+      console.warn('[GAYZE] Profile preferences save failed:', error?.message || 'database returned no persisted profile');
+      return false;
+    }
+
+    // Verify the values that the editor just saved. This prevents a false
+    // "Profile saved" state when RLS, a trigger, or another persistence issue
+    // prevents the expected row from being stored.
+    const saved = await supabase
+      .from('profiles')
+      .select('id,display_name,handle,bio,age,privacy_setting,interests')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (saved.error || !saved.data) {
+      console.warn('[GAYZE] Profile save verification failed:', saved.error?.message || 'profile row missing after save');
+      return false;
+    }
+
+    const normalisedHandle = handle;
+    const savedInterests = Array.isArray(saved.data.interests) ? saved.data.interests : [];
+    const interestsMatch = savedInterests.length === interests.length &&
+      savedInterests.every((value: string, index: number) => value === interests[index]);
+
+    return saved.data.display_name === displayName &&
+      saved.data.handle === normalisedHandle &&
+      (saved.data.bio ?? '') === (profile.bio.trim() || '') &&
+      Number(saved.data.age) === Number(profile.age) &&
+      saved.data.privacy_setting === profile.privacySetting &&
+      interestsMatch;
   } catch (error) {
     console.warn('[GAYZE] Profile preferences update failed:', error);
     return false;
@@ -774,11 +997,17 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
       console.warn('[GAYZE] Supabase profile upsert unavailable:', error.message);
       return null;
     }
-    // Bootstrap defaults must NEVER overwrite an existing privacy/profile row.
-    // Only the device identity is intentionally rotated by this operation.
+    // The profile key is a legacy single-device compatibility key. Never rotate
+    // it merely because another browser/device signs in: doing so changes the
+    // public half of the legacy ECDH pair and makes older ciphertext unreadable.
+    // Multi-device encryption is handled by conversation_key_envelopes instead.
     if (identityPublicKey) {
-      const updated = await supabase.from('profiles').update({ identity_public_key: identityPublicKey }).eq('id', userId);
-      if (updated.error) throw updated.error;
+      const existing = await supabase.from('profiles').select('identity_public_key').eq('id', userId).maybeSingle();
+      if (existing.error) throw existing.error;
+      if (!existing.data?.identity_public_key) {
+        const updated = await supabase.from('profiles').update({ identity_public_key: identityPublicKey }).eq('id', userId);
+        if (updated.error) throw updated.error;
+      }
     }
     const result = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (result.error) throw result.error;

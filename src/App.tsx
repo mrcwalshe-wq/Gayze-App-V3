@@ -16,6 +16,7 @@ import { MessageAlerts } from './services/messageAlerts';
 
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
+import { IntentHub } from './components/IntentHub';
 import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
 import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
@@ -29,6 +30,7 @@ import { sendMissedCallNotification, sendIncomingCallNotification, markCallNotif
 import type { EditSectionKey } from './config/profileOptions';
 import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
+import { LiveActivationOverlay } from './components/LiveActivationOverlay';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -51,6 +53,7 @@ import {
   consumeNotificationPath,
 } from './services/notificationRouting';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
+import { getProfilePhotoUrl } from './services/profilePhotoService';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
@@ -76,7 +79,8 @@ import {
   SafetyCheckin,
   DatingProfile,
   SwarmQRPayload,
-  MeetingProposal
+  MeetingProposal,
+  TopLevelIntentMode
 } from './types';
 import {
   INITIAL_USER,
@@ -111,12 +115,13 @@ import {
   endActiveIntent,
   subscribeToRightNow,
   submitInterest,
-  submitGaze,
   saveIntimacyProfile,
   updateProfileDetails,
   loadIntimacyProfile,
   loadProfileDetails,
   loadIncomingInterests,
+  acceptIncomingInterest,
+  declineIncomingInterest,
   updateSupabaseProfile,
   persistConversationMessage,
   subscribeToConversationMessages,
@@ -181,13 +186,6 @@ const IS_LIVE_BACKEND = isSupabaseConfigured;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens' | 'profile'>('right_now');
-  const [showStartup, setShowStartup] = useState(true);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setShowStartup(false), 300);
-    return () => window.clearTimeout(timer);
-  }, []);
-
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [isAuthenticated, setIsAuthenticated] = useState(!isSupabaseConfigured);
   const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
@@ -329,6 +327,7 @@ export default function App() {
   }, []);
 
   const lastSyncedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastLocationSyncAtRef = useRef(0);
   const locationWatchStopRef = useRef<(() => void) | null>(null);
 
   // Core datasets with local state
@@ -355,6 +354,7 @@ export default function App() {
       locationWatchStopRef.current = null;
       setUserLocation(null);
       lastSyncedLocationRef.current = null;
+      lastLocationSyncAtRef.current = 0;
       return;
     }
 
@@ -373,15 +373,34 @@ export default function App() {
 
         if (isSupabaseConfigured && supabase && currentUser.privacySetting !== 'ghost') {
           const previous = lastSyncedLocationRef.current;
-          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
-          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
-          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
-            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-            // Exact GPS never leaves the device: the stored point is jittered
-            // inside the user's configured privacy radius first.
+          const movedMeters = previous
+            ? (() => {
+                const toRadians = (degrees: number) => degrees * Math.PI / 180;
+                const dLat = toRadians(location.lat - previous.lat);
+                const dLng = toRadians(location.lng - previous.lng);
+                const a = Math.sin(dLat / 2) ** 2
+                  + Math.cos(toRadians(previous.lat)) * Math.cos(toRadians(location.lat)) * Math.sin(dLng / 2) ** 2;
+                return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              })()
+            : Infinity;
+          const syncDue = Date.now() - lastLocationSyncAtRef.current >= 8000;
+          // Sync material movement (about 20m), not the previous ~90m threshold.
+          // Keep exact GPS on-device; only a privacy-jittered point is persisted.
+          if (!previous || (movedMeters >= 20 && syncDue)) {
+            const nextLocation = { lat: location.lat, lng: location.lng };
+            lastSyncedLocationRef.current = nextLocation;
+            lastLocationSyncAtRef.current = Date.now();
             void updateProfileLocation(
-              jitterLocation({ lat: location.lat, lng: location.lng }, privacyRadiusMeters(currentUser.privacySetting)),
-            );
+              jitterLocation(nextLocation, privacyRadiusMeters(currentUser.privacySetting)),
+            ).then((saved) => {
+              if (saved) {
+                // Re-query immediately after a location write so nearby intents
+                // don't wait for the 90-second background discovery poll.
+                void refreshDiscoveryRef.current();
+              } else if (lastSyncedLocationRef.current === nextLocation) {
+                lastSyncedLocationRef.current = null;
+              }
+            });
           }
         }
       },
@@ -603,7 +622,10 @@ export default function App() {
   // Hydrate once from local storage so Discover / Right Now stay consistent
   // across tab changes and reloads.
   const [isSetIntentOpen, setIsSetIntentOpen] = useState(false);
+  const [isIntentHubOpen, setIsIntentHubOpen] = useState(false);
+  const [intentHubMode, setIntentHubMode] = useState<TopLevelIntentMode | null>(null);
   const [intentBusy, setIntentBusy] = useState(false);
+  const [liveActivation, setLiveActivation] = useState<{ stage: 'connecting' | 'live'; mode: TopLevelIntentMode; intent: string } | null>(null);
   const [conversationKeyState, setConversationKeyState] = useState<{
     roomId: string;
     status: 'loading' | 'ready' | 'unavailable';
@@ -805,11 +827,35 @@ export default function App() {
         if (!user || isStale()) return;
         setShowProfileOnboarding(user.user_metadata?.profile_complete !== true);
         if (supabaseUserIdRef.current !== user.id) { clearMessageWork(); messageAlertsRef.current.clear(); }
-        supabaseUserIdRef.current = user.id;
-        setSupabaseUserId(user.id);
-
         const identity = await getOrCreateDeviceIdentity();
         if (isStale()) return;
+
+        // Register the cryptographic device before publishing supabaseUserId.
+        // Conversation hydration starts from supabaseUserId and can otherwise
+        // race ahead of device registration, causing key-envelope provisioning
+        // to fail because the database correctly rejects an unregistered creator.
+        try {
+          const registered = await registerIdentityDevice(
+            identity.fingerprint,
+            identity.publicKeyJwkString,
+            navigator.userAgent.slice(0, 48),
+            identity.signingPublicKeyJwkString,
+            identity.deviceId,
+          );
+          if (!registered) throw new Error('Device registration returned no device');
+          await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
+          if (isStale()) return;
+          setCurrentDeviceFingerprint(identity.deviceId);
+          const registeredDevices = await listIdentityDevices();
+          if (!isStale()) setIdentityDevices(registeredDevices);
+        } catch (deviceError) {
+          console.warn('[GAYZE] Device registry unavailable', deviceError);
+          return;
+        }
+
+        // Only now allow conversation/message effects to hydrate.
+        supabaseUserIdRef.current = user.id;
+        setSupabaseUserId(user.id);
         const shortKey = `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`;
 
         // Display name comes from the auth record first — never from demo fixtures.
@@ -894,17 +940,6 @@ export default function App() {
           }
         } catch (error) {
           console.warn('[GAYZE] Intimacy profile load skipped:', error);
-        }
-
-        try {
-          await registerIdentityDevice(identity.fingerprint, identity.publicKeyJwkString, navigator.userAgent.slice(0, 48), identity.signingPublicKeyJwkString, identity.deviceId);
-          await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
-          if (isStale()) return;
-          setCurrentDeviceFingerprint(identity.deviceId);
-          const registeredDevices = await listIdentityDevices();
-          if (!isStale()) setIdentityDevices(registeredDevices);
-        } catch (deviceError) {
-          console.warn('[GAYZE] Device registry unavailable', deviceError);
         }
 
         await refreshDiscoveryRef.current();
@@ -1258,6 +1293,10 @@ export default function App() {
     setActiveTab(route.tab);
     if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
     if (route.conversationId) requestConversationOpen(route.conversationId);
+<<<<<<< HEAD
+=======
+    if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+>>>>>>> origin/main
   }, [isAuthenticated]);
 
   // Messages posted by the service worker: notification taps and endpoint
@@ -1297,6 +1336,10 @@ export default function App() {
         setActiveTab(route.tab);
         if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
         if (route.conversationId) requestConversationOpen(route.conversationId);
+<<<<<<< HEAD
+=======
+        if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+>>>>>>> origin/main
         replacePath(data.url);
         event.ports[0]?.postMessage({ handled: true });
         return;
@@ -1360,6 +1403,10 @@ export default function App() {
       setActiveTab(route.tab);
       if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
       if (route.conversationId) requestConversationOpen(route.conversationId);
+<<<<<<< HEAD
+=======
+      if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+>>>>>>> origin/main
       replacePath(notice.url);
     } catch { showToast('Could not update the notification. Please try again.'); }
   };
@@ -1381,6 +1428,12 @@ export default function App() {
       if (!initialised) {
         knownIncomingInterestIdsRef.current = currentIds;
         initialised = true;
+        // Surface requests received while the app was closed as well as live
+        // inserts; otherwise the initial reconciliation silently hides them.
+        if (incoming.length > 0) {
+          setMessagesSubTab('notifications');
+          setActiveTab('swarms');
+        }
         return;
       }
 
@@ -1389,7 +1442,12 @@ export default function App() {
       if (!newInterest) return;
 
       triggerVibration([40, 60, 100]);
-      showToast(`New interest from ${newInterest.fromDisplayName}`);
+      // A Gayze is an actionable request, not a passive toast. Bring the user
+      // directly to Messages → Notifications so the sender's profile, request,
+      // and Accept / Decline actions are immediately visible.
+      setMessagesSubTab('notifications');
+      setActiveTab('swarms');
+      showToast(`New Gayze from ${newInterest.fromDisplayName}`);
     };
 
     void handleInterestChange();
@@ -1864,7 +1922,15 @@ export default function App() {
         return;
       }
       try {
-        const result = await messageProcessorRef.current.key(room, supabaseUserId);
+        let result = await messageProcessorRef.current.key(room, supabaseUserId);
+        // Newly accepted interests create a fresh conversation. Allow the
+        // device registry/envelope provisioning a short, bounded window to
+        // settle before declaring the secure chat unavailable.
+        for (let attempt = 1; !result.key && result.transient && attempt < 5 && !disposed; attempt += 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 350 * attempt));
+          if (disposed) return;
+          result = await messageProcessorRef.current.key(room, supabaseUserId);
+        }
         if (disposed) return;
         keyReady = Boolean(result.key);
         setConversationKeyState({
@@ -2485,7 +2551,20 @@ export default function App() {
     primeCallAudio();
     setIncomingCall(null);
     setCallPeerName(call.callerName);
-    setCallPeerAvatar(undefined); // Will be fetched from profile if needed
+    setCallPeerAvatar(undefined);
+    // Incoming signalling carries identity, not a photo URL. Resolve the
+    // caller's own profile avatar instead of leaving the call screen on initials.
+    if (supabase && call.callerId) {
+      void (async () => {
+        try {
+          const { data } = await supabase.from('profiles').select('avatar_path').eq('id', call.callerId).maybeSingle();
+          const avatar = await getProfilePhotoUrl(data?.avatar_path);
+          if (avatar) setCallPeerAvatar((current) => current || avatar);
+        } catch (error) {
+          console.warn('[GAYZE Call] Caller avatar could not be loaded');
+        }
+      })();
+    }
     setCallType(call.callType);
     setCallTargetUserId(call.callerId);
     setActiveRoomId(call.conversationId);
@@ -2516,27 +2595,37 @@ export default function App() {
 
   const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
     triggerVibration([40, 70]);
+    const validPeerId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(peerId || '');
+    if (!isSupabaseConfigured || !isAuthenticated || !validPeerId) {
+      showToast('Sign in to send a Gayze request.');
+      return false;
+    }
 
-    if (isSupabaseConfigured && isAuthenticated) {
-      const pulse = supabaseRightNowPulses.find((item) => item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`));
-      if (!pulse || !pulse.id.startsWith('supabase_')) {
-        showToast('That Gaze could not be linked to a live profile.');
-        return false;
-      }
-      const result = await submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length));
-      if (result.sent) {
-        showToast(`Gaze sent to ${peerName}`);
-      } else {
-        showToast('Gaze could not be sent. Try again.');
-      }
+    // Every control labelled GAYZE must create the same accept/decline gate.
+    // A legacy gazes row was only a passive ping and could never unlock chat.
+    const pulse = supabaseRightNowPulses.find((item) =>
+      item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`),
+    );
+    if (pulse) {
+      const result = await handleSubmitInterest(pulse);
       return result.sent;
     }
 
-    showToast(`You gave a Gaze to ${peerName}.`);
+    const result = await submitInterest(peerId!, intentId);
+    if (!result.sent) {
+      showToast('Gayze request could not be sent. Try again.');
+      return false;
+    }
+    if (result.mutual && result.conversation_id && isConversationId(result.conversation_id)) {
+      await refreshConversationListRef.current();
+      requestConversationOpen(result.conversation_id);
+    } else {
+      showToast(`Gayze request sent to ${peerName} — awaiting their response.`);
+    }
     return true;
   };
 
-  const handleSubmitInterest = async (pulse: Pulse) => {
+  const handleSubmitInterest = async (pulse: Pulse, message?: string, sharedPhotoIds?: string[]) => {
     const account = supabaseUserIdRef.current;
     const generation = authGenerationRef.current;
     const request = ++directChatRequestRef.current;
@@ -2551,7 +2640,7 @@ export default function App() {
     }
 
     const intentId = pulse.id.slice('supabase_'.length);
-    const result = await submitInterest(pulse.peerId, intentId);
+    const result = await submitInterest(pulse.peerId, intentId, message, sharedPhotoIds ?? []);
     if (account !== supabaseUserIdRef.current || generation !== authGenerationRef.current
       || request !== directChatRequestRef.current || isSigningOutRef.current) {
       return { sent: false, mutual: false, conversation_id: null };
@@ -2573,14 +2662,8 @@ export default function App() {
   };
 
   const handleSubmitGaze = async (pulse: Pulse) => {
-    if (!isSupabaseConfigured) return { sent: false };
-
-    const isSupabasePulse = pulse.id.startsWith('supabase_');
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulse.peerId);
-    if (!isSupabasePulse || !isUuid) return { sent: false };
-
-    const intentId = pulse.id.slice('supabase_'.length);
-    return submitGaze(pulse.peerId, intentId);
+    const result = await handleSubmitInterest(pulse);
+    return { sent: result.sent };
   };
 
 
@@ -2592,7 +2675,7 @@ export default function App() {
    * UI — if the write fails nothing is pretended to be live. Local/demo mode
    * keeps the signal on the device.
    */
-  const handleSaveUserIntent = (intent: UserActiveIntent) => {
+  const handleSaveUserIntent = async (intent: UserActiveIntent): Promise<boolean> => {
     hapticSensitiveAction();
     const previous = activeUserIntentRef.current;
     const isFirstPublish = !previous;
@@ -2600,66 +2683,71 @@ export default function App() {
     if (!IS_LIVE_BACKEND) {
       setActiveUserIntent(intent);
       setIsSetIntentOpen(false);
+      if (isFirstPublish && intent.when === 'Now') {
+        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
+      }
       showToast(`Status updated: ${intent.intent} (${intent.when})`);
-      return;
+      return true;
     }
 
     if (!isAuthenticated) {
       showToast('Sign in to publish a live intent.');
-      return;
+      return false;
     }
 
-    // Responsive UI: show the change immediately, then reconcile with the write.
-    setActiveUserIntent({ ...intent, remoteId: previous?.remoteId, isPaused: false });
-    setIsSetIntentOpen(false);
-    setIntentBusy(true);
+    if (isFirstPublish && intent.when === 'Now') {
+      setLiveActivation({ stage: 'connecting', mode: intent.mode, intent: String(intent.intent) });
+    }
 
-    void (async () => {
-      try {
-        const location = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined;
-        const sourceUser = currentUserRef.current;
-        const saved = await saveActiveIntentWithSession(
-          { ...intent, remoteId: previous?.remoteId },
-          sourceUser,
-          location,
-        );
-        if (!saved) {
-          // Honest failure: revert instead of showing a live signal that is not live.
-          setActiveUserIntent(previous);
-          showToast('Could not publish your intent. Nothing was saved.');
-          return;
-        }
-        setActiveUserIntent((prev) => ({
-          ...(prev || intent),
-          ...intent,
-          remoteId: saved.id,
-          expiresAt: saved.expiresAt,
-          isPaused: saved.isPaused,
-        }));
-        await refreshDiscoveryRef.current();
-        analytics.logEvent('intent_published', {
-          mode: intent.mode,
-          intent: intent.intent,
-          timing: intent.when,
-          privacy: sourceUser.privacySetting,
-          safe_haven: Boolean(intent.isNearSafeHaven),
-        });
-        if (isFirstPublish) {
-          // Real story record, authored by the signed-in user. Media stays empty
-          // until a storage-backed upload exists.
-          void createStoryFromIntent(intent).catch((error) => {
-            console.warn('[GAYZE] Story creation failed', error);
-          });
-        }
-        showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
-      } catch (error) {
-        console.error('[GAYZE] Failed to persist Right Now intent', error);
-        setActiveUserIntent(previous);
+    setIntentBusy(true);
+    try {
+      const location = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined;
+      const sourceUser = currentUserRef.current;
+      const saved = await saveActiveIntentWithSession(
+        { ...intent, remoteId: previous?.remoteId },
+        sourceUser,
+        location,
+      );
+      if (!saved) {
+        setLiveActivation(null);
         showToast('Could not publish your intent. Nothing was saved.');
-      } finally {
-        setIntentBusy(false);
+        return false;
       }
-    })();
+
+      const confirmedIntent: UserActiveIntent = {
+        ...intent,
+        remoteId: saved.id,
+        expiresAt: saved.expiresAt,
+        isPaused: saved.isPaused,
+      };
+      setActiveUserIntent(confirmedIntent);
+      setIsSetIntentOpen(false);
+      if (isFirstPublish && intent.when === 'Now') {
+        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
+      }
+      await refreshDiscoveryRef.current();
+      analytics.logEvent('intent_published', {
+        mode: intent.mode,
+        intent: intent.intent,
+        timing: intent.when,
+        privacy: sourceUser.privacySetting,
+        safe_haven: Boolean(intent.isNearSafeHaven),
+      });
+      if (isFirstPublish) {
+        void createStoryFromIntent(intent).catch((error) => {
+          console.warn('[GAYZE] Story creation failed', error);
+        });
+      }
+      showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
+      return true;
+    } catch (error) {
+      console.error('[GAYZE] Failed to persist Right Now intent', error);
+      setLiveActivation(null);
+      showToast('Could not publish your intent. Nothing was saved.');
+      return false;
+    } finally {
+      setIntentBusy(false);
+    }
   };
 
   /** Pause/resume is a backend state change in live mode, not a local flag. */
@@ -2691,6 +2779,10 @@ export default function App() {
     const intent = activeUserIntentRef.current;
     if (!intent) return;
     hapticSensitiveAction();
+
+    // Use one shared toast lane for the pending and final states. Replacing
+    // this message avoids stacking the map-local toast over the app-level result.
+    showToast('Ending your signal…');
 
     if (!IS_LIVE_BACKEND) {
       setActiveUserIntent(null);
@@ -2730,9 +2822,25 @@ export default function App() {
     handleSaveUserIntent(next);
   };
 
-  const handleOpenIntentSheet = () => {
+  const handleOpenIntentSheet = (mode: TopLevelIntentMode | null = null) => {
     analytics.logEvent('intent_started');
+    setIntentHubMode(mode);
+    setIsIntentHubOpen(false);
     setIsSetIntentOpen(true);
+  };
+
+  const handleOpenIntentHub = () => {
+    // GAYZE is a single toggle for all intent overlays: tapping it while either
+    // sheet is open closes everything and returns to the unobstructed map.
+    if (isIntentHubOpen || isSetIntentOpen) {
+      setIsIntentHubOpen(false);
+      setIsSetIntentOpen(false);
+      setActiveTab('right_now');
+      return;
+    }
+    analytics.logEvent('intent_hub_opened');
+    setActiveTab('right_now');
+    setIsIntentHubOpen(true);
   };
 
   // Safety Check-in Handlers — persisted in Supabase when the live backend is enabled.
@@ -2889,8 +2997,6 @@ export default function App() {
     : pulses.length;
   const hasLiveAtmosphere = Boolean(activeUserIntent && !activeUserIntent.isPaused) || liveNearbyCount > 0;
 
-  if (showStartup) return <GayzeLoadingScreen mode="startup" />;
-
   // If Discreet Mask is triggered, render pure camouflage
   if (isMaskActive) {
     return <DiscreetMaskView onExitMask={() => setIsMaskActive(false)} />;
@@ -2930,21 +3036,7 @@ export default function App() {
         data-intent-mode={activeUserIntent?.mode ?? 'none'}
         data-active-tab={activeTab}
       >
-      {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
-      <Navbar
-        activeTab={activeTab}
-        onTabChange={(tab) => { if (tab === 'swarms') beginChatTrace(activeRoomId); setActiveTab(tab); }}
-        unreadCount={unreadMessageCount}
-        notificationCount={notificationInbox?.unread ?? 0}
-        onOpenMask={() => setIsMaskActive(true)}
-        onOpenIdentity={() => setIsIdentityOpen(true)}
-        onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
-        isSafetyTimerActive={checkinState.isActive}
-        onOpenQR={() => handleOpenQRModal()}
-        reliabilityScore={currentUser.reliabilityScore}
-        userNeighborhood={currentUser.neighborhood}
-        activeIntentMode={activeUserIntent?.mode ?? null}
-      />
+
 
       {/* Main Content Viewport Container */}
       <main
@@ -3002,10 +3094,14 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
+<<<<<<< HEAD
               onOpenNotifications={() => {
                 setMessagesSubTab('notifications');
                 setActiveTab('swarms');
               }}
+=======
+              onOpenNotifications={() => { setMessagesSubTab('notifications'); setActiveTab('swarms'); }}
+>>>>>>> origin/main
             />
           )}
 
@@ -3019,6 +3115,7 @@ export default function App() {
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
               userAvatarUrl={currentUser.avatarUrl}
+              isIntentOverlayOpen={isIntentHubOpen || isSetIntentOpen}
               // Live discovery rows already carry the person's real
               // (privacy-jittered) coordinates. Derived photo-grid profiles are
               // demo-only data and are never mixed into the live map.
@@ -3090,10 +3187,48 @@ export default function App() {
                     inbox={notificationInbox}
                     inboxStatus={notificationInboxStatus}
                     onOpenNotification={openInboxNotification}
+<<<<<<< HEAD
                     onClose={() => setMessagesSubTab('chats')}
                   />
                 ) : (
                   <ChatRoomView
+=======
+                    onOpenPublicProfile={(userId, fallback) => {
+                      setViewingPublicProfile({ userId, ...fallback });
+                    }}
+                    onInterestAccepted={async (conversationId) => {
+                      await refreshConversationListRef.current();
+                      requestConversationOpen(conversationId);
+                    }}
+                    onClose={() => setMessagesSubTab('chats')}
+                  />
+                ) : (
+                  <>
+                    {notificationInbox?.rows
+                      .filter((notice) => notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received'))
+                      .slice(0, 5)
+                      .map((notice) => (
+                        <button
+                          key={notice.id}
+                          type="button"
+                          onClick={() => setMessagesSubTab('notifications')}
+                          className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-2xl border border-violet-400/40 bg-gradient-to-r from-violet-950/80 via-fuchsia-950/50 to-amber-950/30 px-4 py-3 text-left shadow-[0_0_22px_rgba(139,92,246,0.12)] transition hover:border-violet-300/70 hover:shadow-[0_0_26px_rgba(139,92,246,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                          aria-label="View and respond to a received Gayze"
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-300/50 bg-gradient-to-br from-violet-500/30 to-amber-400/20 text-lg text-violet-100">✦</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-white">Someone sent you a Gayze</span>
+                              {!notice.read_at && <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>}
+                            </span>
+                            <span className="mt-1 block text-xs text-violet-100/75">View the request and choose whether to connect</span>
+                            <span className="mt-2 block h-[2px] w-full overflow-hidden rounded-full bg-white/10"><span className="block h-full w-2/3 rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300" /></span>
+                          </span>
+                          <span className="shrink-0 text-sm font-semibold text-violet-100">View <span aria-hidden="true">›</span></span>
+                        </button>
+                      ))}
+                    <ChatRoomView
+>>>>>>> origin/main
                     rooms={rooms}
                     messages={messages}
                     activeRoomId={activeRoomId}
@@ -3123,10 +3258,19 @@ export default function App() {
                     conversationKeyUnavailable={
                       Boolean(activeRoomId)
                       && conversationKeyState.roomId === activeRoomId
+<<<<<<< HEAD
                       && conversationKeyState.status === 'unavailable'
                     }
                     conversationKeyReason={conversationKeyState.reason}
                   />
+=======
+                      && conversationKeyState.status !== 'ready'
+                    }
+                    conversationKeyReason={conversationKeyState.reason}
+                    activeIntentMode={activeUserIntent?.mode}
+                  />
+                  </>
+>>>>>>> origin/main
                 )}
               </div>
             </div>
@@ -3206,6 +3350,19 @@ export default function App() {
         onDecline={handleDeclineIncomingCall}
       />
 
+      {/* Map-first GAYZE intent hub */}
+      <IntentHub
+        isOpen={isIntentHubOpen}
+        activeIntent={activeUserIntent}
+        remainingMinutes={activeUserIntent?.expiresAt ? Math.max(0, Math.ceil((activeUserIntent.expiresAt - Date.now()) / 60000)) : 0}
+        onClose={() => setIsIntentHubOpen(false)}
+        onCreateIntent={(mode) => handleOpenIntentSheet(mode ?? null)}
+        onManageIntent={() => {
+          setIsIntentHubOpen(false);
+          setIsSetIntentOpen(true);
+        }}
+      />
+
       {/* Universal Set Intent Sheet */}
       <SetIntentSheet
         isOpen={isSetIntentOpen}
@@ -3214,7 +3371,17 @@ export default function App() {
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
         userNeighborhood={currentUser.neighborhood}
+        initialMode={intentHubMode}
       />
+
+      {liveActivation && (
+        <LiveActivationOverlay
+          stage={liveActivation.stage}
+          mode={liveActivation.mode}
+          intent={liveActivation.intent}
+          onComplete={() => setLiveActivation(null)}
+        />
+      )}
 
       {/* Sectioned "About you" profile editor */}
       {isProfileEditOpen && (
@@ -3304,6 +3471,30 @@ export default function App() {
         onSignOut={handleSignOut}
       />
       </div>{/* /g-shell */}
+
+      {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
+      <Navbar
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          if (tab === 'swarms') beginChatTrace(activeRoomId);
+          // Navigation always dismisses transient menus/sheets. Returning to
+          // Intents reveals the map rather than leaving an overlay in front.
+          setIsIntentHubOpen(false);
+          setIsSetIntentOpen(false);
+          setActiveTab(tab);
+        }}
+        unreadCount={unreadMessageCount}
+        notificationCount={notificationInbox?.unread ?? 0}
+        onOpenIntentHub={handleOpenIntentHub}
+        onOpenMask={() => setIsMaskActive(true)}
+        onOpenIdentity={() => setIsIdentityOpen(true)}
+        onOpenSafetyTimer={() => setIsSafetyTimerOpen(true)}
+        isSafetyTimerActive={checkinState.isActive}
+        onOpenQR={() => handleOpenQRModal()}
+        reliabilityScore={currentUser.reliabilityScore}
+        userNeighborhood={currentUser.neighborhood}
+        activeIntentMode={activeUserIntent?.mode ?? null}
+      />
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
       <Suspense fallback={null}>

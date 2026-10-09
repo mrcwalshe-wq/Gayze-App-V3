@@ -15,7 +15,7 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 /** Path of the root-scoped production service worker. */
-export const SERVICE_WORKER_URL = '/service-worker.js';
+export const SERVICE_WORKER_URL = '/service-worker.js?v=20261008-chat-e2ee-photo';
 
 /** Public VAPID application server key (safe to expose to the browser). */
 const VAPID_PUBLIC_KEY = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined)?.trim() || '';

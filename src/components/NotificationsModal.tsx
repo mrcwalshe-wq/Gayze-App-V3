@@ -1,6 +1,6 @@
 import { notificationCopy, type NotificationInbox, type InboxNotification } from '../services/notificationInbox';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bell,
   BellOff,
@@ -10,6 +10,7 @@ import {
   Radio,
   Share,
   ChevronRight,
+  ChevronLeft,
   Shield,
   Sparkles,
   Timer,
@@ -17,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
+import { acceptIncomingInterest, declineIncomingInterest, loadIncomingInterests, type IncomingInterest } from '../services/supabaseService';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   getPushEnvironment,
@@ -38,6 +40,19 @@ interface NotificationsModalProps {
   inbox?: NotificationInbox | null;
   inboxStatus?: ChatConnectionState;
   onOpenNotification?: (notice: InboxNotification) => void;
+<<<<<<< HEAD
+=======
+  onOpenPublicProfile?: (
+    userId: string,
+    fallback?: {
+      fallbackName?: string;
+      fallbackAge?: number;
+      fallbackArea?: string;
+      fallbackPhotoUrl?: string;
+    },
+  ) => void;
+  onInterestAccepted?: (conversationId: string) => void;
+>>>>>>> origin/main
   embedded?: boolean;
 }
 
@@ -56,6 +71,16 @@ function isTestPushAvailable(): boolean {
 
 type CategoryKey = Exclude<keyof NotificationPreferences, 'pushEnabled'>;
 
+const notificationLabel = (notice: InboxNotification): string => {
+  if (notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received')) {
+    return 'Someone sent you a Gayze';
+  }
+  if (notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':declined')) {
+    return 'Your Gayze was declined';
+  }
+  return notificationCopy[notice.category] ?? 'GAYZE notification';
+};
+
 const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta: string }[] = [
   { key: 'messages', icon: <MessageCircle className="w-4 h-4" />, label: 'Messages', meta: 'When someone messages you' },
   { key: 'intentActivity', icon: <Radio className="w-4 h-4" />, label: 'Gayzes & intent interest', meta: 'When someone Gayzes you or shows interest in your intent' },
@@ -64,28 +89,66 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
+<<<<<<< HEAD
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, embedded = false }) => {
+=======
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, onOpenPublicProfile, onInterestAccepted, embedded = false }) => {
+>>>>>>> origin/main
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null);
+  const [incomingInterests, setIncomingInterests] = useState<IncomingInterest[]>([]);
+  const [interestBusyId, setInterestBusyId] = useState<string | null>(null);
+  const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number; name: string } | null>(null);
+  const embeddedScrollRef = useRef<HTMLDivElement | null>(null);
+  const incomingInterestsRef = useRef<HTMLElement | null>(null);
+  const latestIncomingGayzeNoticeId = inbox?.rows.find((notice) =>
+    notice.event_key.endsWith(':received')
+      ? notice.event_key.startsWith('interest:')
+      // Backwards compatibility: the currently deployed trigger writes
+      // interest:<request-id>:<intent-id-or-none>, not :received.
+      : notice.category === 'gaze'
+        && /^interest:[0-9a-f-]{36}:(?:[0-9a-f-]{36}|none)$/i.test(notice.event_key),
+  )?.id ?? null;
 
   const refresh = useCallback(async () => {
     setEnv(getPushEnvironment());
-    const [device, loaded] = await Promise.all([isDeviceSubscribed(), loadNotificationPreferences()]);
+    const [device, loaded, interests] = await Promise.all([isDeviceSubscribed(), loadNotificationPreferences(), loadIncomingInterests()]);
     setSubscribed(device);
     setPrefs(loaded);
+    setIncomingInterests(interests);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     if (!isOpen) return;
+    if (embedded) requestAnimationFrame(() => {
+      if (embeddedScrollRef.current) embeddedScrollRef.current.scrollTop = 0;
+    });
     setLoading(true);
     setFeedback(null);
     void refresh();
   }, [isOpen, refresh]);
+
+  // The inbox is Realtime-backed. When a new incoming-Gayze notification lands
+  // while this screen is already open, refresh the actionable request cards too;
+  // otherwise the badge updates but Accept / Decline remains missing until reopen.
+  useEffect(() => {
+    if (!isOpen || !embedded || !latestIncomingGayzeNoticeId) return;
+    let cancelled = false;
+    void loadIncomingInterests().then((interests) => {
+      if (!cancelled) {
+        setIncomingInterests(interests);
+        if (interests.length) requestAnimationFrame(() => incomingInterestsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
+    }).catch((error) => {
+      console.warn('[GAYZE] Could not refresh incoming Gayze cards:', error);
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, embedded, latestIncomingGayzeNoticeId]);
 
   useEffect(() => {
     const recovery = (event: Event) => {
@@ -185,7 +248,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const recentRows = inbox?.rows.slice(0, 4) ?? [];
 
   return (
+<<<<<<< HEAD
     <div className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
+=======
+    <div ref={embedded ? embeddedScrollRef : undefined} className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
+>>>>>>> origin/main
       <div className={embedded ? 'g-messages-notifications__panel' : 'g-sheet g-notifications-sheet'} onClick={embedded ? undefined : (e) => e.stopPropagation()}>
         <div className="g-sheet__grip" />
 
@@ -300,6 +367,96 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                 ))}
               </section>
 
+              {incomingInterests.length > 0 && (
+                <section ref={incomingInterestsRef} className="g-panel g-notification-inbox scroll-mt-3">
+                  <div className="g-notification-section-head"><div><span className="g-label text-[#C9A24D]">Intent interests</span><h3>{incomingInterests.length} awaiting your response</h3></div></div>
+                  {incomingInterests.map((interest) => (
+                    <div key={interest.id} className="border-t border-white/[0.06] p-4">
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          className="relative w-16 h-16 shrink-0 rounded-2xl overflow-hidden border border-[#C9A24D]/45 bg-[#171922] focus:outline-none focus:ring-2 focus:ring-[#C9A24D]/60"
+                          aria-label={`View ${interest.fromDisplayName}'s profile`}
+                          onClick={() => onOpenPublicProfile?.(interest.fromUserId, {
+                            fallbackName: interest.fromDisplayName,
+                            fallbackAge: interest.fromAge ?? undefined,
+                            fallbackArea: interest.fromNeighborhood ?? undefined,
+                            fallbackPhotoUrl: interest.fromAvatarUrl ?? undefined,
+                          })}
+                        >
+                          <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white">
+                            {interest.fromDisplayName.slice(0, 1).toUpperCase()}
+                          </span>
+                          {interest.fromAvatarUrl && (
+                            <img
+                              src={interest.fromAvatarUrl}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-semibold text-white truncate">
+                              {interest.fromDisplayName}{interest.fromAge ? `, ${interest.fromAge}` : ''}
+                            </div>
+                            {interest.fromSafetyVerified && <Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                          </div>
+                          {interest.fromNeighborhood && (
+                            <div className="text-[10.5px] text-zinc-500 mt-0.5 truncate">{interest.fromNeighborhood}</div>
+                          )}
+                          {interest.fromBio && (
+                            <p className="text-[11.5px] text-zinc-300 mt-2 leading-relaxed line-clamp-2">{interest.fromBio}</p>
+                          )}
+                          {(interest.fromInterests?.length || interest.fromReliabilityScore || interest.fromVerifiedPeersCount) ? (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {interest.fromInterests?.slice(0, 3).map((item) => (
+                                <span key={item} className="px-2 py-1 rounded-full bg-white/[0.04] border border-white/[0.07] text-[9.5px] text-zinc-400">{item}</span>
+                              ))}
+                              {interest.fromReliabilityScore ? <span className="px-2 py-1 rounded-full bg-emerald-500/[0.07] border border-emerald-500/20 text-[9.5px] text-emerald-300">Reliability {interest.fromReliabilityScore}</span> : null}
+                            </div>
+                          ) : null}
+                          <div className="text-[10.5px] text-zinc-500 mt-2">Intent interest · review their profile before deciding</div>
+                        </div>
+                      </div>
+                      {interest.message && <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] text-zinc-200">{interest.message}</div>}
+                      {interest.sharedPhotoUrls?.length ? (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10.5px] text-zinc-500">{interest.sharedPhotoUrls.length} shared photo{interest.sharedPhotoUrls.length === 1 ? '' : 's'}</span>
+                            <button
+                              type="button"
+                              className="text-[10.5px] font-semibold text-[#C9A24D]"
+                              onClick={() => setPhotoViewer({ urls: interest.sharedPhotoUrls!, index: 0, name: interest.fromDisplayName })}
+                            >
+                              Open album
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            {interest.sharedPhotoUrls.map((url, photoIndex) => (
+                              <button
+                                key={url}
+                                type="button"
+                                className="overflow-hidden rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-[#C9A24D]/60"
+                                aria-label={`Open shared photo ${photoIndex + 1} of ${interest.sharedPhotoUrls!.length}`}
+                                onClick={() => setPhotoViewer({ urls: interest.sharedPhotoUrls!, index: photoIndex, name: interest.fromDisplayName })}
+                              >
+                                <img src={url} alt="" className="aspect-square object-cover w-full h-full" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="grid grid-cols-2 gap-2 mt-4">
+                        <button type="button" disabled={interestBusyId===interest.id} onClick={async()=>{setInterestBusyId(interest.id);const result=await acceptIncomingInterest(interest.id);setInterestBusyId(null);if(result.accepted){setIncomingInterests(prev=>prev.filter(item=>item.id!==interest.id));onInterestAccepted?.(result.conversation_id!);setFeedback({text:'Intent interest accepted. Your encrypted chat is ready.',tone:'ok'});}else setFeedback({text:'Could not accept this interest. Try again.',tone:'error'});}} className="g-btn g-btn--primary min-h-[44px]">{interestBusyId===interest.id?'Working…':'Accept'}</button>
+                        <button type="button" disabled={interestBusyId===interest.id} onClick={async()=>{setInterestBusyId(interest.id);const ok=await declineIncomingInterest(interest.id);setInterestBusyId(null);if(ok){setIncomingInterests(prev=>prev.filter(item=>item.id!==interest.id));setFeedback({text:'Declined. The sender will not be notified.',tone:'info'});}else setFeedback({text:'Could not decline this interest. Try again.',tone:'error'});}} className="g-btn g-btn--quiet min-h-[44px]">Decline</button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              )}
+
               <section className="g-panel g-notification-inbox">
                 <div className="g-notification-section-head">
                   <div>
@@ -313,10 +470,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                 ) : (
                   recentRows.map((notice) => (
                     <button key={notice.id} type="button" onClick={() => onOpenNotification?.(notice)}
-                      className="g-notification-row" aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notificationCopy[notice.category] ?? 'GAYZE notification'}`}>
+                      className="g-notification-row" aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notificationLabel(notice)}`}>
                       <span className={`g-notification-row__dot ${notice.read_at ? 'is-read' : ''}`} />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] font-semibold text-white truncate">{notificationCopy[notice.category] ?? 'GAYZE notification'}</span>
+                        <span className="block text-[13px] font-semibold text-white truncate">{notificationLabel(notice)}</span>
                         <time className="block mt-1 text-[10.5px] text-zinc-600" dateTime={notice.created_at}>{new Date(notice.created_at).toLocaleString()}</time>
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />

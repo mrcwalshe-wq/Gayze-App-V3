@@ -3,7 +3,7 @@ import { RealtimeRecovery, requireRealtimeSession, type ChatConnectionState } fr
 
 export interface InboxNotification {
   id: string; user_id: string; actor_id: string | null; category: string;
-  url: string; created_at: string; read_at: string | null;
+  event_key: string; url: string; created_at: string; read_at: string | null;
 }
 export interface NotificationInbox { rows: InboxNotification[]; unread: number; messageUnread: number; }
 export const notificationCopy: Record<string, string> = {
@@ -26,7 +26,7 @@ export function watchNotificationInbox(userId: string, receive: (inbox: Notifica
       const rows: InboxNotification[] = [];
       let cursor: InboxNotification | undefined;
       for (;;) {
-        let query = client.from('gayze_notifications').select('id,user_id,actor_id,category,url,created_at,read_at')
+        let query = client.from('gayze_notifications').select('id,user_id,actor_id,category,event_key,url,created_at,read_at')
           .eq('user_id', userId).order('created_at').order('id').limit(200);
         if (cursor) query = query.or(`created_at.gt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.gt.${cursor.id})`);
         const result = await query.abortSignal(signal);

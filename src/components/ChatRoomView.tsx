@@ -115,8 +115,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     };
   }, []);
   const [inputText, setInputText] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const pendingSend = useRef<{ draft: string; id: string } | null>(null);
+  const pendingSends = useRef(new Map<string, string>());
+  const [optimisticMessages, setOptimisticMessages] = useState<EncryptedMessage[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
   const [inspectedMessageId, setInspectedMessageId] = useState<string | null>(null);
@@ -239,8 +239,22 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     onVisibleRoomChange?.(visibleRoomId);
     return () => onVisibleRoomChange?.(null);
   }, [visibleRoomId, onVisibleRoomChange]);
-  const currentMessages = useMemo(() => (messages[currentRoom?.id || ''] || [])
-    .filter((message) => !message.deletedForMe && (!message.isBurned || message.deletedForEveryone) && (!message.expiresAt || message.expiresAt > now)), [messages, currentRoom?.id, now]);
+  const currentMessages = useMemo(() => {
+    const persisted = messages[currentRoom?.id || ''] || [];
+    const pending = optimisticMessages.filter((message) => message.roomId === currentRoom?.id);
+    const persistedIds = new Set(persisted.map((message) => message.id));
+    const merged = [...persisted, ...pending.filter((message) => !persistedIds.has(message.id))];
+    return merged
+      .filter((message) => !message.deletedForMe && (!message.isBurned || message.deletedForEveryone) && (!message.expiresAt || message.expiresAt > now))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }, [messages, optimisticMessages, currentRoom?.id, now]);
+
+  // Once the authoritative database row arrives, remove its local optimistic twin.
+  useEffect(() => {
+    if (!optimisticMessages.length) return;
+    const persistedIds = new Set((messages[activeRoomId] || []).map((message) => message.id));
+    setOptimisticMessages((prev) => prev.filter((message) => !persistedIds.has(message.id)));
+  }, [messages, activeRoomId, optimisticMessages.length]);
   const [historyWindow, setHistoryWindow] = useState({ roomId: activeRoomId, count: 100 });
   const visibleCount = historyWindow.roomId === activeRoomId ? historyWindow.count : 100;
   const visibleMessages = currentMessages.slice(-visibleCount);
@@ -302,25 +316,50 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!inputText.trim() && !attachedMedia) || isSending || !currentRoom) return;
+    if ((!inputText.trim() && !attachedMedia) || !currentRoom) return;
 
     const textToSend = inputText.trim() || (attachedMedia ? 'Shared a photo' : '');
     const mediaToSend = attachedMedia || undefined;
 
     const draft = JSON.stringify([currentUserId, currentRoom.id, textToSend, mediaToSend, currentRoom.ephemeralTtlSeconds]);
-    if (pendingSend.current?.draft !== draft) pendingSend.current = { draft, id: crypto.randomUUID() };
+    let messageId = pendingSends.current.get(draft);
+    if (!messageId) {
+      messageId = crypto.randomUUID();
+      pendingSends.current.set(draft, messageId);
+    }
     setSendError(null);
-    setIsSending(true);
+
+    // Render the outgoing message immediately. The same stable ID is used by
+    // the encrypted database write, so acknowledgement replaces this bubble
+    // instead of creating a duplicate.
+    setOptimisticMessages((prev) => [
+      ...prev.filter((message) => message.id !== messageId),
+      {
+        id: messageId,
+        roomId: currentRoom.id,
+        senderKey: currentUserId || currentUser.publicKey,
+        senderName: 'You',
+        timestamp: Date.now(),
+        cipherText: '',
+        nonceHex: '',
+        plainText: textToSend,
+        ephemeralTtlSeconds: currentRoom.ephemeralTtlSeconds,
+        mediaUrl: mediaToSend,
+        mediaType: mediaToSend ? 'image' : undefined,
+        sendState: 'sending',
+      },
+    ]);
+    setInputText('');
+    setAttachedMedia(null);
 
     try {
-      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend, pendingSend.current.id);
-      pendingSend.current = null;
-      setInputText('');
-      setAttachedMedia(null);
+      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend, messageId);
+      pendingSends.current.delete(draft);
+      setOptimisticMessages((prev) => prev.filter((message) => message.id !== messageId));
     } catch {
-      setSendError('Send not confirmed. Your draft is kept; retrying this draft will not send it twice.');
+      setSendError('Send not confirmed. Your message is safe to retry.');
+      setOptimisticMessages((prev) => prev.map((message) => message.id === messageId ? { ...message, sendState: 'failed' } : message));
     } finally {
-      setIsSending(false);
     }
   };
 
@@ -359,21 +398,26 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         className={`gayze-chat-sidebar w-full sm:w-72 md:w-80 bg-[#0d0e14] border-r border-white/[0.08] flex flex-col shrink-0 ${mobileView === 'chat' ? 'hidden sm:flex' : 'flex'
           }`}
       >
-        {/* Chats header */}
-        <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-emerald-400" />
-            <span className="text-[15px] font-extrabold text-white tracking-tight">
-              Messages
+        {/* Messages / Notifications sub-navigation */}
+        <div className="gayze-message-header">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="text-[15px] font-extrabold text-white tracking-tight">
+                Messages
+              </span>
+              {rooms.length > 0 && (
+                <span className="text-[11px] text-zinc-500 font-mono">{rooms.length}</span>
+              )}
+            </div>
+            <span className="flex items-center gap-1.5 text-[10.5px] text-zinc-500 font-medium shrink-0">
+              <Lock className="w-3 h-3 text-emerald-400" />
+              Encrypted
             </span>
-            {rooms.length > 0 && (
-              <span className="text-[11px] text-zinc-500 font-mono">{rooms.length}</span>
-            )}
           </div>
-          <span className="flex items-center gap-1.5 text-[10.5px] text-zinc-500 font-medium">
-            <Lock className="w-3 h-3 text-emerald-400" />
-            Encrypted
-          </span>
+
+          {/* Chats / Notifications navigation is owned by the Messages hub in App.tsx.
+              Keeping a second tab bar here duplicated the navigation on mobile. */}
         </div>
 
         {/* Room List */}
@@ -459,12 +503,12 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       {/* Main Chat Area */}
       {currentRoom ? (
         <div data-testid="conversation-pane" data-room-id={currentRoom.id}
-          className={`flex-1 flex flex-col bg-[#090a0e] min-w-0 min-h-0 ${mobileView === 'list' ? 'hidden sm:flex' : 'flex'
+          className={`g-chat-shell flex-1 flex flex-col bg-[#090a0e] min-w-0 min-h-0 ${mobileView === 'list' ? 'hidden sm:flex' : 'flex'
             }`}
         >
           {/* Header */}
-          <div className="gayze-chat-header shrink-0 h-14 px-3 sm:px-4 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="gayze-chat-header relative z-10 w-full shrink-0 border-b border-white/[0.08] flex items-center justify-between gap-2 bg-[#0d0e14]">
+            <div className="g-chat-header__left flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               {/* Mobile Back Button */}
               <button
                 onClick={() => {
@@ -477,7 +521,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              <div className="w-8 h-8 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0 overflow-hidden">
+              <div className="g-chat-header__avatar w-10 h-10 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0 overflow-hidden">
                 {currentRoom.type === 'gathering' ? (
                   <Users className="w-4 h-4" />
                 ) : (currentRoom.peerAvatar && currentRoom.peerAvatar !== 'user' && (avatarUrls[currentRoom.peerAvatar] || (currentRoom.peerAvatar.startsWith('http') ? currentRoom.peerAvatar : null))) ? (
@@ -491,31 +535,39 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 )}
               </div>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h2 className="text-xs sm:text-sm font-bold text-white truncate">{currentRoom.name}</h2>
+              <div className="g-chat-header__identity min-w-0 flex-1 flex flex-col items-start justify-center gap-1">
+                <div className="flex min-w-0 max-w-full items-center gap-1.5">
+                  <h2 className="m-0 text-sm sm:text-base font-semibold leading-tight text-white truncate">{currentRoom.name}</h2>
                   {currentRoom.type === 'direct' && isPeerVerified[currentRoom.id] && (
                     <span title="Safety Fingerprint Verified" className="shrink-0 inline-flex">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                     </span>
                   )}
                 </div>
-                <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1.5">
-                  {currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
+                <div className="flex min-w-0 max-w-full items-center gap-1.5 text-[11px] leading-tight">
+                  {currentRoom.type !== 'direct' ? (
+                    <span className="text-zinc-400">Group conversation</span>
+                  ) : currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#C9A24D] inline-block g-breathe" />
-                      <span className="text-[#C9A24D] font-semibold font-mono">Online now</span>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 g-breathe" aria-hidden="true" />
+                      <span className="truncate font-medium text-emerald-400">Online now</span>
+                    </>
+                  ) : currentRoom.peerLastSeenAt && Date.now() - currentRoom.peerLastSeenAt >= 0 && Date.now() - currentRoom.peerLastSeenAt < 15 * 60 * 1000 ? (
+                    <>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/80" aria-hidden="true" />
+                      <span className="truncate font-medium text-emerald-300">Recently online · {Math.max(1, Math.floor((Date.now() - currentRoom.peerLastSeenAt) / 60000))} min ago</span>
+                    </>
+                  ) : currentRoom.peerLastSeenAt ? (
+                    <>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-500" aria-hidden="true" />
+                      <span className="truncate text-zinc-400">Offline · last seen {Math.floor(Math.max(0, Date.now() - currentRoom.peerLastSeenAt) / 60000) < 60
+                        ? `${Math.max(1, Math.floor((Date.now() - currentRoom.peerLastSeenAt) / 60000))} min ago`
+                        : new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                     </>
                   ) : (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 inline-block" />
-                      <span className="truncate font-mono">
-                        {currentRoom.type === 'direct'
-                          ? (currentRoom.peerLastSeenAt
-                            ? 'Last seen ' + new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                            : 'Last seen unavailable')
-                          : 'Group conversation'}
-                      </span>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-500" aria-hidden="true" />
+                      <span className="truncate text-zinc-400">Offline</span>
                     </>
                   )}
                 </div>
@@ -523,11 +575,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             </div>
 
             {/* Header Actions — keep the direct actions quiet; secondary controls live in one menu on mobile. */}
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="g-chat-header__actions flex items-center gap-1 shrink-0">
               {currentRoom.type === 'direct' && onStartCall && (
                 <button
                   onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId, currentRoom.peerAvatar)}
-                  className="g-icon-btn"
+                  className="g-icon-btn g-chat-header__action"
                   title="Video call"
                   aria-label="Start video call"
                 >
@@ -547,10 +599,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 </button>
 
                 {showChatActions && (
-                  <div className="absolute right-0 top-11 z-40 w-52 g-panel p-1.5 shadow-2xl">
+                  <div className="g-gayze-menu-frame absolute right-0 top-11 z-40 w-52 g-panel p-1.5 shadow-2xl">
                     {currentRoom.type === 'direct' && onStartCall && (
                       <button
                         type="button"
+                        aria-label="Audio call"
                         className="g-row !min-h-[42px] !rounded-xl"
                         onClick={() => {
                           setShowChatActions(false);
@@ -564,6 +617,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
                       <button
                         type="button"
+                        aria-label="Plan a safe meetup"
                         className="g-row !min-h-[42px] !rounded-xl"
                         onClick={() => {
                           setShowChatActions(false);
@@ -576,6 +630,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     )}
                     <button
                       type="button"
+                      aria-label="Disappearing messages"
                       className="g-row !min-h-[42px] !rounded-xl"
                       onClick={() => {
                         setShowChatActions(false);
@@ -590,6 +645,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     </button>
                     <button
                       type="button"
+                      aria-label="Verify safety code"
                       className="g-row !min-h-[42px] !rounded-xl"
                       onClick={() => {
                         setShowChatActions(false);
@@ -602,6 +658,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     {onDeleteChat && (
                       <button
                         type="button"
+                        aria-label="Delete Chat"
                         className="g-row !min-h-[42px] !rounded-xl"
                         onClick={() => {
                           setShowChatActions(false);
@@ -623,12 +680,6 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             <PeerIntentBanner key={`${currentUserId}/${currentRoom.id}/${currentRoom.peerUserId}`}
               userId={currentUserId} peerId={currentRoom.peerUserId}
               peerName={currentRoom.peerName || currentRoom.name} now={now} />
-          )}
-
-          {conversationKeyUnavailable && (
-            <div className="px-3 sm:px-4 py-2 bg-amber-500/10 border-b border-amber-500/25 text-[11px] text-amber-200">
-              {conversationKeyReason || 'This conversation cannot be decrypted on this device yet.'}
-            </div>
           )}
 
           {currentRoom.connectionContext && (
@@ -694,6 +745,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     <span>{msg.senderName}</span>
                     <span>·</span>
                     <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    {msg.sendState === 'sending' && <span className="text-zinc-500">· Sending…</span>}
+                    {msg.sendState === 'failed' && <span className="text-amber-300">· Not confirmed</span>}
                   </div>
 
                   <div
@@ -760,7 +813,22 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     )}
 
                     <div className="mt-1 flex items-center justify-end gap-1.5 pt-0.5 text-[11px] opacity-70">
-                      <Lock className="w-2.5 h-2.5" />
+                      {msg.sendState === 'failed' ? (
+                        <button
+                          type="button"
+                          className="text-amber-300 underline"
+                          onClick={() => {
+                            setInputText(msg.plainText);
+                            if (msg.mediaUrl) setAttachedMedia(msg.mediaUrl);
+                            setOptimisticMessages((prev) => prev.filter((item) => item.id !== msg.id));
+                            setSendError(null);
+                          }}
+                        >
+                          Retry
+                        </button>
+                      ) : (
+                        <Lock className="w-2.5 h-2.5" />
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -822,7 +890,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2 bg-[#141620] border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-[#6F3CC3]/60 transition-colors">
+            <div className="g-chat-composer flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors">
               {/* Photo Upload Action */}
               <label
                 className="w-8 h-8 rounded-lg bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 text-zinc-400 hover:text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
@@ -840,9 +908,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <input
                 type="text"
                 value={inputText}
-                disabled={conversationKeyUnavailable || isSending}
+                disabled={conversationKeyUnavailable}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={currentRoom.ephemeralTtlSeconds > 0 ? `Message · ${getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}` : 'Message…'}
+                placeholder={conversationKeyUnavailable ? 'Preparing secure chat…' : (currentRoom.ephemeralTtlSeconds > 0 ? `Message · ${getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}` : 'Message…')}
                 className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none py-1"
               />
 
@@ -860,7 +928,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
               <button
                 type="submit"
-                disabled={(!inputText.trim() && !attachedMedia) || isSending}
+                disabled={(!inputText.trim() && !attachedMedia) || conversationKeyUnavailable}
                 className="g-icon-btn g-icon-btn--send shrink-0"
                 aria-label="Send message"
               >

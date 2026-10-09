@@ -134,6 +134,8 @@ export interface EncryptedMessage {
   deletedForEveryone?: boolean;
   mediaDurationSeconds?: number;
   albumId?: string;
+  /** Local-only delivery state for optimistic outgoing messages. */
+  sendState?: 'sending' | 'sent' | 'failed';
 }
 
 export interface GazeInteraction {
