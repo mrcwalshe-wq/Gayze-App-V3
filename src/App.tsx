@@ -2758,7 +2758,14 @@ export default function App() {
   };
 
   const handleOpenIntentHub = () => {
+    // The centre GAYZE button is a true toggle: tap once to open intents,
+    // tap again to dismiss the panel and leave the map visible.
+    if (isIntentHubOpen) {
+      setIsIntentHubOpen(false);
+      return;
+    }
     analytics.logEvent('intent_hub_opened');
+    setIsSetIntentOpen(false);
     setActiveTab('right_now');
     setIsIntentHubOpen(true);
   };
@@ -3338,7 +3345,14 @@ export default function App() {
       {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
         activeTab={activeTab}
-        onTabChange={(tab) => { if (tab === 'swarms') beginChatTrace(activeRoomId); setActiveTab(tab); }}
+        onTabChange={(tab) => {
+          if (tab === 'swarms') beginChatTrace(activeRoomId);
+          // Navigation always dismisses transient menus/sheets. Returning to
+          // Intents reveals the map rather than leaving an overlay in front.
+          setIsIntentHubOpen(false);
+          setIsSetIntentOpen(false);
+          setActiveTab(tab);
+        }}
         unreadCount={unreadMessageCount}
         notificationCount={notificationInbox?.unread ?? 0}
         onOpenIntentHub={handleOpenIntentHub}
