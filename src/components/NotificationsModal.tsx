@@ -40,8 +40,6 @@ interface NotificationsModalProps {
   inbox?: NotificationInbox | null;
   inboxStatus?: ChatConnectionState;
   onOpenNotification?: (notice: InboxNotification) => void;
-<<<<<<< HEAD
-=======
   onOpenPublicProfile?: (
     userId: string,
     fallback?: {
@@ -52,7 +50,6 @@ interface NotificationsModalProps {
     },
   ) => void;
   onInterestAccepted?: (conversationId: string) => void;
->>>>>>> origin/main
   embedded?: boolean;
 }
 
@@ -89,11 +86,7 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-<<<<<<< HEAD
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, embedded = false }) => {
-=======
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, onOpenPublicProfile, onInterestAccepted, embedded = false }) => {
->>>>>>> origin/main
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -248,11 +241,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const recentRows = inbox?.rows.slice(0, 4) ?? [];
 
   return (
-<<<<<<< HEAD
-    <div className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
-=======
     <div ref={embedded ? embeddedScrollRef : undefined} className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
->>>>>>> origin/main
       <div className={embedded ? 'g-messages-notifications__panel' : 'g-sheet g-notifications-sheet'} onClick={embedded ? undefined : (e) => e.stopPropagation()}>
         <div className="g-sheet__grip" />
 

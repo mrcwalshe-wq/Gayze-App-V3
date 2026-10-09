@@ -1293,10 +1293,6 @@ export default function App() {
     setActiveTab(route.tab);
     if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
     if (route.conversationId) requestConversationOpen(route.conversationId);
-<<<<<<< HEAD
-=======
-    if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
->>>>>>> origin/main
   }, [isAuthenticated]);
 
   // Messages posted by the service worker: notification taps and endpoint
@@ -1336,10 +1332,6 @@ export default function App() {
         setActiveTab(route.tab);
         if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
         if (route.conversationId) requestConversationOpen(route.conversationId);
-<<<<<<< HEAD
-=======
-        if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
->>>>>>> origin/main
         replacePath(data.url);
         event.ports[0]?.postMessage({ handled: true });
         return;
@@ -1403,10 +1395,6 @@ export default function App() {
       setActiveTab(route.tab);
       if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
       if (route.conversationId) requestConversationOpen(route.conversationId);
-<<<<<<< HEAD
-=======
-      if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
->>>>>>> origin/main
       replacePath(notice.url);
     } catch { showToast('Could not update the notification. Please try again.'); }
   };
@@ -3094,14 +3082,10 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
-<<<<<<< HEAD
               onOpenNotifications={() => {
                 setMessagesSubTab('notifications');
                 setActiveTab('swarms');
               }}
-=======
-              onOpenNotifications={() => { setMessagesSubTab('notifications'); setActiveTab('swarms'); }}
->>>>>>> origin/main
             />
           )}
 
@@ -3187,16 +3171,11 @@ export default function App() {
                     inbox={notificationInbox}
                     inboxStatus={notificationInboxStatus}
                     onOpenNotification={openInboxNotification}
-<<<<<<< HEAD
-                    onClose={() => setMessagesSubTab('chats')}
-                  />
-                ) : (
-                  <ChatRoomView
-=======
                     onOpenPublicProfile={(userId, fallback) => {
                       setViewingPublicProfile({ userId, ...fallback });
                     }}
                     onInterestAccepted={async (conversationId) => {
+                      setMessagesSubTab('chats');
                       await refreshConversationListRef.current();
                       requestConversationOpen(conversationId);
                     }}
@@ -3228,7 +3207,6 @@ export default function App() {
                         </button>
                       ))}
                     <ChatRoomView
->>>>>>> origin/main
                     rooms={rooms}
                     messages={messages}
                     activeRoomId={activeRoomId}
@@ -3258,19 +3236,12 @@ export default function App() {
                     conversationKeyUnavailable={
                       Boolean(activeRoomId)
                       && conversationKeyState.roomId === activeRoomId
-<<<<<<< HEAD
-                      && conversationKeyState.status === 'unavailable'
-                    }
-                    conversationKeyReason={conversationKeyState.reason}
-                  />
-=======
                       && conversationKeyState.status !== 'ready'
                     }
                     conversationKeyReason={conversationKeyState.reason}
                     activeIntentMode={activeUserIntent?.mode}
                   />
                   </>
->>>>>>> origin/main
                 )}
               </div>
             </div>

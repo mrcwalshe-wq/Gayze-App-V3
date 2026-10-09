@@ -109,18 +109,6 @@ async function resolveDeviceAwareKey(
   currentUserId?: string,
   deps: GroupKeyDeps = defaultGroupKeyDeps,
 ): Promise<ConversationKeyResult> {
-<<<<<<< HEAD
-  const identity = await getOrCreateDeviceIdentity();
-  const [envelopeRead, deviceRead] = await Promise.all([
-    readWithRetry(() => deps.readEnvelopes(room.id), deps.retryDelayMs),
-    readWithRetry(() => readConversationMemberDevices(room.id), deps.retryDelayMs),
-  ]);
-
-  const legacyKey = room.type === 'direct'
-    ? await resolveLegacyDirectKey(room)
-    : null;
-
-=======
   const identity = await (deps.getIdentity ?? getOrCreateDeviceIdentity)();
 
   // Legacy ECDH remains a read fallback for older ciphertext, but it must
@@ -136,7 +124,6 @@ async function resolveDeviceAwareKey(
     readWithRetry(() => (deps.readMemberDevices ?? readConversationMemberDevices)(room.id), deps.retryDelayMs),
   ]);
 
->>>>>>> origin/main
   // Failed reads are never treated as an empty keyset. This is critical:
   // no key generation and no envelope writes may occur after an ambiguous read.
   if (!envelopeRead.ok || !deviceRead.ok) {
@@ -149,11 +136,6 @@ async function resolveDeviceAwareKey(
     };
   }
 
-<<<<<<< HEAD
-  const envelopes = envelopeRead.envelopes;
-  const devices = deviceRead.devices.filter((device) => device.status !== 'revoked');
-
-=======
   // Legacy keys are read-only compatibility candidates. Never return one as
   // the active key: sends use result.key, so doing so would continue writing
   // legacy ciphertext and bypass device-envelope provisioning indefinitely.
@@ -177,7 +159,6 @@ async function resolveDeviceAwareKey(
     return legacyReadFallback('This device is still being registered for encrypted conversations. Please retry.');
   }
 
->>>>>>> origin/main
   const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId);
   if (mine) {
     const creatorDeviceId = mine.created_by_device_id || mine.device_id;
@@ -242,49 +223,6 @@ async function resolveDeviceAwareKey(
       status: 'unavailable',
       transient: true,
       legacyKey: legacyKey ?? undefined,
-<<<<<<< HEAD
-      reason: 'This device has not been provisioned with the existing conversation key yet.',
-    };
-  }
-
-  if (devices.length === 0) {
-    return {
-      key: null,
-      status: 'unavailable',
-      transient: true,
-      legacyKey: legacyKey ?? undefined,
-      reason: 'No authorised device identities are available for this conversation.',
-    };
-  }
-
-  // No envelope exists at all. This is the one safe point where the first
-  // authorised device creates the conversation key and wraps it for every
-  // currently authorised device. Existing message ciphertext is untouched.
-  try {
-    const conversationKey = await deps.createKey();
-    let saved = 0;
-    for (const device of devices) {
-      const deviceJwk = parseJwk(device.public_key);
-      if (!deviceJwk) continue;
-      const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
-      const stored = await deps.saveEnvelope({
-        conversation_id: room.id,
-        user_id: device.user_id,
-        device_id: device.device_id,
-        wrapped_key: wrapped.wrappedKeyHex,
-        nonce: wrapped.nonceHex,
-        created_by_device_id: identity.deviceId,
-      });
-      if (stored) saved += 1;
-    }
-
-    if (saved === 0) {
-      return {
-        key: null,
-        status: 'unavailable',
-        legacyKey: legacyKey ?? undefined,
-        reason: 'The conversation key could not be provisioned to an authorised device.',
-=======
       reason: 'No authorised device identities are available for this conversation.',
     };
   }
@@ -355,7 +293,6 @@ async function resolveDeviceAwareKey(
         transient: true,
         legacyKey: legacyKey ?? undefined,
         reason: 'The conversation key was not provisioned to every authorised device. Retrying is safe.',
->>>>>>> origin/main
       };
     }
 
@@ -439,8 +376,6 @@ export async function resolveConversationKey(
   currentUserId?: string,
 ): Promise<ConversationKeyResult> {
   return resolveDeviceAwareKey(room, currentUserId);
-<<<<<<< HEAD
-=======
 }
 
 /** Test-only injection point for exercising direct-chat bootstrap without a live account or database writes. */
@@ -450,5 +385,4 @@ export async function resolveConversationKeyForTest(
   deps: GroupKeyDeps,
 ): Promise<ConversationKeyResult> {
   return resolveDeviceAwareKey(room, currentUserId, { ...defaultGroupKeyDeps, ...deps });
->>>>>>> origin/main
 }
