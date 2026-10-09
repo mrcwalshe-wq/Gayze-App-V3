@@ -2714,27 +2714,32 @@ export default function App() {
   };
 
   /** Ending a signal removes it from the backend and from application state. */
-  const handleEndUserIntent = () => {
+  const handleEndUserIntent = async (): Promise<boolean> => {
     const intent = activeUserIntentRef.current;
-    if (!intent) return;
+    if (!intent) return false;
     hapticSensitiveAction();
 
     if (!IS_LIVE_BACKEND) {
       setActiveUserIntent(null);
       showToast('Intent ended');
-      return;
+      return true;
     }
 
-    void (async () => {
+    try {
       const ok = await endActiveIntent(intent.remoteId ?? null);
       if (!ok) {
         showToast('Could not end your intent. It is still live.');
-        return;
+        return false;
       }
       setActiveUserIntent(null);
       await refreshDiscoveryRef.current();
       showToast('Intent ended');
-    })();
+      return true;
+    } catch (error) {
+      console.error('[GAYZE] Failed to end live intent', error);
+      showToast('Could not end your intent. It is still live.');
+      return false;
+    }
   };
 
   /**
@@ -3249,6 +3254,7 @@ export default function App() {
         isOpen={isSetIntentOpen}
         onClose={() => setIsSetIntentOpen(false)}
         onSaveIntent={handleSaveUserIntent}
+        onEndIntent={handleEndUserIntent}
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
         userNeighborhood={currentUser.neighborhood}
