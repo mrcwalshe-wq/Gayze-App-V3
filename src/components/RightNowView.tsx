@@ -1571,6 +1571,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         : 'g-btn--quiet'
                     }`}
                   >
+                    <span className="g-gayze-particles" aria-hidden="true">
+                      <span className="g-gayze-particle g-gayze-particle--one" />
+                      <span className="g-gayze-particle g-gayze-particle--two" />
+                      <span className="g-gayze-particle g-gayze-particle--three" />
+                      <span className="g-gayze-particle g-gayze-particle--four" />
+                    </span>
                     {interestedIds.has(selectedItem.item.id) ? (
                       <Check className="w-3.5 h-3.5" />
                     ) : (
@@ -1594,6 +1600,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       gazedPeerNames.has(selectedItem.item.id) ? 'g-btn--primary' : 'g-btn--quiet'
                     }`}
                   >
+                    <span className="g-gayze-particles" aria-hidden="true">
+                      <span className="g-gayze-particle g-gayze-particle--one" />
+                      <span className="g-gayze-particle g-gayze-particle--two" />
+                      <span className="g-gayze-particle g-gayze-particle--three" />
+                      <span className="g-gayze-particle g-gayze-particle--four" />
+                    </span>
                     <Eye className="w-3.5 h-3.5" />
                     {gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send GAYZE'}
                   </button>
