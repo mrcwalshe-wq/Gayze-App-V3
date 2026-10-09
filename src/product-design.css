@@ -2131,3 +2131,154 @@ select:focus-visible {
     border-color: rgba(255,69,58,.48) !important;
   }
 }
+
+
+
+/* GAYZE Right Now visual hierarchy — compact intent status + quieter discovery preview. */
+@media (max-width: 767px) {
+  /* The user's intent is a small map control, not a full-width dashboard card. */
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed {
+    display: flex !important;
+    width: fit-content !important;
+    max-width: min(270px, calc(100vw - 94px)) !important;
+    min-width: 0 !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+    border-radius: 15px !important;
+    background: rgba(13, 13, 20, .94) !important;
+    border: 1px solid rgba(255,255,255,.11) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.045) !important;
+    backdrop-filter: blur(18px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__summary {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) auto !important;
+    grid-template-rows: auto auto !important;
+    gap: 3px 9px !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__summary > .g-live-dot {
+    display: none !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__summary > span:nth-child(2) {
+    display: contents !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__eyebrow {
+    grid-column: 1;
+    display: flex !important;
+    gap: 6px !important;
+    align-items: center !important;
+    font-size: 8px !important;
+    letter-spacing: .11em !important;
+    color: rgba(240,236,249,.58) !important;
+    line-height: 1 !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__live-pill {
+    min-height: 17px !important;
+    padding: 2px 6px !important;
+    font-size: 8px !important;
+    letter-spacing: .06em !important;
+    border-radius: 999px !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__title {
+    grid-column: 1;
+    font-size: 15px !important;
+    line-height: 1.1 !important;
+    font-weight: 700 !important;
+    letter-spacing: -.025em !important;
+    margin: 0 !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__details {
+    display: none !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__timer {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0 !important;
+    gap: 3px !important;
+    padding-left: 9px !important;
+    border-left: 1px solid rgba(255,255,255,.10) !important;
+    align-items: flex-end !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__timer span {
+    display: none !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__timer strong {
+    font-size: 12px !important;
+    font-weight: 650 !important;
+    color: rgba(255,255,255,.78) !important;
+  }
+
+  /* Discovery preview: lighter, tighter and content-led — avoid a giant glowing slab. */
+  .g-shell[data-active-tab='right_now'] .g-preview {
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: 480px !important;
+    padding: 12px !important;
+    border-radius: 20px !important;
+    background: linear-gradient(160deg, rgba(19,19,27,.97), rgba(10,11,16,.975)) !important;
+    border: 1px solid rgba(255,255,255,.105) !important;
+    box-shadow: 0 14px 36px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.055) !important;
+    backdrop-filter: blur(22px) saturate(1.12) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
+    animation: g-preview-refined-in 260ms cubic-bezier(.2,.65,.25,1) both !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-preview .g-avatar,
+  .g-shell[data-active-tab='right_now'] .g-preview > div > button:first-child > div:first-child {
+    border-radius: 50% !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-preview h3 {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    letter-spacing: -.02em !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-preview .g-chip {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+    font-weight: 650 !important;
+    border-radius: 999px !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-preview p {
+    margin-top: 9px !important;
+    color: rgba(231,228,238,.72) !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-preview .g-btn {
+    min-height: 42px !important;
+    border-radius: 13px !important;
+    font-size: 12px !important;
+    box-shadow: none !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-preview .g-btn--quiet,
+  .g-shell[data-active-tab='right_now'] .g-preview .g-discovery-secondary {
+    background: rgba(255,255,255,.035) !important;
+    border-color: rgba(255,255,255,.10) !important;
+  }
+
+  /* Intent status dock: make it read as a single compact row, not a second sheet. */
+  .g-shell[data-active-tab='right_now'] .g-intent-hub__sheet.g-intent-hub__sheet--status {
+    width: calc(100% - 32px) !important;
+    margin-left: 16px !important;
+    margin-right: 16px !important;
+    padding: 8px 10px !important;
+    border-radius: 16px !important;
+    background: rgba(12,13,19,.96) !important;
+    border-color: rgba(255,255,255,.10) !important;
+    box-shadow: 0 10px 28px rgba(0,0,0,.28) !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-intent-hub__sheet--status .g-intent-hub__live-icon {
+    border-radius: 11px !important;
+    background: rgba(255,255,255,.045) !important;
+  }
+}
+@keyframes g-preview-refined-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-preview { animation: none !important; }
+}
