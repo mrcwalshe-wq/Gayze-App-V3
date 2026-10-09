@@ -2896,78 +2896,97 @@ button, input, select, textarea, [role="button"] {
   }
 }
 
-/*
-   GAYZE primary interest action — refined
-   Purple remains the brand anchor; amber is a social warmth accent.
-   Small sparkles give the action its own GAYZE signature without turning it
-   into another competing colour block.
-   */
-.g-discovery-primary {
+/* Discovery actions: compact, touch-safe controls with a slow GAYZE gradient orbit. */
+.g-discovery-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.g-discovery-action {
   position: relative;
-  overflow: visible;
   isolation: isolate;
-  background:
-    linear-gradient(135deg, #7443c9 0%, #8d50cf 52%, #c49a4e 100%);
-  color: #fff;
-  border: 1px solid rgba(218, 190, 255, 0.34);
-  box-shadow:
-    0 8px 22px rgba(82, 43, 150, 0.24),
-    0 0 16px rgba(201, 162, 77, 0.07),
-    inset 0 1px 0 rgba(255,255,255,.18);
-  transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 10px;
+  border-radius: 15px;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 650;
+  transition: transform .16s ease, background-color .2s ease, box-shadow .2s ease;
 }
-.g-discovery-primary::before,
-.g-discovery-primary::after {
+.g-discovery-action:active { transform: scale(.975); }
+.g-discovery-action > svg { flex: 0 0 auto; }
+.g-discovery-action--primary {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(135deg, #241934 0%, #17131f 55%, #201b17 100%) padding-box,
+    conic-gradient(from var(--gayze-action-angle, 0deg), #6F3CC3, #bd5bda, #ed8b87, #C9A24D, #8A4DE8, #6F3CC3) border-box;
+  box-shadow: 0 7px 20px rgba(111,60,195,.16), inset 0 1px 0 rgba(255,255,255,.07);
+}
+.g-discovery-action--primary::before,
+.g-discovery-meet::before {
+  content: "";
   position: absolute;
-  z-index: -1;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--gayze-action-angle, 0deg), #6F3CC3, #bd5bda, #ed8b87, #C9A24D, #8A4DE8, #6F3CC3);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
   pointer-events: none;
-  color: #e8c9ff;
-  font-size: 9px;
-  line-height: 1;
-  opacity: .78;
-  text-shadow:
-    0 0 7px rgba(170,132,245,.85),
-    0 0 12px rgba(201,162,77,.34);
-  content: "✦";
-  animation: gayze-sparkle 2.6s ease-in-out infinite;
+  opacity: .9;
+  animation: gayze-action-orbit 6s linear infinite;
 }
-.g-discovery-primary::before {
-  left: -5px;
-  top: 5px;
-}
-.g-discovery-primary::after {
-  right: -5px;
-  bottom: 5px;
-  color: #f0d48a;
-  font-size: 7px;
-  animation-delay: -1.2s;
-}
-.g-discovery-primary:hover {
-  filter: brightness(1.045) saturate(1.02);
-  color: #fff;
-  box-shadow:
-    0 10px 25px rgba(82,43,150,.28),
-    0 0 20px rgba(201,162,77,.10),
-    inset 0 1px 0 rgba(255,255,255,.20);
-}
-.g-discovery-primary:active {
-  transform: scale(.975);
-}
-.g-discovery-primary--sent {
+.g-discovery-action--primary::before { z-index: -1; }
+.g-discovery-action--primary:hover {
   background:
-    linear-gradient(135deg, rgba(111,60,195,.72), rgba(201,162,77,.42));
-  border-color: rgba(201,162,77,.46);
+    linear-gradient(135deg, #302044 0%, #1b1524 55%, #2a2119 100%) padding-box,
+    conic-gradient(from var(--gayze-action-angle, 0deg), #6F3CC3, #bd5bda, #ed8b87, #C9A24D, #8A4DE8, #6F3CC3) border-box;
+  box-shadow: 0 8px 24px rgba(111,60,195,.24), 0 0 16px rgba(201,162,77,.08);
 }
+.g-discovery-action--primary:disabled { opacity: .55; }
 .g-discovery-secondary {
-  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.022));
-  border: 1px solid rgba(255,255,255,.10);
-  color: rgba(245,244,250,.82);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
+  position: relative;
+  border: 1px solid rgba(170,132,245,.24);
+  background: linear-gradient(145deg, rgba(111,60,195,.11), rgba(255,255,255,.025));
+  color: rgba(245,244,250,.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
-.g-discovery-secondary:hover {
-  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.028));
-  border-color: rgba(170,132,245,.24);
-  color: #fff;
+.g-discovery-secondary:hover { border-color: rgba(170,132,245,.5); color: #fff; }
+.g-discovery-meet {
+  border: 1px solid transparent;
+  color: rgba(245,244,250,.88);
+  background:
+    linear-gradient(#111218, #111218) padding-box,
+    conic-gradient(from var(--gayze-action-angle, 0deg), rgba(111,60,195,.72), rgba(189,91,218,.7), rgba(201,162,77,.82), rgba(111,60,195,.72)) border-box;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+}
+.g-discovery-meet::before { opacity: .58; animation-duration: 8s; }
+@keyframes gayze-action-orbit {
+  from { --gayze-action-angle: 0deg; }
+  to { --gayze-action-angle: 360deg; }
+}
+@property --gayze-action-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@media (max-width: 390px) {
+  .g-discovery-actions { gap: 6px; }
+  .g-discovery-action { gap: 5px; padding-inline: 7px; font-size: 11px; border-radius: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-discovery-action--primary::before,
+  .g-discovery-meet::before { animation: none; }
+  .g-discovery-action { transition: none; }
 }
 @keyframes gayze-sparkle {
   0%, 100% { transform: scale(.72) translateY(1px); opacity: .35; }
