@@ -477,7 +477,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     const nextPaused = !activeUserIntent.isPaused;
     setActiveUserIntent({ ...activeUserIntent, isPaused: nextPaused });
     setIsUserIntentExpanded(false);
-    showStatusMessage(nextPaused ? 'Pausing your signal…' : 'Resuming your signal…', 2500);
+    showStatusMessage(nextPaused ? 'Pausing your intent…' : 'Resuming your intent…', 2500);
   };
 
   // End active intent early
@@ -486,7 +486,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setIsUserIntentDrawerOpen(false);
     setIsUserIntentExpanded(false);
     setActiveUserIntent(null);
-    showStatusMessage('Ending your signal…', 2500);
+    showStatusMessage('Ending your intent…', 2500);
   };
 
   // Express an intent interest with optional note and selected album photos.
@@ -1251,7 +1251,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               >
                 <span className={`g-live-dot g-live-dot--${activeUserIntent.mode === 'private' ? 'private' : 'social'} shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`} aria-hidden="true" />
                 <span className="min-w-0 flex-1 text-left">
-                  <span className="g-map-state__eyebrow">RIGHT NOW <span className={`g-map-state__live-pill ${activeUserIntent.isPaused ? 'is-paused' : ''}`}><span className="g-map-state__live-dot" />{activeUserIntent.isPaused ? 'PAUSED' : 'LIVE'}</span></span>
+                  <span className="g-map-state__eyebrow">YOUR INTENT <span className={`g-map-state__live-pill ${activeUserIntent.isPaused ? 'is-paused' : ''}`}><span className="g-map-state__live-dot" />{activeUserIntent.isPaused ? 'PAUSED' : 'LIVE'}</span></span>
                   <span className="g-map-state__title truncate">{activeUserIntent.intent}</span>
                   <span className="g-map-state__details"><span>{activeUserIntent.isPaused ? 'Not visible' : 'Visible nearby'}</span><span aria-hidden="true">·</span><span>{resolveAreaLabel(activeUserIntent.area || userNeighborhood).replace(/\s*\([^)]*\)$/, '')}</span></span>
                 </span>
