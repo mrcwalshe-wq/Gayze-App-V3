@@ -19,8 +19,8 @@ export function getCurrentLocation(): Promise<GeoLocation> {
       (error) => reject(error),
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000,
+        timeout: 12000,
+        maximumAge: 0,
       },
     );
   });
@@ -44,8 +44,8 @@ export function watchCurrentLocation(
     (error) => onError?.(error),
     {
       enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 15000,
+      timeout: 12000,
+      maximumAge: 5000,
     },
   );
 

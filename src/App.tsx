@@ -115,7 +115,6 @@ import {
   endActiveIntent,
   subscribeToRightNow,
   submitInterest,
-  submitGaze,
   saveIntimacyProfile,
   updateProfileDetails,
   loadIntimacyProfile,
@@ -328,6 +327,7 @@ export default function App() {
   }, []);
 
   const lastSyncedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastLocationSyncAtRef = useRef(0);
   const locationWatchStopRef = useRef<(() => void) | null>(null);
 
   // Core datasets with local state
@@ -354,6 +354,7 @@ export default function App() {
       locationWatchStopRef.current = null;
       setUserLocation(null);
       lastSyncedLocationRef.current = null;
+      lastLocationSyncAtRef.current = 0;
       return;
     }
 
@@ -372,15 +373,34 @@ export default function App() {
 
         if (isSupabaseConfigured && supabase && currentUser.privacySetting !== 'ghost') {
           const previous = lastSyncedLocationRef.current;
-          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
-          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
-          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
-            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-            // Exact GPS never leaves the device: the stored point is jittered
-            // inside the user's configured privacy radius first.
+          const movedMeters = previous
+            ? (() => {
+                const toRadians = (degrees: number) => degrees * Math.PI / 180;
+                const dLat = toRadians(location.lat - previous.lat);
+                const dLng = toRadians(location.lng - previous.lng);
+                const a = Math.sin(dLat / 2) ** 2
+                  + Math.cos(toRadians(previous.lat)) * Math.cos(toRadians(location.lat)) * Math.sin(dLng / 2) ** 2;
+                return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              })()
+            : Infinity;
+          const syncDue = Date.now() - lastLocationSyncAtRef.current >= 8000;
+          // Sync material movement (about 20m), not the previous ~90m threshold.
+          // Keep exact GPS on-device; only a privacy-jittered point is persisted.
+          if (!previous || (movedMeters >= 20 && syncDue)) {
+            const nextLocation = { lat: location.lat, lng: location.lng };
+            lastSyncedLocationRef.current = nextLocation;
+            lastLocationSyncAtRef.current = Date.now();
             void updateProfileLocation(
-              jitterLocation({ lat: location.lat, lng: location.lng }, privacyRadiusMeters(currentUser.privacySetting)),
-            );
+              jitterLocation(nextLocation, privacyRadiusMeters(currentUser.privacySetting)),
+            ).then((saved) => {
+              if (saved) {
+                // Re-query immediately after a location write so nearby intents
+                // don't wait for the 90-second background discovery poll.
+                void refreshDiscoveryRef.current();
+              } else if (lastSyncedLocationRef.current === nextLocation) {
+                lastSyncedLocationRef.current = null;
+              }
+            });
           }
         }
       },
@@ -1396,6 +1416,12 @@ export default function App() {
       if (!initialised) {
         knownIncomingInterestIdsRef.current = currentIds;
         initialised = true;
+        // Surface requests received while the app was closed as well as live
+        // inserts; otherwise the initial reconciliation silently hides them.
+        if (incoming.length > 0) {
+          setMessagesSubTab('notifications');
+          setActiveTab('swarms');
+        }
         return;
       }
 
@@ -1404,7 +1430,12 @@ export default function App() {
       if (!newInterest) return;
 
       triggerVibration([40, 60, 100]);
-      showToast(`New interest from ${newInterest.fromDisplayName}`);
+      // A Gayze is an actionable request, not a passive toast. Bring the user
+      // directly to Messages → Notifications so the sender's profile, request,
+      // and Accept / Decline actions are immediately visible.
+      setMessagesSubTab('notifications');
+      setActiveTab('swarms');
+      showToast(`New Gayze from ${newInterest.fromDisplayName}`);
     };
 
     void handleInterestChange();
@@ -2552,23 +2583,33 @@ export default function App() {
 
   const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
     triggerVibration([40, 70]);
+    const validPeerId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(peerId || '');
+    if (!isSupabaseConfigured || !isAuthenticated || !validPeerId) {
+      showToast('Sign in to send a Gayze request.');
+      return false;
+    }
 
-    if (isSupabaseConfigured && isAuthenticated) {
-      const pulse = supabaseRightNowPulses.find((item) => item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`));
-      if (!pulse || !pulse.id.startsWith('supabase_')) {
-        showToast('That Gaze could not be linked to a live profile.');
-        return false;
-      }
-      const result = await submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length));
-      if (result.sent) {
-        showToast(`Gaze sent to ${peerName}`);
-      } else {
-        showToast('Gaze could not be sent. Try again.');
-      }
+    // Every control labelled GAYZE must create the same accept/decline gate.
+    // A legacy gazes row was only a passive ping and could never unlock chat.
+    const pulse = supabaseRightNowPulses.find((item) =>
+      item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`),
+    );
+    if (pulse) {
+      const result = await handleSubmitInterest(pulse);
       return result.sent;
     }
 
-    showToast(`You gave a Gaze to ${peerName}.`);
+    const result = await submitInterest(peerId!, intentId);
+    if (!result.sent) {
+      showToast('Gayze request could not be sent. Try again.');
+      return false;
+    }
+    if (result.mutual && result.conversation_id && isConversationId(result.conversation_id)) {
+      await refreshConversationListRef.current();
+      requestConversationOpen(result.conversation_id);
+    } else {
+      showToast(`Gayze request sent to ${peerName} — awaiting their response.`);
+    }
     return true;
   };
 
@@ -2609,14 +2650,8 @@ export default function App() {
   };
 
   const handleSubmitGaze = async (pulse: Pulse) => {
-    if (!isSupabaseConfigured) return { sent: false };
-
-    const isSupabasePulse = pulse.id.startsWith('supabase_');
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulse.peerId);
-    if (!isSupabasePulse || !isUuid) return { sent: false };
-
-    const intentId = pulse.id.slice('supabase_'.length);
-    return submitGaze(pulse.peerId, intentId);
+    const result = await handleSubmitInterest(pulse);
+    return { sent: result.sent };
   };
 
 
