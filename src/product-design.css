@@ -2118,3 +2118,16 @@ select:focus-visible {
     white-space: nowrap !important;
   }
 }
+
+
+/* Live state uses a clear red signal; paused state remains muted. */
+@media (max-width: 767px) {
+  .g-shell .g-map-state.g-map-state--live:not(.g-map-state--paused) .g-map-state__live-dot,
+  .g-shell .g-map-state.g-map-state--live:not(.g-map-state--paused) .g-live-dot:not(.g-live-dot--paused) {
+    background: #FF453A !important;
+    box-shadow: 0 0 0 3px rgba(255,69,58,.12), 0 0 10px rgba(255,69,58,.72) !important;
+  }
+  .g-shell .g-map-state.g-map-state--live:not(.g-map-state--paused) .g-map-state__live-pill {
+    border-color: rgba(255,69,58,.48) !important;
+  }
+}
