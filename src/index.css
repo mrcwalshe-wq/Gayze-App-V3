@@ -2953,6 +2953,33 @@ button, input, select, textarea, [role="button"] {
   box-shadow: 0 8px 24px rgba(111,60,195,.24), 0 0 16px rgba(201,162,77,.08);
 }
 .g-discovery-action--primary:disabled { opacity: .55; }
+/* Shared animated GAYZE frame for primary menu surfaces. */
+.g-gayze-menu-frame {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid transparent !important;
+  background-clip: padding-box !important;
+}
+.g-gayze-menu-frame::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 5;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--gayze-action-angle, 0deg), #6F3CC3 0deg, #b85cde 78deg, #f08d9a 150deg, #C9A24D 220deg, #a05af0 290deg, #6F3CC3 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: .9;
+  animation: gayze-action-orbit 7s linear infinite;
+}
+.g-gayze-menu-frame:focus-within::after,
+.g-gayze-menu-frame:hover::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .g-gayze-menu-frame::after { animation: none; }
+}
 /* Visible GAYZE particles: orbiting atoms and intermittent star flares. */
 .g-discovery-action--primary {
   overflow: visible;
