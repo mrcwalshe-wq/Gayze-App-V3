@@ -126,19 +126,19 @@ async function resolveDeviceAwareKey(
     };
   }
 
-  const directLegacyFallback = (): ConversationKeyResult | null => legacyKey
-    ? { key: legacyKey, status: 'ready', reason: 'Using the device-local legacy direct-chat key while the new device envelope is repaired.' }
-    : null;
+  // Legacy keys are read-only compatibility candidates. Never return one as
+  // the active key: sends use result.key, so doing so would continue writing
+  // legacy ciphertext and bypass device-envelope provisioning indefinitely.
+  const legacyReadFallback = (reason: string): ConversationKeyResult => ({
+    key: null,
+    status: 'unavailable',
+    transient: true,
+    legacyKey: legacyKey ?? undefined,
+    reason,
+  });
 
   const envelopes = envelopeRead.envelopes;
   const devices = deviceRead.devices.filter((device) => device.status !== 'revoked');
-
-  // Direct-chat recovery path: if the conversation predates device envelopes,
-  // use the established ECDH key immediately. Do not block the message composer
-  // waiting for an envelope migration that has not succeeded.
-  if (room.type === 'direct' && envelopes.length === 0 && legacyKey) {
-    return { key: legacyKey, status: 'ready', legacyKey };
-  }
 
   // Never generate or persist a conversation key until this browser's device
   // is present in the authorised device registry. Without this guard, a chat
@@ -146,13 +146,7 @@ async function resolveDeviceAwareKey(
   // because the database correctly requires the creator device to be registered.
   const currentDevice = devices.find((device) => device.device_id === identity.deviceId);
   if (!currentDevice) {
-    return directLegacyFallback() ?? {
-      key: null,
-      status: 'unavailable',
-      transient: true,
-      legacyKey: legacyKey ?? undefined,
-      reason: 'This device is still being registered for encrypted conversations. Please retry.',
-    };
+    return legacyReadFallback('This device is still being registered for encrypted conversations. Please retry.');
   }
 
   const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId);
@@ -207,13 +201,10 @@ async function resolveDeviceAwareKey(
   // An existing envelope set proves that the conversation key already exists.
   // Never create a second key merely because this device is not provisioned.
   if (envelopes.length > 0) {
-    return directLegacyFallback() ?? {
-      key: null,
-      status: 'unavailable',
-      transient: true,
-      legacyKey: legacyKey ?? undefined,
-      reason: 'This device has not been provisioned with the existing conversation key yet.',
-    };
+    // The envelope key is authoritative for new sends. A legacy key may still
+    // decrypt historical rows, but must never unlock the composer on a device
+    // that has not received its envelope.
+    return legacyReadFallback('This device has not been provisioned with the existing conversation key yet.');
   }
 
   if (devices.length === 0) {
