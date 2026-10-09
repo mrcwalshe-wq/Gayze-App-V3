@@ -22,6 +22,7 @@ interface SetIntentSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSaveIntent: (intentData: UserActiveIntent) => Promise<boolean | void> | void;
+  onEndIntent?: () => Promise<boolean | void> | boolean | void;
   existingIntent?: UserActiveIntent | null;
   safeHavens?: SafeHaven[];
   userNeighborhood: string;
@@ -89,6 +90,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   isOpen,
   onClose,
   onSaveIntent,
+  onEndIntent,
   existingIntent,
   safeHavens = [],
   userNeighborhood,
@@ -106,6 +108,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   const [useSafeHaven, setUseSafeHaven] = useState(false);
   const [selectedHaven, setSelectedHaven] = useState<SafeHaven | null>(safeHavens[0] ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const initializedDraftRef = useRef<string | null>(null);
@@ -519,10 +522,29 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   : 'Two taps to go live'}
               </div>
             </div>
+            {isEditing && existingIntent && onEndIntent && (
+              <button
+                type="button"
+                className="g-btn g-btn--danger-quiet !min-h-[42px] !min-w-[66px] !px-3 !text-[11px]"
+                disabled={isSubmitting || isEnding}
+                onClick={async () => {
+                  setIsEnding(true);
+                  try {
+                    const ended = await onEndIntent();
+                    if (ended !== false) onClose();
+                  } finally {
+                    setIsEnding(false);
+                  }
+                }}
+                aria-label="End live signal"
+              >
+                {isEnding ? 'Ending…' : 'End'}
+              </button>
+            )}
             <button
               type="submit"
               className={`g-btn min-w-[128px] ${mode === 'social' ? 'g-btn--intent-social' : mode === 'private' ? 'g-btn--intent-private' : 'g-btn--primary'}`}
-              disabled={!mode || !intent || isSubmitting}
+              disabled={!mode || !intent || isSubmitting || isEnding}
             >
               {isSubmitting ? 'Publishing…' : (isEditing ? 'Update signal' : 'Go live')}
             </button>
