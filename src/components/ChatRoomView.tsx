@@ -709,29 +709,22 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   key={msg.id}
                   className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                 >
-                  <div className="flex items-center justify-end mb-1 px-1 text-[11px] text-zinc-500">
-                    <div className="relative">
-                      <button
-                        type="button"
-                        aria-label="Message actions"
-                        className="w-7 h-7 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer"
-                        onClick={() => setMessageActionId((value) => value === msg.id ? null : msg.id)}
-                      >
+                  <div className={`g-message-meta flex items-center gap-1.5 mb-1 px-1 text-[11px] text-zinc-500 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <span>{msg.senderName}</span>
+                    <span>·</span>
+                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <div className="relative ml-0.5">
+                      <button type="button" aria-label="Message actions" className="g-message-actions-button flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06] transition-colors cursor-pointer" onClick={() => setMessageActionId((value) => value === msg.id ? null : msg.id)}>
                         <MoreHorizontal className="w-3.5 h-3.5" />
                       </button>
                       {messageActionId === msg.id && (
-                        <div className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-white/10 bg-[#11131a] p-1.5 shadow-2xl">
+                        <div className="absolute right-0 top-7 z-30 w-48 rounded-xl border border-white/10 bg-[#11131a] p-1.5 shadow-2xl">
                           {isMe && onUnsendMessage && !msg.deletedForEveryone && <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/5" onClick={async () => { await onUnsendMessage(msg.id); setMessageActionId(null); }}>Unsend for everyone</button>}
                           {onDeleteMessage && <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onDeleteMessage(msg.id); setMessageActionId(null); }}>Delete for me</button>}
                           {onSetMessageExpiry && !msg.deletedForEveryone && <div className="border-t border-white/10 mt-1 pt-1"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, 60); setMessageActionId(null); }}>Expire in 1 minute</button><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, 3600); setMessageActionId(null); }}>Expire in 1 hour</button><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, null); setMessageActionId(null); }}>Never expire</button></div>}
                         </div>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-zinc-500">
-                    <span>{msg.senderName}</span>
-                    <span>·</span>
-                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     {msg.sendState === 'sending' && <span className="text-zinc-500">· Sending…</span>}
                     {msg.sendState === 'failed' && <span className="text-amber-300">· Not confirmed</span>}
                   </div>
