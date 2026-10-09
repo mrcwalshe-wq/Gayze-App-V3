@@ -16,10 +16,10 @@ export function PeerIntentBanner({ userId, peerId, peerName, now }: {
   const spicy = intent?.mode === 'private';
   const minutes = (at: number) => Math.max(1, Math.ceil((at - now) / 60_000));
   return (
-    <section aria-label={`${peerName}'s current intent`} className={`g-peer-intent-banner shrink-0 px-3 sm:px-4 py-2 border-b text-xs ${intent
+    <section aria-label={`${peerName}'s current intent`} className={`shrink-0 px-3 sm:px-4 py-2 border-b text-xs ${intent
       ? spicy ? 'border-violet-300/40 bg-violet-500/[0.13] text-violet-100' : 'border-amber-300/40 bg-amber-500/[0.13] text-amber-100'
       : 'border-white/[0.06] text-zinc-500'}`}>
-      <div className="g-peer-intent-banner__content flex flex-wrap items-center gap-x-2 gap-y-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-[10px] text-zinc-400">{peerName}'s current intent</span>
         {intent ? <>
           <strong>{later ? 'LATER' : 'NOW'}</strong>

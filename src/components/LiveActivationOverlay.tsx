@@ -50,13 +50,13 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({
         </div>
         <div className="g-live-handshake__eyebrow">
           <span className="g-live-handshake__dot" />
-          {isLive ? 'INTENT ACTIVE' : 'GAYZE NETWORK'}
+          {isLive ? 'SIGNAL ESTABLISHED' : 'GAYZE NETWORK'}
         </div>
         <h2 className="g-live-handshake__title">
-          {isLive ? "You're live." : 'Setting your intent'}
+          {isLive ? "You're live." : 'Finding your frequency'}
         </h2>
         <p className="g-live-handshake__copy">
-          {isLive ? 'Your intent is live on the map.' : 'Making your intent visible nearby…'}
+          {isLive ? 'Your signal is on the map.' : 'Connecting your intent to people nearby…'}
         </p>
         <span className="g-live-handshake__intent">{intent}</span>
       </div>

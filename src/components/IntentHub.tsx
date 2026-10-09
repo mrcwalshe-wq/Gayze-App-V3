@@ -53,8 +53,8 @@ export const IntentHub: React.FC<IntentHubProps> = ({
             <h2>{hasActive ? 'Your intent is live' : 'What do you want to do?'}</h2>
             <p>
               {hasActive
-                ? 'Your intent is live on the map. You can manage it or choose a new one.'
-                : 'Set a time-bound intent and discover people nearby with the same intent.'}
+                ? 'Your signal is visible on the map. You can manage it or create a new one.'
+                : 'Create a time-bound signal and discover people around the same intent.'}
             </p>
           </div>
           <button type="button" className="g-intent-hub__close" onClick={onClose} aria-label="Close intents">
