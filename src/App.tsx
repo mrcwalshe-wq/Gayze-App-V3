@@ -2578,23 +2578,33 @@ export default function App() {
 
   const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
     triggerVibration([40, 70]);
+    const validPeerId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(peerId || '');
+    if (!isSupabaseConfigured || !isAuthenticated || !validPeerId) {
+      showToast('Sign in to send a Gayze request.');
+      return false;
+    }
 
-    if (isSupabaseConfigured && isAuthenticated) {
-      const pulse = supabaseRightNowPulses.find((item) => item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`));
-      if (!pulse || !pulse.id.startsWith('supabase_')) {
-        showToast('That Gaze could not be linked to a live profile.');
-        return false;
-      }
-      const result = await submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length));
-      if (result.sent) {
-        showToast(`Gaze sent to ${peerName}`);
-      } else {
-        showToast('Gaze could not be sent. Try again.');
-      }
+    // Every control labelled GAYZE must create the same accept/decline gate.
+    // A legacy gazes row was only a passive ping and could never unlock chat.
+    const pulse = supabaseRightNowPulses.find((item) =>
+      item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`),
+    );
+    if (pulse) {
+      const result = await handleSubmitInterest(pulse);
       return result.sent;
     }
 
-    showToast(`You gave a Gaze to ${peerName}.`);
+    const result = await submitInterest(peerId!, intentId);
+    if (!result.sent) {
+      showToast('Gayze request could not be sent. Try again.');
+      return false;
+    }
+    if (result.mutual && result.conversation_id && isConversationId(result.conversation_id)) {
+      await refreshConversationListRef.current();
+      requestConversationOpen(result.conversation_id);
+    } else {
+      showToast(`Gayze request sent to ${peerName} — awaiting their response.`);
+    }
     return true;
   };
 
@@ -2635,14 +2645,8 @@ export default function App() {
   };
 
   const handleSubmitGaze = async (pulse: Pulse) => {
-    if (!isSupabaseConfigured) return { sent: false };
-
-    const isSupabasePulse = pulse.id.startsWith('supabase_');
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulse.peerId);
-    if (!isSupabasePulse || !isUuid) return { sent: false };
-
-    const intentId = pulse.id.slice('supabase_'.length);
-    return submitGaze(pulse.peerId, intentId);
+    const result = await handleSubmitInterest(pulse);
+    return { sent: result.sent };
   };
 
 
