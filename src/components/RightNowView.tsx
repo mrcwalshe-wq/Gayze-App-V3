@@ -2179,8 +2179,13 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   const activity = item.type === 'haven'
                     ? item.item.name
                     : intentLabel;
-                  const signalLat = item.type === 'pulse' ? item.item.lat : item.type === 'profile' ? item.item.lat : item.item.lat;
-                  const signalLng = item.type === 'pulse' ? item.item.lng : item.type === 'profile' ? item.item.lng : item.item.lng;
+                  const signalPulse = item.type === 'pulse'
+                    ? item.item
+                    : item.type === 'profile'
+                      ? pulses.find((pulse) => pulse.peerId === item.item.id)
+                      : undefined;
+                  const signalLat = item.type === 'haven' ? item.item.lat : signalPulse?.lat;
+                  const signalLng = item.type === 'haven' ? item.item.lng : signalPulse?.lng;
 
                   return (
                     <article key={key} className={`g-nearby-intent-card ${isPrivate ? 'is-private' : 'is-social'} ${item.type === 'haven' ? 'is-haven' : ''}`}>
