@@ -2628,7 +2628,7 @@ export default function App() {
    * UI — if the write fails nothing is pretended to be live. Local/demo mode
    * keeps the signal on the device.
    */
-  const handleSaveUserIntent = (intent: UserActiveIntent) => {
+  const handleSaveUserIntent = async (intent: UserActiveIntent): Promise<boolean> => {
     hapticSensitiveAction();
     const previous = activeUserIntentRef.current;
     const isFirstPublish = !previous;
@@ -2640,76 +2640,67 @@ export default function App() {
         setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
       }
       showToast(`Status updated: ${intent.intent} (${intent.when})`);
-      return;
+      return true;
     }
 
     if (!isAuthenticated) {
       showToast('Sign in to publish a live intent.');
-      return;
+      return false;
     }
 
-    // Start the AirDrop-inspired handshake only for a brand-new, immediate live signal.
-    // The success state is withheld until Supabase confirms the publish.
     if (isFirstPublish && intent.when === 'Now') {
       setLiveActivation({ stage: 'connecting', mode: intent.mode, intent: String(intent.intent) });
     }
 
-    // Responsive UI: show the change immediately, then reconcile with the write.
-    setActiveUserIntent({ ...intent, remoteId: previous?.remoteId, isPaused: false });
-    setIsSetIntentOpen(false);
     setIntentBusy(true);
-
-    void (async () => {
-      try {
-        const location = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined;
-        const sourceUser = currentUserRef.current;
-        const saved = await saveActiveIntentWithSession(
-          { ...intent, remoteId: previous?.remoteId },
-          sourceUser,
-          location,
-        );
-        if (!saved) {
-          // Honest failure: revert instead of showing a live signal that is not live.
-          setActiveUserIntent(previous);
-          setLiveActivation(null);
-          showToast('Could not publish your intent. Nothing was saved.');
-          return;
-        }
-        setActiveUserIntent((prev) => ({
-          ...(prev || intent),
-          ...intent,
-          remoteId: saved.id,
-          expiresAt: saved.expiresAt,
-          isPaused: saved.isPaused,
-        }));
-        if (isFirstPublish && intent.when === 'Now') {
-          setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
-        }
-        await refreshDiscoveryRef.current();
-        analytics.logEvent('intent_published', {
-          mode: intent.mode,
-          intent: intent.intent,
-          timing: intent.when,
-          privacy: sourceUser.privacySetting,
-          safe_haven: Boolean(intent.isNearSafeHaven),
-        });
-        if (isFirstPublish) {
-          // Real story record, authored by the signed-in user. Media stays empty
-          // until a storage-backed upload exists.
-          void createStoryFromIntent(intent).catch((error) => {
-            console.warn('[GAYZE] Story creation failed', error);
-          });
-        }
-        showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
-      } catch (error) {
-        console.error('[GAYZE] Failed to persist Right Now intent', error);
-        setActiveUserIntent(previous);
+    try {
+      const location = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined;
+      const sourceUser = currentUserRef.current;
+      const saved = await saveActiveIntentWithSession(
+        { ...intent, remoteId: previous?.remoteId },
+        sourceUser,
+        location,
+      );
+      if (!saved) {
         setLiveActivation(null);
         showToast('Could not publish your intent. Nothing was saved.');
-      } finally {
-        setIntentBusy(false);
+        return false;
       }
-    })();
+
+      const confirmedIntent: UserActiveIntent = {
+        ...intent,
+        remoteId: saved.id,
+        expiresAt: saved.expiresAt,
+        isPaused: saved.isPaused,
+      };
+      setActiveUserIntent(confirmedIntent);
+      setIsSetIntentOpen(false);
+      if (isFirstPublish && intent.when === 'Now') {
+        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
+      }
+      await refreshDiscoveryRef.current();
+      analytics.logEvent('intent_published', {
+        mode: intent.mode,
+        intent: intent.intent,
+        timing: intent.when,
+        privacy: sourceUser.privacySetting,
+        safe_haven: Boolean(intent.isNearSafeHaven),
+      });
+      if (isFirstPublish) {
+        void createStoryFromIntent(intent).catch((error) => {
+          console.warn('[GAYZE] Story creation failed', error);
+        });
+      }
+      showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
+      return true;
+    } catch (error) {
+      console.error('[GAYZE] Failed to persist Right Now intent', error);
+      setLiveActivation(null);
+      showToast('Could not publish your intent. Nothing was saved.');
+      return false;
+    } finally {
+      setIntentBusy(false);
+    }
   };
 
   /** Pause/resume is a backend state change in live mode, not a local flag. */
