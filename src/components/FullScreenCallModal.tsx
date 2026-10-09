@@ -318,7 +318,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   // Full-screen iPhone-style UI
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
+      className="fixed inset-0 z-[10000] bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
       onClick={handleUserActivity}
       onTouchStart={handleUserActivity}
       onMouseMove={handleUserActivity}
@@ -327,7 +327,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
       <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
 
       {/* Main call container - iPhone style full screen */}
-      <div className="relative w-full h-[100dvh] flex flex-col">
+      <div className="relative w-full h-[100dvh] min-h-[100svh] flex flex-col overflow-hidden">
         
         {/* Status Bar - iOS style */}
         <div className="absolute top-0 left-0 right-0 z-40 pt-[env(safe-area-inset-top)] pb-2">
@@ -378,7 +378,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
               <div className="relative">
                 <div className="w-28 h-28 rounded-full bg-[#171922] border-2 border-[#C9A24D]/40 flex items-center justify-center text-4xl font-bold text-[#C9A24D] shadow-2xl overflow-hidden ring-4 ring-[#C9A24D]/20 ring-offset-2 ring-offset-[#0a0a0f]">
                   {peerAvatar ? (
-                    <img src={peerAvatar} alt={peerName} className="w-full h-full object-cover" />
+                    <img src={peerAvatar} alt={peerName} onError={(event) => { event.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
                   ) : (
                     peerName.charAt(0).toUpperCase()
                   )}
