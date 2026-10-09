@@ -1291,8 +1291,8 @@ export default function App() {
     replacePath(path);
     const route = routeFromPath(path);
     setActiveTab(route.tab);
-    if (route.conversationId) requestConversationOpen(route.conversationId);
     if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+    if (route.conversationId) requestConversationOpen(route.conversationId);
   }, [isAuthenticated]);
 
   // Messages posted by the service worker: notification taps and endpoint
@@ -1330,8 +1330,8 @@ export default function App() {
         }
         const route = routeFromPath(data.url);
         setActiveTab(route.tab);
-        if (route.conversationId) requestConversationOpen(route.conversationId);
         if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+        if (route.conversationId) requestConversationOpen(route.conversationId);
         replacePath(data.url);
         event.ports[0]?.postMessage({ handled: true });
         return;
@@ -1393,8 +1393,8 @@ export default function App() {
       notificationRefreshRef.current();
       const route = routeFromPath(notice.url);
       setActiveTab(route.tab);
-      if (route.conversationId) requestConversationOpen(route.conversationId);
       if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+      if (route.conversationId) requestConversationOpen(route.conversationId);
       replacePath(notice.url);
     } catch { showToast('Could not update the notification. Please try again.'); }
   };
@@ -3082,7 +3082,10 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
-              onOpenNotifications={() => { setMessagesSubTab('notifications'); setActiveTab('swarms'); }}
+              onOpenNotifications={() => {
+                setMessagesSubTab('notifications');
+                setActiveTab('swarms');
+              }}
             />
           )}
 
@@ -3172,6 +3175,7 @@ export default function App() {
                       setViewingPublicProfile({ userId, ...fallback });
                     }}
                     onInterestAccepted={async (conversationId) => {
+                      setMessagesSubTab('chats');
                       await refreshConversationListRef.current();
                       requestConversationOpen(conversationId);
                     }}

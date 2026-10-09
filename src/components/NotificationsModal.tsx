@@ -80,7 +80,7 @@ const notificationLabel = (notice: InboxNotification): string => {
 
 const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta: string }[] = [
   { key: 'messages', icon: <MessageCircle className="w-4 h-4" />, label: 'Messages', meta: 'When someone messages you' },
-  { key: 'intentActivity', icon: <Radio className="w-4 h-4" />, label: 'Gayzes', meta: 'When someone sends you a Gayze' },
+  { key: 'intentActivity', icon: <Radio className="w-4 h-4" />, label: 'Gayzes & intent interest', meta: 'When someone Gayzes you or shows interest in your intent' },
   { key: 'connections', icon: <UserPlus className="w-4 h-4" />, label: 'Connections', meta: 'When interest is mutual' },
   { key: 'intentExpiry', icon: <Timer className="w-4 h-4" />, label: 'Intent expiry', meta: 'Before your intent lapses' },
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
