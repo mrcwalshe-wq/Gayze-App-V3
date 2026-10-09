@@ -172,6 +172,8 @@ interface RightNowViewProps {
   onMaxDistanceKmChange?: (km: number) => void;
   /** Signed/public URL for the current user's primary profile photo. */
   userAvatarUrl?: string;
+  /** Suppress map empty-state chrome while an intent sheet is open. */
+  isIntentOverlayOpen?: boolean;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -196,6 +198,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onRequestLocation,
   onMaxDistanceKmChange,
   userAvatarUrl,
+  isIntentOverlayOpen = false,
 }) => {
   // 1. The active Right Now signal is owned by App (Supabase in live mode).
   //    Right Now renders it and routes every change through
@@ -1360,7 +1363,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {/* =========================================================================
           4.5. EMPTY STATE — honest, compact, map stays visible
          ========================================================================= */}
-      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && !isNearbyOpen && (
+      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && !isNearbyOpen && !isIntentOverlayOpen && (
         <div className="g-map-empty-state" role="status">
           <span className="g-map-empty-state__title">No active intent nearby</span>
           <span className="g-map-empty-state__copy">Within {maxDistanceKm} km</span>
