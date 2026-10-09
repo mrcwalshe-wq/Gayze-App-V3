@@ -120,6 +120,7 @@ import {
   loadIntimacyProfile,
   loadProfileDetails,
   loadIncomingInterests,
+  type IncomingInterest,
   acceptIncomingInterest,
   declineIncomingInterest,
   updateSupabaseProfile,
@@ -151,7 +152,7 @@ import {
   hapticLight,
   triggerVibration
 } from './services/hapticService';
-import { Shield, Lock, Radio, Calendar, HeartHandshake, Eye, AlertCircle } from 'lucide-react';
+import { Shield, Lock, Radio, Calendar, HeartHandshake, Eye, AlertCircle, Sparkles, X, ChevronRight } from 'lucide-react';
 
 /**
  * Live mode (Supabase configured) never seeds a profile, a check-in or an
@@ -591,6 +592,7 @@ export default function App() {
     fallbackPhotoUrl?: string;
     fallbackOnline?: boolean;
   } | null>(null);
+  const [incomingGayzeCelebration, setIncomingGayzeCelebration] = useState<IncomingInterest | null>(null);
   const knownIncomingInterestIdsRef = useRef<Set<string>>(new Set());
   const [notificationInbox, setNotificationInbox] = useState<NotificationInbox | null>(null);
   const [notificationInboxStatus, setNotificationInboxStatus] = useState<ChatConnectionState>('connecting');
@@ -1419,8 +1421,7 @@ export default function App() {
         // Surface requests received while the app was closed as well as live
         // inserts; otherwise the initial reconciliation silently hides them.
         if (incoming.length > 0) {
-          setMessagesSubTab('notifications');
-          setActiveTab('swarms');
+          setIncomingGayzeCelebration(incoming[0]);
         }
         return;
       }
@@ -1430,12 +1431,10 @@ export default function App() {
       if (!newInterest) return;
 
       triggerVibration([40, 60, 100]);
-      // A Gayze is an actionable request, not a passive toast. Bring the user
-      // directly to Messages → Notifications so the sender's profile, request,
-      // and Accept / Decline actions are immediately visible.
-      setMessagesSubTab('notifications');
-      setActiveTab('swarms');
-      showToast(`New Gayze from ${newInterest.fromDisplayName}`);
+      // Incoming Gayzes need a distinct, unmistakable arrival moment.
+      // The request remains pending until the recipient chooses to respond.
+      setIncomingGayzeCelebration(newInterest);
+      showToast(`A Gayze from ${newInterest.fromDisplayName}`);
     };
 
     void handleInterestChange();
@@ -3274,6 +3273,51 @@ export default function App() {
 
       {showProfileOnboarding && supabaseUserId && (
         <ProfileOnboarding currentUser={currentUser} onSave={handleSaveProfileOnboarding} />
+      )}
+
+      {incomingGayzeCelebration && (
+        <div className="g-received-gayze-overlay" role="presentation" onClick={() => setIncomingGayzeCelebration(null)}>
+          <section className="g-received-gayze-card" role="dialog" aria-modal="true" aria-labelledby="received-gayze-title" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="g-received-gayze-close" onClick={() => setIncomingGayzeCelebration(null)} aria-label="Dismiss Gayze notification"><X className="h-5 w-5" /></button>
+            <div className="g-received-gayze-orbit" aria-hidden="true">
+              <span className="g-received-gayze-orbit__ring g-received-gayze-orbit__ring--one" />
+              <span className="g-received-gayze-orbit__ring g-received-gayze-orbit__ring--two" />
+              <span className="g-received-gayze-orbit__spark g-received-gayze-orbit__spark--one">✦</span>
+              <span className="g-received-gayze-orbit__spark g-received-gayze-orbit__spark--two">✧</span>
+              {incomingGayzeCelebration.fromAvatarUrl && /^https?:\/\//i.test(incomingGayzeCelebration.fromAvatarUrl) ? (
+                <img className="g-received-gayze-avatar" src={incomingGayzeCelebration.fromAvatarUrl} alt="" />
+              ) : (
+                <span className="g-received-gayze-avatar g-received-gayze-avatar--fallback">{incomingGayzeCelebration.fromDisplayName.slice(0, 1).toUpperCase()}</span>
+              )}
+              <span className="g-received-gayze-badge"><Sparkles className="h-4 w-4" /></span>
+            </div>
+            <p className="g-received-gayze-eyebrow">SOMEONE HAS NOTICED YOU</p>
+            <h2 id="received-gayze-title" className="g-received-gayze-title">You’ve been Gayzed.</h2>
+            <p className="g-received-gayze-subtitle"><strong>{incomingGayzeCelebration.fromDisplayName}</strong> wants to show you interest.</p>
+            {incomingGayzeCelebration.message?.trim() && (
+              <blockquote className="g-received-gayze-note">“{incomingGayzeCelebration.message.trim()}”</blockquote>
+            )}
+            {!!incomingGayzeCelebration.sharedPhotoUrls?.length && (
+              <div className="g-received-gayze-photos" aria-label="Photos shared with this Gayze">
+                {incomingGayzeCelebration.sharedPhotoUrls.slice(0, 3).map((url, index) => (
+                  <img key={url + index} src={url} alt="" loading="lazy" />
+                ))}
+              </div>
+            )}
+            <p className="g-received-gayze-footnote">Your choice stays yours. Open the request to view their profile and accept or decline.</p>
+            <button type="button" className="g-received-gayze-cta" onClick={() => {
+              setIncomingGayzeCelebration(null);
+              setMessagesSubTab('notifications');
+              setActiveTab('swarms');
+              triggerVibration([35, 45, 80]);
+            }}>
+              <Sparkles className="h-4 w-4" />
+              <span>View your Gayze</span>
+              <ChevronRight className="h-5 w-5" />
+            </button>
+            <button type="button" className="g-received-gayze-later" onClick={() => setIncomingGayzeCelebration(null)}>Maybe later</button>
+          </section>
+        </div>
       )}
 
       {/* Schedule Meeting & Safe Haven Date Modal */}
