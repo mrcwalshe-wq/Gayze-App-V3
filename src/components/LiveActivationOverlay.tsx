@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Radio, Check, Waves } from 'lucide-react';
+import { Radio, Check, Waves, Smartphone, Zap } from 'lucide-react';
 import type { TopLevelIntentMode } from '../types';
 
 interface LiveActivationOverlayProps {
@@ -10,9 +10,9 @@ interface LiveActivationOverlayProps {
 }
 
 /**
- * A short, AirDrop-inspired signal handshake. It is only shown for a confirmed
- * first-time "Right now" publish; failure paths dismiss it rather than claiming
- * that the user is live.
+ * A short, AirDrop-inspired phone-to-phone handshake. It is only shown for a
+ * confirmed first-time "Right now" publish; failure paths dismiss it rather
+ * than claiming that the user is live.
  */
 export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({
   stage, mode, intent, onComplete,
@@ -44,19 +44,26 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({
           <span className="g-live-orbit__node g-live-orbit__node--two" />
           <span className="g-live-orbit__node g-live-orbit__node--three" />
           <span className="g-live-orbit__core">
-            {isLive ? <Check size={31} strokeWidth={2.8} /> : <Radio size={31} strokeWidth={1.8} />}
+            {isLive ? <Check size={25} strokeWidth={2.8} /> : <Radio size={25} strokeWidth={1.8} />}
           </span>
           <span className="g-live-orbit__signal"><Waves size={15} /></span>
+          <span className="g-live-devices">
+            <span className="g-live-device g-live-device--one"><Smartphone size={27} strokeWidth={1.8} /></span>
+            <span className="g-live-device-link"><span /><Zap size={13} /></span>
+            <span className="g-live-device g-live-device--two">
+              {isLive ? <Check size={23} strokeWidth={2.7} /> : <Smartphone size={27} strokeWidth={1.8} />}
+            </span>
+          </span>
         </div>
         <div className="g-live-handshake__eyebrow">
           <span className="g-live-handshake__dot" />
           {isLive ? 'SIGNAL ESTABLISHED' : 'GAYZE NETWORK'}
         </div>
         <h2 className="g-live-handshake__title">
-          {isLive ? "You're live." : 'Finding your frequency'}
+          {isLive ? "You're live." : 'Connecting nearby'}
         </h2>
         <p className="g-live-handshake__copy">
-          {isLive ? 'Your signal is on the map.' : 'Connecting your intent to people nearby…'}
+          {isLive ? 'Your signal is on the map.' : 'Your phone is sharing your intent with people nearby…'}
         </p>
         <span className="g-live-handshake__intent">{intent}</span>
       </div>

@@ -477,7 +477,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     const nextPaused = !activeUserIntent.isPaused;
     setActiveUserIntent({ ...activeUserIntent, isPaused: nextPaused });
     setIsUserIntentExpanded(false);
-    showStatusMessage(nextPaused ? 'Pausing your signal…' : 'Resuming your signal…', 2500);
+    // App owns the single authoritative toast for the async pause/resume result.
   };
 
   // End active intent early
@@ -486,7 +486,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setIsUserIntentDrawerOpen(false);
     setIsUserIntentExpanded(false);
     setActiveUserIntent(null);
-    showStatusMessage('Ending your signal…', 2500);
+    // App owns the pending + confirmed/error toast in one shared lane.
   };
 
   // Express an intent interest with optional note and selected album photos.
