@@ -2094,15 +2094,22 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           7.5 NEARBY DISCOVERY DRAWER — list view of live intents, map stays behind
          ========================================================================= */}
       {isNearbyOpen && (
-        <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setIsNearbyOpen(false)}>
-          <div className="g-sheet g-sheet--active-signal" onClick={(e) => e.stopPropagation()}>
+        <div className="g-overlay g-nearby-intents-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setIsNearbyOpen(false)}>
+          <section
+            className="g-sheet g-sheet--active-signal g-nearby-intents-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Nearby intents"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="g-sheet__grip" />
-            <div className="g-sheet__head">
+            <header className="g-sheet__head">
               <div>
-                <span className="g-label">Right Now</span>
-                <h2 className="text-[15px] font-extrabold text-white mt-0.5">
-                  {nearbyItems.length} available nearby
+                <span className="g-label">DISCOVER · RIGHT NOW</span>
+                <h2 className="text-[16px] font-extrabold text-white mt-1">
+                  Nearby intents <span className="g-nearby-intents-count">{nearbyItems.length}</span>
                 </h2>
+                <p className="text-[11px] text-zinc-500 mt-1">Anonymous until you choose to explore a signal</p>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -2112,7 +2119,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     setIsNearbyOpen(false);
                     setIsFilterDrawerOpen(true);
                   }}
-                  className="g-btn g-btn--quiet !min-h-[44px] px-3 text-[12px]"
+                  className="g-btn g-btn--quiet !min-h-[40px] px-3 text-[12px]"
+                  aria-label="Filter nearby intents"
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
                   Filter
@@ -2120,23 +2128,21 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsNearbyOpen(false)}
-                  className="g-icon-btn g-icon-btn--bare !w-11 !h-11"
-                  aria-label="Close nearby list"
+                  className="g-icon-btn g-icon-btn--bare !w-10 !h-10"
+                  aria-label="Close nearby intents"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-            </div>
+            </header>
 
-            <div className="g-sheet__body pb-2">
+            <div className="g-sheet__body g-nearby-intents-list pb-3">
               {nearbyItems.length === 0 ? (
                 <div className="py-6">
                   <div className="g-empty !shadow-none">
-                    <div className="g-empty__icon">
-                      <Radio className="w-5 h-5" />
-                    </div>
-                    <h3>No active intent nearby</h3>
-                    <p>Nothing matches this filter set right now.</p>
+                    <div className="g-empty__icon"><Radio className="w-5 h-5" /></div>
+                    <h3>No matching intents nearby</h3>
+                    <p>Try a wider filter or check again later. Nearby availability updates as signals change.</p>
                     {onOpenSetIntent && (
                       <button
                         type="button"
@@ -2147,117 +2153,94 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                           onOpenSetIntent();
                         }}
                       >
-                        <Plus className="w-4 h-4" />
-                        Create your intent
+                        <Plus className="w-4 h-4" /> Set your intent
                       </button>
                     )}
                   </div>
                 </div>
               ) : (
                 nearbyItems.map((item) => {
-                  const key = item.type === 'haven' ? item.item.id : item.type === 'pulse' ? item.item.id : item.item.id;
-                  const name =
-                    item.type === 'haven'
-                      ? item.item.name
-                      : item.type === 'pulse'
-                        ? `${item.item.peerName}${item.item.peerAge ? ` · ${item.item.peerAge}` : ''}`
-                        : `${item.item.name} · ${item.item.age}`;
-                  const isPrivate =
-                    item.type === 'pulse'
-                      ? item.item.intentMode === 'private' || item.item.intent?.includes('Hookup')
-                      : item.type === 'profile'
-                        ? item.item.intentMode === 'private'
-                        : false;
-                  const intentLabel =
-                    item.type === 'haven'
-                      ? 'Safe haven'
-                      : item.type === 'pulse'
-                        ? item.item.intent?.replace(' · ', ' ') || (isPrivate ? 'Private' : 'Social')
-                        : item.item.intent || item.item.lookingForLabel;
-                  const expires =
-                    item.type === 'pulse' ? item.item.expiresAt : item.type === 'profile' ? item.item.intentExpiresAt : undefined;
+                  const key = item.type === 'haven' ? item.item.id : item.item.id;
+                  const isPrivate = item.type === 'pulse'
+                    ? item.item.intentMode === 'private' || item.item.intent?.toLowerCase().includes('hookup') === true
+                    : item.type === 'profile' ? item.item.intentMode === 'private' : false;
+                  const intentLabel = item.type === 'haven'
+                    ? 'Safe haven'
+                    : item.type === 'pulse'
+                      ? item.item.intent?.replace(' · ', ' ') || (isPrivate ? 'Private intent' : 'Social intent')
+                      : item.item.intent || item.item.lookingForLabel || (isPrivate ? 'Private intent' : 'Social intent');
+                  const expires = item.type === 'pulse'
+                    ? item.item.expiresAt
+                    : item.type === 'profile' ? item.item.intentExpiresAt : undefined;
+                  const distance = itemDistanceKm(item);
+                  const distanceBand = !Number.isFinite(distance)
+                    ? 'Nearby'
+                    : distance < 1 ? 'Within 1 km' : distance < 2 ? 'Within 2 km' : 'Within 5 km';
+                  const activity = item.type === 'haven'
+                    ? item.item.name
+                    : intentLabel;
+                  const signalPulse = item.type === 'pulse'
+                    ? item.item
+                    : item.type === 'profile'
+                      ? pulses.find((pulse) => pulse.peerId === item.item.id)
+                      : undefined;
+                  const signalLat = item.type === 'haven' ? item.item.lat : signalPulse?.lat;
+                  const signalLng = item.type === 'haven' ? item.item.lng : signalPulse?.lng;
 
                   return (
-                    <button
-                      key={key}
-                      type="button"
-                      className="g-intent-row"
-                      onClick={() => {
-                        hapticLight();
-                        setSelectedItem(item);
-                        setIsCardExpanded(false);
-                        setIsNearbyOpen(false);
-                      }}
-                    >
-                      <div
-                        className={`g-avatar w-10 h-10 text-[13px] ${
-                          item.type === 'haven'
-                            ? '!bg-[#0f1f1a] !text-emerald-400'
-                            : isPrivate
-                              ? 'g-avatar--ring-private'
-                              : 'g-avatar--ring-social'
-                        }`}
-                      >
-                        {item.type === 'profile' ? (
-                          <img
-                            src={item.item.photoUrl}
-                            alt=""
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : item.type === 'haven' ? (
-                          <ShieldCheck className="w-4 h-4" />
-                        ) : (
-                          <span>{item.item.peerName.charAt(0)}</span>
-                        )}
+                    <article key={key} className={`g-nearby-intent-card ${isPrivate ? 'is-private' : 'is-social'} ${item.type === 'haven' ? 'is-haven' : ''}`}>
+                      <div className="g-nearby-intent-card__icon" aria-hidden="true">
+                        {item.type === 'haven'
+                          ? <ShieldCheck className="w-5 h-5" />
+                          : isPrivate
+                            ? <Lock className="w-5 h-5" />
+                            : <Radio className="w-5 h-5" />}
                       </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[13.5px] font-bold text-white truncate">{name}</span>
-                          {item.type !== 'haven' && (
-                            <span className={`g-chip ${isPrivate ? 'g-chip--private' : 'g-chip--social'}`}>
-                              {intentLabel}
-                            </span>
+                      <div className="g-nearby-intent-card__copy">
+                        <div className="g-nearby-intent-card__eyebrow">
+                          {item.type === 'haven' ? 'COMMUNITY PLACE' : isPrivate ? 'PRIVATE SIGNAL' : 'SOCIAL SIGNAL'}
+                          {item.type !== 'haven' && <span className="g-nearby-anonymous">ANONYMOUS</span>}
+                        </div>
+                        <h3>{item.type === 'haven' ? activity : intentLabel}</h3>
+                        <div className="g-nearby-intent-card__meta">
+                          {item.type === 'haven' ? item.item.neighborhood : distanceBand}
+                          {expires && expires > Date.now() && (
+                            <><span aria-hidden="true">·</span><span>{Math.max(1, Math.ceil((expires - Date.now()) / 60000))} min left</span></>
                           )}
                         </div>
-                        <div className="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5 min-w-0">
-                          <span className="font-mono shrink-0">{formatDistanceKm(itemDistanceKm(item))}</span>
-                          <span className="truncate">
-                            · {item.type === 'haven' ? item.item.neighborhood : item.type === 'pulse' ? item.item.neighborhood : item.item.neighborhood}
-                          </span>
-                        </div>
                       </div>
-
-                      {expires ? (
-                        <CountdownPill expiresAt={expires} />
-                      ) : item.type === 'profile' && item.item.safetyVerified ? (
-                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      ) : null}
-                    </button>
+                      <button
+                        type="button"
+                        className="g-nearby-intent-card__action"
+                        onClick={() => {
+                          hapticLight();
+                          if (item.type === 'haven') {
+                            setIsNearbyOpen(false);
+                            setSelectedItem(item);
+                            setIsCardExpanded(false);
+                            return;
+                          }
+                          // Pan to the already privacy-jittered map signal only.
+                          // Do not open a profile preview or expose a name/photo from this anonymous list.
+                          if (Number.isFinite(signalLat) && Number.isFinite(signalLng)) {
+                            mapInstanceRef.current?.flyTo([signalLat, signalLng], 13, { duration: 0.65 });
+                          }
+                          setIsNearbyOpen(false);
+                        }}
+                        aria-label={item.type === 'haven' ? `View ${item.item.name}` : 'Explore anonymous intent on map'}
+                      >
+                        {item.type === 'haven' ? 'View' : 'Explore'} <span aria-hidden="true">›</span>
+                      </button>
+                    </article>
                   );
                 })
               )}
             </div>
-
-            {!activeUserIntent && onOpenSetIntent && nearbyItems.length > 0 && (
-              <div className="g-sheet__foot">
-                <button
-                  type="button"
-                  className="g-btn g-btn--primary w-full"
-                  onClick={() => {
-                    hapticLight();
-                    setIsNearbyOpen(false);
-                    onOpenSetIntent();
-                  }}
-                >
-                  <Plus className="w-4 h-4" />
-                  Create your intent
-                </button>
-              </div>
-            )}
-          </div>
+            <footer className="g-nearby-intents-footer">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Names and photos stay hidden in this list. Map positions are approximate.</span>
+            </footer>
+          </section>
         </div>
       )}
 
