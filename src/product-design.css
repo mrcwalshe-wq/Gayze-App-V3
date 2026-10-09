@@ -2237,3 +2237,53 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .g-live-device--one, .g-live-device--two, .g-live-device-link > span { animation: none !important; }
 }
+
+
+/* Notifications sub-tab spacing fix (2026-10-09).
+   Embedded mode scrolls as one page. The old body used gap without a flex/grid
+   layout, so the status, preferences and activity panels visually collided. */
+@media (max-width: 767px) {
+  .g-messages-notifications__panel {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  .g-messages-notifications__panel > .g-notifications-body {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    min-height: 0;
+    padding: 12px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+    overflow: visible;
+  }
+
+  .g-messages-notifications__panel .g-notification-status,
+  .g-messages-notifications__panel .g-notification-preferences,
+  .g-messages-notifications__panel .g-notification-inbox {
+    flex: 0 0 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .g-messages-notifications__panel .g-notification-status {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .g-messages-notifications__panel .g-notification-section-head {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .g-messages-notifications__panel .g-notification-section-head h3 {
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .g-messages-notifications__panel .g-notification-row {
+    min-height: 62px;
+  }
+}
