@@ -2131,3 +2131,159 @@ select:focus-visible {
     border-color: rgba(255,69,58,.48) !important;
   }
 }
+
+
+/* One notification lane: never leave both top and bottom constraints active.
+   Map-local feedback and app-level results share the same stable position. */
+.g-toast {
+  position: fixed !important;
+  top: auto !important;
+  bottom: calc(var(--g-tabbar-h, 56px) + env(safe-area-inset-bottom, 0px) + 18px) !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  width: min(360px, calc(100vw - 24px)) !important;
+  max-width: calc(100vw - 24px) !important;
+  z-index: 120 !important;
+  margin: 0 !important;
+  animation: g-toast-lane-in 220ms cubic-bezier(.22,1,.36,1) both !important;
+}
+.g-toast--map-status {
+  top: auto !important;
+  bottom: calc(var(--g-tabbar-h, 56px) + env(safe-area-inset-bottom, 0px) + 18px) !important;
+  left: 50% !important;
+  right: auto !important;
+}
+@keyframes g-toast-lane-in {
+  from { opacity: 0; transform: translate3d(calc(-50% + 0px), 10px, 0); }
+  to { opacity: 1; transform: translate3d(-50%, 0, 0); }
+}
+@media (max-width: 380px) {
+  .g-toast { width: calc(100vw - 24px) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-toast { animation: none !important; transform: translateX(-50%) !important; }
+}
+
+/* AirDrop-style paired devices: the orbit pulses behind two phones and a
+   travelling spark bridges them. The map remains visible through the veil. */
+.g-live-handshake__backdrop {
+  background:
+    radial-gradient(ellipse 68% 42% at 50% 36%, var(--live-tone-soft), transparent 78%),
+    radial-gradient(ellipse at center, rgba(12,10,20,.52), rgba(6,7,12,.82) 68%, rgba(6,7,12,.72)) !important;
+  backdrop-filter: blur(4px) saturate(1.16) !important;
+  -webkit-backdrop-filter: blur(4px) saturate(1.16) !important;
+}
+.g-live-orbit__core {
+  opacity: .55;
+  transform: scale(.78);
+}
+.g-live-devices {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 176px;
+  transform: translateY(1px);
+}
+.g-live-device {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 72px;
+  flex: 0 0 54px;
+  border: 1px solid color-mix(in srgb, var(--live-tone) 68%, white 18%);
+  border-radius: 13px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 50% 0%, var(--live-tone-soft), transparent 65%),
+    linear-gradient(160deg, rgba(29,27,41,.96), rgba(10,11,17,.98));
+  box-shadow: 0 0 0 4px rgba(255,255,255,.025), 0 0 26px var(--live-tone-soft), inset 0 1px 0 rgba(255,255,255,.18);
+}
+.g-live-device--one { animation: g-live-device-left 1.45s cubic-bezier(.22,1,.36,1) infinite alternate; }
+.g-live-device--two { animation: g-live-device-right 1.45s cubic-bezier(.22,1,.36,1) infinite alternate; }
+.g-live-device-link {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  flex: 0 0 36px;
+  color: #fff;
+  filter: drop-shadow(0 0 9px var(--live-tone));
+}
+.g-live-device-link > span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, var(--live-tone), #fff, var(--live-tone), transparent);
+  background-size: 200% 100%;
+  animation: g-live-bridge 700ms linear infinite;
+}
+.g-live-device-link svg { position: relative; z-index: 1; background: #100d19; border-radius: 50%; }
+.g-live-handshake.is-live .g-live-device--one,
+.g-live-handshake.is-live .g-live-device--two { animation-play-state: paused; }
+.g-live-handshake.is-live .g-live-device-link { color: #ff505f; }
+@keyframes g-live-device-left { from { transform: translateX(7px) scale(.97); } to { transform: translateX(-2px) scale(1); } }
+@keyframes g-live-device-right { from { transform: translateX(-7px) scale(.97); } to { transform: translateX(2px) scale(1); } }
+@keyframes g-live-bridge { from { background-position: 100% 0; opacity: .4; } to { background-position: -100% 0; opacity: 1; } }
+@media (max-width: 380px) {
+  .g-live-devices { transform: translateY(1px) scale(.88); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-live-device--one, .g-live-device--two, .g-live-device-link > span { animation: none !important; }
+}
+
+
+/* Notifications sub-tab spacing fix (2026-10-09).
+   Embedded mode scrolls as one page. The old body used gap without a flex/grid
+   layout, so the status, preferences and activity panels visually collided. */
+@media (max-width: 767px) {
+  .g-messages-notifications__panel {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  .g-messages-notifications__panel > .g-notifications-body {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    min-height: 0;
+    padding: 12px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+    overflow: visible;
+  }
+
+  .g-messages-notifications__panel .g-notification-status,
+  .g-messages-notifications__panel .g-notification-preferences,
+  .g-messages-notifications__panel .g-notification-inbox {
+    flex: 0 0 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .g-messages-notifications__panel .g-notification-status {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .g-messages-notifications__panel .g-notification-section-head {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .g-messages-notifications__panel .g-notification-section-head h3 {
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .g-messages-notifications__panel .g-notification-row {
+    min-height: 62px;
+  }
+}

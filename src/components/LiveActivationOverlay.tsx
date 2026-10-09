@@ -10,9 +10,9 @@ interface LiveActivationOverlayProps {
 }
 
 /**
- * A restrained, spatial signal transition. Keep the connection phase visible
- * long enough to feel intentional, then hold the confirmed state before
- * returning to the map. "Live" is only supplied after the backend confirms it.
+ * A restrained, spatial signal transition for confirmed first-time "Right now"
+ * publishes. Keep the connection phase visible long enough to feel intentional,
+ * then hold the confirmed state before returning to the map.
  */
 export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({
   stage, mode, intent, onComplete,

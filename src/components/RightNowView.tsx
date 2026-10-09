@@ -172,6 +172,8 @@ interface RightNowViewProps {
   onMaxDistanceKmChange?: (km: number) => void;
   /** Signed/public URL for the current user's primary profile photo. */
   userAvatarUrl?: string;
+  /** Suppress map empty-state chrome while an intent sheet is open. */
+  isIntentOverlayOpen?: boolean;
 }
 
 export const RightNowView: React.FC<RightNowViewProps> = ({
@@ -196,6 +198,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   onRequestLocation,
   onMaxDistanceKmChange,
   userAvatarUrl,
+  isIntentOverlayOpen = false,
 }) => {
   // 1. The active Right Now signal is owned by App (Supabase in live mode).
   //    Right Now renders it and routes every change through
@@ -477,7 +480,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     const nextPaused = !activeUserIntent.isPaused;
     setActiveUserIntent({ ...activeUserIntent, isPaused: nextPaused });
     setIsUserIntentExpanded(false);
-    showStatusMessage(nextPaused ? 'Pausing your signal…' : 'Resuming your signal…', 2500);
+    // App owns the single authoritative toast for the async pause/resume result.
   };
 
   // End active intent early
@@ -486,7 +489,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     setIsUserIntentDrawerOpen(false);
     setIsUserIntentExpanded(false);
     setActiveUserIntent(null);
-    showStatusMessage('Ending your signal…', 2500);
+    // App owns the pending + confirmed/error toast in one shared lane.
   };
 
   // Express an intent interest with optional note and selected album photos.
@@ -1263,9 +1266,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="g-float g-map-state !cursor-default">
-              <span className="w-2 h-2 rounded-full shrink-0 bg-[#6F3CC3]/70" aria-hidden="true" />
-              <span className="min-w-0 text-left"><span className="flex items-baseline gap-1.5"><span>Right Now</span><span className="g-map-state__meta">{liveMembersCount} live</span></span><span className="block g-map-state__meta font-normal">Tap Set intent to go live</span></span>
+            <div className="g-map-state g-map-state--empty !cursor-default" role="status" aria-label={`Right Now, ${liveMembersCount} live`}>
+              <span className="g-map-state__empty-dot" aria-hidden="true" />
+              <span className="g-map-state__empty-label">RIGHT NOW</span>
+              <span className="g-map-state__meta">{liveMembersCount} live</span>
             </div>
           )}
         </div>
@@ -1359,46 +1363,35 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {/* =========================================================================
           4.5. EMPTY STATE — honest, compact, map stays visible
          ========================================================================= */}
-      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-30 w-[min(92vw,330px)] pointer-events-auto"
-          style={{ bottom: 'calc(var(--g-tabbar-h) + env(safe-area-inset-bottom,0px) + 82px)' }}
-        >
-          <div className="g-empty">
-            <div className="g-empty__icon">
-              <Radio className="w-5 h-5" />
-            </div>
-            <h3>No active intent nearby</h3>
-            <p>
-              Nothing is live within {maxDistanceKm} km right now. Set your intent and the map
-              lights up around you.
-            </p>
-            {onOpenSetIntent && (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  onOpenSetIntent();
-                }}
-                className="g-btn g-btn--primary w-full mt-1"
-              >
-                <Plus className="w-4 h-4" />
-                Create your intent
-              </button>
-            )}
-            {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
-                }}
-                className="g-btn g-btn--ghost w-full !min-h-[44px] text-[12px]"
-              >
-                Widen radius to {MAX_TRAVEL_DISTANCE_KM} km
-              </button>
-            )}
-          </div>
+      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && !isNearbyOpen && !isIntentOverlayOpen && (
+        <div className="g-map-empty-state" role="status">
+          <span className="g-map-empty-state__title">No active intent nearby</span>
+          <span className="g-map-empty-state__copy">Within {maxDistanceKm} km</span>
+          {onOpenSetIntent && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                onOpenSetIntent();
+              }}
+              className="g-map-empty-state__action"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Set intent
+            </button>
+          )}
+          {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
+              }}
+              className="g-map-empty-state__radius"
+            >
+              Expand to {MAX_TRAVEL_DISTANCE_KM} km
+            </button>
+          )}
         </div>
       )}
 
@@ -1527,7 +1520,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </p>
 
           {/* Actions — one primary, two quiet */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="g-discovery-actions flex items-stretch gap-2 mt-3 min-w-0">
             {selectedItem.type === 'haven' ? (
               <>
                 <button
@@ -1562,7 +1555,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       onOpenDirectChatWithProfile(selectedItem.item);
                     }
                   }}
-                  className="g-btn g-discovery-secondary flex-1"
+                  className="g-btn g-discovery-secondary g-discovery-action flex-1 min-w-0"
                 >
                   <Lock className="w-4 h-4" />
                   Message
@@ -1572,12 +1565,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     type="button"
                     onClick={() => void handleTapInterested(selectedItem.item.id, selectedItem.item)}
                     disabled={interestPendingIds.has(selectedItem.item.id) || Boolean(interestStatusByPulseId[selectedItem.item.id])}
-                    className={`g-btn g-discovery-primary !px-3 text-[12px] ${
+                    className={`g-btn g-discovery-primary g-discovery-action g-discovery-action--primary flex-1 min-w-0 !px-2 text-[12px] ${
                       interestedIds.has(selectedItem.item.id)
                         ? 'g-btn--primary'
                         : 'g-btn--quiet'
                     }`}
                   >
+                    <span className="g-gayze-particles" aria-hidden="true">
+                      <span className="g-gayze-particle g-gayze-particle--one" />
+                      <span className="g-gayze-particle g-gayze-particle--two" />
+                      <span className="g-gayze-particle g-gayze-particle--three" />
+                      <span className="g-gayze-particle g-gayze-particle--four" />
+                    </span>
                     {interestedIds.has(selectedItem.item.id) ? (
                       <Check className="w-3.5 h-3.5" />
                     ) : (
@@ -1597,10 +1596,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <button
                     type="button"
                     onClick={() => void handleGazeAtPerson(selectedItem.item.name, selectedItem.item.id)}
-                    className={`g-btn g-discovery-primary !px-3 text-[12px] ${
+                    className={`g-btn g-discovery-primary g-discovery-action g-discovery-action--primary flex-1 min-w-0 !px-2 text-[12px] ${
                       gazedPeerNames.has(selectedItem.item.id) ? 'g-btn--primary' : 'g-btn--quiet'
                     }`}
                   >
+                    <span className="g-gayze-particles" aria-hidden="true">
+                      <span className="g-gayze-particle g-gayze-particle--one" />
+                      <span className="g-gayze-particle g-gayze-particle--two" />
+                      <span className="g-gayze-particle g-gayze-particle--three" />
+                      <span className="g-gayze-particle g-gayze-particle--four" />
+                    </span>
                     <Eye className="w-3.5 h-3.5" />
                     {gazedPeerNames.has(selectedItem.item.id) ? 'Gayze sent' : 'Send GAYZE'}
                   </button>
@@ -1613,7 +1618,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       selectedItem.type === 'pulse' ? selectedItem.item.peerName : selectedItem.item.name,
                     );
                   }}
-                  className="g-btn g-btn--quiet !px-3 text-[12px]"
+                  className="g-btn g-discovery-meet g-discovery-action flex-1 min-w-0 !px-2 text-[12px]"
                   aria-label="Safe meet"
                 >
                   <Calendar className="w-3.5 h-3.5" />

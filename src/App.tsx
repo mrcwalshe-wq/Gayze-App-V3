@@ -53,6 +53,7 @@ import {
   consumeNotificationPath,
 } from './services/notificationRouting';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
+import { getProfilePhotoUrl } from './services/profilePhotoService';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
@@ -114,7 +115,6 @@ import {
   endActiveIntent,
   subscribeToRightNow,
   submitInterest,
-  submitGaze,
   saveIntimacyProfile,
   updateProfileDetails,
   loadIntimacyProfile,
@@ -327,6 +327,7 @@ export default function App() {
   }, []);
 
   const lastSyncedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastLocationSyncAtRef = useRef(0);
   const locationWatchStopRef = useRef<(() => void) | null>(null);
 
   // Core datasets with local state
@@ -353,6 +354,7 @@ export default function App() {
       locationWatchStopRef.current = null;
       setUserLocation(null);
       lastSyncedLocationRef.current = null;
+      lastLocationSyncAtRef.current = 0;
       return;
     }
 
@@ -371,15 +373,34 @@ export default function App() {
 
         if (isSupabaseConfigured && supabase && currentUser.privacySetting !== 'ghost') {
           const previous = lastSyncedLocationRef.current;
-          const latDelta = previous ? Math.abs(previous.lat - location.lat) : Infinity;
-          const lngDelta = previous ? Math.abs(previous.lng - location.lng) : Infinity;
-          if (!previous || latDelta > 0.0008 || lngDelta > 0.0008) {
-            lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-            // Exact GPS never leaves the device: the stored point is jittered
-            // inside the user's configured privacy radius first.
+          const movedMeters = previous
+            ? (() => {
+                const toRadians = (degrees: number) => degrees * Math.PI / 180;
+                const dLat = toRadians(location.lat - previous.lat);
+                const dLng = toRadians(location.lng - previous.lng);
+                const a = Math.sin(dLat / 2) ** 2
+                  + Math.cos(toRadians(previous.lat)) * Math.cos(toRadians(location.lat)) * Math.sin(dLng / 2) ** 2;
+                return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              })()
+            : Infinity;
+          const syncDue = Date.now() - lastLocationSyncAtRef.current >= 8000;
+          // Sync material movement (about 20m), not the previous ~90m threshold.
+          // Keep exact GPS on-device; only a privacy-jittered point is persisted.
+          if (!previous || (movedMeters >= 20 && syncDue)) {
+            const nextLocation = { lat: location.lat, lng: location.lng };
+            lastSyncedLocationRef.current = nextLocation;
+            lastLocationSyncAtRef.current = Date.now();
             void updateProfileLocation(
-              jitterLocation({ lat: location.lat, lng: location.lng }, privacyRadiusMeters(currentUser.privacySetting)),
-            );
+              jitterLocation(nextLocation, privacyRadiusMeters(currentUser.privacySetting)),
+            ).then((saved) => {
+              if (saved) {
+                // Re-query immediately after a location write so nearby intents
+                // don't wait for the 90-second background discovery poll.
+                void refreshDiscoveryRef.current();
+              } else if (lastSyncedLocationRef.current === nextLocation) {
+                lastSyncedLocationRef.current = null;
+              }
+            });
           }
         }
       },
@@ -1270,8 +1291,8 @@ export default function App() {
     replacePath(path);
     const route = routeFromPath(path);
     setActiveTab(route.tab);
-    if (route.conversationId) requestConversationOpen(route.conversationId);
     if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+    if (route.conversationId) requestConversationOpen(route.conversationId);
   }, [isAuthenticated]);
 
   // Messages posted by the service worker: notification taps and endpoint
@@ -1309,8 +1330,8 @@ export default function App() {
         }
         const route = routeFromPath(data.url);
         setActiveTab(route.tab);
-        if (route.conversationId) requestConversationOpen(route.conversationId);
         if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+        if (route.conversationId) requestConversationOpen(route.conversationId);
         replacePath(data.url);
         event.ports[0]?.postMessage({ handled: true });
         return;
@@ -1372,8 +1393,8 @@ export default function App() {
       notificationRefreshRef.current();
       const route = routeFromPath(notice.url);
       setActiveTab(route.tab);
-      if (route.conversationId) requestConversationOpen(route.conversationId);
       if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+      if (route.conversationId) requestConversationOpen(route.conversationId);
       replacePath(notice.url);
     } catch { showToast('Could not update the notification. Please try again.'); }
   };
@@ -1395,6 +1416,12 @@ export default function App() {
       if (!initialised) {
         knownIncomingInterestIdsRef.current = currentIds;
         initialised = true;
+        // Surface requests received while the app was closed as well as live
+        // inserts; otherwise the initial reconciliation silently hides them.
+        if (incoming.length > 0) {
+          setMessagesSubTab('notifications');
+          setActiveTab('swarms');
+        }
         return;
       }
 
@@ -1403,7 +1430,12 @@ export default function App() {
       if (!newInterest) return;
 
       triggerVibration([40, 60, 100]);
-      showToast(`New interest from ${newInterest.fromDisplayName}`);
+      // A Gayze is an actionable request, not a passive toast. Bring the user
+      // directly to Messages → Notifications so the sender's profile, request,
+      // and Accept / Decline actions are immediately visible.
+      setMessagesSubTab('notifications');
+      setActiveTab('swarms');
+      showToast(`New Gayze from ${newInterest.fromDisplayName}`);
     };
 
     void handleInterestChange();
@@ -2507,7 +2539,20 @@ export default function App() {
     primeCallAudio();
     setIncomingCall(null);
     setCallPeerName(call.callerName);
-    setCallPeerAvatar(undefined); // Will be fetched from profile if needed
+    setCallPeerAvatar(undefined);
+    // Incoming signalling carries identity, not a photo URL. Resolve the
+    // caller's own profile avatar instead of leaving the call screen on initials.
+    if (supabase && call.callerId) {
+      void (async () => {
+        try {
+          const { data } = await supabase.from('profiles').select('avatar_path').eq('id', call.callerId).maybeSingle();
+          const avatar = await getProfilePhotoUrl(data?.avatar_path);
+          if (avatar) setCallPeerAvatar((current) => current || avatar);
+        } catch (error) {
+          console.warn('[GAYZE Call] Caller avatar could not be loaded');
+        }
+      })();
+    }
     setCallType(call.callType);
     setCallTargetUserId(call.callerId);
     setActiveRoomId(call.conversationId);
@@ -2538,23 +2583,33 @@ export default function App() {
 
   const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
     triggerVibration([40, 70]);
+    const validPeerId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(peerId || '');
+    if (!isSupabaseConfigured || !isAuthenticated || !validPeerId) {
+      showToast('Sign in to send a Gayze request.');
+      return false;
+    }
 
-    if (isSupabaseConfigured && isAuthenticated) {
-      const pulse = supabaseRightNowPulses.find((item) => item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`));
-      if (!pulse || !pulse.id.startsWith('supabase_')) {
-        showToast('That Gaze could not be linked to a live profile.');
-        return false;
-      }
-      const result = await submitGaze(pulse.peerId, pulse.id.slice('supabase_'.length));
-      if (result.sent) {
-        showToast(`Gaze sent to ${peerName}`);
-      } else {
-        showToast('Gaze could not be sent. Try again.');
-      }
+    // Every control labelled GAYZE must create the same accept/decline gate.
+    // A legacy gazes row was only a passive ping and could never unlock chat.
+    const pulse = supabaseRightNowPulses.find((item) =>
+      item.peerId === peerId && (!intentId || item.id === `supabase_${intentId}`),
+    );
+    if (pulse) {
+      const result = await handleSubmitInterest(pulse);
       return result.sent;
     }
 
-    showToast(`You gave a Gaze to ${peerName}.`);
+    const result = await submitInterest(peerId!, intentId);
+    if (!result.sent) {
+      showToast('Gayze request could not be sent. Try again.');
+      return false;
+    }
+    if (result.mutual && result.conversation_id && isConversationId(result.conversation_id)) {
+      await refreshConversationListRef.current();
+      requestConversationOpen(result.conversation_id);
+    } else {
+      showToast(`Gayze request sent to ${peerName} — awaiting their response.`);
+    }
     return true;
   };
 
@@ -2595,14 +2650,8 @@ export default function App() {
   };
 
   const handleSubmitGaze = async (pulse: Pulse) => {
-    if (!isSupabaseConfigured) return { sent: false };
-
-    const isSupabasePulse = pulse.id.startsWith('supabase_');
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulse.peerId);
-    if (!isSupabasePulse || !isUuid) return { sent: false };
-
-    const intentId = pulse.id.slice('supabase_'.length);
-    return submitGaze(pulse.peerId, intentId);
+    const result = await handleSubmitInterest(pulse);
+    return { sent: result.sent };
   };
 
 
@@ -2614,7 +2663,7 @@ export default function App() {
    * UI — if the write fails nothing is pretended to be live. Local/demo mode
    * keeps the signal on the device.
    */
-  const handleSaveUserIntent = (intent: UserActiveIntent) => {
+  const handleSaveUserIntent = async (intent: UserActiveIntent): Promise<boolean> => {
     hapticSensitiveAction();
     const previous = activeUserIntentRef.current;
     const isFirstPublish = !previous;
@@ -2626,76 +2675,67 @@ export default function App() {
         setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
       }
       showToast(`Status updated: ${intent.intent} (${intent.when})`);
-      return;
+      return true;
     }
 
     if (!isAuthenticated) {
       showToast('Sign in to publish a live intent.');
-      return;
+      return false;
     }
 
-    // Start the AirDrop-inspired handshake only for a brand-new, immediate live signal.
-    // The success state is withheld until Supabase confirms the publish.
     if (isFirstPublish && intent.when === 'Now') {
       setLiveActivation({ stage: 'connecting', mode: intent.mode, intent: String(intent.intent) });
     }
 
-    // Responsive UI: show the change immediately, then reconcile with the write.
-    setActiveUserIntent({ ...intent, remoteId: previous?.remoteId, isPaused: false });
-    setIsSetIntentOpen(false);
     setIntentBusy(true);
-
-    void (async () => {
-      try {
-        const location = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined;
-        const sourceUser = currentUserRef.current;
-        const saved = await saveActiveIntentWithSession(
-          { ...intent, remoteId: previous?.remoteId },
-          sourceUser,
-          location,
-        );
-        if (!saved) {
-          // Honest failure: revert instead of showing a live signal that is not live.
-          setActiveUserIntent(previous);
-          setLiveActivation(null);
-          showToast('Could not publish your intent. Nothing was saved.');
-          return;
-        }
-        setActiveUserIntent((prev) => ({
-          ...(prev || intent),
-          ...intent,
-          remoteId: saved.id,
-          expiresAt: saved.expiresAt,
-          isPaused: saved.isPaused,
-        }));
-        if (isFirstPublish && intent.when === 'Now') {
-          setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
-        }
-        await refreshDiscoveryRef.current();
-        analytics.logEvent('intent_published', {
-          mode: intent.mode,
-          intent: intent.intent,
-          timing: intent.when,
-          privacy: sourceUser.privacySetting,
-          safe_haven: Boolean(intent.isNearSafeHaven),
-        });
-        if (isFirstPublish) {
-          // Real story record, authored by the signed-in user. Media stays empty
-          // until a storage-backed upload exists.
-          void createStoryFromIntent(intent).catch((error) => {
-            console.warn('[GAYZE] Story creation failed', error);
-          });
-        }
-        showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
-      } catch (error) {
-        console.error('[GAYZE] Failed to persist Right Now intent', error);
-        setActiveUserIntent(previous);
+    try {
+      const location = userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined;
+      const sourceUser = currentUserRef.current;
+      const saved = await saveActiveIntentWithSession(
+        { ...intent, remoteId: previous?.remoteId },
+        sourceUser,
+        location,
+      );
+      if (!saved) {
         setLiveActivation(null);
         showToast('Could not publish your intent. Nothing was saved.');
-      } finally {
-        setIntentBusy(false);
+        return false;
       }
-    })();
+
+      const confirmedIntent: UserActiveIntent = {
+        ...intent,
+        remoteId: saved.id,
+        expiresAt: saved.expiresAt,
+        isPaused: saved.isPaused,
+      };
+      setActiveUserIntent(confirmedIntent);
+      setIsSetIntentOpen(false);
+      if (isFirstPublish && intent.when === 'Now') {
+        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
+      }
+      await refreshDiscoveryRef.current();
+      analytics.logEvent('intent_published', {
+        mode: intent.mode,
+        intent: intent.intent,
+        timing: intent.when,
+        privacy: sourceUser.privacySetting,
+        safe_haven: Boolean(intent.isNearSafeHaven),
+      });
+      if (isFirstPublish) {
+        void createStoryFromIntent(intent).catch((error) => {
+          console.warn('[GAYZE] Story creation failed', error);
+        });
+      }
+      showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
+      return true;
+    } catch (error) {
+      console.error('[GAYZE] Failed to persist Right Now intent', error);
+      setLiveActivation(null);
+      showToast('Could not publish your intent. Nothing was saved.');
+      return false;
+    } finally {
+      setIntentBusy(false);
+    }
   };
 
   /** Pause/resume is a backend state change in live mode, not a local flag. */
@@ -2727,6 +2767,10 @@ export default function App() {
     const intent = activeUserIntentRef.current;
     if (!intent) return;
     hapticSensitiveAction();
+
+    // Use one shared toast lane for the pending and final states. Replacing
+    // this message avoids stacking the map-local toast over the app-level result.
+    showToast('Ending your signal…');
 
     if (!IS_LIVE_BACKEND) {
       setActiveUserIntent(null);
@@ -2774,14 +2818,15 @@ export default function App() {
   };
 
   const handleOpenIntentHub = () => {
-    // The centre GAYZE button is a true toggle: tap once to open intents,
-    // tap again to dismiss the panel and leave the map visible.
-    if (isIntentHubOpen) {
+    // GAYZE is a single toggle for all intent overlays: tapping it while either
+    // sheet is open closes everything and returns to the unobstructed map.
+    if (isIntentHubOpen || isSetIntentOpen) {
       setIsIntentHubOpen(false);
+      setIsSetIntentOpen(false);
+      setActiveTab('right_now');
       return;
     }
     analytics.logEvent('intent_hub_opened');
-    setIsSetIntentOpen(false);
     setActiveTab('right_now');
     setIsIntentHubOpen(true);
   };
@@ -3037,7 +3082,10 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
-              onOpenNotifications={() => { setMessagesSubTab('notifications'); setActiveTab('swarms'); }}
+              onOpenNotifications={() => {
+                setMessagesSubTab('notifications');
+                setActiveTab('swarms');
+              }}
             />
           )}
 
@@ -3051,6 +3099,7 @@ export default function App() {
               privacySetting={currentUser.privacySetting}
               userLocation={userLocation}
               userAvatarUrl={currentUser.avatarUrl}
+              isIntentOverlayOpen={isIntentHubOpen || isSetIntentOpen}
               // Live discovery rows already carry the person's real
               // (privacy-jittered) coordinates. Derived photo-grid profiles are
               // demo-only data and are never mixed into the live map.
@@ -3126,13 +3175,38 @@ export default function App() {
                       setViewingPublicProfile({ userId, ...fallback });
                     }}
                     onInterestAccepted={async (conversationId) => {
+                      setMessagesSubTab('chats');
                       await refreshConversationListRef.current();
                       requestConversationOpen(conversationId);
                     }}
                     onClose={() => setMessagesSubTab('chats')}
                   />
                 ) : (
-                  <ChatRoomView
+                  <>
+                    {notificationInbox?.rows
+                      .filter((notice) => notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received'))
+                      .slice(0, 5)
+                      .map((notice) => (
+                        <button
+                          key={notice.id}
+                          type="button"
+                          onClick={() => setMessagesSubTab('notifications')}
+                          className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-2xl border border-violet-400/40 bg-gradient-to-r from-violet-950/80 via-fuchsia-950/50 to-amber-950/30 px-4 py-3 text-left shadow-[0_0_22px_rgba(139,92,246,0.12)] transition hover:border-violet-300/70 hover:shadow-[0_0_26px_rgba(139,92,246,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                          aria-label="View and respond to a received Gayze"
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-300/50 bg-gradient-to-br from-violet-500/30 to-amber-400/20 text-lg text-violet-100">✦</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-white">Someone sent you a Gayze</span>
+                              {!notice.read_at && <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>}
+                            </span>
+                            <span className="mt-1 block text-xs text-violet-100/75">View the request and choose whether to connect</span>
+                            <span className="mt-2 block h-[2px] w-full overflow-hidden rounded-full bg-white/10"><span className="block h-full w-2/3 rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300" /></span>
+                          </span>
+                          <span className="shrink-0 text-sm font-semibold text-violet-100">View <span aria-hidden="true">›</span></span>
+                        </button>
+                      ))}
+                    <ChatRoomView
                     rooms={rooms}
                     messages={messages}
                     activeRoomId={activeRoomId}
@@ -3165,7 +3239,9 @@ export default function App() {
                       && conversationKeyState.status !== 'ready'
                     }
                     conversationKeyReason={conversationKeyState.reason}
+                    activeIntentMode={activeUserIntent?.mode}
                   />
+                  </>
                 )}
               </div>
             </div>

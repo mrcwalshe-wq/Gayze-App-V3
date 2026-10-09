@@ -42,7 +42,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
       <div className="g-intent-hub__scrim" aria-hidden="true" />
 
       <section
-        className={`g-intent-hub__sheet ${hasActive ? 'g-intent-hub__sheet--live g-intent-hub__sheet--status' : ''}`}
+        className={`g-gayze-menu-frame g-intent-hub__sheet ${hasActive ? 'g-intent-hub__sheet--live g-intent-hub__sheet--status' : ''}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="g-intent-hub__grip" />
