@@ -3991,3 +3991,67 @@ button, input, select, textarea, [role="button"] {
     animation: none !important;
   }
 }
+
+
+/* Mobile map dock clearance: keep the active-intent card fully above the tall tab bar. */
+@media (max-width: 767px) {
+  .g-right-now-shell .g-intent-dock {
+    bottom: calc(112px + env(safe-area-inset-bottom, 0px) + 10px) !important;
+    z-index: 45;
+    max-width: calc(100vw - 32px);
+  }
+  .g-right-now-shell .g-intent-dock__button {
+    max-width: 100%;
+  }
+}
+
+/* Intent-matched flying sparks: small hot cores, tapered trails, fast outward arcs. */
+.g-right-now-shell .g-intent-dock__button {
+  --intent-spark: 201, 162, 77;
+  --intent-spark-hot: 255, 224, 151;
+  position: relative;
+  isolation: isolate;
+}
+.g-right-now-shell[data-intent-mode="private"] .g-intent-dock__button {
+  --intent-spark: 111, 60, 195;
+  --intent-spark-hot: 220, 188, 255;
+}
+.g-right-now-shell[data-intent-mode="social"] .g-intent-dock__button {
+  --intent-spark: 201, 162, 77;
+  --intent-spark-hot: 255, 224, 151;
+}
+.g-right-now-shell .g-intent-dock__button::after {
+  content: "";
+  position: absolute;
+  inset: -15px -8px;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at 8% 48%, rgba(var(--intent-spark-hot), .98) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 92% 24%, rgba(var(--intent-spark-hot), .9) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 73% 100%, rgba(var(--intent-spark), .9) 0 1.2px, transparent 2.4px);
+  filter: drop-shadow(0 0 3px rgba(var(--intent-spark), .8));
+  animation: gayze-live-sparks 1.45s steps(1, end) infinite;
+}
+@keyframes gayze-live-sparks {
+  0%, 100% {
+    opacity: .95;
+    background-position: 0 0, 0 0, 0 0;
+  }
+  24% {
+    opacity: .75;
+    background-position: -5px -12px, 7px -8px, -9px 5px;
+  }
+  49% {
+    opacity: 1;
+    background-position: -12px -20px, 14px -16px, -18px 10px;
+  }
+  73% {
+    opacity: .7;
+    background-position: -17px -28px, 20px -22px, -25px 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-right-now-shell .g-intent-dock__button::after { animation: none; }
+}
