@@ -1925,3 +1925,24 @@ select:focus-visible {
   .g-shell[data-active-tab='right_now'] .g-map-state--live.is-collapsed { width: 100% !important; max-width: none !important; }
   .g-shell[data-active-tab='right_now'] .g-map-legend-wrap { display: none !important; }
 }
+
+
+/* Final mobile polish: compact live-intent status bar without shrinking the nearby control. */
+@media (max-width: 767px) {
+  .g-shell[data-active-tab='right_now'] .g-map-state--live.is-collapsed {
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 6px 9px !important;
+    gap: 4px !important;
+    border-radius: 17px !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state--live.is-collapsed .g-map-state__summary {
+    min-height: 0 !important;
+    padding: 0 !important;
+    gap: 8px !important;
+  }
+  .g-shell[data-active-tab='right_now'] .g-map-state--live.is-collapsed .g-map-state__title {
+    margin-top: 1px !important;
+    line-height: 1.08 !important;
+  }
+}
