@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Chrome } from 'lucide-react';
 import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
-import { GayzeLogo } from './GayzeLogo';
 
 export type AuthMode = 'signin' | 'signup' | 'forgot' | 'reset' | 'confirm_pending';
 
@@ -230,7 +229,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
       <div className="g-atmos" aria-hidden="true" />
       <div className="g-shell w-full max-w-md">
         <div className="mb-8 text-center">
-          <GayzeLogo size={62} showWordmark={false} className="mb-3" />
+          <img
+            src="/brand/gayze-nav-v3.svg"
+            alt="GAYZE logo"
+            width={112}
+            height={56}
+            className="mx-auto mb-3 block h-14 w-28 object-contain"
+            draggable={false}
+          />
           <h1 className="text-[22px] font-semibold tracking-[0.14em] text-white">GAYZE</h1>
           <p className="mt-1.5 text-[13px] text-zinc-400">
             <span className="text-[#b796f0]">Real Intent.</span>{' '}

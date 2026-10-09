@@ -185,13 +185,6 @@ const IS_LIVE_BACKEND = isSupabaseConfigured;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens' | 'profile'>('right_now');
-  const [showStartup, setShowStartup] = useState(true);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setShowStartup(false), 300);
-    return () => window.clearTimeout(timer);
-  }, []);
-
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [isAuthenticated, setIsAuthenticated] = useState(!isSupabaseConfigured);
   const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
@@ -2923,8 +2916,6 @@ export default function App() {
     ? supabaseRightNowPulses.length
     : pulses.length;
   const hasLiveAtmosphere = Boolean(activeUserIntent && !activeUserIntent.isPaused) || liveNearbyCount > 0;
-
-  if (showStartup) return <GayzeLoadingScreen mode="startup" />;
 
   // If Discreet Mask is triggered, render pure camouflage
   if (isMaskActive) {
