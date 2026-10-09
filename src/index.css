@@ -1508,8 +1508,10 @@ button, input, select, textarea, [role="button"] {
   z-index: 1;
   position: absolute;
   inset: 1.5px;
-  width: auto;
-  height: auto;
+  width: calc(100% - 3px) !important;
+  height: calc(100% - 3px) !important;
+  max-width: none !important;
+  max-height: none !important;
   box-sizing: border-box;
   object-fit: cover;
   border-radius: 50%;
