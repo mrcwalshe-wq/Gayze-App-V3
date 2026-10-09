@@ -97,6 +97,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   const [interestBusyId, setInterestBusyId] = useState<string | null>(null);
   const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number; name: string } | null>(null);
   const embeddedScrollRef = useRef<HTMLDivElement | null>(null);
+  const latestIncomingGayzeNoticeId = inbox?.rows.find((notice) =>
+    notice.event_key.startsWith('interest:') && notice.event_key.endsWith(':received'),
+  )?.id ?? null;
 
   const refresh = useCallback(async () => {
     setEnv(getPushEnvironment());
@@ -116,6 +119,20 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
     setFeedback(null);
     void refresh();
   }, [isOpen, refresh]);
+
+  // The inbox is Realtime-backed. When a new incoming-Gayze notification lands
+  // while this screen is already open, refresh the actionable request cards too;
+  // otherwise the badge updates but Accept / Decline remains missing until reopen.
+  useEffect(() => {
+    if (!isOpen || !embedded || !latestIncomingGayzeNoticeId) return;
+    let cancelled = false;
+    void loadIncomingInterests().then((interests) => {
+      if (!cancelled) setIncomingInterests(interests);
+    }).catch((error) => {
+      console.warn('[GAYZE] Could not refresh incoming Gayze cards:', error);
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, embedded, latestIncomingGayzeNoticeId]);
 
   useEffect(() => {
     const recovery = (event: Event) => {
