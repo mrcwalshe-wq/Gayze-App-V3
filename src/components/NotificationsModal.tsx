@@ -352,7 +352,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
               </section>
 
               {incomingInterests.length > 0 && (
-                <section className="g-panel g-notification-inbox">
+                <section ref={incomingInterestsRef} className="g-panel g-notification-inbox scroll-mt-3">
                   <div className="g-notification-section-head"><div><span className="g-label text-[#C9A24D]">Intent interests</span><h3>{incomingInterests.length} awaiting your response</h3></div></div>
                   {incomingInterests.map((interest) => (
                     <div key={interest.id} className="border-t border-white/[0.06] p-4">
