@@ -1416,6 +1416,12 @@ export default function App() {
       if (!initialised) {
         knownIncomingInterestIdsRef.current = currentIds;
         initialised = true;
+        // Surface requests received while the app was closed as well as live
+        // inserts; otherwise the initial reconciliation silently hides them.
+        if (incoming.length > 0) {
+          setMessagesSubTab('notifications');
+          setActiveTab('swarms');
+        }
         return;
       }
 
