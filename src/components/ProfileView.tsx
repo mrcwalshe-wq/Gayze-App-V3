@@ -446,7 +446,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </section>
 
       {/* Profile photos — first-class gallery with reordering, primary designation, and full-screen view */}
-      <section className="g-panel p-4 mb-5">
+      <section className="g-panel g-gayze-menu-frame p-4 mb-5">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
             <div className="flex items-center gap-2">
@@ -659,7 +659,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         ].filter(Boolean) as string[];
 
         return (
-          <section className="g-panel overflow-hidden mb-5">
+          <section className="g-panel g-gayze-menu-frame overflow-hidden mb-5">
             <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <span className="g-label">Your profile</span>
@@ -763,7 +763,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* Notifications — always-visible Web Push entry point */}
       {/* Safety & privacy */}
-      <section className="g-panel overflow-hidden mb-5">
+      <section className="g-panel g-gayze-menu-frame overflow-hidden mb-5">
         <div className="px-4 pt-3.5 pb-1">
           <span className="g-label">Safety & privacy</span>
         </div>
