@@ -3772,6 +3772,138 @@ button, input, select, textarea, [role="button"] {
 }
 
 
+/* Refined live activation: slower, quieter, more considered. */
+.g-live-handshake {
+  --live-tone: #8b5cf6;
+  --live-tone-soft: rgba(139, 92, 246, .14);
+  animation-duration: 420ms;
+}
+.g-live-handshake--social {
+  --live-tone: #c9a24d;
+  --live-tone-soft: rgba(201, 162, 77, .13);
+}
+.g-live-handshake--private {
+  --live-tone: #a77af5;
+  --live-tone-soft: rgba(111, 60, 195, .17);
+}
+.g-live-handshake__backdrop {
+  background: radial-gradient(ellipse at center, rgba(10, 9, 16, .56), rgba(6, 7, 12, .72) 74%, rgba(6, 7, 12, .62));
+  backdrop-filter: blur(2px) saturate(1.05);
+  -webkit-backdrop-filter: blur(2px) saturate(1.05);
+}
+.g-live-handshake__content {
+  animation-duration: 760ms;
+  animation-timing-function: cubic-bezier(.2,.65,.25,1);
+}
+.g-live-orbit {
+  width: 208px;
+  height: 208px;
+  margin-bottom: 23px;
+  filter: drop-shadow(0 0 18px var(--live-tone-soft));
+}
+.g-live-orbit__ring {
+  border-color: color-mix(in srgb, var(--live-tone) 72%, white 28%);
+  opacity: .3;
+  transform: scale(.72);
+}
+.g-live-orbit__ring--outer {
+  width: 192px;
+  height: 192px;
+  animation: g-live-ring-out 4.8s cubic-bezier(.2,.55,.25,1) infinite;
+}
+.g-live-orbit__ring--middle {
+  width: 148px;
+  height: 148px;
+  opacity: .34;
+  animation: g-live-ring-out 4.8s cubic-bezier(.2,.55,.25,1) 1.1s infinite;
+}
+.g-live-orbit__ring--inner {
+  width: 106px;
+  height: 106px;
+  opacity: .4;
+  animation: g-live-ring-out 4.8s cubic-bezier(.2,.55,.25,1) 2.2s infinite;
+}
+.g-live-orbit__beam,
+.g-live-orbit__node,
+.g-live-orbit__signal {
+  display: none !important;
+}
+.g-live-orbit__core {
+  width: 68px;
+  height: 68px;
+  border-color: color-mix(in srgb, var(--live-tone) 56%, rgba(255,255,255,.4));
+  background: radial-gradient(circle at 38% 24%, color-mix(in srgb, var(--live-tone) 27%, #28232f 73%), #111017 76%);
+  box-shadow: 0 0 0 6px var(--live-tone-soft), 0 0 30px var(--live-tone-soft), inset 0 1px 0 rgba(255,255,255,.18);
+  animation: g-live-core-pulse 3.4s ease-in-out infinite;
+}
+.g-live-handshake__eyebrow {
+  gap: 9px;
+  color: color-mix(in srgb, var(--live-tone) 76%, white 24%);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .17em;
+}
+.g-live-handshake__dot {
+  width: 6px;
+  height: 6px;
+  box-shadow: 0 0 8px var(--live-tone-soft);
+  animation: g-live-dot 2.4s ease-in-out infinite;
+}
+.g-live-handshake__title {
+  margin-top: 14px;
+  font-size: clamp(25px, 6.5vw, 31px);
+  font-weight: 650;
+  letter-spacing: -.04em;
+}
+.g-live-handshake__copy {
+  margin-top: 11px;
+  color: rgba(241,238,248,.64);
+  font-size: 12.5px;
+}
+.g-live-handshake__intent {
+  margin-top: 23px;
+  padding: 7px 13px;
+  border-color: color-mix(in srgb, var(--live-tone) 28%, transparent);
+  color: rgba(250,248,255,.88);
+  background: color-mix(in srgb, var(--live-tone) 8%, rgba(14,13,20,.84));
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: none;
+}
+.g-live-handshake.is-live .g-live-orbit__core {
+  animation: g-live-confirm 650ms cubic-bezier(.2,.65,.25,1) both;
+}
+.g-live-handshake.is-live .g-live-orbit__ring {
+  animation-duration: 1.7s;
+  animation-iteration-count: 1;
+}
+.g-live-handshake.is-live .g-live-handshake__dot {
+  background: #ef5968;
+  box-shadow: 0 0 8px rgba(239,89,104,.32);
+}
+@keyframes g-live-ring-out {
+  0% { transform: scale(.66); opacity: 0; }
+  22% { opacity: .34; }
+  78% { opacity: .15; }
+  100% { transform: scale(1); opacity: 0; }
+}
+@keyframes g-live-core-pulse {
+  0%,100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+@keyframes g-live-dot {
+  0%,100% { opacity: .55; }
+  50% { opacity: 1; }
+}
+@keyframes g-live-confirm {
+  0% { transform: scale(.94); }
+  65% { transform: scale(1.045); }
+  100% { transform: scale(1); }
+}
+@media (max-width: 380px) {
+  .g-live-orbit { transform: scale(.88); margin-top: -12px; margin-bottom: 14px; }
+}
+
 /* Map-first empty state refinement — Oct 2026.
    Keep the map as the hero; avoid stacked glass cards and oversized CTAs. */
 .g-right-now-shell .g-map-state--empty {
