@@ -79,7 +79,7 @@ begin
         shared_photo_ids=excluded.shared_photo_ids,
         status='pending',
         created_at=now()
-    where public.interests.status in ('declined','withdrawn')
+    where interests.status in ('declined','withdrawn')
   returning id into v_interest_id;
 
   -- Another request may have been inserted while this transaction waited on
