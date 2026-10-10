@@ -628,6 +628,7 @@ export default function App() {
   const [intentHubMode, setIntentHubMode] = useState<TopLevelIntentMode | null>(null);
   const [intentBusy, setIntentBusy] = useState(false);
   const [liveActivation, setLiveActivation] = useState<{ stage: 'connecting' | 'live'; mode: TopLevelIntentMode; intent: string } | null>(null);
+  const [secureChatRetryNonce, setSecureChatRetryNonce] = useState(0);
   const [conversationKeyState, setConversationKeyState] = useState<{
     roomId: string;
     status: 'loading' | 'ready' | 'unavailable';
@@ -2011,7 +2012,7 @@ export default function App() {
     refreshKeys();
 
     return () => { disposed = true; unsubscribe(); };
-  }, [activeRoomId, supabaseUserId, isAuthenticated, isSigningOut, rooms.some((room) => room.id === activeRoomId)]);
+  }, [activeRoomId, supabaseUserId, isAuthenticated, isSigningOut, secureChatRetryNonce, rooms.some((room) => room.id === activeRoomId)]);
 
   // Chat message sending with real WebCrypto AES-GCM
   const handleSendMessage = async (
@@ -3260,6 +3261,7 @@ export default function App() {
                       && conversationKeyState.status !== 'ready'
                     }
                     conversationKeyReason={conversationKeyState.reason}
+                    onRetrySecureChat={() => setSecureChatRetryNonce((value) => value + 1)}
                     activeIntentMode={activeUserIntent?.mode}
                   />
                   </>

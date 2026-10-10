@@ -63,6 +63,7 @@ interface ChatRoomViewProps {
   /** True when no conversation key could be resolved on this device. */
   conversationKeyUnavailable?: boolean;
   conversationKeyReason?: string;
+  onRetrySecureChat?: () => void;
   /** Current GAYZE mode controls the live chat border hue. */
   activeIntentMode?: TopLevelIntentMode;
 }
@@ -91,6 +92,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   connectionState,
   conversationKeyUnavailable = false,
   conversationKeyReason,
+  onRetrySecureChat,
   activeIntentMode,
 }) => {
   const [now, setNow] = useState(Date.now);
@@ -890,6 +892,17 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </div>
             )}
 
+            {(conversationKeyUnavailable || currentMessages.some((message) => message.plainText === '[Encrypted message]')) && (
+              <div className="g-secure-chat-error" role="status" aria-live="polite">
+                <div className="g-secure-chat-error__copy">
+                  <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{conversationKeyUnavailable
+                    ? (conversationKeyReason || 'Secure chat is still setting up on this device. Your messages remain encrypted.')
+                    : 'Some saved messages are still encrypted on this device. Reload the secure key and message history to retry decryption.'}</span>
+                </div>
+                {onRetrySecureChat && <button type="button" className="g-secure-chat-error__retry" onClick={onRetrySecureChat}>Retry</button>}
+              </div>
+            )}
             <div className="g-chat-composer flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors">
               {/* Photo Upload Action */}
               <label
