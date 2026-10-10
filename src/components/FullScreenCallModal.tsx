@@ -231,12 +231,21 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   }, [isSpeakerOn]);
 
   // Ensure media tracks are cleanly stopped if modal closes or unmounts unexpectedly
+  // Hang up only if the modal is really going away. React StrictMode runs a
+  // simulated unmount/remount in development; a deferred check lets the remount
+  // cancel it instead of tearing down the call we just started.
+  const mountedRef = useRef(false);
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      const state = webrtcCallService.getState();
-      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
-        void webrtcCallService.endCall();
-      }
+      mountedRef.current = false;
+      window.setTimeout(() => {
+        if (mountedRef.current) return;
+        const state = webrtcCallService.getState();
+        if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed' && state !== 'failed') {
+          void webrtcCallService.endCall();
+        }
+      }, 0);
     };
   }, []);
 
@@ -284,21 +293,15 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
     onClose();
   };
 
+  // The service owns the mic/camera intent and applies it to the real tracks,
+  // including tracks acquired after the tap. The UI mirrors what it returns.
   const handleToggleMute = () => {
-    const stream = webrtcCallService.getLocalStream?.();
-    const track = stream?.getAudioTracks()[0];
-    const nextMuted = track ? track.enabled : !isMuted;
-    if (track) {
-      track.enabled = !nextMuted;
-    } else {
-      webrtcCallService.toggleAudio(!nextMuted);
-    }
-    setIsMuted(nextMuted);
+    const enabled = webrtcCallService.toggleAudio();
+    setIsMuted(!enabled);
   };
 
   const handleToggleVideo = () => {
-    const nextState = webrtcCallService.toggleVideo();
-    setIsVideoEnabled(nextState);
+    setIsVideoEnabled(webrtcCallService.toggleVideo());
   };
 
   const handleFlipCamera = () => {
@@ -796,12 +799,21 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   }, [isSpeakerOn]);
 
   // Ensure media tracks are cleanly stopped if modal closes or unmounts unexpectedly
+  // Hang up only if the modal is really going away. React StrictMode runs a
+  // simulated unmount/remount in development; a deferred check lets the remount
+  // cancel it instead of tearing down the call we just started.
+  const mountedRef = useRef(false);
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      const state = webrtcCallService.getState();
-      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
-        void webrtcCallService.endCall();
-      }
+      mountedRef.current = false;
+      window.setTimeout(() => {
+        if (mountedRef.current) return;
+        const state = webrtcCallService.getState();
+        if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed' && state !== 'failed') {
+          void webrtcCallService.endCall();
+        }
+      }, 0);
     };
   }, []);
 
@@ -849,16 +861,11 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     onClose();
   };
 
+  // The service owns the mic/camera intent and applies it to the real tracks,
+  // including tracks acquired after the tap. The UI mirrors what it returns.
   const handleToggleMute = () => {
-    const stream = webrtcCallService.getLocalStream?.();
-    const track = stream?.getAudioTracks()[0];
-    const nextMuted = track ? track.enabled : !isMuted;
-    if (track) {
-      track.enabled = !nextMuted;
-    } else {
-      webrtcCallService.toggleAudio(!nextMuted);
-    }
-    setIsMuted(nextMuted);
+    const enabled = webrtcCallService.toggleAudio();
+    setIsMuted(!enabled);
   };
 
   const handleToggleMinimize = () => {

@@ -1115,7 +1115,8 @@ export default function App() {
     const unsubSignaling = webrtcCallService.initUserSignaling(
       supabaseUserId,
       (call) => {
-        setIncomingCall(call);
+        // A duplicate delivery of the same attempt must not reset the ring.
+        setIncomingCall((current) => (current && current.callId && current.callId === call.callId ? current : call));
       },
       (conversationId) => {
         setIncomingCall((current) => (current && current.conversationId === conversationId ? null : current));
@@ -1124,6 +1125,17 @@ export default function App() {
 
     return unsubSignaling;
   }, [supabaseUserId, isAuthenticated, isSigningOut]);
+
+  // An unanswered incoming call must not ring forever when the caller's cancel
+  // was lost. Caller-side ringing gives up at 35s; the callee gives up slightly later.
+  useEffect(() => {
+    if (!incomingCall) return;
+    const expiry = window.setTimeout(() => {
+      void handleDeclineIncomingCall(incomingCall);
+    }, 40_000);
+    return () => window.clearTimeout(expiry);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingCall?.callId, incomingCall?.conversationId, incomingCall?.timestamp]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
@@ -2572,6 +2584,7 @@ export default function App() {
       userId: supabaseUserId || currentUser.publicKey,
       callType: call.callType,
       callerName: call.callerName,
+      callId: call.callId,
     });
   };
 
@@ -2582,6 +2595,7 @@ export default function App() {
       callerId: call.callerId,
       userId: supabaseUserId || currentUser.publicKey,
       callerName: call.callerName,
+      callId: call.callId,
     });
     
     // Save missed call record and send notification
