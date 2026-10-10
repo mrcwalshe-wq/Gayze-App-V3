@@ -624,18 +624,21 @@ export async function loadIncomingInterests(): Promise<IncomingInterest[]> {
   try {
     const sessionUser = await ensureSupabaseSession();
     if (!sessionUser) return [];
-    const [{ data: rows, error }, { data: profiles, error: profileError }] = await Promise.all([
-      supabase
-        .from('interests')
-        .select('id,from_user_id,created_at,status,intent_id,message,shared_photo_ids')
-        .eq('to_user_id', sessionUser.id)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false }),
-      supabase.rpc('get_incoming_interest_profiles'),
-    ]);
+    const { data: rows, error } = await supabase
+      .from('interests')
+      .select('id,from_user_id,created_at,status,intent_id,message,shared_photo_ids')
+      .eq('to_user_id', sessionUser.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
     if (error) throw error;
-    if (profileError) throw profileError;
 
+    // Incoming requests must not disappear just because the optional profile
+    // enrichment RPC is unavailable (for example after a schema deployment).
+    // The interest row remains the source of truth for showing Accept/Decline.
+    const { data: profiles, error: profileError } = await supabase.rpc('get_incoming_interest_profiles');
+    if (profileError) {
+      console.warn('[GAYZE] Incoming interest profile enrichment unavailable:', profileError.message);
+    }
     const profileMap = new Map<string, any>(
       (profiles ?? []).map((row: any) => [row.interest_id, row]),
     );
