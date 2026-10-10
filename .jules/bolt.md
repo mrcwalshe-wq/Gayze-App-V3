@@ -1,3 +1,6 @@
 ## 2023-10-26 - Haversine Distance Closure Optimization
 **Learning:** The `haversineKm` distance calculation function in `RightNowView.tsx` creates an internal `toRad` closure on every call. Because it's used extensively in O(N*M) clustering loops to determine distance between map objects, the allocation overhead becomes significant.
 **Action:** Always extract constants like `Math.PI / 180` and inline simple math conversions outside of inner functions in heavily iterated loops (e.g., map rendering or clustering logic) to prevent memory allocation overhead per iteration. This yielded a ~4.7x speedup for this function.
+## 2024-10-26 - React.memo on Independent Timers
+**Learning:** `CountdownPill` manages its own internal `setInterval` for ticking time remaining, but its parent components (`RightNowView`, `DiscoverView`) also have their own 30s `nowTick` state updates. This causes all countdown pills to re-render needlessly every 30s on top of their own updates.
+**Action:** Always wrap leaf components that manage their own frequent internal state updates (like countdown timers, live relative time formatters) in `React.memo` to shield them from parent view re-renders, especially when rendered in large lists or maps.
