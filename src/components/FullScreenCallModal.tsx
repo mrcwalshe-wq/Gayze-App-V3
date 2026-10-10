@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   PhoneOff,
   Mic,
@@ -307,9 +308,10 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   };
 
   // Full-screen iPhone-style UI
-  return (
+  return createPortal((
     <div 
-      className="fixed inset-0 z-[10000] isolate overflow-hidden bg-[#07060c] text-white transition-opacity duration-300"
+      data-gayze-call-screen="true"
+      className="fixed inset-0 z-[2147483000] isolate overflow-hidden bg-[#07060c] text-white transition-opacity duration-300"
       onClick={handleUserActivity}
       onTouchStart={handleUserActivity}
       onMouseMove={handleUserActivity}
@@ -607,7 +609,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
         </div>
       )}
     </div>
-  );
+  ), document.body);
 };
 
 // Separate Audio Call UI component
