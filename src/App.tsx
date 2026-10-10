@@ -1115,10 +1115,21 @@ export default function App() {
     const unsubSignaling = webrtcCallService.initUserSignaling(
       supabaseUserId,
       (call) => {
-        setIncomingCall(call);
+        setIncomingCall((current) => {
+          if (!current) return call;
+          if (current.callId && call.callId && current.callId === call.callId) return current;
+          if (current.conversationId === call.conversationId && current.callerId === call.callerId) return current;
+          return call;
+        });
       },
-      (conversationId) => {
-        setIncomingCall((current) => (current && current.conversationId === conversationId ? null : current));
+      (conversationId, callId) => {
+        setIncomingCall((current) => (
+          current
+          && current.conversationId === conversationId
+          && (!callId || !current.callId || current.callId === callId)
+            ? null
+            : current
+        ));
       }
     );
 
@@ -2572,6 +2583,7 @@ export default function App() {
       userId: supabaseUserId || currentUser.publicKey,
       callType: call.callType,
       callerName: call.callerName,
+      callId: call.callId,
     });
   };
 
@@ -2582,6 +2594,7 @@ export default function App() {
       callerId: call.callerId,
       userId: supabaseUserId || currentUser.publicKey,
       callerName: call.callerName,
+      callId: call.callId,
     });
     
     // Save missed call record and send notification
