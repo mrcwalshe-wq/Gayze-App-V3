@@ -4480,15 +4480,15 @@ button, input, select, textarea, [role="button"] {
   background: linear-gradient(180deg, rgba(17,16,25,.98), rgba(10,10,15,.99)) !important;
   border-color: rgba(255,255,255,.065) !important;
 }
-.g-chat-header {
+.gayze-chat-header {
   min-height: 76px;
   padding: 10px 14px !important;
   gap: 10px !important;
   background: linear-gradient(110deg, rgba(111,60,195,.12), rgba(14,14,21,.94) 52%, rgba(201,162,77,.035)) !important;
   border-bottom: 1px solid rgba(255,255,255,.075) !important;
 }
-.g-chat-header__actions { gap: 7px !important; }
-.g-chat-header__action, .g-chat-header .g-icon-btn {
+.gayze-chat-header__actions { gap: 7px !important; }
+.gayze-chat-header__action, .gayze-chat-header .g-icon-btn {
   width: 42px !important;
   height: 42px !important;
   min-width: 42px !important;
@@ -4563,11 +4563,11 @@ button, input, select, textarea, [role="button"] {
     min-height: 0 !important;
     border-radius: 16px !important;
   }
-  .g-chat-header {
+  .gayze-chat-header {
     min-height: 68px;
     padding: 8px 10px !important;
   }
-  .g-chat-header__action, .g-chat-header .g-icon-btn {
+  .gayze-chat-header__action, .gayze-chat-header .g-icon-btn {
     width: 38px !important;
     height: 38px !important;
     min-width: 38px !important;
@@ -4578,5 +4578,5 @@ button, input, select, textarea, [role="button"] {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .g-chat-composer, .g-chat-header__action { transition: none !important; }
+  .g-chat-composer, .gayze-chat-header__action { transition: none !important; }
 }
