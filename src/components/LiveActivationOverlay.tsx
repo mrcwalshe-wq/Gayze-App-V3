@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Radio, Check, Waves, Smartphone, Zap } from 'lucide-react';
 import type { TopLevelIntentMode } from '../types';
 
@@ -17,11 +17,19 @@ interface LiveActivationOverlayProps {
 export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({
   stage, mode, intent, onComplete,
 }) => {
+  // Keep the latest callback without restarting the dismissal timer whenever
+  // the parent renders. App passes an inline callback, so depending on
+  // onComplete here can otherwise reset this timer indefinitely.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   useEffect(() => {
     if (stage !== 'live') return;
-    const timeout = window.setTimeout(onComplete, 1650);
+    const timeout = window.setTimeout(() => onCompleteRef.current(), 1650);
     return () => window.clearTimeout(timeout);
-  }, [stage, onComplete]);
+  }, [stage]);
 
   const tone = mode === 'private' ? 'private' : 'social';
   const isLive = stage === 'live';
