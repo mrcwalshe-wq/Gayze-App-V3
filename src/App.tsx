@@ -593,6 +593,7 @@ export default function App() {
     fallbackOnline?: boolean;
   } | null>(null);
   const [incomingGayzeCelebration, setIncomingGayzeCelebration] = useState<IncomingInterest | null>(null);
+  const [pendingIncomingInterests, setPendingIncomingInterests] = useState<IncomingInterest[]>([]);
   const knownIncomingInterestIdsRef = useRef<Set<string>>(new Set());
   const [notificationInbox, setNotificationInbox] = useState<NotificationInbox | null>(null);
   const [notificationInboxStatus, setNotificationInboxStatus] = useState<ChatConnectionState>('connecting');
@@ -758,6 +759,9 @@ export default function App() {
     setChatOpenRequest(null);
     reportVisibleChatRoom(null);
     setNotificationInbox(null);
+    setPendingIncomingInterests([]);
+    setIncomingGayzeCelebration(null);
+    knownIncomingInterestIdsRef.current = new Set();
     initialRouteAppliedRef.current = false;
     setOnlineUserIds(new Set());
     setPresenceProfileUserId(null);
@@ -1425,6 +1429,9 @@ export default function App() {
     const handleInterestChange = async () => {
       const incoming = await loadIncomingInterests();
       if (disposed) return;
+      // The request table is the source of truth. Keep the Chats-tab Gayze
+      // entry visible even if notification-inbox rows or Realtime are delayed.
+      setPendingIncomingInterests(incoming);
 
       const currentIds = new Set(incoming.map((interest) => interest.id));
       if (!initialised) {
@@ -3242,6 +3249,28 @@ export default function App() {
                           <span className="shrink-0 text-sm font-semibold text-violet-100">View <span aria-hidden="true">›</span></span>
                         </button>
                       ))}
+                    {!notificationInbox?.rows.some((notice) => notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received'))
+                      && pendingIncomingInterests.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setMessagesSubTab('notifications')}
+                          className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-2xl border border-violet-400/40 bg-gradient-to-r from-violet-950/80 via-fuchsia-950/50 to-amber-950/30 px-4 py-3 text-left shadow-[0_0_22px_rgba(139,92,246,0.12)] transition hover:border-violet-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                          aria-label="View and respond to received Gayzes"
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-300/50 bg-gradient-to-br from-violet-500/30 to-amber-400/20 text-lg text-violet-100">✦</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-white">
+                                {pendingIncomingInterests.length === 1 ? 'You have a received Gayze' : `You have ${pendingIncomingInterests.length} received Gayzes`}
+                              </span>
+                              <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>
+                            </span>
+                            <span className="mt-1 block text-xs text-violet-100/75">View the request and choose whether to connect</span>
+                            <span className="mt-2 block h-[2px] w-full overflow-hidden rounded-full bg-white/10"><span className="block h-full w-2/3 rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300" /></span>
+                          </span>
+                          <span className="shrink-0 text-sm font-semibold text-violet-100">View <span aria-hidden="true">›</span></span>
+                        </button>
+                      )}
                     <ChatRoomView
                     rooms={rooms}
                     messages={messages}
