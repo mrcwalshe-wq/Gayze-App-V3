@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   PhoneOff,
   Mic,
@@ -177,7 +178,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
         triggerVibration([80, 100]);
       } else if (state === 'connected') {
         triggerVibration([40, 60, 120]);
-      } else if (state === 'ended' || state === 'declined' || state === 'failed') {
+      } else if (state === 'ended' || state === 'declined' || state === 'missed' || state === 'failed') {
         triggerVibration([100, 50, 100]);
         if (terminalCloseTimerRef.current !== null) window.clearTimeout(terminalCloseTimerRef.current);
         terminalCloseTimerRef.current = window.setTimeout(() => {
@@ -315,8 +316,10 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Render at document.body so app-shell stacking contexts cannot leave the
+  // navigation bar above the full-screen call surface on iOS Safari.
   // Full-screen iPhone-style UI
-  return (
+  return createPortal((
     <div 
       className="fixed inset-0 z-[10000] bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
       onClick={handleUserActivity}
@@ -616,7 +619,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
         </div>
       )}
     </div>
-  );
+  ), document.body);
 };
 
 // Separate Audio Call UI component
