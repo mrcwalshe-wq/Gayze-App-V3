@@ -309,7 +309,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   // Full-screen iPhone-style UI
   return (
     <div 
-      className="fixed inset-0 z-[10000] bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
+      className="fixed inset-0 z-[10000] isolate overflow-hidden bg-[#07060c] text-white transition-opacity duration-300"
       onClick={handleUserActivity}
       onTouchStart={handleUserActivity}
       onMouseMove={handleUserActivity}
@@ -318,11 +318,11 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
       <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
 
       {/* Main call container - iPhone style full screen */}
-      <div className="relative w-full h-[100dvh] min-h-[100svh] flex flex-col overflow-hidden">
+      <div className="relative flex h-[100dvh] min-h-[100svh] w-full flex-col overflow-hidden bg-[radial-gradient(ellipse_at_50%_34%,rgba(111,60,195,.24),transparent_42%),radial-gradient(ellipse_at_85%_90%,rgba(201,162,77,.12),transparent_35%),#07060c]">
         
         {/* Status Bar - iOS style */}
-        <div className="absolute top-0 left-0 right-0 z-40 pt-[env(safe-area-inset-top)] pb-2">
-          <div className="flex items-center justify-between px-4">
+        <div className="absolute left-0 right-0 top-0 z-40 border-b border-white/[0.06] bg-gradient-to-b from-black/45 to-transparent pb-3 pt-[env(safe-area-inset-top)]">
+          <div className="flex items-center justify-between px-5 pt-2">
             {/* Time */}
             <div className="text-white text-sm font-medium">
               {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -365,9 +365,9 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
 
           {/* Fallback UI when no video or audio call */}
           {(callState !== 'connected' || !isVideoEnabled) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a0a0f] via-[#1a1a22] to-[#0a0a0f] p-6 text-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_50%_42%,rgba(111,60,195,.18),transparent_36%),linear-gradient(150deg,#0c0a13,#11101b_55%,#09080d)] px-6 pb-28 pt-28 text-center">
               <div className="relative">
-                <div className="w-28 h-28 rounded-full bg-[#171922] border-2 border-[#C9A24D]/40 flex items-center justify-center text-4xl font-bold text-[#C9A24D] shadow-2xl overflow-hidden ring-4 ring-[#C9A24D]/20 ring-offset-2 ring-offset-[#0a0a0f]">
+                <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-gradient-to-br from-[#6F3CC3]/40 via-[#171522] to-[#C9A24D]/20 text-4xl font-bold text-white shadow-[0_0_70px_rgba(111,60,195,.24)]">
                   <span aria-hidden="true">{peerName.charAt(0).toUpperCase() || 'G'}</span>
                   {peerAvatar && (
                     <img src={peerAvatar} alt={peerName} onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
@@ -381,10 +381,10 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
               </div>
 
               <div className="space-y-2 mt-6">
-                <h3 className="text-2xl font-bold text-white tracking-[-0.02em] drop-shadow-lg">
+                <h3 className="text-[30px] font-semibold tracking-[-0.045em] text-white drop-shadow-lg">
                   {peerName}
                 </h3>
-                <p className="text-sm text-zinc-400">
+                <p className="mx-auto max-w-[280px] text-sm leading-6 text-white/55">
                   {callState === 'connected'
                     ? 'Direct peer-to-peer connection secured'
                     : callState === 'ringing'
@@ -450,7 +450,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
             showControls || isMinimized ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <div className="flex items-center justify-center gap-4 px-2">
+          <div className="mx-auto flex w-fit max-w-[calc(100vw-24px)] items-center justify-center gap-2 rounded-[28px] border border-white/10 bg-[#17151f]/85 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,.5)] backdrop-blur-2xl sm:gap-3 sm:px-5">
             
             {/* Mute Button */}
             <button
@@ -493,7 +493,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
                   e.stopPropagation();
                   handleFlipCamera();
                 }}
-                className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 text-zinc-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.07] text-zinc-200 transition-all hover:bg-white/15 hover:text-white sm:h-14 sm:w-14"
                 aria-label="Flip camera"
               >
                 <RefreshCw className="w-6 h-6" />
@@ -522,7 +522,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
                 e.stopPropagation();
                 handleEndCall();
               }}
-              className="w-16 h-16 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-2xl shadow-rose-950/60 transition-transform active:scale-90 cursor-pointer"
+              className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-rose-300/25 bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-[0_10px_35px_rgba(225,29,72,.3)] transition-transform active:scale-90 sm:h-16 sm:w-16"
               aria-label="End call"
             >
               <PhoneOff className="w-7 h-7" />
@@ -543,7 +543,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
         {!isMinimized && (
           <button
             onClick={handleToggleMinimize}
-            className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-black/50 backdrop-blur-sm border border-white/10 text-white flex items-center justify-center transition-all hover:bg-black/70 z-40"
+            className="absolute right-4 top-[max(3.5rem,calc(env(safe-area-inset-top)+2.5rem))] z-40 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/15 bg-black/35 text-white shadow-lg backdrop-blur-xl transition hover:bg-black/60"
             aria-label="Minimize call"
           >
             <ChevronDown className="w-5 h-5" />
