@@ -621,7 +621,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
       setShowControls(false);
     }, 3000);
     
-    return () => clearTimeout(timer);
+    return createPortal(() => clearTimeout(timer);
   }, [isOpen, showControls]);
 
   const handleUserActivity = () => {
@@ -826,7 +826,8 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[10000] bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
+      data-gayze-call-screen="true"
+      className="fixed inset-0 z-[2147483000] isolate overflow-hidden bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
       onClick={handleUserActivity}
       onTouchStart={handleUserActivity}
       onMouseMove={handleUserActivity}
