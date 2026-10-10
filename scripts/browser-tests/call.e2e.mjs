@@ -4,110 +4,25 @@
 //     SDP/ICE negotiation, remote rendering and track control.
 //   * Signalling goes through scripts/browser-tests/relay.mjs (a broadcast stand-in), NOT
 //     Supabase. Realtime RLS is covered by scripts/call-tests/realtime-authorization.test.mjs.
-//   * Media is peer-to-peer on loopback; TURN relay is NOT exercised here.
+//   * Media is peer-to-peer on loopback; TURN relay is covered by turn.e2e.mjs.
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { createServer } from 'vite';
-import { startRelay } from './relay.mjs';
-import { playwright, resolveBrowser } from './browser-env.mjs';
+import { startEnvironment, waitFor, sleep } from './lib.mjs';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const HARNESS = path.join(HERE, 'harness');
-const FAKE_SUPABASE = path.join(HARNESS, 'fakeSupabase.ts');
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-let relay, vite, browser, base;
-const users = [];
 const CONV = 'conv-e2e-1';
+let env;
+before(async () => { env = await startEnvironment(); }, { timeout: 180_000 });
+after(async () => { await env?.close(); });
 
-const DENY_SCRIPT = (name) => `
-  (() => {
-    const err = new Error('simulated ${name}');
-    err.name = '${name}';
-    navigator.mediaDevices.getUserMedia = () => Promise.reject(err);
-  })();`;
-
-before(async () => {
-  relay = await startRelay({ port: 0 });
-  vite = await createServer({
-    configFile: false, root: HARNESS, logLevel: 'warn',
-    resolve: { alias: [{ find: /^(\.\/|.*\/)supabaseClient$/, replacement: FAKE_SUPABASE }] },
-    server: { host: '127.0.0.1', port: 0, strictPort: false },
-  });
-  await vite.listen();
-  base = vite.resolvedUrls.local[0];
-  const { executablePath, args } = await resolveBrowser();
-  const { chromium } = playwright();
-  browser = await chromium.launch({
-    executablePath,
-    args: [...args.filter((a) => a !== '--single-process'), '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'],
-    headless: true,
-  });
-}, { timeout: 180_000 });
-
-after(async () => {
-  for (const u of users) await u.ctx.close().catch(() => undefined);
-  await browser?.close().catch(() => undefined);
-  await vite?.close();
-  await relay?.close();
-});
-
-async function openUser(userId, { denyMedia = null } = {}) {
-  const ctx = await browser.newContext();
-  await ctx.addInitScript(`window.__RELAY_URL__ = ${JSON.stringify(`ws://127.0.0.1:${relay.port}`)};`);
-  if (denyMedia) await ctx.addInitScript(DENY_SCRIPT(denyMedia));
-  const page = await ctx.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
-  await page.goto(`${base}?u=${encodeURIComponent(userId)}`);
-  await page.waitForFunction(() => window.__ready === true, null, { timeout: 60_000 });
-  await waitFor(() => relay.subscribers(`gayze-user-${userId}`) > 0, 15_000, `${userId} personal channel subscribed`);
-  const user = { ctx, page, errors, userId };
-  users.push(user);
-  return user;
-}
-
-async function waitFor(predicate, timeoutMs, label) {
-  const started = Date.now();
-  for (;;) {
-    if (await predicate()) return;
-    if (Date.now() - started > timeoutMs) throw new Error(`Timed out waiting for: ${label}`);
-    await sleep(250);
-  }
-}
-
-const snap = (u) => u.page.evaluate(() => window.__gayze.snapshot());
-const act = (u, fn, ...args) => u.page.evaluate(([name, a]) => window.__gayze[name](...a), [fn, args]);
-
-async function waitState(u, states, timeoutMs = 20_000) {
-  let last;
-  await waitFor(async () => { last = await snap(u); return states.includes(last.state); }, timeoutMs,
-    `${u.userId} state in [${states}] (last: ${last?.state}, error: ${last?.error})`);
-  return last;
-}
-
-async function inbound(u, kind, field = 'bytesReceived') {
-  const s = await snap(u);
-  return s.inbound.filter((x) => x.kind === kind).reduce((n, x) => n + (x[field] || 0), 0);
-}
-
-async function waitIncoming(u, timeoutMs = 20_000) {
-  await waitFor(async () => (await u.page.evaluate(() => window.__gayze.incoming())) !== null, timeoutMs, `${u.userId} incoming call`);
-}
-
-async function connectCall(caller, callee, callType, conversationId = CONV) {
-  await act(caller, 'startCall', callee.userId, callType, conversationId);
-  await waitIncoming(callee);
-  await act(callee, 'acceptIncoming');
-  await waitState(caller, ['connected'], 45_000);
-  await waitState(callee, ['connected'], 45_000);
-}
-
-// ---------------------------------------------------------------------------
-
+const openUser = (...a) => env.openUser(...a);
+const snap = (...a) => env.snap(...a);
+const act = (...a) => env.act(...a);
+const waitState = (...a) => env.waitState(...a);
+const inbound = (...a) => env.inbound(...a);
+const waitIncoming = (...a) => env.waitIncoming(...a);
+const connectCall = (a, b, type, conv = CONV) => env.connectCall(a, b, type, conv);
+const audioEnergy = (...a) => env.audioEnergy(...a);
+const measure = (...a) => env.measure(...a);
 test('audio call: A rings B, B answers, both connect, audio flows peer-to-peer', { timeout: 120_000 }, async () => {
   const a = await openUser('user-a'), b = await openUser('user-b');
   await connectCall(a, b, 'audio');
@@ -151,19 +66,7 @@ test('audio mute changes the real microphone track and stops the peer hearing it
   await act(a, 'endCall'); await act(b, 'endCall');
 });
 
-async function measure(u, kind, ms) {
-  const before = await inbound(u, kind);
-  await sleep(ms);
-  return (await inbound(u, kind)) - before;
-}
 
-// Received audio ENERGY (not bytes): Chromium keeps sending silent Opus packets at the
-// full packet rate, so byte counts cannot show a mute. Energy is zero for silence.
-async function audioEnergy(u, ms) {
-  const before = await inbound(u, 'audio', 'totalAudioEnergy');
-  await sleep(ms);
-  return (await inbound(u, 'audio', 'totalAudioEnergy')) - before;
-}
 
 test('video call: remote video renders, local preview is live, camera off stops the real video track', { timeout: 120_000 }, async () => {
   const a = await openUser('user-v-a'), b = await openUser('user-v-b');
