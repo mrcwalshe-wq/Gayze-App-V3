@@ -172,7 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             return (
               <button
                 key={tab.id}
-                className={`g-tab ${isGayzeAction ? 'g-tab--discover group' : ''}`}
+                className={`g-tab ${isGayzeAction ? 'g-tab--discover group gayze-intent-glow' : ''}`}
                 data-tab={tab.id}
                 data-active={isActive}
                 data-intent-mode={isGayzeAction ? (activeIntentMode || 'none') : undefined}
