@@ -1,6 +1,6 @@
--- Restrict GAYZE WebRTC signalling to authenticated call participants.
--- The client must join these topics with config.private = true.
--- Public-channel behaviour is unchanged; these policies govern private channels.
+-- Restrict GAYZE WebRTC signalling to authenticated private channels.
+-- The WebRTC client joins these topics with config.private = true.
+-- Existing public channels are unchanged by these policies.
 
 drop policy if exists "gayze_webrtc_private_read" on realtime.messages;
 drop policy if exists "gayze_webrtc_private_send" on realtime.messages;
@@ -10,17 +10,17 @@ on realtime.messages
 for select
 to authenticated
 using (
-  (
-    realtime.topic() = 'gayze-user-' || (select auth.uid())::text
-  )
-  or
-  (
-    realtime.topic() ~ '^gayze-call-[0-9a-fA-F-]{36}$'
-    and exists (
-      select 1
-      from public.conversation_members cm
-      where cm.conversation_id::text = substring(realtime.topic() from 12)
-        and cm.user_id = (select auth.uid())
+  extension = 'broadcast'
+  and (
+    (select realtime.topic()) = 'gayze-user-' || (select auth.uid())::text
+    or (
+      (select realtime.topic()) ~ '^gayze-call-[0-9a-fA-F-]{36}$'
+      and exists (
+        select 1
+        from public.conversation_members cm
+        where cm.conversation_id::text = substring((select realtime.topic()) from 12)
+          and cm.user_id = (select auth.uid())
+      )
     )
   )
 );
@@ -30,20 +30,20 @@ on realtime.messages
 for insert
 to authenticated
 with check (
-  (
-    realtime.topic() ~ '^gayze-user-[0-9a-fA-F-]{36}$'
-    and coalesce(payload->>'callerId', payload->'payload'->>'callerId') = (select auth.uid())::text
-    and coalesce(payload->>'targetUserId', payload->'payload'->>'targetUserId') = substring(realtime.topic() from 12)
-  )
-  or
-  (
-    realtime.topic() ~ '^gayze-call-[0-9a-fA-F-]{36}$'
-    and exists (
-      select 1
-      from public.conversation_members cm
-      where cm.conversation_id::text = substring(realtime.topic() from 12)
-        and cm.user_id = (select auth.uid())
+  extension = 'broadcast'
+  and (
+    -- The recipient alone can read their user feed. Any authenticated user
+    -- may send a ring event to that feed; the client validates the referenced
+    -- conversation and caller before presenting the incoming-call UI.
+    (select realtime.topic()) ~ '^gayze-user-[0-9a-fA-F-]{36}$'
+    or (
+      (select realtime.topic()) ~ '^gayze-call-[0-9a-fA-F-]{36}$'
+      and exists (
+        select 1
+        from public.conversation_members cm
+        where cm.conversation_id::text = substring((select realtime.topic()) from 12)
+          and cm.user_id = (select auth.uid())
+      )
     )
-    and coalesce(payload->>'callerId', payload->'payload'->>'callerId') = (select auth.uid())::text
   )
 );
