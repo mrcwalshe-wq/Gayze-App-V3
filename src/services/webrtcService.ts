@@ -229,31 +229,45 @@ export class WebRTCCallService {
         if (!signal || signal.targetUserId && signal.targetUserId !== userId) return;
         if (Date.now() - signal.timestamp > 45_000) return;
         if (signal.type === 'call-request') {
-          // If already in a call, notify caller that we're busy
-          if (this.state === 'calling' || this.state === 'ringing' || this.state === 'connecting' || this.state === 'connected') {
-            void this.sendDirectSignal(signal.conversationId, {
-              type: 'call-decline',
-              conversationId: signal.conversationId,
-              callerId: userId,
-              targetUserId: signal.callerId,
-              timestamp: Date.now(),
-            });
-            return;
-          }
+          // A user-topic broadcast is only a delivery hint. Verify that both
+          // authenticated users belong to this real conversation before
+          // showing an incoming call or replying on its signalling topic.
+          if (!/^[0-9a-f-]{36}$/i.test(signal.conversationId) || !/^[0-9a-f-]{36}$/i.test(signal.callerId)) return;
+          void (async () => {
+            const { data: members, error } = await supabase!
+              .from('conversation_members')
+              .select('user_id')
+              .eq('conversation_id', signal.conversationId)
+              .in('user_id', [userId, signal.callerId]);
+            if (!current() || error || new Set((members || []).map((member: { user_id: string }) => member.user_id)).size !== 2) return;
 
-          onIncomingCall({
-            conversationId: signal.conversationId,
-            callerId: signal.callerId,
-            callerName: signal.callerName || 'Gayze member',
-            callType: signal.callType || 'video',
-            timestamp: signal.timestamp || Date.now(),
-            callId: signal.callId || `${signal.conversationId}:${signal.callerId}:${signal.timestamp}`,
-          });
-          void this.sendDirectSignal(signal.conversationId, {
-            type: 'call-ringing', conversationId: signal.conversationId,
-            callerId: userId, targetUserId: signal.callerId,
-            callId: signal.callId, timestamp: Date.now(),
-          }).catch(() => undefined);
+            // If already in a call, notify caller that we're busy.
+            if (this.state === 'calling' || this.state === 'ringing' || this.state === 'connecting' || this.state === 'connected') {
+              void this.sendDirectSignal(signal.conversationId, {
+                type: 'call-decline',
+                conversationId: signal.conversationId,
+                callerId: userId,
+                targetUserId: signal.callerId,
+                callId: signal.callId,
+                timestamp: Date.now(),
+              }).catch(() => undefined);
+              return;
+            }
+
+            onIncomingCall({
+              conversationId: signal.conversationId,
+              callerId: signal.callerId,
+              callerName: signal.callerName || 'Gayze member',
+              callType: signal.callType || 'video',
+              timestamp: signal.timestamp || Date.now(),
+              callId: signal.callId || `${signal.conversationId}:${signal.callerId}:${signal.timestamp}`,
+            });
+            void this.sendDirectSignal(signal.conversationId, {
+              type: 'call-ringing', conversationId: signal.conversationId,
+              callerId: userId, targetUserId: signal.callerId,
+              callId: signal.callId, timestamp: Date.now(),
+            }).catch(() => undefined);
+          })();
         } else if (signal.type === 'call-end' || signal.type === 'call-decline') {
           onCallCancelled?.(signal.conversationId, signal.callId);
         }
