@@ -4672,4 +4672,17 @@ button, input, select, textarea, [role="button"] {
     animation: none !important;
   }
 }
+/* Keep the persistent app navigation out of the call experience. The call UI
+   is portalled to body and advertises its presence with data-gayze-call-screen. */
+body:has([data-gayze-call-screen="true"]) .g-tabbar,
+body:has([data-gayze-call-screen="true"]) .g-desktop-header {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  body:has([data-gayze-call-screen="true"]) .g-tabbar,
+  body:has([data-gayze-call-screen="true"]) .g-desktop-header {
+    transition: none !important;
+  }
+}
 
