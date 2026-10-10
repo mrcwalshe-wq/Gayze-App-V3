@@ -892,11 +892,13 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </div>
             )}
 
-            {conversationKeyUnavailable && (
+            {(conversationKeyUnavailable || currentMessages.some((message) => message.plainText === '[Encrypted message]')) && (
               <div className="g-secure-chat-error" role="status" aria-live="polite">
                 <div className="g-secure-chat-error__copy">
                   <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>{conversationKeyReason || 'Secure chat is still setting up on this device. Your messages remain encrypted.'}</span>
+                  <span>{conversationKeyUnavailable
+                    ? (conversationKeyReason || 'Secure chat is still setting up on this device. Your messages remain encrypted.')
+                    : 'Some saved messages are still encrypted on this device. Reload the secure key and message history to retry decryption.'}</span>
                 </div>
                 {onRetrySecureChat && <button type="button" className="g-secure-chat-error__retry" onClick={onRetrySecureChat}>Retry</button>}
               </div>
