@@ -1091,6 +1091,6 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
         </div>
       )}
     </div>
-  );
+  ), document.body);
 };
 
