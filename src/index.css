@@ -4580,3 +4580,96 @@ button, input, select, textarea, [role="button"] {
 @media (prefers-reduced-motion: reduce) {
   .g-chat-composer, .gayze-chat-header__action { transition: none !important; }
 }
+
+/* ==========================================================================
+   GAYZE MOTION LANGUAGE — shared interaction patterns inspired by Dqnamo Kitchen
+   Keep motion short, intent-aware, accessible, and never use animation to imply
+   a call/connection state before the underlying service confirms it.
+   ========================================================================== */
+:root {
+  --gayze-ease-out: cubic-bezier(.22, 1, .36, 1);
+  --gayze-ease-standard: cubic-bezier(.2, .75, .25, 1);
+  --gayze-motion-fast: 140ms;
+  --gayze-motion-base: 220ms;
+  --gayze-motion-slow: 360ms;
+  --gayze-glow-purple: 0 0 24px rgba(111, 60, 195, .22);
+  --gayze-glow-amber: 0 0 24px rgba(201, 162, 77, .18);
+}
+
+/* Consistent keyboard focus without changing normal pointer styling. */
+:where(button, [role="button"], a, input, select, textarea):focus-visible {
+  outline: 2px solid rgba(196, 160, 255, .92);
+  outline-offset: 3px;
+}
+:where(button, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+:where(button:not(:disabled), [role="button"]:not([aria-disabled="true"])) {
+  transition:
+    border-color var(--gayze-motion-base) var(--gayze-ease-standard),
+    background-color var(--gayze-motion-base) var(--gayze-ease-standard),
+    box-shadow var(--gayze-motion-base) var(--gayze-ease-standard),
+    color var(--gayze-motion-fast) linear;
+}
+:where(button:not(:disabled), [role="button"]:not([aria-disabled="true"])):active {
+  transform: scale(.985);
+}
+:where(button:disabled, [role="button"][aria-disabled="true"]) {
+  cursor: not-allowed;
+}
+
+/* Shared glass surface: use on drawers, cards, and floating controls. */
+.gayze-glass-surface {
+  background: linear-gradient(135deg, rgba(25, 22, 36, .94), rgba(12, 13, 20, .96));
+  border: 1px solid rgba(255, 255, 255, .10);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .28), inset 0 1px rgba(255, 255, 255, .035);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  backdrop-filter: blur(22px) saturate(1.15);
+}
+
+/* Intent glow is opt-in so ordinary controls remain calm and legible. */
+.gayze-intent-glow {
+  box-shadow: var(--gayze-glow-purple);
+  transition: box-shadow var(--gayze-motion-slow) var(--gayze-ease-out), border-color var(--gayze-motion-base) var(--gayze-ease-standard);
+}
+.gayze-intent-glow[data-intent-mode="social"] {
+  box-shadow: 0 0 24px rgba(201, 162, 77, .2);
+}
+.gayze-intent-glow[data-intent-mode="private"] {
+  box-shadow: 0 0 28px rgba(111, 60, 195, .3);
+}
+
+/* Animated gradient outline for primary GAYZE actions only. */
+.gayze-gradient-frame {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--bg-surface-1, #11131a), var(--bg-surface-1, #11131a)) padding-box,
+    conic-gradient(from var(--gayze-gradient-angle, 0deg), #6F3CC3, #b65bd8, #ef9fbd, #C9A24D, #6F3CC3) border-box;
+  animation: gayze-gradient-orbit 7s linear infinite;
+}
+@property --gayze-gradient-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes gayze-gradient-orbit {
+  to { --gayze-gradient-angle: 360deg; }
+}
+
+/* Reduced-motion preference applies to the shared motion language globally. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gayze-motion-fast: 0ms;
+    --gayze-motion-base: 0ms;
+    --gayze-motion-slow: 0ms;
+  }
+  :where(button:not(:disabled), [role="button"]:not([aria-disabled="true"])):active {
+    transform: none;
+  }
+  .gayze-gradient-frame {
+    animation: none !important;
+  }
+}
+
