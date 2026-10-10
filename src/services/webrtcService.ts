@@ -367,14 +367,17 @@ export class WebRTCCallService {
       await this.setupCallSignaling(params.conversationId, params.callerId, true);
       if (generation !== this.callGeneration) return;
 
-      // Send call-request before requesting any microphone/camera permission.
+      // Deliver the ring request before reporting success. Previously this send
+      // was fire-and-forget, so a failed personal-channel publish left the caller
+      // stuck ringing until timeout with no incoming call on the recipient.
       if (params.targetUserId) {
-        void this.sendTransientSignal(`gayze-user-${params.targetUserId}`, {
+        await this.sendTransientSignal(`gayze-user-${params.targetUserId}`, {
           type: 'call-request', conversationId: params.conversationId,
           callId: this.activeCallId || undefined,
           callerId: params.callerId, callerName: params.callerName,
           targetUserId: params.targetUserId, callType: params.callType, timestamp: Date.now(),
-        }).catch(() => undefined);
+        });
+        if (generation !== this.callGeneration) return;
       }
 
       // Also broadcast on the conversation channel in case target is already on this screen
