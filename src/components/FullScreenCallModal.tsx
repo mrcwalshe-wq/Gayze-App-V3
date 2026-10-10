@@ -9,7 +9,6 @@ import {
   Volume2,
   VolumeX,
   ShieldCheck,
-  Lock,
   RefreshCw,
   AlertCircle,
   ChevronDown
