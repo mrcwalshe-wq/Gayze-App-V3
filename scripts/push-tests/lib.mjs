@@ -53,10 +53,18 @@ export async function baseSchema(db) {
   `);
 }
 
+const openDbs = new Set();
 export async function newDb(opts = {}) {
   const db = new PGlite();
+  openDbs.add(db);
   await bootstrap(db, opts);
   return db;
+}
+/** Each PGlite instance holds a WASM heap; release them between scenarios so the
+ * suite does not grow until the OS kills it. */
+export async function closeAllDbs() {
+  for (const db of openDbs) await db.close().catch(() => undefined);
+  openDbs.clear();
 }
 
 export const uuid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;

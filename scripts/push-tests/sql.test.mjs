@@ -1,10 +1,11 @@
-import { newDb, baseSchema, migrationSql, addUsers, uuid, assert } from './lib.mjs';
+import { newDb, baseSchema, migrationSql, addUsers, uuid, assert, closeAllDbs } from './lib.mjs';
 const A = uuid(1), B = uuid(2), C = uuid(3);
 const asUser = async (db, sub, fn) => db.transaction(async (tx) => {
   await tx.query('set local role authenticated'); await tx.query("select set_config('request.jwt.claim.sub',$1,true)", [sub]); return fn(tx);
 });
 const tryq = async (fn) => { try { return { ok: true, v: await fn() }; } catch (e) { return { ok: false, e }; } };
 
+await closeAllDbs();
 console.log('\n[1] Fresh project with base schema: migration applies, re-applies (idempotent)');
 {
   const db = await newDb(); await baseSchema(db); await addUsers(db, A, B, C);
@@ -23,6 +24,7 @@ console.log('\n[1] Fresh project with base schema: migration applies, re-applies
   assert(pol.rows.filter((r) => r.tablename === 'push_subscriptions').length === 4, 'push_subscriptions: exactly select/insert/update/delete own-row policies');
 }
 
+await closeAllDbs();
 console.log('\n[2] Existing application functions are never overwritten');
 {
   const db = await newDb(); await baseSchema(db);
@@ -49,6 +51,7 @@ console.log('\n[2] Existing application functions are never overwritten');
   assert(!r3.ok && /refusing to reuse/.test(r3.e.message), 'migration REFUSES a foreign push_subscriptions table');
 }
 
+await closeAllDbs();
 console.log('\n[3] messages trigger vs. the actual messages table');
 {
   const db = await newDb(); // NO base schema at all
@@ -66,6 +69,7 @@ console.log('\n[3] messages trigger vs. the actual messages table');
   assert((await db3.query(`select 1 from pg_trigger where tgname='messages_notify_push'`)).rows.length === 0, 'messages is a VIEW -> trigger skipped');
 }
 
+await closeAllDbs();
 console.log('\n[4] Message trigger dispatches, and can never block a message insert');
 {
   const db = await newDb(); await baseSchema(db); await addUsers(db, A, B);
@@ -99,6 +103,7 @@ console.log('\n[4] Message trigger dispatches, and can never block a message ins
   assert((await tryq(() => db3.query(`insert into messages(conversation_id,sender_id,ciphertext) values ($1,$2,'x')`, [cv3, A]))).ok, 'dropped profiles table does NOT abort the message insert');
 }
 
+await closeAllDbs();
 console.log('\n[4b] Dispatch URL normalisation — every plausible gayze_functions_url value');
 // Live-verified routes (unauthenticated probes of the deployed project):
 //   <project>/functions/v1/send-push            REACHES the function
@@ -126,6 +131,7 @@ for (const [secret, expected, why] of cases) {
     `${why}: ${secret} -> ${expected} (got ${rows[0]?.url ?? 'no dispatch'})`);
 }
 
+await closeAllDbs();
 console.log('\n[5] RLS: shared-device endpoint ownership (RLS is unchanged)');
 {
   const db = await newDb(); await baseSchema(db); await addUsers(db, A, B);
@@ -158,6 +164,7 @@ console.log('\n[5] RLS: shared-device endpoint ownership (RLS is unchanged)');
   assert(!logIns.ok, 'authenticated cannot write the dispatch log');
 }
 
+await closeAllDbs();
 console.log('\n[6] Exactly-once ledger + preferences');
 {
   const db = await newDb(); await baseSchema(db); await addUsers(db, A, B);
@@ -175,6 +182,7 @@ console.log('\n[6] Exactly-once ledger + preferences');
   assert((await db.query(`select public.push_category_enabled($1,'test') v`, [A])).rows[0].v === false, '...including test (master off)');
 }
 
+await closeAllDbs();
 console.log('\n[7] Sweeps use only evidenced columns, are bounded, and fire once');
 {
   const db = await newDb(); await baseSchema(db); await addUsers(db, A, B);
@@ -196,5 +204,6 @@ console.log('\n[7] Sweeps use only evidenced columns, are bounded, and fire once
   const db2 = await newDb(); await db2.exec(migrationSql());
   assert((await db2.query('select public.sweep_expiring_intents() n')).rows[0].n === 0 && (await db2.query('select public.sweep_expired_safety_checkins() n')).rows[0].n === 0, 'missing base tables -> sweeps are safe no-ops');
 }
+await closeAllDbs();
 console.log(process.exitCode ? '\nSQL TESTS: FAILURES' : '\nSQL TESTS: ALL PASSED');
 process.exit(process.exitCode || 0);
