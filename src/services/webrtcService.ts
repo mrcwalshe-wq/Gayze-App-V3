@@ -25,6 +25,7 @@ export interface IncomingCall {
   callType: CallType;
   timestamp: number;
   targetUserId?: string;
+  callId?: string;
 }
 
 export interface CallSignalPayload {
@@ -46,6 +47,7 @@ export interface CallSignalPayload {
   sdp?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidateInit;
   timestamp: number;
+  callId?: string;
 }
 
 export function getIceServers(): RTCIceServer[] {
@@ -80,6 +82,7 @@ export class WebRTCCallService {
   private currentFacingMode: 'user' | 'environment' = 'user';
   private currentCallType: CallType = 'video';
   private activeConversationId: string | null = null;
+  private activeCallId: string | null = null;
   private activeTargetUserId: string | null = null;
   private ringingTimeoutTimer: number | null = null;
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
@@ -101,6 +104,8 @@ export class WebRTCCallService {
   private userRecovery: RealtimeRecovery | null = null;
   private callGeneration = 0;
   private transientSignals = new Set<() => void>();
+  private audioEnabled = true;
+  private videoEnabled = true;
   private iceCache = new IceCredentialCache(async () => {
     if (!supabase) throw new Error('Call service unavailable');
     const controller = new AbortController();
@@ -149,6 +154,13 @@ export class WebRTCCallService {
         if (!event.persisted) this.cleanup();
       });
     }
+  }
+
+  private createCallId(): string {
+    try {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    } catch { /* use the non-cryptographic fallback below */ }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
   }
 
   private stateListeners: Set<(state: CallState, error?: string | null) => void> = new Set();
@@ -202,14 +214,14 @@ export class WebRTCCallService {
   public initUserSignaling(
     userId: string,
     onIncomingCall: (call: IncomingCall) => void,
-    onCallCancelled?: (conversationId: string) => void,
+    onCallCancelled?: (conversationId: string, callId?: string) => void,
   ): () => void {
     if (!supabase) return () => undefined;
 
     this.userRecovery?.stop();
     const recovery = new RealtimeRecovery({
       client: supabase, userId, topic: `gayze-user-${userId}`, syncWhileJoining: false,
-      channelOptions: { config: { broadcast: { self: false } } },
+      channelOptions: { config: { private: true, broadcast: { self: false } } },
       session: (signal) => requireRealtimeSession(supabase!, userId, signal),
       build: (channel, current) => channel.on('broadcast', { event: 'call-signal' }, (envelope: { payload: CallSignalPayload }) => {
         if (!current()) return;
@@ -235,9 +247,15 @@ export class WebRTCCallService {
             callerName: signal.callerName || 'Gayze member',
             callType: signal.callType || 'video',
             timestamp: signal.timestamp || Date.now(),
+            callId: signal.callId || `${signal.conversationId}:${signal.callerId}:${signal.timestamp}`,
           });
+          void this.sendDirectSignal(signal.conversationId, {
+            type: 'call-ringing', conversationId: signal.conversationId,
+            callerId: userId, targetUserId: signal.callerId,
+            callId: signal.callId, timestamp: Date.now(),
+          }).catch(() => undefined);
         } else if (signal.type === 'call-end' || signal.type === 'call-decline') {
-          onCallCancelled?.(signal.conversationId);
+          onCallCancelled?.(signal.conversationId, signal.callId);
         }
       }),
       reconcile: async () => undefined,
@@ -258,9 +276,10 @@ export class WebRTCCallService {
    * Helper to send broadcast on a conversation channel
    */
   private async sendTransientSignal(topic: string, signal: CallSignalPayload): Promise<void> {
-    if (!supabase) return;
+    if (!supabase) throw new Error('Supabase Realtime is required for calling');
     const client = supabase, generation = this.callGeneration;
-    const channel = client.channel(topic, { config: { broadcast: { ack: true } } });
+    const outgoingSignal = { ...signal, callId: signal.callId ?? this.activeCallId ?? undefined };
+    const channel = client.channel(topic, { config: { private: true, broadcast: { ack: true } } });
     let cancel = () => {};
     try {
       await new Promise<void>((resolve, reject) => {
@@ -278,7 +297,7 @@ export class WebRTCCallService {
           if (generation !== this.callGeneration) { cancel(); return; }
           if (status === 'SUBSCRIBED' && !sent) {
             sent = true;
-            void channel.send({ type: 'broadcast', event: 'call-signal', payload: signal }, { timeout: 5000 })
+            void channel.send({ type: 'broadcast', event: 'call-signal', payload: outgoingSignal }, { timeout: 5000 })
               .then((result) => finish(result === 'ok' ? undefined : new Error('Call signal not acknowledged')))
               .catch(() => finish(new Error('Call signal failed')));
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -313,6 +332,7 @@ export class WebRTCCallService {
   }): Promise<void> {
     this.cleanup();
     const generation = this.callGeneration;
+    this.activeCallId = this.createCallId();
     this.setState('calling');
     this.currentCallType = params.callType;
     this.activeConversationId = params.conversationId;
@@ -337,6 +357,7 @@ export class WebRTCCallService {
       if (params.targetUserId) {
         void this.sendTransientSignal(`gayze-user-${params.targetUserId}`, {
           type: 'call-request', conversationId: params.conversationId,
+          callId: this.activeCallId || undefined,
           callerId: params.callerId, callerName: params.callerName,
           targetUserId: params.targetUserId, callType: params.callType, timestamp: Date.now(),
         }).catch(() => undefined);
@@ -346,6 +367,7 @@ export class WebRTCCallService {
       await this.broadcastSignal({
         type: 'call-request',
         conversationId: params.conversationId,
+        callId: this.activeCallId || undefined,
         callerId: params.callerId,
         callerName: params.callerName,
         targetUserId: params.targetUserId,
@@ -380,9 +402,11 @@ export class WebRTCCallService {
     userId: string;
     callType: CallType;
     callerName?: string;
+    callId?: string;
   }): Promise<void> {
     this.cleanup();
     const generation = this.callGeneration;
+    this.activeCallId = params.callId || this.createCallId();
     this.setState('connecting');
     this.currentCallType = params.callType;
     this.activeConversationId = params.conversationId;
@@ -433,10 +457,12 @@ export class WebRTCCallService {
     callerId: string;
     userId: string;
     callerName?: string;
+    callId?: string;
   }): Promise<void> {
     const generation = this.callGeneration;
     try { await this.sendDirectSignal(params.conversationId, {
       type: 'call-decline',
+      callId: params.callId,
       conversationId: params.conversationId,
       callerId: params.userId,
       targetUserId: params.callerId,
@@ -529,7 +555,7 @@ export class WebRTCCallService {
       const timeout = setTimeout(() => reject(new Error('Call signalling could not connect')), 25_000);
       this.callRecovery = new RealtimeRecovery({
         client: supabase!, userId: currentUserId, topic: `gayze-call-${conversationId}`, syncWhileJoining: false,
-        channelOptions: { config: { broadcast: { self: false, ack: true } } },
+        channelOptions: { config: { private: true, broadcast: { self: false, ack: true } } },
         session: (signal) => requireRealtimeSession(supabase!, currentUserId, signal),
         build: (channel, current) => {
           this.callChannel = channel;
@@ -537,6 +563,7 @@ export class WebRTCCallService {
             if (!current() || this.pc !== pc) return;
             const signal = envelope.payload;
             if (!signal || signal.conversationId !== conversationId || signal.callerId === currentUserId) return;
+            if (signal.callId && this.activeCallId && signal.callId !== this.activeCallId) return;
             // Ignore other peers/stale packets. This is defence in depth, not a
             // replacement for server-side Realtime channel authorization.
             if (signal.callerId !== this.activeTargetUserId && signal.callerId !== 'self') return;
@@ -557,7 +584,7 @@ export class WebRTCCallService {
         status: (state) => {
           if (this.pc !== pc) return;
           if (state === 'sign-in-required') { clearTimeout(timeout); reject(new Error('Sign in required for calling')); this.cleanup(); this.setState('failed', 'Sign in again to call.'); }
-          else if (!firstJoin && state !== 'connected') this.setState('connecting');
+          else if (!firstJoin && state !== 'connected' && pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') this.setState('connecting');
         },
       });
     });
@@ -688,7 +715,8 @@ export class WebRTCCallService {
   }
   private async broadcastSignal(signal: CallSignalPayload): Promise<void> {
     if (!this.callChannel || this.callChannel.state !== 'joined') throw new Error('Call signalling reconnecting');
-    const result = await this.callChannel.send({ type: 'broadcast', event: 'call-signal', payload: signal }, { timeout: 5000 });
+    const outgoingSignal = { ...signal, callId: signal.callId ?? this.activeCallId ?? undefined };
+    const result = await this.callChannel.send({ type: 'broadcast', event: 'call-signal', payload: outgoingSignal }, { timeout: 5000 });
     if (result !== 'ok') throw new Error('Call signal was not acknowledged');
   }
 
@@ -718,6 +746,8 @@ export class WebRTCCallService {
 
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     if (generation !== this.callGeneration) { stream.getTracks().forEach((track) => track.stop()); throw new Error('Call ended'); }
+    stream.getAudioTracks().forEach((track) => { track.enabled = this.audioEnabled; });
+    stream.getVideoTracks().forEach((track) => { track.enabled = this.videoEnabled; });
     this.localStream = stream;
     this.notifyStreams();
     return stream;
@@ -727,12 +757,11 @@ export class WebRTCCallService {
    * Audio mute/unmute
    */
   public toggleAudio(forceEnabled?: boolean): boolean {
-    if (!this.localStream) return false;
-    const audioTrack = this.localStream.getAudioTracks()[0];
-    if (!audioTrack) return false;
-
-    const newEnabled = forceEnabled !== undefined ? forceEnabled : !audioTrack.enabled;
-    audioTrack.enabled = newEnabled;
+    const audioTrack = this.localStream?.getAudioTracks()[0];
+    const currentEnabled = audioTrack ? audioTrack.enabled : this.audioEnabled;
+    const newEnabled = forceEnabled !== undefined ? forceEnabled : !currentEnabled;
+    this.audioEnabled = newEnabled;
+    if (audioTrack) audioTrack.enabled = newEnabled;
     return newEnabled;
   }
 
@@ -740,12 +769,11 @@ export class WebRTCCallService {
    * Camera on/off
    */
   public toggleVideo(forceEnabled?: boolean): boolean {
-    if (!this.localStream) return false;
-    const videoTrack = this.localStream.getVideoTracks()[0];
-    if (!videoTrack) return false;
-
-    const newEnabled = forceEnabled !== undefined ? forceEnabled : !videoTrack.enabled;
-    videoTrack.enabled = newEnabled;
+    const videoTrack = this.localStream?.getVideoTracks()[0];
+    const currentEnabled = videoTrack ? videoTrack.enabled : this.videoEnabled;
+    const newEnabled = forceEnabled !== undefined ? forceEnabled : !currentEnabled;
+    this.videoEnabled = newEnabled;
+    if (videoTrack) videoTrack.enabled = newEnabled;
     return newEnabled;
   }
 
@@ -793,6 +821,7 @@ export class WebRTCCallService {
   public async endCall(explicitState: CallState = 'ended'): Promise<void> {
     const generation = this.callGeneration, callerId = this.localUserId;
     const conversationId = this.activeConversationId;
+    const callId = this.activeCallId;
     const targetUserId = this.activeTargetUserId;
     const wasRinging = this.state === 'calling' || this.state === 'ringing';
 
@@ -844,7 +873,7 @@ export class WebRTCCallService {
     // immediate and a subsequent call/account teardown can cancel this one-shot.
     if (targetUserId && conversationId && wasRinging) {
       void this.sendTransientSignal(`gayze-user-${targetUserId}`, {
-        type: 'call-end', conversationId, callerId, timestamp: Date.now(),
+        type: 'call-end', conversationId, callerId, targetUserId, callId: callId || undefined, timestamp: Date.now(),
       }).catch(() => undefined);
     }
 
@@ -876,6 +905,9 @@ export class WebRTCCallService {
     this.callChannel = null;
     this.pendingIceCandidates = [];
     this.activeTargetUserId = null;
+    this.activeCallId = null;
+    this.audioEnabled = true;
+    this.videoEnabled = true;
     this.callStartTime = null;
     this.callerNameForHistory = null;
     this.targetUserNameForHistory = null;
