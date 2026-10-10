@@ -4467,3 +4467,116 @@ button, input, select, textarea, [role="button"] {
   .g-received-gayze-orbit__ring, .g-received-gayze-orbit__spark { animation: none !important; }
   .g-received-gayze-cta { transition: none; }
 }
+
+
+/* Chat refinement — compact, intentional, safe-area aware. */
+.gayze-chat-shell {
+  border-radius: 18px !important;
+  border-color: rgba(174, 133, 239, 0.16) !important;
+  background: #09090e !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .28), inset 0 1px rgba(255,255,255,.025) !important;
+}
+.gayze-chat-sidebar {
+  background: linear-gradient(180deg, rgba(17,16,25,.98), rgba(10,10,15,.99)) !important;
+  border-color: rgba(255,255,255,.065) !important;
+}
+.g-chat-header {
+  min-height: 76px;
+  padding: 10px 14px !important;
+  gap: 10px !important;
+  background: linear-gradient(110deg, rgba(111,60,195,.12), rgba(14,14,21,.94) 52%, rgba(201,162,77,.035)) !important;
+  border-bottom: 1px solid rgba(255,255,255,.075) !important;
+}
+.g-chat-header__actions { gap: 7px !important; }
+.g-chat-header__action, .g-chat-header .g-icon-btn {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(183,143,247,.28) !important;
+  background: rgba(111,60,195,.075) !important;
+}
+.g-chat-composer {
+  min-height: 58px !important;
+  padding: 8px 9px !important;
+  border-radius: 17px !important;
+  border: 1px solid rgba(174,133,239,.28) !important;
+  background: linear-gradient(120deg, rgba(111,60,195,.09), rgba(17,18,27,.97) 42%, rgba(201,162,77,.055)) !important;
+  box-shadow: 0 8px 26px rgba(0,0,0,.2), inset 0 1px rgba(255,255,255,.025) !important;
+}
+.g-chat-composer input {
+  min-width: 0 !important;
+  min-height: 38px !important;
+  font-size: 14px !important;
+  letter-spacing: -.01em;
+}
+.g-chat-composer button, .g-chat-composer label {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 12px !important;
+}
+.g-chat-composer .g-icon-btn--send {
+  border: 1px solid rgba(183,143,247,.38) !important;
+  background: linear-gradient(145deg, #6f3cc3, #42216f) !important;
+  box-shadow: 0 0 20px rgba(111,60,195,.18) !important;
+}
+.g-chat-composer .g-icon-btn--send:disabled {
+  opacity: .38 !important;
+  box-shadow: none !important;
+}
+.g-secure-chat-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(201,162,77,.25);
+  border-radius: 13px;
+  background: linear-gradient(110deg, rgba(201,162,77,.08), rgba(16,16,23,.92));
+  color: #d4d0dc;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.g-secure-chat-error__copy { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.g-secure-chat-error__copy svg { color: #c9a24d; margin-top: 1px; }
+.g-secure-chat-error__retry {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(183,143,247,.38);
+  background: rgba(111,60,195,.18);
+  color: #eee5ff;
+  font-weight: 650;
+}
+.gayze-chat-shell .g-chat-message, .gayze-chat-shell [data-message-bubble] {
+  max-width: min(82%, 440px);
+  overflow-wrap: anywhere;
+}
+.gayze-chat-shell .text-\[11px\].text-zinc-500 {
+  line-height: 1.3;
+}
+@media (max-width: 639px) {
+  .gayze-chat-shell {
+    min-height: 0 !important;
+    border-radius: 16px !important;
+  }
+  .g-chat-header {
+    min-height: 68px;
+    padding: 8px 10px !important;
+  }
+  .g-chat-header__action, .g-chat-header .g-icon-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 12px !important;
+  }
+  .g-chat-composer {
+    margin-bottom: max(2px, env(safe-area-inset-bottom)) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-chat-composer, .g-chat-header__action { transition: none !important; }
+}
