@@ -807,6 +807,7 @@ export class WebRTCCallService {
       });
       const newVideoTrack = newStream.getVideoTracks()[0];
       if (!newVideoTrack) return;
+      newVideoTrack.enabled = this.videoEnabled;
 
       const oldTrack = this.localStream.getVideoTracks()[0];
       if (oldTrack) {
