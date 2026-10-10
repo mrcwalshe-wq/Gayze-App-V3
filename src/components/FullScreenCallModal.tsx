@@ -694,7 +694,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     play();
     ringtoneTimerRef.current = window.setInterval(play, isIncoming ? 1900 : 1700);
 
-    return () => stopRingtone();
+    return createPortal(() => stopRingtone();
   }, [isOpen, callState, isIncoming]);
 
   useEffect(() => {
@@ -824,7 +824,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  return (
+  return createPortal((
     <div 
       data-gayze-call-screen="true"
       className="fixed inset-0 z-[2147483000] isolate overflow-hidden bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
