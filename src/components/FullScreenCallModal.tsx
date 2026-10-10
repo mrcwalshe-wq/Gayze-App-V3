@@ -621,7 +621,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
       setShowControls(false);
     }, 3000);
     
-    return createPortal(() => clearTimeout(timer);
+    return () => clearTimeout(timer);
   }, [isOpen, showControls]);
 
   const handleUserActivity = () => {
@@ -694,7 +694,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     play();
     ringtoneTimerRef.current = window.setInterval(play, isIncoming ? 1900 : 1700);
 
-    return createPortal(() => stopRingtone();
+    return () => stopRingtone();
   }, [isOpen, callState, isIncoming]);
 
   useEffect(() => {
