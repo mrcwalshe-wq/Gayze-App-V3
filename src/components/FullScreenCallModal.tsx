@@ -322,36 +322,6 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
       {/* Main call container - iPhone style full screen */}
       <div className="relative flex h-[100dvh] min-h-[100svh] w-full flex-col overflow-hidden bg-[radial-gradient(ellipse_at_50%_34%,rgba(111,60,195,.24),transparent_42%),radial-gradient(ellipse_at_85%_90%,rgba(201,162,77,.12),transparent_35%),#07060c]">
         
-        {/* Status Bar - iOS style */}
-        <div className="absolute left-0 right-0 top-0 z-40 border-b border-white/[0.06] bg-gradient-to-b from-black/45 to-transparent pb-3 pt-[env(safe-area-inset-top)]">
-          <div className="flex items-center justify-between px-5 pt-2">
-            {/* Time */}
-            <div className="text-white text-sm font-medium">
-              {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-            
-            {/* Status indicator */}
-            <div className="flex items-center gap-2">
-              {/* Network status */}
-              <div className="w-4 h-4 bg-white/20 rounded-sm flex items-center justify-center">
-                <div className="w-2 h-2 bg-white rounded-sm"></div>
-              </div>
-              {/* Battery */}
-              <div className="w-6 h-3 bg-white/20 rounded-sm border border-white/30">
-                <div className="w-4 h-2 bg-white rounded-sm"></div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Call status text */}
-          <div className="flex items-center justify-center mt-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-mono text-xs">
-              <Lock className="w-3 h-3 text-emerald-400" />
-              <span>{callState === 'connected' ? 'P2P WEBRTC ENCRYPTED' : callState === 'calling' || callState === 'ringing' ? 'SECURE CALL REQUEST' : callState === 'connecting' ? 'NEGOTIATING SECURELY' : 'CALL ENDED'}</span>
-            </div>
-          </div>
-        </div>
-
         {/* Main video area */}
         <div className="flex-1 relative overflow-hidden">
           
@@ -448,9 +418,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
 
         {/* Call Controls - iOS style bottom bar */}
         <div 
-          className={`absolute bottom-0 left-0 right-0 z-40 pb-[env(safe-area-inset-bottom)] pt-2 transition-all duration-300 ${
-            showControls || isMinimized ? 'opacity-100' : 'opacity-0'
-          }`}
+          className="absolute bottom-[max(18px,env(safe-area-inset-bottom))] left-0 right-0 z-40 px-3 pt-2 opacity-100"
         >
           <div className="mx-auto flex w-fit max-w-[calc(100vw-24px)] items-center justify-center gap-2 rounded-[28px] border border-white/10 bg-[#17151f]/85 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,.5)] backdrop-blur-2xl sm:gap-3 sm:px-5">
             
@@ -866,32 +834,8 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
       <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
 
       {/* Main call container - Full screen audio call UI */}
-      <div className="relative w-full h-[100dvh] flex flex-col items-center justify-center p-6">
+      <div className="relative w-full h-[100dvh] flex flex-col items-center justify-center px-6 pt-6 pb-32">
         
-        {/* Status Bar - iOS style */}
-        <div className="absolute top-0 left-0 right-0 z-40 pt-[env(safe-area-inset-top)] pb-2">
-          <div className="flex items-center justify-between px-4">
-            <div className="text-white text-sm font-medium">
-              {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-white/20 rounded-sm flex items-center justify-center">
-                <div className="w-2 h-2 bg-white rounded-sm"></div>
-              </div>
-              <div className="w-6 h-3 bg-white/20 rounded-sm border border-white/30">
-                <div className="w-4 h-2 bg-white rounded-sm"></div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-center mt-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-mono text-xs">
-              <Lock className="w-3 h-3 text-emerald-400" />
-              <span>P2P WEBRTC ENCRYPTED</span>
-            </div>
-          </div>
-        </div>
-
         {/* Audio call visualizer */}
         <div className="flex-1 flex flex-col items-center justify-center relative">
           
@@ -981,9 +925,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
 
         {/* Call Controls - iOS style bottom bar */}
         <div 
-          className={`absolute bottom-0 left-0 right-0 z-40 pb-[env(safe-area-inset-bottom)] pt-4 transition-all duration-300 ${
-            showControls || isMinimized ? 'opacity-100' : 'opacity-0'
-          }`}
+          className="absolute bottom-[max(18px,env(safe-area-inset-bottom))] left-0 right-0 z-40 px-3 pt-2 opacity-100"
         >
           <div className="flex items-center justify-center gap-4 px-2">
             

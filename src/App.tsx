@@ -2542,6 +2542,20 @@ export default function App() {
       }
       setCallPeerName(peerName);
       setCallPeerAvatar(peerAvatar);
+      // Call launchers may only pass a display name. Resolve the peer's
+      // profile avatar as a fallback so the call roundel does not stay on initials.
+      if (!peerAvatar && supabase && targetUserId) {
+        void (async () => {
+          try {
+            const { data, error } = await supabase.from('profiles').select('avatar_path').eq('id', targetUserId).maybeSingle();
+            if (error) return;
+            const avatar = await getProfilePhotoUrl(data?.avatar_path);
+            if (avatar) setCallPeerAvatar((current) => current || avatar);
+          } catch {
+            // Keep the initials fallback if the profile photo is unavailable.
+          }
+        })();
+      }
       setCallType(type);
       setCallTargetUserId(targetUserId);
       setActiveRoomId(room.id);
