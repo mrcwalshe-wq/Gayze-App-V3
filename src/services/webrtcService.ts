@@ -158,7 +158,9 @@ export class WebRTCCallService {
   constructor() {
     if (typeof window !== 'undefined') {
       window.addEventListener('pagehide', (event) => {
-        if (!event.persisted) this.cleanup();
+        // Best effort: announce the hang-up before tearing down (the signal is queued
+        // on the socket synchronously). A bfcache persist keeps the call.
+        if (!event.persisted) void this.endCall('ended');
       });
     }
   }
@@ -245,6 +247,12 @@ export class WebRTCCallService {
             return;
           }
           this.incomingCallId = attemptId;
+          // Tell the caller their call reached this device, so they stop showing an
+          // indistinguishable "calling…" state.
+          void this.sendDirectSignal(signal.conversationId, {
+            type: 'call-ringing', callId: signal.callId, conversationId: signal.conversationId,
+            callerId: userId, targetUserId: signal.callerId, timestamp: Date.now(),
+          }).catch(() => undefined);
           onIncomingCall({
             callId: signal.callId,
             conversationId: signal.conversationId,
@@ -272,7 +280,9 @@ export class WebRTCCallService {
       if (this.userRecovery === recovery) {
         this.userRecovery = null;
         this.incomingCallId = null;
-        this.cleanup();
+        // Sign-out / unmount must not leave the peer connected to a dead session.
+        if (this.state !== 'idle') void this.endCall('ended');
+        else this.cleanup();
         this.setState('idle');
       }
     };
@@ -281,9 +291,11 @@ export class WebRTCCallService {
   /**
    * Helper to send broadcast on a conversation channel
    */
-  private async sendTransientSignal(topic: string, signal: CallSignalPayload): Promise<void> {
+  private async sendTransientSignal(topic: string, signal: CallSignalPayload, detached = false): Promise<void> {
     if (!supabase) return;
     const client = supabase, generation = this.callGeneration;
+    // A detached send (e.g. a ring cancellation) must survive the local teardown
+    // that triggered it; cleanup() cancels only attached sends.
     const channel = client.channel(topic, { config: { private: true, broadcast: { ack: true } } });
     let cancel = () => {};
     try {
@@ -296,10 +308,10 @@ export class WebRTCCallService {
         };
         const timer = setTimeout(() => finish(new Error('Call signal timed out')), 10_000);
         cancel = () => finish(new Error('Call ended'));
-        this.transientSignals.add(cancel);
+        if (!detached) this.transientSignals.add(cancel);
         channel.subscribe((status) => {
           if (settled) return;
-          if (generation !== this.callGeneration) { cancel(); return; }
+          if (!detached && generation !== this.callGeneration) { cancel(); return; }
           if (status === 'SUBSCRIBED' && !sent) {
             sent = true;
             void channel.send({ type: 'broadcast', event: 'call-signal', payload: signal }, { timeout: 5000 })
@@ -337,7 +349,7 @@ export class WebRTCCallService {
       console.warn('[GAYZE WebRTC] Peer could not be notified of call end', (e as Error).message);
     }
     if (ringingOnly && peerId) {
-      void this.sendTransientSignal(`gayze-user-${peerId}`, signal).catch(() => undefined);
+      void this.sendTransientSignal(`gayze-user-${peerId}`, signal, true).catch(() => undefined);
     }
   }
 
@@ -620,6 +632,7 @@ export class WebRTCCallService {
           if (this.pc !== pc) return;
           clearTimeout(timeout);
           if (firstJoin) { firstJoin = false; resolve(); }
+          else if (this.mediaConnected(pc)) this.recovered();   // media never dropped: just resume
           else if (pc.remoteDescription) this.scheduleRestart(250);
           else if (!isCaller) {
             await this.broadcastSignal({ type: 'call-accept', callId: this.callId ?? undefined, conversationId, callerId: currentUserId, targetUserId: this.activeTargetUserId ?? undefined, timestamp: Date.now() });
@@ -628,7 +641,9 @@ export class WebRTCCallService {
         status: (state) => {
           if (this.pc !== pc) return;
           if (state === 'sign-in-required') { clearTimeout(timeout); reject(new Error('Sign in required for calling')); this.cleanup(); this.setState('failed', 'Sign in again to call.'); }
-          else if (!firstJoin && state !== 'connected') this.setState('connecting');
+          // Signalling health is not call health: while media is still connected
+          // the call stays 'connected' and only signalling recovers in the background.
+          else if (!firstJoin && state !== 'connected' && !this.mediaConnected(pc)) this.setState('connecting');
         },
       });
     });
@@ -735,6 +750,9 @@ export class WebRTCCallService {
     const ready = this.pendingIceCandidates.filter((candidate) => this.candidateMatches(pc, candidate));
     this.pendingIceCandidates = this.pendingIceCandidates.filter((candidate) => !ready.includes(candidate));
     for (const candidate of ready) { if (this.pc === pc) await pc.addIceCandidate(candidate); }
+  }
+  private mediaConnected(pc: RTCPeerConnection) {
+    return pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed';
   }
   private recovered() {
     this.restartAttempts = 0;
