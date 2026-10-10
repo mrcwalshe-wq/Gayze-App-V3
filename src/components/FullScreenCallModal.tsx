@@ -58,6 +58,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   const onCloseRef = useRef(onClose);
   const ringtoneTimerRef = useRef<number | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
+  const startAttemptRef = useRef<string | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -231,16 +232,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   }, [isSpeakerOn]);
 
   // Ensure media tracks are cleanly stopped if modal closes or unmounts unexpectedly
-  useEffect(() => {
-    return () => {
-      const state = webrtcCallService.getState();
-      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
-        void webrtcCallService.endCall();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
+    useEffect(() => {
     if (!isOpen) {
       const state = webrtcCallService.getState();
       if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
@@ -262,18 +254,22 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
     return () => clearInterval(interval);
   }, [isOpen, callState]);
 
-  // Start outgoing call when modal opens
+  // Start each outgoing call exactly once. Parent rerenders must not restart
+  // signalling or tear down an already-negotiating peer connection.
   useEffect(() => {
-    if (isOpen && !isIncoming && conversationId && callerId && targetUserId) {
-      void webrtcCallService.startCall({
-        conversationId,
-        callerId,
-        callerName: callerName || 'Gayze member',
-        targetUserId,
-        targetUserName: peerName,
-        callType: initialCallType,
-      });
-    }
+    if (!isOpen) { startAttemptRef.current = null; return; }
+    if (isIncoming || !conversationId || !callerId || !targetUserId) return;
+    const attemptKey = `${conversationId}:${callerId}:${targetUserId}:${initialCallType}`;
+    if (startAttemptRef.current === attemptKey) return;
+    startAttemptRef.current = attemptKey;
+    void webrtcCallService.startCall({
+      conversationId,
+      callerId,
+      callerName: callerName || 'Gayze member',
+      targetUserId,
+      targetUserName: peerName,
+      callType: initialCallType,
+    });
   }, [isOpen, isIncoming, conversationId, callerId, callerName, targetUserId, peerName, initialCallType]);
 
   if (!isOpen) return null;
@@ -285,19 +281,14 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   };
 
   const handleToggleMute = () => {
-    const stream = webrtcCallService.getLocalStream?.();
-    const track = stream?.getAudioTracks()[0];
-    const nextMuted = track ? track.enabled : !isMuted;
-    if (track) {
-      track.enabled = !nextMuted;
-    } else {
-      webrtcCallService.toggleAudio(!nextMuted);
-    }
-    setIsMuted(nextMuted);
+    // Keep the service as the single source of truth, including when the user
+    // mutes before getUserMedia has resolved.
+    const nextEnabled = webrtcCallService.toggleAudio(isMuted);
+    setIsMuted(!nextEnabled);
   };
 
   const handleToggleVideo = () => {
-    const nextState = webrtcCallService.toggleVideo();
+    const nextState = webrtcCallService.toggleVideo(!isVideoEnabled);
     setIsVideoEnabled(nextState);
   };
 
@@ -645,6 +636,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   const onCloseRef = useRef(onClose);
   const ringtoneTimerRef = useRef<number | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
+  const startAttemptRef = useRef<string | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -796,16 +788,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   }, [isSpeakerOn]);
 
   // Ensure media tracks are cleanly stopped if modal closes or unmounts unexpectedly
-  useEffect(() => {
-    return () => {
-      const state = webrtcCallService.getState();
-      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
-        void webrtcCallService.endCall();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
+    useEffect(() => {
     if (!isOpen) {
       const state = webrtcCallService.getState();
       if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
@@ -827,18 +810,22 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     return () => clearInterval(interval);
   }, [isOpen, callState]);
 
-  // Start outgoing call when modal opens
+  // Start each outgoing call exactly once. Parent rerenders must not restart
+  // signalling or tear down an already-negotiating peer connection.
   useEffect(() => {
-    if (isOpen && !isIncoming && conversationId && callerId && targetUserId) {
-      void webrtcCallService.startCall({
-        conversationId,
-        callerId,
-        callerName: callerName || 'Gayze member',
-        targetUserId,
-        targetUserName: peerName,
-        callType: 'audio',
-      });
-    }
+    if (!isOpen) { startAttemptRef.current = null; return; }
+    if (isIncoming || !conversationId || !callerId || !targetUserId) return;
+    const attemptKey = `${conversationId}:${callerId}:${targetUserId}:audio`;
+    if (startAttemptRef.current === attemptKey) return;
+    startAttemptRef.current = attemptKey;
+    void webrtcCallService.startCall({
+      conversationId,
+      callerId,
+      callerName: callerName || 'Gayze member',
+      targetUserId,
+      targetUserName: peerName,
+      callType: 'audio',
+    });
   }, [isOpen, isIncoming, conversationId, callerId, callerName, targetUserId, peerName]);
 
   if (!isOpen) return null;
@@ -850,15 +837,10 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   };
 
   const handleToggleMute = () => {
-    const stream = webrtcCallService.getLocalStream?.();
-    const track = stream?.getAudioTracks()[0];
-    const nextMuted = track ? track.enabled : !isMuted;
-    if (track) {
-      track.enabled = !nextMuted;
-    } else {
-      webrtcCallService.toggleAudio(!nextMuted);
-    }
-    setIsMuted(nextMuted);
+    // Keep the service as the single source of truth, including when the user
+    // mutes before getUserMedia has resolved.
+    const nextEnabled = webrtcCallService.toggleAudio(isMuted);
+    setIsMuted(!nextEnabled);
   };
 
   const handleToggleMinimize = () => {
