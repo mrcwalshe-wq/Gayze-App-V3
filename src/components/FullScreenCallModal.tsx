@@ -309,7 +309,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   // Render at document.body so app-shell stacking contexts cannot leave the
   // navigation bar above the full-screen call surface on iOS Safari.
   // Full-screen iPhone-style UI
-  return createPortal((
+  return createPortal(
     <div 
       data-gayze-call-screen="true"
       className="fixed inset-0 z-[2147483000] isolate overflow-hidden bg-[#07060c] text-white transition-opacity duration-300"
@@ -578,7 +578,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
         </div>
       )}
     </div>
-  ), document.body);
+  , document.body);
 };
 
 // Separate Audio Call UI component
@@ -824,7 +824,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  return createPortal((
+  return createPortal(
     <div 
       data-gayze-call-screen="true"
       className="fixed inset-0 z-[2147483000] isolate overflow-hidden bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
@@ -1035,6 +1035,6 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
         </div>
       )}
     </div>
-  ), document.body);
+  , document.body);
 };
 
