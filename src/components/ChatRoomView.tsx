@@ -703,6 +703,29 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             </div>
           )}
 
+          {visibleRoomId && conversationKeyUnavailable && (
+            <div role="alert" className="mx-3 mt-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.07] p-3 sm:mx-4">
+              <div className="flex items-start gap-2.5">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-amber-100">Secure chat needs attention</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-zinc-300">
+                    {conversationKeyReason || 'This device could not unlock the existing conversation key. Your messages have not been reset.'}
+                  </p>
+                  {onRetrySecureChat && (
+                    <button
+                      type="button"
+                      onClick={onRetrySecureChat}
+                      className="mt-2 min-h-[40px] rounded-lg border border-amber-300/30 px-3 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/10"
+                    >
+                      Retry secure connection
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Messages Feed */}
           <div ref={feedRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3"
             onScroll={() => { const feed = feedRef.current; if (feed) nearBottomRef.current = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 100; }}>
