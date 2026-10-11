@@ -124,14 +124,30 @@ export interface DeviceIdentity {
 
 const IDENTITY_DB_NAME = 'gayze-crypto';
 const IDENTITY_STORE_NAME = 'identity';
-const IDENTITY_KEY = 'device';
-const DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
+const LEGACY_IDENTITY_KEY = 'device';
+const ACTIVE_IDENTITY_USER_KEY = 'gayze_crypto_active_user';
+const LEGACY_DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
+
+function identityScope(): string {
+  return localStorage.getItem(ACTIVE_IDENTITY_USER_KEY) || 'legacy';
+}
+
+function scopedIdentityKey(): string {
+  const scope = identityScope();
+  return scope === 'legacy' ? LEGACY_IDENTITY_KEY : `device:${scope}`;
+}
+
+function scopedDeviceIdStorageKey(): string {
+  const scope = identityScope();
+  return scope === 'legacy' ? LEGACY_DEVICE_ID_STORAGE_KEY : `gayze_device_id:${scope}`;
+}
 
 function getOrCreateLocalDeviceId(): string {
-  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+  const key = scopedDeviceIdStorageKey();
+  const existing = localStorage.getItem(key);
   if (existing) return existing;
   const created = crypto.randomUUID();
-  localStorage.setItem(DEVICE_ID_STORAGE_KEY, created);
+  localStorage.setItem(key, created);
   return created;
 }
 
@@ -153,7 +169,7 @@ async function readStoredIdentity(): Promise<CryptoKeyPair | null> {
   const db = await openIdentityDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IDENTITY_STORE_NAME, 'readonly');
-    const request = tx.objectStore(IDENTITY_STORE_NAME).get(IDENTITY_KEY);
+    const request = tx.objectStore(IDENTITY_STORE_NAME).get(scopedIdentityKey());
     request.onsuccess = () => resolve(request.result ?? null);
     request.onerror = () => reject(request.error ?? new Error('Unable to read identity'));
     tx.oncomplete = () => db.close();
@@ -165,7 +181,7 @@ async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
   const db = await openIdentityDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(IDENTITY_STORE_NAME, 'readwrite');
-    tx.objectStore(IDENTITY_STORE_NAME).put(identity, IDENTITY_KEY);
+    tx.objectStore(IDENTITY_STORE_NAME).put(identity, scopedIdentityKey());
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error ?? new Error('Unable to store identity'));
     tx.onabort = () => reject(tx.error ?? new Error('Unable to store identity'));
@@ -480,7 +496,7 @@ export async function restoreRecoveryBundle(bundle: RecoveryBundle, password: st
   await writeStoredIdentity({ privateKey, publicKey });
   // Recovery restores the stable GAYZE identity, but deliberately creates a new
   // physical-device credential on this browser.
-  localStorage.removeItem(DEVICE_ID_STORAGE_KEY);
+  localStorage.removeItem(scopedDeviceIdStorageKey());
   return getOrCreateDeviceIdentity();
 }
 
