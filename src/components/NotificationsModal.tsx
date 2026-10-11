@@ -109,10 +109,31 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
 
   const refresh = useCallback(async () => {
     setEnv(getPushEnvironment());
-    const [device, loaded, interests] = await Promise.all([isDeviceSubscribed(), loadNotificationPreferences(), loadIncomingInterests()]);
-    setSubscribed(device);
-    setPrefs(loaded);
-    setIncomingInterests(interests);
+
+    // Received Gayzes are core inbox data and must not depend on browser push
+    // support or notification-preference loading. On iOS/Safari, push APIs can
+    // reject even though Supabase requests are available; Promise.all would then
+    // skip setIncomingInterests entirely and hide the Accept/Decline cards.
+    const [deviceResult, preferencesResult, interestsResult] = await Promise.allSettled([
+      isDeviceSubscribed(),
+      loadNotificationPreferences(),
+      loadIncomingInterests(),
+    ]);
+
+    setSubscribed(deviceResult.status === 'fulfilled' ? deviceResult.value : false);
+    if (preferencesResult.status === 'fulfilled') {
+      setPrefs(preferencesResult.value);
+    } else {
+      console.warn('[GAYZE] Could not load notification preferences:', preferencesResult.reason);
+      setPrefs(DEFAULT_NOTIFICATION_PREFERENCES);
+    }
+
+    if (interestsResult.status === 'fulfilled') {
+      setIncomingInterests(interestsResult.value);
+    } else {
+      console.error('[GAYZE] Could not load received Gayzes:', interestsResult.reason);
+      setIncomingInterests([]);
+    }
     setLoading(false);
   }, []);
 
