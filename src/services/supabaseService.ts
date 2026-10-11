@@ -547,7 +547,7 @@ export async function submitInterest(
       void requestConnectionPush(result.conversation_id);
     }
     return {
-      sent: result.sent !== false,
+      sent: true,
       mutual: Boolean(result.mutual),
       conversation_id: result.conversation_id ?? null,
       interest_id: result.interest_id ?? null,
