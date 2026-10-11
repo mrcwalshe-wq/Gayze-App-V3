@@ -226,7 +226,10 @@ async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
 
 export async function getOrCreateDeviceIdentity(userId?: string): Promise<DeviceIdentity> {
   // Keep each authenticated account's private identity and device id in a separate local slot.
-  if (userId) {\n    const scopeStore = typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage;\n    scopeStore.setItem(ACTIVE_IDENTITY_USER_KEY, userId);\n  }
+  if (userId) {
+    const scopeStore = typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage;
+    scopeStore.setItem(ACTIVE_IDENTITY_USER_KEY, userId);
+  }
   let identity = await readStoredIdentity();
   if (!identity) {
     // The IndexedDB identity is the private half needed to unwrap existing
