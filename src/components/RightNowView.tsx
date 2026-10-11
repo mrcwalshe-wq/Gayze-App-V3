@@ -297,6 +297,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [interestPhotos, setInterestPhotos] = useState<ProfilePhoto[]>([]);
   const [selectedInterestPhotoIds, setSelectedInterestPhotoIds] = useState<Set<string>>(new Set());
   const [interestComposerBusy, setInterestComposerBusy] = useState(false);
+  const [interestComposerError, setInterestComposerError] = useState('');
 
   // Persist sender-side Gayze state across reloads so pending, matched and declined
   // responses remain truthful after navigation or a full reload.
@@ -498,6 +499,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (!pulseObj || interestComposerBusy) return;
     if (interestedIds.has(id)) return;
     setInterestDraftPulse(pulseObj);
+    setInterestComposerError('');
     setInterestMessage('');
     setSelectedInterestPhotoIds(new Set());
     try { setInterestPhotos(await loadProfilePhotos()); } catch { setInterestPhotos([]); }
@@ -505,17 +507,23 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
   const sendInterestRequest = async () => {
     if (!interestDraftPulse || !onSubmitInterest || interestComposerBusy) return;
+    setInterestComposerError('');
     setInterestComposerBusy(true);
     setInterestPendingIds((prev) => new Set(prev).add(interestDraftPulse.id));
     try {
       const result = await onSubmitInterest(interestDraftPulse, interestMessage, Array.from(selectedInterestPhotoIds));
-      if (!result.sent) { showStatusMessage('Gayze could not be sent — try again.'); return; }
+      if (!result.sent) {
+        setInterestComposerError('Gayze was not sent. Check your connection and try again.');
+        showStatusMessage('Gayze could not be sent — try again.');
+        return;
+      }
       setInterestedIds((prev) => new Set(prev).add(interestDraftPulse.id));
       setInterestStatusByPulseId((prev) => ({ ...prev, [interestDraftPulse.id]: 'pending' }));
       setInterestDraftPulse(null);
       showStatusMessage(`Gayze sent to ${interestDraftPulse.peerName} — awaiting their response`, 3500);
     } catch (error) {
       console.error('[GAYZE] Intent interest submission failed', error);
+      setInterestComposerError('Gayze was not sent. Check your connection and try again.');
       showStatusMessage('Intent interest could not be sent — try again.');
     } finally {
       setInterestPendingIds((prev) => {
@@ -2366,6 +2374,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div><div className="flex items-center justify-between"><label className="text-xs font-semibold text-zinc-300">Share album photos <span className="text-zinc-600">(optional)</span></label><span className="text-[10px] text-zinc-600">{selectedInterestPhotoIds.size}/6</span></div>
                 {interestPhotos.length ? <div className="mt-2 grid grid-cols-6 gap-2">{interestPhotos.map((photo) => { const selected=selectedInterestPhotoIds.has(photo.id); return <button key={photo.id} type="button" onClick={() => setSelectedInterestPhotoIds(prev => { const next=new Set(prev); if(selected) next.delete(photo.id); else if(next.size<6) next.add(photo.id); return next; })} className={`relative aspect-square rounded-xl overflow-hidden border-2 ${selected ? 'border-[#C9A24D]' : 'border-white/10'}`}><img src={photo.url} alt="" className="w-full h-full object-cover" />{selected && <span className="absolute inset-0 bg-[#6F3CC3]/35 flex items-center justify-center"><Check className="w-5 h-5 text-white" /></span>}</button>; })}</div> : <div className="mt-2 text-xs text-zinc-600 rounded-2xl border border-dashed border-white/10 p-4 text-center">No album photos available.</div>}
               </div>
+              {interestComposerError && <p role="alert" className="px-3 text-center text-xs text-rose-300">{interestComposerError}</p>}
               <button type="button" disabled={interestComposerBusy} onClick={() => void sendInterestRequest()} className="g-send-gayze-button" aria-label={interestComposerBusy ? 'Sending GAYZE' : 'Send GAYZE'}><span className="g-send-gayze-button__sparkles" aria-hidden="true"><i/><i/><i/><i/><i/><i/></span><span className="g-send-gayze-button__symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.5c.8 4.5 3 6.7 7.5 7.5-4.5.8-6.7 3-7.5 7.5-.8-4.5-3-6.7-7.5-7.5 4.5-.8 6.7-3 7.5-7.5Z" fill="currentColor"/><path d="M19 16v5M16.5 18.5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></span><span className="g-send-gayze-button__label">{interestComposerBusy ? 'Sending…' : 'Send GAYZE'}</span><span className="g-send-gayze-button__arrow" aria-hidden="true">→</span></button>
               <p className="text-[10.5px] text-center text-zinc-600">A Gayze is an interest signal — they can view your profile and accept or decline. Declines stay private.</p>
             </div>
