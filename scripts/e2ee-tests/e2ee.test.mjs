@@ -13,7 +13,7 @@
  *
  * Run: npx tsx scripts/e2ee-tests/e2ee.test.mjs
  */
-import { createDevice, installWindowGlobal } from './shims.mjs';
+import { createDevice, createMemoryIndexedDB, installWindowGlobal } from './shims.mjs';
 
 installWindowGlobal();
 
@@ -60,6 +60,18 @@ assert(identityA.fingerprint !== identityB.fingerprint, 'A and B have distinct i
 assert(identityA.fingerprint === identityA2.fingerprint, 'A identity is stable across re-reads (persisted in IndexedDB)');
 assert(identityA.deviceId !== identityB.deviceId, 'A and B have distinct device ids');
 assert(identityA.publicKeyJwk.kty === 'EC' && identityA.publicKeyJwk.crv === 'P-256', 'identity key is ECDH P-256');
+
+// If IndexedDB is cleared but localStorage survives, the old device id must
+// not be reused with a newly generated private key. Existing envelopes are
+// bound to the old key pair, so the new identity must register as a new device.
+const deviceD = createDevice('D');
+deviceD.use();
+const originalD = await getOrCreateDeviceIdentity();
+deviceD.indexedDB = createMemoryIndexedDB(); // simulate cleared browser identity storage
+deviceD.use();
+const replacementD = await getOrCreateDeviceIdentity();
+assert(replacementD.deviceId !== originalD.deviceId, 'lost private identity rotates device id instead of overwriting its registered public key');
+assert(replacementD.fingerprint !== originalD.fingerprint, 'replacement device identity has a new cryptographic fingerprint');
 
 // ---------------------------------------------------------------------------
 // DIRECT conversations: both sides ECDH-derive the same key from the peer's
