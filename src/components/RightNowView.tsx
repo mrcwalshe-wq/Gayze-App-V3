@@ -1360,40 +1360,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         </button>
       </div>
 
-      {/* =========================================================================
-          4.5. EMPTY STATE — honest, compact, map stays visible
-         ========================================================================= */}
-      {!activeUserIntent && liveMembersCount === 0 && !selectedItem && !isNearbyOpen && !isIntentOverlayOpen && (
-        <div className="g-map-empty-state" role="status">
-          <span className="g-map-empty-state__title">No active intent nearby</span>
-          <span className="g-map-empty-state__copy">Within {maxDistanceKm} km</span>
-          {onOpenSetIntent && (
-            <button
-              type="button"
-              onClick={() => {
-                hapticLight();
-                onOpenSetIntent();
-              }}
-              className="g-map-empty-state__action"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Set intent
-            </button>
-          )}
-          {maxDistanceKm < MAX_TRAVEL_DISTANCE_KM && (
-            <button
-              type="button"
-              onClick={() => {
-                hapticLight();
-                setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
-              }}
-              className="g-map-empty-state__radius"
-            >
-              Expand to {MAX_TRAVEL_DISTANCE_KM} km
-            </button>
-          )}
-        </div>
-      )}
+      {/* Empty discovery is intentionally silent: the compact RIGHT NOW count above
+          already communicates availability. Keep the map unobstructed and let the
+          existing navigation/nearby controls provide the next actions. */}
 
       {/* =========================================================================
           4.6. BOTTOM ACTION BAR — discovery drawer + the one primary action
@@ -1404,7 +1373,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             {!userLocation && onRequestLocation ? (
               <button type="button" onClick={onRequestLocation} className="g-float g-nearby-btn" aria-label="Use my location"><MapPin className="w-3.5 h-3.5 text-[#C9A24D]" /><span>Use location</span></button>
             ) : (
-              <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className="g-float g-nearby-btn" aria-expanded={isNearbyOpen} aria-label={`${liveMembersCount} nearby — open nearby intents`}><List className="w-3.5 h-3.5" /><span>{liveMembersCount}</span><span className="g-nearby-btn__chevron">›</span></button>
+              <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className="g-float g-nearby-btn" aria-expanded={isNearbyOpen} aria-label={`${liveMembersCount} nearby — open nearby intents`}><List className="w-3.5 h-3.5" />{liveMembersCount > 0 && <span>{liveMembersCount}</span>}<span className="g-nearby-btn__chevron">›</span></button>
             )}
           </div>
         </>
