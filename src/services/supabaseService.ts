@@ -520,7 +520,12 @@ export async function submitInterest(
       p_shared_photo_ids: sharedPhotoIds,
     });
     if (error) {
-      console.warn('[GAYZE] Supabase submit_interest unavailable:', error.message);
+      console.error('[GAYZE] submit_interest RPC failed:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
       return { sent: false, mutual: false, conversation_id: null, interest_id: null };
     }
     const result = data as {
@@ -528,7 +533,13 @@ export async function submitInterest(
       mutual?: boolean;
       conversation_id?: string | null;
       interest_id?: string | null;
-    };
+    } | null;
+    // Never treat an empty/unexpected RPC payload as a successful send. The
+    // database function must explicitly confirm the request was persisted.
+    if (!result || result.sent !== true) {
+      console.error('[GAYZE] submit_interest returned an unexpected result:', data);
+      return { sent: false, mutual: false, conversation_id: null, interest_id: null };
+    }
     // The RPC result is the authoritative "mutual was just created" signal.
     // Forward it so the other member is notified (server enforces exactly-once
     // and the recipient's preferences). Fire-and-forget: no effect on the flow.
