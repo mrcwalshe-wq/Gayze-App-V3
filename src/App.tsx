@@ -986,16 +986,27 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [activeUserIntent?.remoteId, activeUserIntent?.expiresAt, activeUserIntent?.isPaused]);
 
-  // 3. Discovery: realtime subscription + slow poll so expiry is reflected even
-  //    when Realtime is not enabled for the table.
+  // Discovery is realtime-first, with fast foreground reconciliation so a missed
+  // or RLS-filtered event cannot leave one user's map stale for 90 seconds.
   useEffect(() => {
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
-    void refreshDiscoveryRef.current();
-    const unsubscribe = subscribeToRightNow(() => { void refreshDiscoveryRef.current(); });
-    const poll = window.setInterval(() => { void refreshDiscoveryRef.current(); }, 90000);
+    let disposed = false;
+    const refresh = () => {
+      if (!disposed && document.visibilityState === 'visible') {
+        void refreshDiscoveryRef.current();
+      }
+    };
+    refresh();
+    const unsubscribe = subscribeToRightNow(refresh);
+    const poll = window.setInterval(refresh, 10000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
+      disposed = true;
       unsubscribe();
       window.clearInterval(poll);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
@@ -1425,9 +1436,20 @@ export default function App() {
     const supabaseClient = supabase;
     let disposed = false;
     let initialised = false;
+    let loadingIncoming = false;
 
     const handleInterestChange = async () => {
-      const incoming = await loadIncomingInterests();
+      if (disposed || loadingIncoming) return;
+      loadingIncoming = true;
+      let incoming: Awaited<ReturnType<typeof loadIncomingInterests>>;
+      try {
+        incoming = await loadIncomingInterests();
+      } catch (error) {
+        console.warn('[GAYZE] Could not reconcile incoming Gayzes:', error);
+        loadingIncoming = false;
+        return;
+      }
+      loadingIncoming = false;
       if (disposed) return;
       // The request table is the source of truth. Keep the Chats-tab Gayze
       // entry visible even if notification-inbox rows or Realtime are delayed.
@@ -1467,9 +1489,22 @@ export default function App() {
           console.warn('[GAYZE] Incoming interest realtime unavailable:', error);
         }
       });
+    // Realtime is not guaranteed to reach every client; reconcile the inbox
+    // frequently while foregrounded and immediately on returning to the app.
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void handleInterestChange();
+    }, 5000);
+    const refreshOnResume = () => {
+      if (document.visibilityState === 'visible') void handleInterestChange();
+    };
+    window.addEventListener('focus', refreshOnResume);
+    document.addEventListener('visibilitychange', refreshOnResume);
 
     return () => {
       disposed = true;
+      window.clearInterval(poll);
+      window.removeEventListener('focus', refreshOnResume);
+      document.removeEventListener('visibilitychange', refreshOnResume);
       void supabaseClient.removeChannel(channel);
     };
   }, [isAuthenticated, supabaseUserId]);
@@ -2667,6 +2702,11 @@ export default function App() {
     const isSupabasePulse = pulse.id.startsWith('supabase_');
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pulse.peerId);
     if (!isSupabasePulse || !isUuid) {
+      console.error('[GAYZE] Send blocked: selected map entry is missing a valid Supabase intent or user ID.', {
+        pulseId: pulse.id,
+        hasValidPeerId: isUuid,
+      });
+      showToast('This Gayze target is out of date. Refresh the map and try again.');
       return { sent: false, mutual: false, conversation_id: null };
     }
 
@@ -2686,7 +2726,12 @@ export default function App() {
     } else if (result.sent && !result.mutual) {
       showToast(`Interest sent to ${pulse.peerName}`);
     } else {
-      showToast('Could not open this conversation. Please try again.');
+      console.error('[GAYZE] submit_interest did not confirm the request.', {
+        sent: result.sent,
+        mutual: result.mutual,
+        hasInterestId: Boolean(result.interest_id),
+      });
+      showToast('Gayze could not be sent. Please try again.');
     }
 
     return result;
