@@ -3294,8 +3294,7 @@ export default function App() {
                           <span className="shrink-0 text-sm font-semibold text-violet-100">View <span aria-hidden="true">›</span></span>
                         </button>
                       ))}
-                    {!notificationInbox?.rows.some((notice) => notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received'))
-                      && pendingIncomingInterests.length > 0 && (
+                    {pendingIncomingInterests.length > 0 && (
                         <button
                           type="button"
                           onClick={() => setMessagesSubTab('notifications')}
