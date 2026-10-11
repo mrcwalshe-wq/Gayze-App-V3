@@ -130,7 +130,10 @@ const LEGACY_IDENTITY_CLAIM_KEY = 'gayze_crypto_legacy_claimed_by';
 const LEGACY_DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
 
 function identityScope(): string {
-  return localStorage.getItem(ACTIVE_IDENTITY_USER_KEY) || 'legacy';
+  // Session storage is per-tab, so two signed-in accounts in separate tabs
+  // cannot change each other's active identity scope.
+  const scopeStore = typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage;
+  return scopeStore.getItem(ACTIVE_IDENTITY_USER_KEY) || 'legacy';
 }
 
 function scopedIdentityKey(): string {
@@ -223,7 +226,7 @@ async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
 
 export async function getOrCreateDeviceIdentity(userId?: string): Promise<DeviceIdentity> {
   // Keep each authenticated account's private identity and device id in a separate local slot.
-  if (userId) localStorage.setItem(ACTIVE_IDENTITY_USER_KEY, userId);
+  if (userId) {\n    const scopeStore = typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage;\n    scopeStore.setItem(ACTIVE_IDENTITY_USER_KEY, userId);\n  }
   let identity = await readStoredIdentity();
   if (!identity) {
     // The IndexedDB identity is the private half needed to unwrap existing
