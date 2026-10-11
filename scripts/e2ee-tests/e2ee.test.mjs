@@ -61,6 +61,20 @@ assert(identityA.fingerprint === identityA2.fingerprint, 'A identity is stable a
 assert(identityA.deviceId !== identityB.deviceId, 'A and B have distinct device ids');
 assert(identityA.publicKeyJwk.kty === 'EC' && identityA.publicKeyJwk.crv === 'P-256', 'identity key is ECDH P-256');
 
+// Switching authenticated accounts in the same browser must not reuse or
+// overwrite either account's ECDH private identity or physical device id.
+deviceA.use();
+const accountIdentityA = await getOrCreateDeviceIdentity('account-a');
+const accountIdentityB = await getOrCreateDeviceIdentity('account-b');
+const accountIdentityAAgain = await getOrCreateDeviceIdentity('account-a');
+assert(accountIdentityA.fingerprint !== accountIdentityB.fingerprint,
+  'two accounts in one browser receive different ECDH identities');
+assert(accountIdentityA.deviceId !== accountIdentityB.deviceId,
+  'two accounts in one browser receive different registered device ids');
+assert(accountIdentityA.fingerprint === accountIdentityAAgain.fingerprint
+  && accountIdentityA.deviceId === accountIdentityAAgain.deviceId,
+  'switching back restores the first account identity without overwriting it');
+
 // If IndexedDB is cleared but localStorage survives, the old device id must
 // not be reused with a newly generated private key. Existing envelopes are
 // bound to the old key pair, so the new identity must register as a new device.
