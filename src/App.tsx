@@ -834,7 +834,7 @@ export default function App() {
         if (!user || isStale()) return;
         setShowProfileOnboarding(user.user_metadata?.profile_complete !== true);
         if (supabaseUserIdRef.current !== user.id) { clearMessageWork(); messageAlertsRef.current.clear(); }
-        const identity = await getOrCreateDeviceIdentity();
+        const identity = await getOrCreateDeviceIdentity(user.id);
         if (isStale()) return;
 
         // Register the cryptographic device before publishing supabaseUserId.
