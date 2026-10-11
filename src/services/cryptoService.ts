@@ -125,7 +125,7 @@ export interface DeviceIdentity {
 const IDENTITY_DB_NAME = 'gayze-crypto';
 const IDENTITY_STORE_NAME = 'identity';
 const LEGACY_IDENTITY_KEY = 'device';
-const ACTIVE_IDENTITY_USER_KEY = 'gayze_crypto_active_user';
+const ACTIVE_IDENTITY_USER_KEY = 'gayze_crypto_active_user';\nconst LEGACY_IDENTITY_CLAIM_KEY = 'gayze_crypto_legacy_claimed_by';
 const LEGACY_DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
 
 function identityScope(): string {
@@ -164,17 +164,48 @@ function openIdentityDb(): Promise<IDBDatabase> {
   });
 }
 
-async function readStoredIdentity(): Promise<CryptoKeyPair | null> {
+async function readIdentityByKey(key: string): Promise<CryptoKeyPair | null> {
   if (typeof indexedDB === 'undefined') return null;
   const db = await openIdentityDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IDENTITY_STORE_NAME, 'readonly');
-    const request = tx.objectStore(IDENTITY_STORE_NAME).get(scopedIdentityKey());
+    const request = tx.objectStore(IDENTITY_STORE_NAME).get(key);
     request.onsuccess = () => resolve(request.result ?? null);
     request.onerror = () => reject(request.error ?? new Error('Unable to read identity'));
     tx.oncomplete = () => db.close();
     tx.onerror = () => db.close();
   });
+}
+
+async function readStoredIdentity(): Promise<CryptoKeyPair | null> {
+  const key = scopedIdentityKey();
+  const existing = await readIdentityByKey(key);
+  if (existing || key === LEGACY_IDENTITY_KEY) return existing;
+
+  // Preserve the existing browser's encryption identity for the first account
+  // that claims it after this update. Keep the legacy copy intact for recovery;
+  // subsequent accounts receive separate identities instead of overwriting it.
+  const userId = identityScope();
+  if (!userId || userId === 'legacy') return null;
+  const claimedBy = localStorage.getItem(LEGACY_IDENTITY_CLAIM_KEY);
+  if (claimedBy && claimedBy !== userId) return null;
+  const legacy = await readIdentityByKey(LEGACY_IDENTITY_KEY);
+  if (!legacy) return null;
+  localStorage.setItem(LEGACY_IDENTITY_CLAIM_KEY, userId);
+  const db = await openIdentityDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(IDENTITY_STORE_NAME, 'readwrite');
+    tx.objectStore(IDENTITY_STORE_NAME).put(legacy, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Unable to migrate identity'));
+    tx.onabort = () => reject(tx.error ?? new Error('Unable to migrate identity'));
+  });
+  db.close();
+  if (!localStorage.getItem(`gayze_device_id:${userId}`)) {
+    const legacyDeviceId = localStorage.getItem(LEGACY_DEVICE_ID_STORAGE_KEY);
+    if (legacyDeviceId) localStorage.setItem(`gayze_device_id:${userId}`, legacyDeviceId);
+  }
+  return legacy;
 }
 
 async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
