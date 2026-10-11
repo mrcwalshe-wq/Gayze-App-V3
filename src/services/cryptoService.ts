@@ -125,7 +125,8 @@ export interface DeviceIdentity {
 const IDENTITY_DB_NAME = 'gayze-crypto';
 const IDENTITY_STORE_NAME = 'identity';
 const LEGACY_IDENTITY_KEY = 'device';
-const ACTIVE_IDENTITY_USER_KEY = 'gayze_crypto_active_user';\nconst LEGACY_IDENTITY_CLAIM_KEY = 'gayze_crypto_legacy_claimed_by';
+const ACTIVE_IDENTITY_USER_KEY = 'gayze_crypto_active_user';
+const LEGACY_IDENTITY_CLAIM_KEY = 'gayze_crypto_legacy_claimed_by';
 const LEGACY_DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
 
 function identityScope(): string {
