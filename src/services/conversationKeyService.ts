@@ -176,16 +176,44 @@ async function resolveDeviceAwareKey(
         reason: 'The device that created this conversation key is not currently available.',
       };
     }
-    try {
-      const key = await unwrapConversationKey(room.id, mine.wrapped_key, mine.nonce, creatorJwk);
+    // Prefer the envelope's recorded creator. Some historical rows have stale
+    // or missing creator metadata, however, and AES-GCM can safely identify the
+    // correct authorised peer: only the matching ECDH key authenticates the
+    // envelope. Never change stored envelopes or create a competing key here.
+    let key: CryptoKey | null = null;
+    const creatorCandidates = [
+      ...(creatorJwk ? [{ deviceId: creatorDeviceId, jwk: creatorJwk }] : []),
+      ...devices
+        .filter((device) => device.device_id !== creatorDeviceId)
+        .map((device) => ({ deviceId: device.device_id, jwk: parseJwk(device.public_key) }))
+        .filter((candidate): candidate is { deviceId: string; jwk: JsonWebKey } => Boolean(candidate.jwk)),
+    ];
+    for (const candidate of creatorCandidates) {
+      try {
+        key = await unwrapConversationKey(room.id, mine.wrapped_key, mine.nonce, candidate.jwk);
+        if (key) break;
+      } catch {
+        // Authentication failure means this registered public key is not the
+        // matching envelope creator. Continue only across authorised devices.
+      }
+    }
+    if (!key) {
+      return {
+        key: null,
+        status: 'unavailable',
+        legacyKey: legacyKey ?? undefined,
+        reason: 'This device could not unlock its conversation key envelope. Retry, or restore the original identity on this device.',
+      };
+    }
 
-      // If another authorised device was added after this key was created,
-      // the current key holder can add only that device's envelope. Existing
-      // envelopes are never overwritten.
-      for (const device of devices) {
-        if (envelopes.some((envelope) => envelope.device_id === device.device_id)) continue;
-        const deviceJwk = parseJwk(device.public_key);
-        if (!deviceJwk) continue;
+    // If another authorised device was added after this key was created,
+    // the current key holder can add only that device's envelope. Existing
+    // envelopes are never overwritten.
+    for (const device of devices) {
+      if (envelopes.some((envelope) => envelope.device_id === device.device_id)) continue;
+      const deviceJwk = parseJwk(device.public_key);
+      if (!deviceJwk) continue;
+      try {
         const wrapped = await wrapConversationKey(room.id, key, deviceJwk);
         await saveConversationKeyEnvelope({
           conversation_id: room.id,
@@ -195,17 +223,13 @@ async function resolveDeviceAwareKey(
           nonce: wrapped.nonceHex,
           created_by_device_id: identity.deviceId,
         });
+      } catch {
+        // A repair attempt must not make an otherwise decryptable chat fail.
+        // The missing device can be provisioned on a later successful retry.
       }
-
-      return { key, status: 'ready', legacyKey: legacyKey ?? undefined };
-    } catch {
-      return {
-        key: null,
-        status: 'unavailable',
-        legacyKey: legacyKey ?? undefined,
-        reason: 'This device could not unlock its conversation key envelope.',
-      };
     }
+
+    return { key, status: 'ready', legacyKey: legacyKey ?? undefined };
   }
 
   // An existing envelope set proves that the conversation key already exists.
