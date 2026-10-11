@@ -74,6 +74,8 @@ assert(accountIdentityA.deviceId !== accountIdentityB.deviceId,
 assert(accountIdentityA.fingerprint === accountIdentityAAgain.fingerprint
   && accountIdentityA.deviceId === accountIdentityAAgain.deviceId,
   'switching back restores the first account identity without overwriting it');
+// Return the harness to its legacy scope for the existing regression cases.
+localStorage.removeItem('gayze_crypto_active_user');
 
 // If IndexedDB is cleared but localStorage survives, the old device id must
 // not be reused with a newly generated private key. Existing envelopes are
