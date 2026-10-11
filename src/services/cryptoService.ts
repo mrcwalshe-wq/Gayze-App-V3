@@ -221,7 +221,9 @@ async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
   db.close();
 }
 
-export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
+export async function getOrCreateDeviceIdentity(userId?: string): Promise<DeviceIdentity> {
+  // Keep each authenticated account's private identity and device id in a separate local slot.
+  if (userId) localStorage.setItem(ACTIVE_IDENTITY_USER_KEY, userId);
   let identity = await readStoredIdentity();
   if (!identity) {
     // The IndexedDB identity is the private half needed to unwrap existing
@@ -229,8 +231,8 @@ export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
     // survives, reusing the old device id would make the new public key replace
     // the registered key for a device whose old private key is gone. That can
     // permanently strand envelopes. Treat this as a new physical device.
-    getOrCreateLocalDeviceId(); // initialise storage if unavailable
-    localStorage.setItem(DEVICE_ID_STORAGE_KEY, window.crypto.randomUUID());
+    getOrCreateLocalDeviceId(); // initialise this account's storage if unavailable
+    localStorage.setItem(scopedDeviceIdStorageKey(), window.crypto.randomUUID());
     identity = await window.crypto.subtle.generateKey(
       { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'],
     ) as CryptoKeyPair;
