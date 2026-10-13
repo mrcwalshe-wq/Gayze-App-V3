@@ -2,6 +2,7 @@
 -- Keep interests as the one-per-pair connection state; gazes are event records.
 begin;
 
+alter table public.gazes drop constraint if exists gazes_from_user_id_to_user_id_key;
 drop index if exists public.gazes_from_user_id_to_user_id_key;
 
 create or replace function public.gayze_capture_notification()
