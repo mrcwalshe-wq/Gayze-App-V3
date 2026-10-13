@@ -480,6 +480,7 @@ export interface SubmitInterestResult {
   mutual: boolean;
   conversation_id: string | null;
   interest_id?: string | null;
+  repeat?: boolean;
 }
 
 export async function verifyPeerIdentity(
