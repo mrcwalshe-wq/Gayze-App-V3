@@ -107,7 +107,9 @@ function safePath(rawUrl, fallback) {
 }
 const validId = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 function notificationTarget(data) {
-  if ((data.type === 'message' || data.type === 'connection') && validId(data.conversationId)) {
+  // Gayze lock-screen notifications must deep-link to the existing chat too.
+  // The push sender resolves the shared conversation before sending the payload.
+  if ((data.type === 'message' || data.type === 'connection' || data.type === 'gaze') && validId(data.conversationId)) {
     const query = new URLSearchParams();
     if (validId(data.notificationId)) query.set('notification', data.notificationId);
     if (validId(data.recipientId)) query.set('recipient', data.recipientId);
