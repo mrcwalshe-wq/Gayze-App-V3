@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: notice, error: noticeErr } = await admin
         .from('gayze_notifications')
-        .select('id, user_id, category, event_key, url, read_at')
+        .select('id, user_id, actor_id, category, event_key, url, read_at')
         .eq('id', notificationId)
         .maybeSingle();
 
@@ -141,11 +141,31 @@ Deno.serve(async (req: Request) => {
         bodyText = 'You have a new safety notification.';
       }
 
+      // The notification URL can be stale (/notifications) for older Gayzes.
+      // Resolve the existing shared conversation from trusted membership rows so an
+      // iPhone lock-screen tap opens the actual chat instead of a profile/notification tab.
+      let conversationId: string | null = null;
+      if (notice.category === 'gaze' && notice.actor_id && isValidUuid(notice.actor_id)) {
+        const [{ data: recipientMemberships }, { data: actorMemberships }] = await Promise.all([
+          admin.from('conversation_members').select('conversation_id').eq('user_id', notice.user_id),
+          admin.from('conversation_members').select('conversation_id').eq('user_id', notice.actor_id),
+        ]);
+        const recipientConversations = new Set((recipientMemberships ?? []).map((row: { conversation_id: string }) => row.conversation_id));
+        conversationId = (actorMemberships ?? []).map((row: { conversation_id: string }) => row.conversation_id)
+          .find((id: string) => recipientConversations.has(id)) ?? null;
+      }
+      const notificationUrl = conversationId
+        ? `/messages/${conversationId}?notification=${notice.id}&recipient=${notice.user_id}`
+        : notice.url;
+
       const payload = {
         type: notice.category,
         title,
         body: bodyText,
-        url: notice.url,
+        url: notificationUrl,
+        conversationId,
+        notificationId: notice.id,
+        recipientId: notice.user_id,
         tag: `gayze-notification-${notice.id}`,
       };
 
