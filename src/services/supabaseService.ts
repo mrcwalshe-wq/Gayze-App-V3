@@ -480,6 +480,7 @@ export interface SubmitInterestResult {
   mutual: boolean;
   conversation_id: string | null;
   interest_id?: string | null;
+  repeat?: boolean;
 }
 
 export async function verifyPeerIdentity(
@@ -533,6 +534,7 @@ export async function submitInterest(
       mutual?: boolean;
       conversation_id?: string | null;
       interest_id?: string | null;
+      repeat?: boolean;
     } | null;
     // Never treat an empty/unexpected RPC payload as a successful send. The
     // database function must explicitly confirm the request was persisted.
@@ -543,7 +545,7 @@ export async function submitInterest(
     // The RPC result is the authoritative "mutual was just created" signal.
     // Forward it so the other member is notified (server enforces exactly-once
     // and the recipient's preferences). Fire-and-forget: no effect on the flow.
-    if (result.mutual && result.conversation_id) {
+    if (result.mutual && result.conversation_id && result.repeat !== true) {
       void requestConnectionPush(result.conversation_id);
     }
     return {
@@ -551,6 +553,7 @@ export async function submitInterest(
       mutual: Boolean(result.mutual),
       conversation_id: result.conversation_id ?? null,
       interest_id: result.interest_id ?? null,
+      repeat: result.repeat === true,
     };
   } catch (err: any) {
     console.warn('[GAYZE] Supabase submit_interest exception:', err?.message || err);
