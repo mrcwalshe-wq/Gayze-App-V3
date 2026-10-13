@@ -725,8 +725,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               .map((event) => (
                 <div key={`gayze-event-${event.id}`} className="flex justify-center py-1" role="note" aria-label={`${currentRoom?.name ?? 'Someone'} sent you a Gayze`}>
                   <div className="relative flex max-w-[92%] items-center gap-3 rounded-2xl border border-violet-300/35 bg-gradient-to-r from-violet-950/80 via-fuchsia-950/45 to-amber-950/25 px-4 py-3 shadow-[0_0_22px_rgba(139,92,246,0.14)]">
-                    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-200/50 bg-gradient-to-br from-violet-500/35 to-amber-300/20 text-violet-100">
-                      <span className="text-lg font-black tracking-tight">G</span>
+                    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-200/50 bg-gradient-to-br from-violet-500/35 to-amber-300/20 p-1.5">
+                      <img
+                        src="/brand/gayze-nav-v3.svg?v=20261008-8"
+                        alt="GAYZE logo"
+                        className="h-5 w-8 object-contain"
+                        width={32}
+                        height={20}
+                        draggable={false}
+                      />
                       <Sparkles className="absolute -right-1 -top-1 h-4 w-4 text-amber-200" />
                     </span>
                     <span className="min-w-0">
