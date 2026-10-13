@@ -38,6 +38,8 @@ import { PhotoStudio } from './PhotoStudio';
 
 interface ChatRoomViewProps {
   rooms: SwarmRoom[];
+  /** Persisted Gayze notification events, rendered as system entries in the matching chat. */
+  gayzeEvents?: Array<{ id: string; actorId: string; createdAt: string }>;
   messages: Record<string, EncryptedMessage[]>;
   activeRoomId: string;
   openRequest?: { roomId: string; sequence: number } | null;
@@ -70,6 +72,7 @@ interface ChatRoomViewProps {
 
 export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   rooms,
+  gayzeEvents = [],
   messages,
   activeRoomId,
   openRequest,
@@ -713,6 +716,27 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 setHistoryWindow({ roomId: activeRoomId, count: visibleCount + 100 });
               }}>Show older messages</button>
             )}
+            {gayzeEvents
+              .filter((event) => currentRoom?.type === 'direct' && (
+                event.actorId === currentRoom.peerUserId
+                || Boolean(currentRoom.memberIds?.includes(event.actorId) && currentRoom.memberIds?.includes(currentUserId ?? ''))
+              ))
+              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+              .map((event) => (
+                <div key={`gayze-event-${event.id}`} className="flex justify-center py-1" role="note" aria-label={`${currentRoom?.name ?? 'Someone'} sent you a Gayze`}>
+                  <div className="relative flex max-w-[92%] items-center gap-3 rounded-2xl border border-violet-300/35 bg-gradient-to-r from-violet-950/80 via-fuchsia-950/45 to-amber-950/25 px-4 py-3 shadow-[0_0_22px_rgba(139,92,246,0.14)]">
+                    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-200/50 bg-gradient-to-br from-violet-500/35 to-amber-300/20 text-violet-100">
+                      <span className="text-lg font-black tracking-tight">G</span>
+                      <Sparkles className="absolute -right-1 -top-1 h-4 w-4 text-amber-200" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold text-white">{currentRoom?.name ?? 'Someone'} sent you a Gayze</span>
+                      <time className="mt-1 block text-[10px] text-violet-100/65" dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time>
+                    </span>
+                    <span className="absolute -right-1 -top-1 text-amber-200" aria-hidden="true">✦</span>
+                  </div>
+                </div>
+              ))}
             {visibleMessages.map((msg) => {
               const isMe = currentUserId
                 ? msg.senderKey === currentUserId
