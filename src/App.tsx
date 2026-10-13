@@ -3272,6 +3272,32 @@ export default function App() {
                 ) : (
                   <>
                     {notificationInbox?.rows
+                      .filter((notice) => notice.category === 'gaze' && !notice.event_key?.startsWith('interest:'))
+                      .slice(0, 5)
+                      .map((notice) => (
+                        <button
+                          key={notice.id}
+                          type="button"
+                          onClick={() => void openInboxNotification(notice)}
+                          className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-2xl border border-violet-300/45 bg-gradient-to-r from-violet-950/90 via-fuchsia-950/60 to-amber-950/35 px-4 py-3 text-left shadow-[0_0_24px_rgba(139,92,246,0.18)] transition hover:border-violet-200/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                          aria-label="Open received Gayze"
+                        >
+                          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-200/50 bg-gradient-to-br from-violet-500/40 to-amber-300/25 text-violet-100">
+                            <Sparkles className="h-5 w-5" />
+                            <span className="absolute -right-1 -top-1 text-amber-200">✦</span>
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-white">You’ve been Gayzed</span>
+                              {!notice.read_at && <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>}
+                            </span>
+                            <span className="mt-1 block text-xs text-violet-100/75">A sparkly moment is waiting. Tap to open your conversation.</span>
+                            <span className="mt-2 block text-[10px] text-zinc-400">{new Date(notice.created_at).toLocaleString()}</span>
+                          </span>
+                          <ChevronRight className="h-5 w-5 shrink-0 text-violet-100" />
+                        </button>
+                      ))}
+                    {notificationInbox?.rows
                       .filter((notice) => notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received'))
                       .slice(0, 5)
                       .map((notice) => (
