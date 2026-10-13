@@ -259,7 +259,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
 
   const statusTone = needsInstall || denied ? 'attention' : subscribed ? 'ready' : 'action';
 
-  const recentRows = inbox?.rows.slice(0, 4) ?? [];
+  // Keep Gayze activity visible in the notification log even when newer message/call
+  // events would otherwise push it outside the four-row preview. The inbox is newest-first;
+  // retain that order within each group and show a useful scrollable activity history.
+  const recentRows = inbox?.rows.slice(0, 20) ?? [];
 
   return (
     <div ref={embedded ? embeddedScrollRef : undefined} className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
