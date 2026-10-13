@@ -1420,7 +1420,22 @@ export default function App() {
       await markNotificationRead(notice.id);
       if (account !== supabaseUserIdRef.current || generation !== authGenerationRef.current) return;
       notificationRefreshRef.current();
+
+      // Legacy Gayze notifications may still point at /notifications. Resolve the
+      // existing direct room by sender before using the stored URL; never open a profile.
       const route = routeFromPath(notice.url);
+      const roomForGayze = notice.category === 'gaze' && !notice.event_key?.startsWith('interest:')
+        ? rooms.find((room) => room.type === 'direct' && (
+            room.peerUserId === notice.actor_id
+            || Boolean(notice.actor_id && room.memberIds?.includes(notice.actor_id) && room.memberIds?.includes(account ?? ''))
+          ))
+        : undefined;
+      const conversationId = route.conversationId || roomForGayze?.id;
+      if (notice.category === 'gaze' && !notice.event_key?.startsWith('interest:') && conversationId) {
+        requestConversationOpen(conversationId);
+        replacePath(`/messages/${conversationId}`);
+        return;
+      }
       setActiveTab(route.tab);
       if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
       if (route.conversationId) requestConversationOpen(route.conversationId);
@@ -3272,7 +3287,7 @@ export default function App() {
                 ) : (
                   <>
                     {notificationInbox?.rows
-                      .filter((notice) => notice.category === 'gaze' && !notice.event_key?.startsWith('interest:'))
+                      .filter((notice) => notice.category === 'gaze' && !notice.read_at && !notice.event_key?.startsWith('interest:'))
                       .slice(0, 5)
                       .map((notice) => (
                         <button
@@ -3343,6 +3358,9 @@ export default function App() {
                       )}
                     <ChatRoomView
                     rooms={rooms}
+                    gayzeEvents={(notificationInbox?.rows ?? [])
+                      .filter((notice) => notice.category === 'gaze' && !notice.event_key?.startsWith('interest:') && notice.actor_id)
+                      .map((notice) => ({ id: notice.id, actorId: notice.actor_id!, createdAt: notice.created_at }))}
                     messages={messages}
                     activeRoomId={activeRoomId}
                     openRequest={chatOpenRequest}
