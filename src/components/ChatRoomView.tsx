@@ -923,7 +923,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </div>
             )}
 
-            {(conversationKeyUnavailable || currentMessages.some((message) => message.plainText === '[Encrypted message]')) && (
+            {conversationKeyUnavailable && (
               <div className="g-secure-chat-error" role="status" aria-live="polite">
                 <div className="g-secure-chat-error__copy">
                   <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
