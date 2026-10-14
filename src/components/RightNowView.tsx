@@ -161,7 +161,7 @@ interface RightNowViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   onOpenSetIntent?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
-  onSubmitInterest?: (pulse: Pulse, message?: string, sharedPhotoIds?: string[]) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null }>;
+  onSubmitInterest?: (pulse: Pulse, message?: string, sharedPhotoIds?: string[]) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null; errorCode?: string; retryAfterSeconds?: number }>;
   onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
   onSwitchToLater?: () => void;
   onRequestLocation?: () => void;
@@ -513,8 +513,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     try {
       const result = await onSubmitInterest(interestDraftPulse, interestMessage, Array.from(selectedInterestPhotoIds));
       if (!result.sent) {
-        setInterestComposerError('Gayze was not sent. Check your connection and try again.');
-        showStatusMessage('Gayze could not be sent — try again.');
+        if (result.errorCode === 'GAYZE_COOLDOWN') {
+          const seconds = Math.max(0, result.retryAfterSeconds ?? 86400);
+          const hours = Math.floor(seconds / 3600);
+          const minutes = Math.ceil((seconds % 3600) / 60);
+          const remaining = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+          const message = `GAYZE already sent. You can send another in ${remaining}.`;
+          setInterestComposerError(message);
+          showStatusMessage(message, 5000);
+        } else {
+          setInterestComposerError('Gayze was not sent. Check your connection and try again.');
+          showStatusMessage('Gayze could not be sent — try again.');
+        }
         return;
       }
       setInterestedIds((prev) => new Set(prev).add(interestDraftPulse.id));
