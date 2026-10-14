@@ -54,6 +54,7 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
   const terminalCloseTimerRef = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
   const ringtoneTimerRef = useRef<number | null>(null);
+  const startAttemptRef = useRef<string | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -233,18 +234,22 @@ export const EncryptedCallModal: React.FC<EncryptedCallModalProps> = ({
     return () => clearInterval(interval);
   }, [isOpen, callState]);
 
-  // Start outgoing call when modal opens
+  // Start each outgoing call once. Parent rerenders must not tear down a live
+  // peer connection and restart signalling while media is negotiating.
   useEffect(() => {
-    if (isOpen && !isIncoming && conversationId && callerId && targetUserId) {
-      void webrtcCallService.startCall({
-        conversationId,
-        callerId,
-        callerName: callerName || 'Gayze member',
-        targetUserId,
-        targetUserName: peerName,
-        callType: initialCallType,
-      });
-    }
+    if (!isOpen) { startAttemptRef.current = null; return; }
+    if (isIncoming || !conversationId || !callerId || !targetUserId) return;
+    const attemptKey = `${conversationId}:${callerId}:${targetUserId}:${initialCallType}`;
+    if (startAttemptRef.current === attemptKey) return;
+    startAttemptRef.current = attemptKey;
+    void webrtcCallService.startCall({
+      conversationId,
+      callerId,
+      callerName: callerName || 'Gayze member',
+      targetUserId,
+      targetUserName: peerName,
+      callType: initialCallType,
+    });
   }, [isOpen, isIncoming, conversationId, callerId, callerName, targetUserId, peerName, initialCallType]);
 
   if (!isOpen) return null;
