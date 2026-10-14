@@ -2745,8 +2745,17 @@ export default function App() {
         sent: result.sent,
         mutual: result.mutual,
         hasInterestId: Boolean(result.interest_id),
+        errorCode: result.errorCode,
+        retryAfterSeconds: result.retryAfterSeconds,
       });
-      showToast('Gayze could not be sent. Please try again.');
+      if (result.errorCode === 'GAYZE_COOLDOWN') {
+        const seconds = Math.max(0, result.retryAfterSeconds ?? 86400);
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.ceil((seconds % 3600) / 60);
+        showToast(`GAYZE already sent. Try again in ${hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`}.`);
+      } else {
+        showToast('Gayze could not be sent. Please try again.');
+      }
     }
 
     return result;
