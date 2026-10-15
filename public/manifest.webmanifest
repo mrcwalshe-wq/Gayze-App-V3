@@ -2,20 +2,36 @@
   "id": "https://gayze.co.uk/",
   "name": "Gayze",
   "short_name": "Gayze",
-  "description": "Gayze — Real Intent. Real Time. Encrypted, intent-based real-time social discovery.",
+  "description": "GAYZE — Real Intent. Real Time. Encrypted, intent-based real-time social discovery.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
   "background_color": "#0B0810",
   "theme_color": "#120A22",
   "lang": "en-GB",
   "dir": "ltr",
-  "categories": ["social", "lifestyle"],
+  "categories": [
+    "social",
+    "lifestyle"
+  ],
   "prefer_related_applications": false,
   "icons": [
-    {"src": "/apple-touch-icon.png?v=20261008-7", "sizes": "180x180", "type": "image/png", "purpose": "any"},
-    {"src": "/apple-touch-icon.png?v=20261008-7", "sizes": "180x180", "type": "image/png", "purpose": "maskable"}
+    {
+      "src": "/apple-touch-icon.png?v=20261015-1",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/gayze-app-icon-v3.svg?v=20261015-1",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
   ]
 }
