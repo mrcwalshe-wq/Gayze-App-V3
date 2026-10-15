@@ -21,6 +21,8 @@ import {
   Bell,
   BellOff,
   LogOut,
+  Ban,
+  UserRoundX,
 } from 'lucide-react';
 import {
   type EditSectionKey,
@@ -38,6 +40,7 @@ import {
   type ProfilePhoto,
 } from '../services/profilePhotoService';
 import { getPushEnvironment, isDeviceSubscribed } from '../services/pushService';
+import { loadBlockedUsers, unblockUser, type BlockedUser } from '../services/blockService';
 
 interface ProfileViewProps {
   currentUser: UserProfile;
@@ -59,6 +62,8 @@ interface ProfileViewProps {
   onAvatarUpdated?: (url: string | undefined) => void;
   /** Opens the Web Push opt-in / notification preferences sheet. */
   onOpenNotifications?: () => void;
+  onDeleteAccount?: () => void | Promise<void>;
+  deletingAccount?: boolean;
 }
 
 const privacyLabel: Record<string, string> = {
@@ -99,6 +104,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenProfileEdit,
   onAvatarUpdated,
   onOpenNotifications,
+  onDeleteAccount,
+  deletingAccount = false,
 }) => {
   const [now, setNow] = useState(Date.now());
   const [photos, setPhotos] = useState<ProfilePhoto[]>([]);
@@ -108,6 +115,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showNotificationReminder, setShowNotificationReminder] = useState(false);
   const [notificationBlockReason, setNotificationBlockReason] = useState<'ios-needs-install' | 'permission-denied' | null>(null);
+  const [blockedUsersOpen, setBlockedUsersOpen] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
+  const [blockedUsersLoading, setBlockedUsersLoading] = useState(false);
+  const [blockedUsersError, setBlockedUsersError] = useState<string | null>(null);
+  const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
@@ -286,6 +298,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewerIndex, photos.length]);
+
+  const refreshBlockedUsers = async () => {
+    setBlockedUsersLoading(true);
+    setBlockedUsersError(null);
+    try {
+      setBlockedUsers(await loadBlockedUsers());
+    } catch (error) {
+      setBlockedUsersError(error instanceof Error ? error.message : 'Could not load blocked users.');
+    } finally {
+      setBlockedUsersLoading(false);
+    }
+  };
+
+  const handleUnblockUser = async (user: BlockedUser) => {
+    if (!window.confirm(`Unblock ${user.displayName}? They may be able to find and contact you again, subject to your intent settings.`)) return;
+    setUnblockingUserId(user.userId);
+    setBlockedUsersError(null);
+    try {
+      await unblockUser(user.userId);
+      setBlockedUsers((previous) => previous.filter((item) => item.userId !== user.userId));
+    } catch (error) {
+      setBlockedUsersError(error instanceof Error ? error.message : 'Could not unblock this user.');
+    } finally {
+      setUnblockingUserId(null);
+    }
+  };
 
   const initials = currentUser.displayName
     .split(/\s+/)
@@ -782,6 +820,60 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </button>
           </React.Fragment>
         ))}
+        <hr className="g-divider" />
+        <button
+          type="button"
+          className="g-row"
+          aria-expanded={blockedUsersOpen}
+          onClick={() => {
+            hapticLight();
+            const opening = !blockedUsersOpen;
+            setBlockedUsersOpen(opening);
+            if (opening) void refreshBlockedUsers();
+          }}
+        >
+          <span className={`flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 ${toneClass('purple')}`}>
+            <Ban className="w-4 h-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13.5px] font-bold text-white">Blocked users</span>
+            <span className="block text-[11px] text-zinc-500">{blockedUsers.length} {blockedUsers.length === 1 ? 'person' : 'people'} blocked</span>
+          </span>
+          <ChevronRight className={`w-4 h-4 text-zinc-600 shrink-0 transition-transform ${blockedUsersOpen ? 'rotate-90' : ''}`} />
+        </button>
+        {blockedUsersOpen && (
+          <div className="px-4 pb-4">
+            {blockedUsersLoading ? (
+              <p className="py-3 text-sm text-zinc-500">Loading blocked users…</p>
+            ) : blockedUsersError ? (
+              <div className="py-3">
+                <p role="alert" className="text-sm text-red-300">{blockedUsersError}</p>
+                <button type="button" className="mt-2 text-sm text-[#c9b0f5] underline" onClick={() => void refreshBlockedUsers()}>Try again</button>
+              </div>
+            ) : blockedUsers.length === 0 ? (
+              <p className="py-3 text-sm text-zinc-500">You haven’t blocked anyone.</p>
+            ) : (
+              <div className="divide-y divide-white/[0.07]">
+                {blockedUsers.map((user) => (
+                  <div key={user.userId} className="flex items-center gap-3 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-white">{user.displayName}</p>
+                      {user.handle && <p className="truncate text-xs text-zinc-500">@{user.handle}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={unblockingUserId === user.userId}
+                      className="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-[#d7c4fa] disabled:opacity-50"
+                      onClick={() => void handleUnblockUser(user)}
+                    >
+                      {unblockingUserId === user.userId ? 'Unblocking…' : 'Unblock'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {onSignOut && (
@@ -794,6 +886,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <LogOut className="w-4 h-4" />
           {signingOut ? 'Signing out…' : 'Sign Out'}
         </button>
+      )}
+
+      {onDeleteAccount && (
+        <section className="g-panel mb-5 overflow-hidden border border-red-400/20">
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-400/20 bg-red-400/5 text-red-300">
+                <UserRoundX className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-white">Delete account</h3>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-400">Permanently delete your GAYZE account, profile and associated data. This cannot be undone.</p>
+                <button
+                  type="button"
+                  disabled={deletingAccount}
+                  className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-3.5 text-xs font-bold text-red-300 disabled:opacity-50"
+                  onClick={() => { hapticLight(); void onDeleteAccount(); }}
+                >
+                  <UserRoundX className="h-4 w-4" />
+                  {deletingAccount ? 'Deleting account…' : 'Delete my account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Footer */}
