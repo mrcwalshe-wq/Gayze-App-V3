@@ -51,9 +51,12 @@ export async function loadBlockedUsers(): Promise<BlockedUser[]> {
     .eq('blocker_id', auth.user.id)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message || 'Could not load blocked users.');
-  return (data ?? []).map((row) => ({
-    userId: row.blocked_id,
-    displayName: row.profiles?.display_name || row.profiles?.handle || 'GAYZE user',
-    handle: row.profiles?.handle || null,
-  }));
+  return (data ?? []).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      userId: row.blocked_id,
+      displayName: profile?.display_name || profile?.handle || 'GAYZE user',
+      handle: profile?.handle || null,
+    };
+  });
 }
