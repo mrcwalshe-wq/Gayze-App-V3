@@ -6,7 +6,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $gayze_block_fn$$
+as $gayze_block_fn$
 declare
   v_sender uuid;
   v_peer uuid;
@@ -39,7 +39,7 @@ begin
   end if;
   return new;
 end;
-$$;
+$gayze_block_fn$;
 
 drop trigger if exists gazes_reject_blocked_interaction on public.gazes;
 create trigger gazes_reject_blocked_interaction
