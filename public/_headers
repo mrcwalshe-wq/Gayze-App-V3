@@ -19,6 +19,10 @@
   Content-Type: image/png
   Cache-Control: no-cache, must-revalidate
 
+/brand/gayze-nav-mark-v1.png
+  Content-Type: image/png
+  Cache-Control: no-cache, must-revalidate
+
 /icons/*
   Cache-Control: public, max-age=604800
 
