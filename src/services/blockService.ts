@@ -32,3 +32,31 @@ export async function isBlockedBetween(peerId: string): Promise<boolean> {
   if (error) throw error;
   return data === true;
 }
+
+
+export interface BlockedUser {
+  userId: string;
+  displayName: string;
+  handle: string | null;
+}
+
+/** Lists only blocks created by the signed-in account. */
+export async function loadBlockedUsers(): Promise<BlockedUser[]> {
+  if (!supabase) throw new Error('Blocking requires the live account service.');
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  if (authError || !auth.user) throw new Error('Sign in to view blocked users.');
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('blocked_id, profiles!blocks_blocked_id_fkey(display_name,handle)')
+    .eq('blocker_id', auth.user.id)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message || 'Could not load blocked users.');
+  return (data ?? []).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      userId: row.blocked_id,
+      displayName: profile?.display_name || profile?.handle || 'GAYZE user',
+      handle: profile?.handle || null,
+    };
+  });
+}

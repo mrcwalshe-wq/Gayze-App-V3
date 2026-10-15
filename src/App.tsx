@@ -193,6 +193,7 @@ export default function App() {
   const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
   const [pendingAuthEmail, setPendingAuthEmail] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const isSigningOutRef = useRef(false);
   const authGenerationRef = useRef(0);
   const recoverySessionRef = useRef(false);
@@ -2340,6 +2341,28 @@ export default function App() {
     window.location.replace(window.location.origin + '/?signed_out=1');
   };
 
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount || isSigningOut) return;
+    if (!supabase || !IS_LIVE_BACKEND) {
+      window.alert('Account deletion is only available for a live GAYZE account.');
+      return;
+    }
+    if (!window.confirm('Permanently delete your GAYZE account, profile, photos and associated data? This cannot be undone.')) return;
+    const confirmation = window.prompt('To confirm permanent deletion, type DELETE.');
+    if (confirmation !== 'DELETE') return;
+    setIsDeletingAccount(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+      if (error) throw new Error(error.message || 'Account deletion failed.');
+      if (!data?.success) throw new Error(data?.error || 'Account deletion could not be confirmed.');
+      await handleSignOut();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Account deletion failed. Please try again or contact gayze.co.uk@gmail.com.');
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const handleBlockPeer = async (peerId: string, peerName: string) => {
     if (!IS_LIVE_BACKEND || !peerId || peerId === supabaseUserId) return;
     if (!window.confirm(`Block ${peerName}? They will no longer be able to send you Gayzes or messages, and their discovery signals will be hidden from you.`)) return;
@@ -3235,6 +3258,8 @@ export default function App() {
               onOpenIdentity={() => setIsIdentityOpen(true)}
               onSignOut={handleSignOut}
               signingOut={isSigningOut}
+              onDeleteAccount={handleDeleteAccount}
+              deletingAccount={isDeletingAccount}
               onOpenQR={() => handleOpenQRModal()}
               onOpenSafeHavens={() => setActiveTab('safe_havens')}
               onOpenDiscover={() => setActiveTab('dating')}
