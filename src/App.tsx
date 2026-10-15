@@ -58,7 +58,7 @@ import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './se
 import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
-import { blockUser } from './services/blockService';
+import { blockUser, isBlockedBetween } from './services/blockService';
 import { FALLBACK_MAP_CENTER, MAX_TRAVEL_DISTANCE_KM, NEUTRAL_AREA_LABEL, clampTravelDistanceKm, resolveAreaLabel } from './config/mapDefaults';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
@@ -2601,7 +2601,7 @@ export default function App() {
   };
 
   // Calling & Gaze Handlers
-  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
+  const handleStartCall = async (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
     // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
     primeCallAudio();
     // Live calls must belong to a real mutual conversation. A synthetic room
@@ -2614,6 +2614,15 @@ export default function App() {
       );
       if (!room || !targetUserId) {
         showToast('Calls are available after a mutual conversation is established.');
+        return;
+      }
+      try {
+        if (await isBlockedBetween(targetUserId)) {
+          showToast('Calls are unavailable between blocked users.');
+          return;
+        }
+      } catch {
+        showToast('Could not verify block status. Call not started.');
         return;
       }
       setCallPeerName(peerName);
@@ -2647,6 +2656,19 @@ export default function App() {
 
   const handleAcceptIncomingCall = async (call: IncomingCall) => {
     primeCallAudio();
+    if (call.callerId) {
+      try {
+        if (await isBlockedBetween(call.callerId)) {
+          setIncomingCall(null);
+          showToast('This caller is blocked.');
+          return;
+        }
+      } catch {
+        setIncomingCall(null);
+        showToast('Could not verify block status. Call rejected.');
+        return;
+      }
+    }
     setIncomingCall(null);
     setCallPeerName(call.callerName);
     setCallPeerAvatar(undefined);
