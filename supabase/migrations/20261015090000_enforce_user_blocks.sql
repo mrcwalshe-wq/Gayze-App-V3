@@ -6,7 +6,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $$
+as $gayze_block_fn$$
 declare
   v_sender uuid;
   v_peer uuid;
@@ -62,7 +62,7 @@ language sql
 stable
 security definer
 set search_path = public, pg_temp
-as $
+as $gayze_block_fn$
   select p_peer_id is not null
     and (select auth.uid()) is not null
     and exists (
@@ -70,7 +70,7 @@ as $
       where (b.blocker_id = (select auth.uid()) and b.blocked_id = p_peer_id)
          or (b.blocker_id = p_peer_id and b.blocked_id = (select auth.uid()))
     );
-$;
+$gayze_block_fn$;
 revoke all on function public.gayze_is_blocked_between(uuid) from public;
 grant execute on function public.gayze_is_blocked_between(uuid) to authenticated;
 
