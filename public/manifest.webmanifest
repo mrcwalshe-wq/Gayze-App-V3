@@ -22,13 +22,13 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/apple-touch-icon.png?v=20261015-1",
+      "src": "/brand/gayze-nav-mark-v1.png?v=20261015-2",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/brand/gayze-app-icon-v3.svg?v=20261015-1",
+      "src": "/brand/gayze-app-icon-v3.svg?v=20261015-2",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
