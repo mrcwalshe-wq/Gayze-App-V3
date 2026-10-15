@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Album, BadgeCheck, ChevronRight, Clock3, MapPin, MessageCircle, ShieldCheck, X } from 'lucide-react';
+import { Album, BadgeCheck, ChevronRight, Clock3, MapPin, MessageCircle, ShieldCheck, X, Ban } from 'lucide-react';
 import type { IntimacyProfile } from '../types';
 import { loadIntimacyProfile, loadPublicProfileSummary, type PublicProfileSummary } from '../services/supabaseService';
 
@@ -14,6 +14,7 @@ export interface PublicProfileSheetProps {
   onClose: () => void;
   onMessage?: () => void;
   onAlbum?: () => void;
+  onBlock?: (userId: string) => void;
 }
 
 /** Rich, mobile-first public profile surface for Gayze discovery. */
@@ -28,6 +29,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   onClose,
   onMessage,
   onAlbum,
+  onBlock,
 }) => {
   const [summary, setSummary] = useState<PublicProfileSummary | null>(null);
   const [intimacy, setIntimacy] = useState<IntimacyProfile | null>(null);
@@ -128,6 +130,11 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
               Message
             </button>
           </div>
+          {userId && onBlock && (
+            <button type="button" onClick={() => onBlock(userId)} className="g-btn g-btn--quiet w-full min-h-11 justify-center !text-red-300 border border-red-400/20" aria-label={`Block ${name}`}>
+              <Ban className="w-4 h-4" /> Block user
+            </button>
+          )}
 
           {loading ? (
             <div className="rounded-2xl border border-white/8 bg-white/[.025] p-5 text-sm text-zinc-500">Loading profile details…</div>

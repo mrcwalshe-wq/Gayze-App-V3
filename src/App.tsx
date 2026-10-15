@@ -58,6 +58,7 @@ import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './se
 import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
+import { blockUser, isBlockedBetween } from './services/blockService';
 import { FALLBACK_MAP_CENTER, MAX_TRAVEL_DISTANCE_KM, NEUTRAL_AREA_LABEL, clampTravelDistanceKm, resolveAreaLabel } from './config/mapDefaults';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
@@ -1131,11 +1132,18 @@ export default function App() {
     const unsubSignaling = webrtcCallService.initUserSignaling(
       supabaseUserId,
       (call) => {
-        setIncomingCall((current) => {
-          if (!current) return call;
-          if (current.callId && call.callId && current.callId === call.callId) return current;
-          if (current.conversationId === call.conversationId && current.callerId === call.callerId) return current;
-          return call;
+        // Realtime signaling is client-broadcast, so check the durable block
+        // list before surfacing any incoming call from this identity.
+        void isBlockedBetween(call.callerId).then((blocked) => {
+          if (blocked || !supabaseUserIdRef.current || supabaseUserIdRef.current !== supabaseUserId) return;
+          setIncomingCall((current) => {
+            if (!current) return call;
+            if (current.callId && call.callId && current.callId === call.callId) return current;
+            if (current.conversationId === call.conversationId && current.callerId === call.callerId) return current;
+            return call;
+          });
+        }).catch(() => {
+          // Fail closed: don't show an incoming call if block status cannot be checked.
         });
       },
       (conversationId, callId) => {
@@ -2332,6 +2340,24 @@ export default function App() {
     window.location.replace(window.location.origin + '/?signed_out=1');
   };
 
+  const handleBlockPeer = async (peerId: string, peerName: string) => {
+    if (!IS_LIVE_BACKEND || !peerId || peerId === supabaseUserId) return;
+    if (!window.confirm(`Block ${peerName}? They will no longer be able to send you Gayzes or messages, and their discovery signals will be hidden from you.`)) return;
+    try {
+      await blockUser(peerId);
+      const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
+      setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
+      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+      setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
+      setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
+      setNotificationToast(`${peerName} blocked`);
+      setActiveTab('right_now');
+      void refreshDiscoveryRef.current();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not block this user. Try again.');
+    }
+  };
+
   const handleDeleteChat = async (roomId: string) => {
     const account = supabaseUserIdRef.current;
     if (!account || !isConversationId(roomId)) throw new Error('This conversation is unavailable.');
@@ -2582,7 +2608,7 @@ export default function App() {
   };
 
   // Calling & Gaze Handlers
-  const handleStartCall = (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
+  const handleStartCall = async (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
     // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
     primeCallAudio();
     // Live calls must belong to a real mutual conversation. A synthetic room
@@ -2595,6 +2621,15 @@ export default function App() {
       );
       if (!room || !targetUserId) {
         showToast('Calls are available after a mutual conversation is established.');
+        return;
+      }
+      try {
+        if (await isBlockedBetween(targetUserId)) {
+          showToast('Calls are unavailable between blocked users.');
+          return;
+        }
+      } catch {
+        showToast('Could not verify block status. Call not started.');
         return;
       }
       setCallPeerName(peerName);
@@ -2628,6 +2663,19 @@ export default function App() {
 
   const handleAcceptIncomingCall = async (call: IncomingCall) => {
     primeCallAudio();
+    if (call.callerId) {
+      try {
+        if (await isBlockedBetween(call.callerId)) {
+          setIncomingCall(null);
+          showToast('This caller is blocked.');
+          return;
+        }
+      } catch {
+        setIncomingCall(null);
+        showToast('Could not verify block status. Call rejected.');
+        return;
+      }
+    }
     setIncomingCall(null);
     setCallPeerName(call.callerName);
     setCallPeerAvatar(undefined);
@@ -3380,6 +3428,7 @@ export default function App() {
                     onSendMessage={handleSendMessage}
                     onUpdateRoomTtl={handleUpdateRoomTtl}
                     onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
+                    onBlockPeer={IS_LIVE_BACKEND ? handleBlockPeer : undefined}
                     onDeleteMessage={IS_LIVE_BACKEND ? handleDeleteMessageForMe : undefined}
                     onUnsendMessage={IS_LIVE_BACKEND ? handleUnsendMessage : undefined}
                     onSetMessageExpiry={IS_LIVE_BACKEND ? handleSetMessageExpiry : undefined}
@@ -3593,6 +3642,7 @@ export default function App() {
             fallbackPhotoUrl={viewingPublicProfile.fallbackPhotoUrl}
             fallbackOnline={viewingPublicProfile.fallbackOnline}
             onClose={() => setViewingPublicProfile(null)}
+            onBlock={IS_LIVE_BACKEND ? (peerId) => { void handleBlockPeer(peerId, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
             onMessage={() => {
               const peerId = viewingPublicProfile.userId;
               setViewingPublicProfile(null);

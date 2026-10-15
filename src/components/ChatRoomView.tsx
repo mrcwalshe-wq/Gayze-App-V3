@@ -30,7 +30,8 @@ import {
   Coffee,
   Image as ImageIcon,
   MoreHorizontal,
-  Trash2
+  Trash2,
+  Ban
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
@@ -66,6 +67,7 @@ interface ChatRoomViewProps {
   conversationKeyUnavailable?: boolean;
   conversationKeyReason?: string;
   onRetrySecureChat?: () => void;
+  onBlockPeer?: (peerId: string, peerName: string) => void;
   /** Current GAYZE mode controls the live chat border hue. */
   activeIntentMode?: TopLevelIntentMode;
 }
@@ -96,6 +98,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   conversationKeyUnavailable = false,
   conversationKeyReason,
   onRetrySecureChat,
+  onBlockPeer,
   activeIntentMode,
 }) => {
   const [now, setNow] = useState(Date.now);
@@ -660,6 +663,20 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
                       <span className="text-[12px]">Verify safety code</span>
                     </button>
+                    {currentRoom.type === 'direct' && currentRoom.peerUserId && onBlockPeer && (
+                      <button
+                        type="button"
+                        aria-label="Block this user"
+                        className="g-row !min-h-[42px] !rounded-xl"
+                        onClick={() => {
+                          setShowChatActions(false);
+                          onBlockPeer(currentRoom.peerUserId!, currentRoom.peerName || currentRoom.name);
+                        }}
+                      >
+                        <Ban className="w-4 h-4 text-red-400" />
+                        <span className="text-[12px] text-red-300">Block user</span>
+                      </button>
+                    )}
                     {onDeleteChat && (
                       <button
                         type="button"
