@@ -58,6 +58,7 @@ import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './se
 import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
+import { blockUser } from './services/blockService';
 import { FALLBACK_MAP_CENTER, MAX_TRAVEL_DISTANCE_KM, NEUTRAL_AREA_LABEL, clampTravelDistanceKm, resolveAreaLabel } from './config/mapDefaults';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
@@ -2332,6 +2333,24 @@ export default function App() {
     window.location.replace(window.location.origin + '/?signed_out=1');
   };
 
+  const handleBlockPeer = async (peerId: string, peerName: string) => {
+    if (!IS_LIVE_BACKEND || !peerId || peerId === supabaseUserId) return;
+    if (!window.confirm(`Block ${peerName}? They will no longer be able to send you Gayzes or messages, and their discovery signals will be hidden from you.`)) return;
+    try {
+      await blockUser(peerId);
+      const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
+      setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
+      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+      setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
+      setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
+      setNotificationToast(`${peerName} blocked`);
+      setActiveTab('right_now');
+      void refreshDiscoveryRef.current();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not block this user. Try again.');
+    }
+  };
+
   const handleDeleteChat = async (roomId: string) => {
     const account = supabaseUserIdRef.current;
     if (!account || !isConversationId(roomId)) throw new Error('This conversation is unavailable.');
@@ -3380,6 +3399,7 @@ export default function App() {
                     onSendMessage={handleSendMessage}
                     onUpdateRoomTtl={handleUpdateRoomTtl}
                     onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
+                    onBlockPeer={IS_LIVE_BACKEND ? handleBlockPeer : undefined}
                     onDeleteMessage={IS_LIVE_BACKEND ? handleDeleteMessageForMe : undefined}
                     onUnsendMessage={IS_LIVE_BACKEND ? handleUnsendMessage : undefined}
                     onSetMessageExpiry={IS_LIVE_BACKEND ? handleSetMessageExpiry : undefined}
@@ -3593,6 +3613,7 @@ export default function App() {
             fallbackPhotoUrl={viewingPublicProfile.fallbackPhotoUrl}
             fallbackOnline={viewingPublicProfile.fallbackOnline}
             onClose={() => setViewingPublicProfile(null)}
+            onBlock={IS_LIVE_BACKEND ? (peerId) => { void handleBlockPeer(peerId, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
             onMessage={() => {
               const peerId = viewingPublicProfile.userId;
               setViewingPublicProfile(null);
