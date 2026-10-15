@@ -1132,11 +1132,18 @@ export default function App() {
     const unsubSignaling = webrtcCallService.initUserSignaling(
       supabaseUserId,
       (call) => {
-        setIncomingCall((current) => {
-          if (!current) return call;
-          if (current.callId && call.callId && current.callId === call.callId) return current;
-          if (current.conversationId === call.conversationId && current.callerId === call.callerId) return current;
-          return call;
+        // Realtime signaling is client-broadcast, so check the durable block
+        // list before surfacing any incoming call from this identity.
+        void isBlockedBetween(call.callerId).then((blocked) => {
+          if (blocked || !supabaseUserIdRef.current || supabaseUserIdRef.current !== supabaseUserId) return;
+          setIncomingCall((current) => {
+            if (!current) return call;
+            if (current.callId && call.callId && current.callId === call.callId) return current;
+            if (current.conversationId === call.conversationId && current.callerId === call.callerId) return current;
+            return call;
+          });
+        }).catch(() => {
+          // Fail closed: don't show an incoming call if block status cannot be checked.
         });
       },
       (conversationId, callId) => {
