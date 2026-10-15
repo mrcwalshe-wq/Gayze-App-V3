@@ -75,7 +75,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
               <strong>{activeIntent?.intent?.replace(' · ', ' ')}</strong>
               <span>{activeIntent?.description || 'Your current GAYZE intent'}</span>
             </div>
-            <button type="button" className="g-intent-hub__manage" onClick={() => { hapticLight(); onManageIntent(); }}>
+            <button type="button" className="g-intent-hub__manage" onClick={() => { hapticLight(); onManageIntent(); }} aria-label="Manage current intent">
               Manage
             </button>
           </div>
