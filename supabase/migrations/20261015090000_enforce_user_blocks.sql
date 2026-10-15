@@ -56,6 +56,24 @@ create trigger messages_reject_blocked_interaction
 before insert on public.messages
 for each row execute function public.gayze_reject_blocked_interaction();
 
+create or replace function public.gayze_is_blocked_between(p_peer_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $
+  select p_peer_id is not null
+    and (select auth.uid()) is not null
+    and exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = (select auth.uid()) and b.blocked_id = p_peer_id)
+         or (b.blocker_id = p_peer_id and b.blocked_id = (select auth.uid()))
+    );
+$;
+revoke all on function public.gayze_is_blocked_between(uuid) from public;
+grant execute on function public.gayze_is_blocked_between(uuid) to authenticated;
+
 -- Keep historical notification rows, but never expose notices from a blocked peer.
 drop policy if exists gayze_notifications_own on public.gayze_notifications;
 create policy gayze_notifications_own
@@ -64,14 +82,7 @@ for select
 to authenticated
 using (
   user_id = (select auth.uid())
-  and (
-    actor_id is null
-    or not exists (
-      select 1 from public.blocks b
-      where (b.blocker_id = (select auth.uid()) and b.blocked_id = actor_id)
-         or (b.blocker_id = actor_id and b.blocked_id = (select auth.uid()))
-    )
-  )
+  and (actor_id is null or not public.gayze_is_blocked_between(actor_id))
 );
 
 comment on function public.gayze_reject_blocked_interaction() is
