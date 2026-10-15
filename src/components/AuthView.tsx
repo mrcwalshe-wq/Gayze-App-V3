@@ -402,6 +402,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
             </div>
           )}
 
+          <div className="mt-5 text-center text-xs text-zinc-500"><a href="/privacy.html" className="underline underline-offset-4 decoration-white/20 hover:text-[#c9a24d]">Privacy Policy</a></div>
+
           <div className="mt-6 pt-5 border-t border-white/[0.07] flex items-start gap-2.5 text-[10px] leading-relaxed text-zinc-500">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <span>Location is requested only after sign-in and is used to centre your map and power proximity discovery. Other users see privacy-protected intent locations, not your exact GPS position.</span>
