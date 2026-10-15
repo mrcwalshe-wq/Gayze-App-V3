@@ -27,12 +27,8 @@ export async function unblockUser(peerId: string): Promise<void> {
 export async function isBlockedBetween(peerId: string): Promise<boolean> {
   if (!supabase || !peerId) return false;
   const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth.user) return false;
-  const [outgoing, incoming] = await Promise.all([
-    supabase.from('blocks').select('blocked_id').eq('blocker_id', auth.user.id).eq('blocked_id', peerId).maybeSingle(),
-    supabase.from('blocks').select('blocker_id').eq('blocker_id', peerId).eq('blocked_id', auth.user.id).maybeSingle(),
-  ]);
-  if (outgoing.error) throw outgoing.error;
-  if (incoming.error) throw incoming.error;
-  return Boolean(outgoing.data || incoming.data);
+  if (authError || !auth.user) throw new Error('Sign in to verify block status.');
+  const { data, error } = await supabase.rpc('gayze_is_blocked_between', { p_peer_id: peerId });
+  if (error) throw error;
+  return data === true;
 }
