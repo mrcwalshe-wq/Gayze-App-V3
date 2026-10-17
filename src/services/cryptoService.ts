@@ -124,14 +124,34 @@ export interface DeviceIdentity {
 
 const IDENTITY_DB_NAME = 'gayze-crypto';
 const IDENTITY_STORE_NAME = 'identity';
-const IDENTITY_KEY = 'device';
-const DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
+const LEGACY_IDENTITY_KEY = 'device';
+const ACTIVE_IDENTITY_USER_KEY = 'gayze_crypto_active_user';
+const LEGACY_IDENTITY_CLAIM_KEY = 'gayze_crypto_legacy_claimed_by';
+const LEGACY_DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
+
+function identityScope(): string {
+  // Session storage is per-tab, so two signed-in accounts in separate tabs
+  // cannot change each other's active identity scope.
+  const scopeStore = typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage;
+  return scopeStore.getItem(ACTIVE_IDENTITY_USER_KEY) || 'legacy';
+}
+
+function scopedIdentityKey(): string {
+  const scope = identityScope();
+  return scope === 'legacy' ? LEGACY_IDENTITY_KEY : `device:${scope}`;
+}
+
+function scopedDeviceIdStorageKey(): string {
+  const scope = identityScope();
+  return scope === 'legacy' ? LEGACY_DEVICE_ID_STORAGE_KEY : `gayze_device_id:${scope}`;
+}
 
 function getOrCreateLocalDeviceId(): string {
-  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+  const key = scopedDeviceIdStorageKey();
+  const existing = localStorage.getItem(key);
   if (existing) return existing;
   const created = crypto.randomUUID();
-  localStorage.setItem(DEVICE_ID_STORAGE_KEY, created);
+  localStorage.setItem(key, created);
   return created;
 }
 
@@ -148,12 +168,12 @@ function openIdentityDb(): Promise<IDBDatabase> {
   });
 }
 
-async function readStoredIdentity(): Promise<CryptoKeyPair | null> {
+async function readIdentityByKey(key: string): Promise<CryptoKeyPair | null> {
   if (typeof indexedDB === 'undefined') return null;
   const db = await openIdentityDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IDENTITY_STORE_NAME, 'readonly');
-    const request = tx.objectStore(IDENTITY_STORE_NAME).get(IDENTITY_KEY);
+    const request = tx.objectStore(IDENTITY_STORE_NAME).get(key);
     request.onsuccess = () => resolve(request.result ?? null);
     request.onerror = () => reject(request.error ?? new Error('Unable to read identity'));
     tx.oncomplete = () => db.close();
@@ -161,11 +181,42 @@ async function readStoredIdentity(): Promise<CryptoKeyPair | null> {
   });
 }
 
+async function readStoredIdentity(): Promise<CryptoKeyPair | null> {
+  const key = scopedIdentityKey();
+  const existing = await readIdentityByKey(key);
+  if (existing || key === LEGACY_IDENTITY_KEY) return existing;
+
+  // Preserve the existing browser's encryption identity for the first account
+  // that claims it after this update. Keep the legacy copy intact for recovery;
+  // subsequent accounts receive separate identities instead of overwriting it.
+  const userId = identityScope();
+  if (!userId || userId === 'legacy') return null;
+  const claimedBy = localStorage.getItem(LEGACY_IDENTITY_CLAIM_KEY);
+  if (claimedBy && claimedBy !== userId) return null;
+  const legacy = await readIdentityByKey(LEGACY_IDENTITY_KEY);
+  if (!legacy) return null;
+  localStorage.setItem(LEGACY_IDENTITY_CLAIM_KEY, userId);
+  const db = await openIdentityDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(IDENTITY_STORE_NAME, 'readwrite');
+    tx.objectStore(IDENTITY_STORE_NAME).put(legacy, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Unable to migrate identity'));
+    tx.onabort = () => reject(tx.error ?? new Error('Unable to migrate identity'));
+  });
+  db.close();
+  if (!localStorage.getItem(`gayze_device_id:${userId}`)) {
+    const legacyDeviceId = localStorage.getItem(LEGACY_DEVICE_ID_STORAGE_KEY);
+    if (legacyDeviceId) localStorage.setItem(`gayze_device_id:${userId}`, legacyDeviceId);
+  }
+  return legacy;
+}
+
 async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
   const db = await openIdentityDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(IDENTITY_STORE_NAME, 'readwrite');
-    tx.objectStore(IDENTITY_STORE_NAME).put(identity, IDENTITY_KEY);
+    tx.objectStore(IDENTITY_STORE_NAME).put(identity, scopedIdentityKey());
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error ?? new Error('Unable to store identity'));
     tx.onabort = () => reject(tx.error ?? new Error('Unable to store identity'));
@@ -173,7 +224,12 @@ async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
   db.close();
 }
 
-export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
+export async function getOrCreateDeviceIdentity(userId?: string): Promise<DeviceIdentity> {
+  // Keep each authenticated account's private identity and device id in a separate local slot.
+  if (userId) {
+    const scopeStore = typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage;
+    scopeStore.setItem(ACTIVE_IDENTITY_USER_KEY, userId);
+  }
   let identity = await readStoredIdentity();
   if (!identity) {
     // The IndexedDB identity is the private half needed to unwrap existing
@@ -181,8 +237,8 @@ export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
     // survives, reusing the old device id would make the new public key replace
     // the registered key for a device whose old private key is gone. That can
     // permanently strand envelopes. Treat this as a new physical device.
-    getOrCreateLocalDeviceId(); // initialise storage if unavailable
-    localStorage.setItem(DEVICE_ID_STORAGE_KEY, window.crypto.randomUUID());
+    getOrCreateLocalDeviceId(); // initialise this account's storage if unavailable
+    localStorage.setItem(scopedDeviceIdStorageKey(), window.crypto.randomUUID());
     identity = await window.crypto.subtle.generateKey(
       { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'],
     ) as CryptoKeyPair;
@@ -480,7 +536,7 @@ export async function restoreRecoveryBundle(bundle: RecoveryBundle, password: st
   await writeStoredIdentity({ privateKey, publicKey });
   // Recovery restores the stable GAYZE identity, but deliberately creates a new
   // physical-device credential on this browser.
-  localStorage.removeItem(DEVICE_ID_STORAGE_KEY);
+  localStorage.removeItem(scopedDeviceIdStorageKey());
   return getOrCreateDeviceIdentity();
 }
 
