@@ -119,9 +119,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   const rows = useMemo<DiscoverRow[]>(() => {
     const collected: DiscoverRow[] = [];
     // A person is either a live intent row or a local demo profile — never both.
-    const pulsePeerIds = new Set(
-      pulses.filter((pulse) => pulse.expiresAt > nowTick).map((pulse) => pulse.peerId),
-    );
+    // ⚡ Bolt Optimization: Replaced .filter().map() with a single for loop
+    // to avoid allocating intermediate arrays on every render or discovery refresh.
+    const pulsePeerIds = new Set<string>();
+    for (let i = 0; i < pulses.length; i++) {
+      if (pulses[i].expiresAt > nowTick) {
+        pulsePeerIds.add(pulses[i].peerId);
+      }
+    }
 
     profiles.forEach((profile) => {
       if (pulsePeerIds.has(profile.id)) return;
