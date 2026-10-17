@@ -99,17 +99,7 @@ test('encrypted message persists, reloads, decrypts, renders, and survives secon
   const keyA = await crypto.deriveConversationKey(conversationId, identityB.publicKeyJwk);
   const cleartext = 'Persisted encrypted message';
   const sealed = await crypto.encryptWithConversationKey(cleartext, keyA);
-  console.log(`[E2EE trace] ${JSON.stringify({
-    conversationId,
-    messageId,
-    sender: { userId: accountA, deviceId: identityA.deviceId, fingerprint: identityA.fingerprint },
-    recipient: { userId: accountB, deviceId: identityB.deviceId, fingerprint: identityB.fingerprint },
-    keyVersion: 'GAYZE-CONVERSATION-v1',
-    keyId: 'not persisted; direct ECDH key derived from peer public identity',
-    ciphertextHex: sealed.cipherHex,
-    nonceHex: sealed.nonceHex,
-    envelopeLookup: 'direct conversation: none',
-  })}`);
+  // Never print ciphertext, nonces, device identifiers or conversation identifiers to CI logs.
 
   const service = await loadModule('src/services/supabaseService.ts', backend);
   const receipt = await service.persistConversationMessage(
