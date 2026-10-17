@@ -2235,16 +2235,37 @@ export default function App() {
 
   const handleDeleteMessageForMe = async (messageId: string) => {
     await deleteMessageForMe(messageId);
-    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.filter((message) => message.id !== messageId)])));
+    setMessages((prev) => {
+      for (const roomId in prev) {
+        if (prev[roomId].some((m) => m.id === messageId)) {
+          return { ...prev, [roomId]: prev[roomId].filter((message) => message.id !== messageId) };
+        }
+      }
+      return prev;
+    });
   };
   const handleUnsendMessage = async (messageId: string) => {
     await unsendMessage(messageId);
-    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.map((message) => message.id === messageId ? { ...message, deletedForEveryone: true, isBurned: false, plainText: 'Message unsent', cipherText: '' } : message)])));
+    setMessages((prev) => {
+      for (const roomId in prev) {
+        if (prev[roomId].some((m) => m.id === messageId)) {
+          return { ...prev, [roomId]: prev[roomId].map((message) => message.id === messageId ? { ...message, deletedForEveryone: true, isBurned: false, plainText: 'Message unsent', cipherText: '' } : message) };
+        }
+      }
+      return prev;
+    });
   };
   const handleSetMessageExpiry = async (messageId: string, ttlSeconds: number | null) => {
     const expiresAt = ttlSeconds == null ? null : new Date(Date.now() + ttlSeconds * 1000);
     await setMessageExpiry(messageId, expiresAt);
-    setMessages((prev) => Object.fromEntries(Object.entries(prev).map(([roomId, roomMessages]) => [roomId, roomMessages.map((message) => message.id === messageId ? { ...message, expiresAt: expiresAt?.getTime() } : message)])));
+    setMessages((prev) => {
+      for (const roomId in prev) {
+        if (prev[roomId].some((m) => m.id === messageId)) {
+          return { ...prev, [roomId]: prev[roomId].map((message) => message.id === messageId ? { ...message, expiresAt: expiresAt?.getTime() } : message) };
+        }
+      }
+      return prev;
+    });
   };
 
   const handleSignOut = async () => {
