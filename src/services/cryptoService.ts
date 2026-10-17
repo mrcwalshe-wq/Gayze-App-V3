@@ -130,10 +130,11 @@ const LEGACY_IDENTITY_CLAIM_KEY = 'gayze_crypto_legacy_claimed_by';
 const LEGACY_DEVICE_ID_STORAGE_KEY = 'gayze_device_id';
 
 function identityScope(): string {
-  // Session storage is per-tab, so two signed-in accounts in separate tabs
-  // cannot change each other's active identity scope.
-  const scopeStore = typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage;
-  return scopeStore.getItem(ACTIVE_IDENTITY_USER_KEY) || 'legacy';
+  // The active account scope must survive iOS Home Screen launches and
+  // bookmark removal/re-addition. sessionStorage is not a durable identity
+  // registry for standalone PWAs and can fall back to the legacy identity.
+  // Keep the account id in localStorage; private keys remain in IndexedDB.
+  return localStorage.getItem(ACTIVE_IDENTITY_USER_KEY) || 'legacy';
 }
 
 function scopedIdentityKey(): string {
@@ -227,8 +228,7 @@ async function writeStoredIdentity(identity: CryptoKeyPair): Promise<void> {
 export async function getOrCreateDeviceIdentity(userId?: string): Promise<DeviceIdentity> {
   // Keep each authenticated account's private identity and device id in a separate local slot.
   if (userId) {
-    const scopeStore = typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage;
-    scopeStore.setItem(ACTIVE_IDENTITY_USER_KEY, userId);
+    localStorage.setItem(ACTIVE_IDENTITY_USER_KEY, userId);
   }
   let identity = await readStoredIdentity();
   if (!identity) {
