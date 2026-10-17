@@ -244,3 +244,73 @@ test('direct chat bootstraps device envelopes while preserving legacy history re
   assert.equal(unprovisioned.key, null, 'unprovisioned devices cannot send with a legacy key');
   assert.equal(unprovisioned.legacyKey, legacyKey, 'legacy key is retained only as a historical decryption candidate');
 });
+
+
+test('recovers an existing envelope when iOS loses the local device-id entry but retains the same identity keypair', async () => {
+  const oldDevice = createDevice('same-identity-old-id');
+  const peerDevice = createDevice('envelope-creator');
+  const activate = (device) => {
+    device.use();
+    globalThis.window = dom.window;
+    globalThis.localStorage = device.localStorage;
+  };
+  const crypto = await loadModule('src/services/cryptoService.ts');
+  activate(oldDevice);
+  const originalIdentity = await crypto.getOrCreateDeviceIdentity();
+  activate(peerDevice);
+  const peerIdentity = await crypto.getOrCreateDeviceIdentity();
+
+  const conversationKey = await crypto.createConversationKey();
+  const wrapped = await crypto.wrapConversationKey(conversationId, conversationKey, originalIdentity.publicKeyJwk);
+  const envelopes = [{
+    conversation_id: conversationId,
+    user_id: accountA,
+    device_id: originalIdentity.deviceId,
+    wrapped_key: wrapped.wrappedKeyHex,
+    nonce: wrapped.nonceHex,
+    created_by_device_id: peerIdentity.deviceId,
+    created_at: new Date().toISOString(),
+  }];
+  const newDeviceId = '30000000-0000-4000-8000-000000000099';
+  const currentIdentity = { ...originalIdentity, deviceId: newDeviceId };
+  const devices = [
+    { user_id: accountA, device_id: originalIdentity.deviceId, public_key: originalIdentity.publicKeyJwkString, status: 'active' },
+    { user_id: accountA, device_id: newDeviceId, public_key: originalIdentity.publicKeyJwkString, status: 'active' },
+    { user_id: accountB, device_id: peerIdentity.deviceId, public_key: peerIdentity.publicKeyJwkString, status: 'active' },
+  ];
+  const { resolveConversationKeyForTest } = await loadModule('src/services/conversationKeyService.ts');
+  const result = await resolveConversationKeyForTest({
+    id: conversationId,
+    type: 'direct',
+    peerUserId: accountB,
+    peerKey: peerIdentity.publicKeyJwkString,
+    memberIds: [accountA, accountB],
+  }, accountA, {
+    async readEnvelopes() { return { ok: true, envelopes: [...envelopes] }; },
+    async readDevices() { return { ok: true, devices }; },
+    async readMemberDevices() { return { ok: true, devices }; },
+    async getIdentity() { return currentIdentity; },
+    async resolveLegacyKey() { return null; },
+    async claimBootstrap() { throw new Error('must not create a competing key'); },
+    async saveEnvelope(envelope) {
+      const row = { ...envelope, created_at: new Date().toISOString() };
+      if (!envelopes.some((saved) => saved.device_id === row.device_id)) envelopes.push(row);
+      return row;
+    },
+    createKey: crypto.createConversationKey,
+    retryDelayMs: 1,
+  });
+
+  assert.equal(result.status, 'ready');
+  assert.ok(result.key, 'the existing key is recovered rather than replaced');
+  assert.ok(envelopes.some((envelope) => envelope.device_id === newDeviceId), 'a new envelope is written for the replacement device id');
+  const sealed = await crypto.encryptWithConversationKey('recovered old chat', result.key);
+  activate(oldDevice);
+  const recoveredKey = await crypto.unwrapConversationKey(
+    conversationId,
+    envelopes.find((envelope) => envelope.device_id === newDeviceId).wrapped_key,
+    envelopes.find((envelope) => envelope.device_id === newDeviceId).nonce,
+    peerIdentity.publicKeyJwk,
+  );
+  assert.equal(await crypto.decryptWithConversationKey(sealed.cipherHex, sealed.nonceHex, recoveredKey), 'recovered old chat');
+});
