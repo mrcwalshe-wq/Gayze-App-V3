@@ -255,9 +255,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
           <form onSubmit={submit} className="space-y-3.5">
             {mode === 'signup' && (
-              <label className="block">
+              <label htmlFor="displayNameInput" className="block">
                 <span className="sr-only">Display name</span>
-                <input
+                <input id="displayNameInput"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Display name"
@@ -268,9 +268,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
             )}
 
             {(mode === 'signin' || mode === 'signup' || mode === 'forgot' || mode === 'confirm_pending') && (
-              <label className="relative block">
+              <label htmlFor="emailInput" className="relative block">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <input
+                <input id="emailInput"
                   required={mode !== 'confirm_pending' || !email.trim()}
                   type="email"
                   value={email}
@@ -284,9 +284,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
             )}
 
             {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
-              <label className="relative block">
+              <label htmlFor="passwordInput" className="relative block">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <input
+                <input id="passwordInput"
                   required
                   minLength={8}
                   type="password"
@@ -300,9 +300,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
             )}
 
             {mode === 'reset' && (
-              <label className="relative block">
+              <label htmlFor="confirmPasswordInput" className="relative block">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <input
+                <input id="confirmPasswordInput"
                   required
                   minLength={8}
                   type="password"
