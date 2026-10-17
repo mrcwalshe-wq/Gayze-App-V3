@@ -159,7 +159,26 @@ async function resolveDeviceAwareKey(
     return legacyReadFallback('This device is still being registered for encrypted conversations. Please retry.');
   }
 
-  const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId);
+  // iOS/PWA storage can lose the local device-id entry while retaining the
+  // IndexedDB ECDH identity. In that case registration creates a fresh device
+  // id for the same keypair; the old envelope is still cryptographically valid
+  // but is indexed by the previous id. Recover it only when the old registered
+  // device's public key exactly matches this device's public key and belongs to
+  // the same account. Never adopt another device's envelope by user id alone.
+  const samePublicIdentity = (device: { public_key: string }) => {
+    const jwk = parseJwk(device.public_key);
+    return Boolean(
+      jwk?.x && jwk?.y
+      && jwk.x === identity.publicKeyJwk.x
+      && jwk.y === identity.publicKeyJwk.y,
+    );
+  };
+  const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId)
+    ?? envelopes.find((envelope) => {
+      if (envelope.user_id !== currentDevice.user_id) return false;
+      const previousDevice = devices.find((device) => device.device_id === envelope.device_id);
+      return Boolean(previousDevice && samePublicIdentity(previousDevice));
+    });
   if (mine) {
     const creatorDeviceId = mine.created_by_device_id || mine.device_id;
     const creator = devices.find((device) => device.device_id === creatorDeviceId)
