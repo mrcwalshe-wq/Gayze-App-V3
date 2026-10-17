@@ -175,7 +175,15 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
     // Live intents first, then nearest
     return collected.sort((a, b) => {
       if (a.live !== b.live) return a.live ? -1 : 1;
-      return a.km - b.km;
+      // Missing/invalid distances must not produce a NaN comparator; keep those
+      // rows after rows with a known distance while preserving their relative order.
+      const aDistance = typeof a.km === 'number' && Number.isFinite(a.km) && a.km >= 0
+        ? a.km
+        : Number.POSITIVE_INFINITY;
+      const bDistance = typeof b.km === 'number' && Number.isFinite(b.km) && b.km >= 0
+        ? b.km
+        : Number.POSITIVE_INFINITY;
+      return aDistance - bDistance;
     });
   }, [profiles, pulses, modeFilter, userNeighborhood, nowTick]);
 
