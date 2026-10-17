@@ -11,6 +11,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
+import './private-eye-motion.css';
 
 export type NavTab = 'dating' | 'right_now' | 'later' | 'swarms' | 'safe_havens' | 'profile';
 

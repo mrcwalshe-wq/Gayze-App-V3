@@ -1,0 +1,35 @@
+/* Private-mode eye: restrained, continuous violet energy while the mode is active. */
+.g-tab--discover[data-intent-mode='private'] .g-discover-logo-image {
+  filter:
+    drop-shadow(0 0 3px rgba(157, 106, 255, .85))
+    drop-shadow(0 0 9px rgba(111, 60, 195, .72));
+  transform-origin: 50% 50%;
+  animation: g-private-eye-awaken 2.25s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+.g-tab--discover[data-intent-mode='private'][data-active='true'] .g-discover-logo-image {
+  animation-duration: 1.7s;
+  filter:
+    drop-shadow(0 0 4px rgba(190, 151, 255, .98))
+    drop-shadow(0 0 12px rgba(111, 60, 195, .95))
+    drop-shadow(0 0 22px rgba(111, 60, 195, .48));
+}
+
+@keyframes g-private-eye-awaken {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: drop-shadow(0 0 3px rgba(157, 106, 255, .62)) drop-shadow(0 0 8px rgba(111, 60, 195, .48));
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.055);
+    filter: drop-shadow(0 0 5px rgba(204, 174, 255, .98)) drop-shadow(0 0 15px rgba(126, 74, 232, .92)) drop-shadow(0 0 24px rgba(111, 60, 195, .45));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-tab--discover[data-intent-mode='private'] .g-discover-logo-image {
+    animation: none !important;
+    filter: drop-shadow(0 0 5px rgba(157, 106, 255, .78));
+  }
+}
