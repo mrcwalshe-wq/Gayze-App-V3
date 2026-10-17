@@ -3122,14 +3122,33 @@ export default function App() {
     try {
       const bundle = await createRecoveryBundle(password);
       const textBundle = recoveryBundleToText(bundle);
-      const blob = new Blob([textBundle], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'gayze-identity-recovery.json';
-      anchor.click();
-      URL.revokeObjectURL(url);
-      showToast('Encrypted identity backup created — keep it somewhere safe');
+      const fileName = 'gayze-identity-recovery.json';
+      const file = new File([textBundle], fileName, { type: 'application/json' });
+
+      // iOS standalone PWAs handle an explicit share-sheet export more
+      // reliably than an immediate Blob URL download/revoke sequence.
+      if (typeof navigator.share === 'function'
+        && typeof navigator.canShare === 'function'
+        && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'GAYZE identity recovery backup',
+          text: 'Store this encrypted backup somewhere private. Keep your recovery passphrase separately.',
+        });
+      } else {
+        const blob = new Blob([textBundle], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        // Safari can begin consuming the Blob after click() returns.
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+      showToast('Encrypted identity backup exported — keep it somewhere safe');
     } catch (error) {
       console.error('[GAYZE] Recovery backup failed', error);
       showToast('This device identity cannot be exported. A new recovery-ready identity is required.');
