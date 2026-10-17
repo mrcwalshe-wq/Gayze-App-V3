@@ -3111,7 +3111,7 @@ export default function App() {
   };
 
   const handleCreateRecovery = async () => {
-    const password = window.prompt('Create a recovery passphrase (12+ characters). You will need this on the new device.');
+    const password = window.prompt('Create a recovery passphrase (at least 15 characters). You will need this on the new device.');
     if (!password) return;
     const confirmation = window.prompt('Confirm your recovery passphrase.');
     if (password !== confirmation) {
@@ -3152,20 +3152,41 @@ export default function App() {
         const bundle = parseRecoveryBundle(await file.text());
         await restoreRecoveryBundle(bundle, password);
         clearMessageWork();
-        const identity = await getOrCreateDeviceIdentity();
+
+        // A restored identity retains the ECDH key needed to open existing
+        // conversation envelopes, but it receives a fresh physical-device ID
+        // and signing key. Register and verify that new device before allowing
+        // chat hydration to use it.
+        const identity = await getOrCreateDeviceIdentity(supabaseUserId || undefined);
+        if (isSupabaseConfigured) {
+          if (!supabaseUserId) throw new Error('Sign in before restoring a device identity');
+          const registered = await registerIdentityDevice(
+            identity.fingerprint,
+            identity.publicKeyJwkString,
+            navigator.userAgent.slice(0, 48),
+            identity.signingPublicKeyJwkString,
+            identity.deviceId,
+          );
+          if (!registered) throw new Error('Restored device could not be registered');
+          await verifyCurrentDevice(identity.deviceId, signDeviceChallenge);
+          setCurrentDeviceFingerprint(identity.deviceId);
+          setIdentityDevices(await listIdentityDevices());
+        }
+
+        const shortKey = `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`;
         setCurrentUser((prev) => ({
           ...prev,
           publicKey: identity.fingerprint,
-          shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+          shortKey,
         }));
         if (isSupabaseConfigured && supabaseUserId) {
           await ensureSupabaseProfile(supabaseUserId, {
             ...currentUser,
             publicKey: identity.fingerprint,
-            shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+            shortKey,
           }, identity.publicKeyJwkString);
         }
-        showToast('Identity restored on this device');
+        showToast('Identity restored and this device registered securely');
       } catch (error) {
         console.error('[GAYZE] Identity restore failed', error);
         showToast('Recovery failed — check the backup and passphrase');
