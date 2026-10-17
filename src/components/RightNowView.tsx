@@ -1930,12 +1930,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           className="g-overlay flex items-end sm:items-center justify-center sm:p-4"
           onClick={() => setIsFilterDrawerOpen(false)}
         >
-          <div className="g-sheet g-sheet--above-nav g-sheet--nearby" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="g-sheet g-sheet--above-nav g-sheet--nearby"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gayze-map-filter-title"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="g-sheet__grip" />
             <div className="g-sheet__head">
               <div>
                 <span className="g-label">Now Map</span>
-                <h2 className="text-[15px] font-extrabold text-white mt-0.5">Filter the map</h2>
+                <h2 id="gayze-map-filter-title" className="text-[15px] font-extrabold text-white mt-0.5">Filter the map</h2>
               </div>
               <div className="flex items-center gap-1.5">
                 {activeFilterCount > 0 && (
