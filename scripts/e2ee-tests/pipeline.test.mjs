@@ -314,3 +314,77 @@ test('recovers an existing envelope when iOS loses the local device-id entry but
   );
   assert.equal(await crypto.decryptWithConversationKey(sealed.cipherHex, sealed.nonceHex, recoveredKey), 'recovered old chat');
 });
+
+test('an authorised key holder repairs missing device envelopes without rotating the conversation key', async () => {
+  const deviceA = createDevice('repair-current-device');
+  const deviceB = createDevice('repair-key-holder');
+  const deviceC = createDevice('repair-new-device');
+  const activate = (device) => {
+    device.use();
+    globalThis.window = dom.window;
+    globalThis.localStorage = device.localStorage;
+  };
+  const crypto = await loadModule('src/services/cryptoService.ts');
+  activate(deviceA);
+  const identityA = await crypto.getOrCreateDeviceIdentity();
+  activate(deviceB);
+  const identityB = await crypto.getOrCreateDeviceIdentity();
+  activate(deviceC);
+  const identityC = await crypto.getOrCreateDeviceIdentity();
+
+  const key = await crypto.createConversationKey();
+  activate(deviceB);
+  const envelopeForA = await crypto.wrapConversationKey(conversationId, key, identityA.publicKeyJwk);
+  const envelopes = [{
+    conversation_id: conversationId,
+    user_id: accountA,
+    device_id: identityA.deviceId,
+    wrapped_key: envelopeForA.wrappedKeyHex,
+    nonce: envelopeForA.nonceHex,
+    created_by_device_id: identityB.deviceId,
+    created_at: new Date().toISOString(),
+  }];
+  const devices = [
+    { user_id: accountA, device_id: identityA.deviceId, public_key: identityA.publicKeyJwkString, status: 'active' },
+    { user_id: accountB, device_id: identityB.deviceId, public_key: identityB.publicKeyJwkString, status: 'active' },
+    { user_id: accountA, device_id: identityC.deviceId, public_key: identityC.publicKeyJwkString, status: 'active' },
+  ];
+  const { resolveConversationKeyForTest } = await loadModule('src/services/conversationKeyService.ts');
+  activate(deviceA);
+  const resolved = await resolveConversationKeyForTest({
+    id: conversationId,
+    type: 'direct',
+    peerUserId: accountB,
+    peerKey: identityB.publicKeyJwkString,
+    memberIds: [accountA, accountB],
+  }, accountA, {
+    async readEnvelopes() { return { ok: true, envelopes: [...envelopes] }; },
+    async readDevices() { return { ok: true, devices }; },
+    async readMemberDevices() { return { ok: true, devices }; },
+    async getIdentity() { return identityA; },
+    async resolveLegacyKey() { return null; },
+    async claimBootstrap() { throw new Error('must not bootstrap an existing conversation'); },
+    async saveEnvelope(envelope) {
+      const row = { ...envelope, created_at: new Date().toISOString() };
+      if (!envelopes.some((saved) => saved.device_id === row.device_id)) envelopes.push(row);
+      return row;
+    },
+    createKey: crypto.createConversationKey,
+    retryDelayMs: 1,
+  });
+
+  assert.equal(resolved.status, 'ready');
+  assert.ok(resolved.key, 'the existing conversation key remains active');
+  assert.equal(envelopes.length, 3, 'the authorised holder provisions both missing device envelopes');
+  for (const identity of [identityB, identityC]) {
+    const repaired = envelopes.find((row) => row.device_id === identity.deviceId);
+    assert.ok(repaired, 'missing envelope is persisted for a registered device');
+    activate(identity === identityB ? deviceB : deviceC);
+    const unwrapped = await crypto.unwrapConversationKey(
+      conversationId, repaired.wrapped_key, repaired.nonce, identityA.publicKeyJwk,
+    );
+    const sealed = await crypto.encryptWithConversationKey('repair-check', resolved.key);
+    assert.equal(await crypto.decryptWithConversationKey(sealed.cipherHex, sealed.nonceHex, unwrapped), 'repair-check');
+  }
+});
+
