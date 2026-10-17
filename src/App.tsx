@@ -2391,7 +2391,15 @@ export default function App() {
       await blockUser(peerId);
       const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
       setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
-      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+      setMessages((previous) => {
+        // PERFORMANCE: Avoid Object.entries().map/filter to prevent massive object reallocation
+        // and losing reference equality across the unchanged rooms' message arrays.
+        const next = { ...previous };
+        for (const roomId of blockedRoomIds) {
+          delete next[roomId];
+        }
+        return next;
+      });
       setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
       setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
       setNotificationToast(`${peerName} blocked`);
