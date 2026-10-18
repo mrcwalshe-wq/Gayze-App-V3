@@ -2392,6 +2392,10 @@ export default function App() {
       const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
       setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
       setMessages((previous) => {
+        // ⚡ Bolt Optimization: Preserve reference equality
+        // Rebuilding this dictionary with Object.fromEntries(Object.entries())
+        // causes massive O(N) re-renders across all active chats.
+        // Copying and specifically deleting O(B) blocked rooms prevents this.
         let hasChanges = false;
         const next = { ...previous };
         for (const roomId of blockedRoomIds) {
