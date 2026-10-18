@@ -229,12 +229,14 @@ async function resolveDeviceAwareKey(
     // the current key holder can add only that device's envelope. Existing
     // envelopes are never overwritten.
     for (const device of devices) {
+      // Allow re-provisioning for a device that has a matching public key but a new device ID.
+      // E.g. iOS IndexedDB persists but local device-id entry is lost.
       if (envelopes.some((envelope) => envelope.device_id === device.device_id)) continue;
       const deviceJwk = parseJwk(device.public_key);
       if (!deviceJwk) continue;
       try {
         const wrapped = await wrapConversationKey(room.id, key, deviceJwk);
-        await saveConversationKeyEnvelope({
+        const stored = await deps.saveEnvelope({
           conversation_id: room.id,
           user_id: device.user_id,
           device_id: device.device_id,
@@ -242,6 +244,9 @@ async function resolveDeviceAwareKey(
           nonce: wrapped.nonceHex,
           created_by_device_id: identity.deviceId,
         });
+        if (stored) {
+          envelopes.push(stored);
+        }
       } catch {
         // A repair attempt must not make an otherwise decryptable chat fail.
         // The missing device can be provisioned on a later successful retry.
