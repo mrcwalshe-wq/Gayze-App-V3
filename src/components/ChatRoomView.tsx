@@ -727,7 +727,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           <div ref={feedRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3"
             onScroll={() => { const feed = feedRef.current; if (feed) nearBottomRef.current = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 100; }}>
             {currentMessages.length > visibleCount && (
-              <button type="button" className="block mx-auto min-h-[44px] text-xs text-[#C9A24D]" onClick={() => {
+              <button type="button" aria-label="Show older messages" className="block mx-auto min-h-[44px] text-xs text-[#C9A24D]" onClick={() => {
                 const feed = feedRef.current;
                 if (feed) scrollAnchorRef.current = { height: feed.scrollHeight, top: feed.scrollTop };
                 setHistoryWindow({ roomId: activeRoomId, count: visibleCount + 100 });
