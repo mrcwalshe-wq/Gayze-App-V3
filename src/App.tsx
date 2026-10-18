@@ -2391,7 +2391,17 @@ export default function App() {
       await blockUser(peerId);
       const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
       setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
-      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+      setMessages((previous) => {
+        let hasChanges = false;
+        const next = { ...previous };
+        for (const roomId of blockedRoomIds) {
+          if (roomId in next) {
+            delete next[roomId];
+            hasChanges = true;
+          }
+        }
+        return hasChanges ? next : previous;
+      });
       setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
       setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
       setNotificationToast(`${peerName} blocked`);
