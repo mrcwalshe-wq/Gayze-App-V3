@@ -234,7 +234,7 @@ async function resolveDeviceAwareKey(
       if (!deviceJwk) continue;
       try {
         const wrapped = await wrapConversationKey(room.id, key, deviceJwk);
-        await saveConversationKeyEnvelope({
+        await deps.saveEnvelope({
           conversation_id: room.id,
           user_id: device.user_id,
           device_id: device.device_id,
