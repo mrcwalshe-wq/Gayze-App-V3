@@ -2391,7 +2391,15 @@ export default function App() {
       await blockUser(peerId);
       const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
       setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
-      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+      setMessages((previous) => {
+        // ⚡ Bolt Optimization: Shallow clone and targeted deletion avoids O(N) tuple allocation
+        // and preserves reference equality for unrelated chat rooms.
+        const next = { ...previous };
+        for (const roomId of blockedRoomIds) {
+          delete next[roomId];
+        }
+        return next;
+      });
       setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
       setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
       setNotificationToast(`${peerName} blocked`);
