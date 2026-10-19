@@ -269,6 +269,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             <button
               key={mode}
               type="button"
+              aria-pressed={isSelected}
               className={`g-discover-mode-filter__button h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
                 isSelected
                   ? mode === 'Private'
