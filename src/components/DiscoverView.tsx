@@ -237,6 +237,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       {activeUserIntent && (
         <button
           type="button"
+          aria-label={`Manage your active intent: ${activeUserIntent.intent}`}
           onClick={() => { hapticLight(); onOpenSetIntent?.(); }}
           className={`g-discover-signal-strip g-discover-signal-strip--${activeUserIntent.mode === 'private' ? 'private' : 'social'} mb-4 flex items-center gap-3 text-left cursor-pointer`}
         >
@@ -262,13 +263,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       )}
 
       {/* Mode segmented control */}
-      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4">
+      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4" role="group" aria-label="Filter intents by mode">
         {(['All', 'Social', 'Private'] as const).map((mode) => {
           const isSelected = modeFilter === mode;
           return (
             <button
               key={mode}
               type="button"
+              aria-pressed={isSelected}
               className={`g-discover-mode-filter__button h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
                 isSelected
                   ? mode === 'Private'
