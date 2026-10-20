@@ -9,7 +9,15 @@ export function PeerIntentBanner({ userId, peerId, peerName, now }: {
   const [state, setState] = useState<PeerIntentState>({ status: 'loading' });
   useEffect(() => {
     const owner = watchPeerIntent(userId, peerId, setState);
-    return (
+    return () => owner.stop();
+  }, [userId, peerId]);
+
+  const intent = state.status === 'ready' && state.intent.peerId === peerId && state.intent.expiresAt > now ? state.intent : null;
+  const later = Boolean(intent && intent.startsAt > now);
+  const spicy = intent?.mode === 'private';
+  const minutes = (at: number) => Math.max(1, Math.ceil((at - now) / 60_000));
+
+  return (
     <section aria-label={`${peerName}'s current intent`} aria-live="polite"
       className={`peer-intent-card peer-intent-card--${intent ? spicy ? 'private' : 'social' : 'quiet'} shrink-0`}>
       {intent && <div className="peer-intent-card__sparks" aria-hidden="true">
