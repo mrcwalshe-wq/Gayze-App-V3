@@ -346,6 +346,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                         key={opt.value}
                         type="button"
                         className="g-optpill"
+                        data-tone={mode === 'private' ? 'private' : 'amber'}
                         data-active={when === opt.value}
                         onClick={() => { hapticLight(); setWhen(opt.value); }}
                       >
@@ -365,6 +366,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                           key={d}
                           type="button"
                           className="g-optpill"
+                          data-tone={mode === 'private' ? 'private' : 'amber'}
                           data-active={duration === d}
                           onClick={() => { hapticLight(); setDuration(d); }}
                         >
