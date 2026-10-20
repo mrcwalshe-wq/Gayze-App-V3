@@ -233,15 +233,21 @@ async function resolveDeviceAwareKey(
       const deviceJwk = parseJwk(device.public_key);
       if (!deviceJwk) continue;
       try {
-        const wrapped = await wrapConversationKey(room.id, key, deviceJwk);
-        await saveConversationKeyEnvelope({
-          conversation_id: room.id,
-          user_id: device.user_id,
-          device_id: device.device_id,
-          wrapped_key: wrapped.wrappedKeyHex,
-          nonce: wrapped.nonceHex,
-          created_by_device_id: identity.deviceId,
-        });
+        let envelope;
+        if (samePublicIdentity(device)) {
+          envelope = { ...mine, user_id: device.user_id, device_id: device.device_id };
+        } else {
+          const wrapped = await wrapConversationKey(room.id, key, deviceJwk);
+          envelope = {
+            conversation_id: room.id,
+            user_id: device.user_id,
+            device_id: device.device_id,
+            wrapped_key: wrapped.wrappedKeyHex,
+            nonce: wrapped.nonceHex,
+            created_by_device_id: identity.deviceId,
+          };
+        }
+        await deps.saveEnvelope(envelope);
       } catch {
         // A repair attempt must not make an otherwise decryptable chat fail.
         // The missing device can be provisioned on a later successful retry.
