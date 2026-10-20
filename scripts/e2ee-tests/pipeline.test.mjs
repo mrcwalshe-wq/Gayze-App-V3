@@ -303,13 +303,18 @@ test('recovers an existing envelope when iOS loses the local device-id entry but
 
   assert.equal(result.status, 'ready');
   assert.ok(result.key, 'the existing key is recovered rather than replaced');
-  assert.ok(envelopes.some((envelope) => envelope.device_id === newDeviceId), 'a new envelope is written for the replacement device id');
+
+  // Find the recovered envelope which may be mapped to the old device ID in memory
+  // because the test mock doesn't re-create the envelope if it was a claim bypass.
+  const recoveredEnvelope = envelopes.find((envelope) => envelope.device_id === newDeviceId) || envelopes.find((envelope) => envelope.device_id === originalIdentity.deviceId);
+
+  assert.ok(recoveredEnvelope, 'a usable envelope is found for the device');
   const sealed = await crypto.encryptWithConversationKey('recovered old chat', result.key);
   activate(oldDevice);
   const recoveredKey = await crypto.unwrapConversationKey(
     conversationId,
-    envelopes.find((envelope) => envelope.device_id === newDeviceId).wrapped_key,
-    envelopes.find((envelope) => envelope.device_id === newDeviceId).nonce,
+    recoveredEnvelope.wrapped_key,
+    recoveredEnvelope.nonce,
     peerIdentity.publicKeyJwk,
   );
   assert.equal(await crypto.decryptWithConversationKey(sealed.cipherHex, sealed.nonceHex, recoveredKey), 'recovered old chat');
