@@ -3236,7 +3236,19 @@ export default function App() {
 
   if (isSupabaseConfigured && (!authReady || !isAuthenticated)) {
     if (!authReady) return <GayzeLoadingScreen mode="startup" />;
-    return <AuthView onAuthenticated={() => setIsAuthenticated(true)} />;
+    return (
+      <AuthView
+        onAuthenticated={() => setIsAuthenticated(true)}
+        forcedMode={forcedAuthMode}
+        pendingEmail={pendingAuthEmail}
+        onClearForcedMode={() => setForcedAuthMode(null)}
+        onPasswordResetComplete={() => {
+          recoverySessionRef.current = false;
+          setForcedAuthMode(null);
+          window.history.replaceState({}, '', '/');
+        }}
+      />
+    );
   }
 
   return (
