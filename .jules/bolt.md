@@ -4,3 +4,7 @@
 ## $(date +%Y-%m-%d) - Object.entries().map() React State Anti-Pattern
 **Learning:** Found a severe React re-render anti-pattern in `App.tsx` where updating/deleting a single message rebuilt the message array for *every* chat room (`Object.fromEntries(Object.entries(prev).map(...))`). This broke reference equality for all unrelated rooms, causing massive unnecessary rendering cascades.
 **Action:** When updating a deep dictionary state (like `Record<string, Message[]>`), avoid mapping over the entire dictionary if the update is localized. Instead, locate the specific key (e.g., `roomId`) that needs updating, and only reconstruct that specific value while spreading the rest of the dictionary (`{ ...prev, [targetRoomId]: updatedArray }`) to preserve references.
+
+## 2024-10-20 - [Avoid Object.entries for dictionary state updates]
+**Learning:** Using `Object.fromEntries(Object.entries(previous).filter(...))` on large dictionary state objects (like `messages`) creates multiple intermediate arrays, causing unnecessary CPU work and garbage collection pressure. This is an anti-pattern for React state updates. Shallow copying and deleting keys preserves reference equality correctly (the top-level object is new, triggering the render, but the unmodified nested values retain their original references).
+**Action:** Replace `Object.fromEntries(Object.entries(...))` chains with a shallow copy (`{ ...prev }`) and an explicit `delete` loop for targeted keys when modifying dictionary state.
