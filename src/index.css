@@ -4686,3 +4686,43 @@ body:has([data-gayze-call-screen="true"]) .g-desktop-header {
   }
 }
 
+
+
+/* Live peer intent in chat — vivid mode-specific signal with falling sparks. */
+.peer-intent-card {
+  --peer-accent-rgb: 139, 92, 246;
+  position: relative; isolation: isolate; overflow: hidden; margin: 8px 10px 10px;
+  border: 1px solid rgba(var(--peer-accent-rgb), .55); border-radius: 16px;
+  background: radial-gradient(130% 150% at 0% 0%, rgba(var(--peer-accent-rgb), .24), transparent 58%), linear-gradient(110deg, rgba(var(--peer-accent-rgb), .11), rgba(13,14,20,.97) 54%, rgba(var(--peer-accent-rgb), .08));
+  box-shadow: 0 0 0 1px rgba(var(--peer-accent-rgb),.08), 0 8px 28px rgba(var(--peer-accent-rgb),.12), inset 0 1px 0 rgba(255,255,255,.10);
+}
+.peer-intent-card--private { --peer-accent-rgb: 139, 92, 246; }
+.peer-intent-card--social { --peer-accent-rgb: 201, 162, 77; }
+.peer-intent-card--quiet { border-color:rgba(255,255,255,.08); background:linear-gradient(120deg,rgba(255,255,255,.035),rgba(13,14,20,.96)); box-shadow:none; }
+.peer-intent-card__content { position:relative; z-index:2; padding:11px 13px 10px; }
+.peer-intent-card__topline { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.peer-intent-card__eyebrow { color:rgba(235,231,246,.72); font-size:10px; font-weight:750; letter-spacing:.12em; text-transform:uppercase; }
+.peer-intent-card__state { display:inline-flex; align-items:center; gap:6px; font-size:9px; font-weight:850; letter-spacing:.12em; white-space:nowrap; }
+.peer-intent-card__state.is-live { color:rgb(var(--peer-accent-rgb)); }
+.peer-intent-card__state.is-later { color:#c9b0f5; }
+.peer-intent-card__state.is-quiet { color:#777985; }
+.peer-intent-card__state-dot { width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 10px currentColor; }
+.peer-intent-card__state.is-live .peer-intent-card__state-dot { animation:peer-intent-pulse 1.6s ease-in-out infinite; }
+.peer-intent-card__main { display:flex; align-items:center; gap:11px; padding:10px 0 8px; }
+.peer-intent-card__icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border:1px solid rgba(var(--peer-accent-rgb),.55); border-radius:12px; color:rgb(var(--peer-accent-rgb)); background:rgba(var(--peer-accent-rgb),.14); box-shadow:0 0 20px rgba(var(--peer-accent-rgb),.16),inset 0 1px 0 rgba(255,255,255,.14); }
+.peer-intent-card__icon svg { width:19px; height:19px; }
+.peer-intent-card__details { display:flex; flex-direction:column; min-width:0; gap:3px; }
+.peer-intent-card__category { color:rgb(var(--peer-accent-rgb)); font-size:9px; font-weight:850; letter-spacing:.14em; }
+.peer-intent-card__intent { color:#fff; font-size:15px; line-height:1.25; font-weight:750; overflow-wrap:anywhere; text-shadow:0 0 20px rgba(var(--peer-accent-rgb),.20); }
+.peer-intent-card__footer { display:flex; align-items:center; gap:6px; border-top:1px solid rgba(var(--peer-accent-rgb),.18); padding-top:7px; color:rgba(235,231,246,.68); font-size:10px; }
+.peer-intent-card__footer svg { width:12px; height:12px; margin-left:auto; color:rgb(var(--peer-accent-rgb)); }
+.peer-intent-card__sparkline { color:rgb(var(--peer-accent-rgb)); text-shadow:0 0 10px currentColor; }
+.peer-intent-card__empty { padding:13px 0 4px; color:#a1a1aa; font-size:12px; }
+.peer-intent-card__sparks { position:absolute; inset:0; overflow:hidden; pointer-events:none; opacity:.92; mask-image:linear-gradient(180deg,transparent 0%,black 20%,black 80%,transparent 100%); }
+.peer-intent-card__sparks i { position:absolute; top:-10px; left:calc(5% + (var(--spark-index) * 6.8%)); width:3px; height:3px; border-radius:50%; background:#fff4d1; box-shadow:0 0 5px 1px rgb(var(--peer-accent-rgb)),0 0 12px rgba(var(--peer-accent-rgb),.85); animation:peer-intent-fall calc(2.3s + (var(--spark-index) * .19s)) linear infinite; animation-delay:calc(var(--spark-index) * -.31s); }
+.peer-intent-card__sparks i:nth-child(3n) { width:2px; height:7px; border-radius:3px; opacity:.75; }
+.peer-intent-card__sparks i:nth-child(4n) { width:4px; height:4px; }
+@keyframes peer-intent-fall { 0% { transform:translate3d(0,-8px,0) scale(.6); opacity:0; } 12% { opacity:.9; } 78% { opacity:.7; } 100% { transform:translate3d(-10px,125px,0) scale(.15); opacity:0; } }
+@keyframes peer-intent-pulse { 0%,100% { opacity:1; box-shadow:0 0 10px currentColor; } 50% { opacity:.58; box-shadow:0 0 3px currentColor; } }
+@media (prefers-reduced-motion:reduce) { .peer-intent-card__sparks i,.peer-intent-card__state.is-live .peer-intent-card__state-dot { animation:none; } }
+@media (max-width:480px) { .peer-intent-card { margin:7px 8px 9px; } .peer-intent-card__content { padding:10px 11px 9px; } }
