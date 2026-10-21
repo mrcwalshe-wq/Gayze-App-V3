@@ -311,31 +311,67 @@ async function resolveDeviceAwareKey(
     }
 
     const conversationKey = await deps.createKey();
-    const results = await Promise.all(devices.map(async (device) => {
-      const deviceJwk = parseJwk(device.public_key);
-      if (!deviceJwk) return false;
-      try {
-        const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
-        const stored = await deps.saveEnvelope({
-          conversation_id: room.id,
-          user_id: device.user_id,
-          device_id: device.device_id,
-          wrapped_key: wrapped.wrappedKeyHex,
-          nonce: wrapped.nonceHex,
-          created_by_device_id: identity.deviceId,
-        });
-        return Boolean(stored);
-      } catch {
-        return false;
-      }
-    }));
-    const saved = results.filter(Boolean).length;
+    const creatorDevice = devices.find((device) => device.device_id === identity.deviceId);
+    const creatorJwk = parseJwk(creatorDevice?.public_key);
+    if (!creatorDevice || !creatorJwk) {
+      return {
+        key: null,
+        status: 'unavailable',
+        transient: true,
+        legacyKey: legacyKey ?? undefined,
+        reason: 'This device could not be provisioned with the conversation key. Retrying is safe.',
+      };
+    }
 
-    // The creator's own envelope is mandatory. If the recipient/device set was
-    // only partially provisioned, do not advertise a usable new key: that would
-    // create ciphertext which an authorised recipient cannot decrypt.
-    const ownEnvelopeSaved = results[devices.findIndex((device) => device.device_id === identity.deviceId)] === true;
-    if (!ownEnvelopeSaved || saved !== devices.length) {
+    // Persist the creator's envelope first. If it fails, no other device gets
+    // an envelope for a key that this device cannot recover on a later retry.
+    let ownEnvelopeSaved = false;
+    try {
+      const wrapped = await wrapConversationKey(room.id, conversationKey, creatorJwk);
+      ownEnvelopeSaved = Boolean(await deps.saveEnvelope({
+        conversation_id: room.id,
+        user_id: creatorDevice.user_id,
+        device_id: creatorDevice.device_id,
+        wrapped_key: wrapped.wrappedKeyHex,
+        nonce: wrapped.nonceHex,
+        created_by_device_id: identity.deviceId,
+      }));
+    } catch {
+      ownEnvelopeSaved = false;
+    }
+    if (!ownEnvelopeSaved) {
+      return {
+        key: null,
+        status: 'unavailable',
+        transient: true,
+        legacyKey: legacyKey ?? undefined,
+        reason: 'The conversation key was not provisioned to this device. Retrying is safe.',
+      };
+    }
+
+    const recipientResults = await Promise.all(devices
+      .filter((device) => device.device_id !== identity.deviceId)
+      .map(async (device) => {
+        const deviceJwk = parseJwk(device.public_key);
+        if (!deviceJwk) return false;
+        try {
+          const wrapped = await wrapConversationKey(room.id, conversationKey, deviceJwk);
+          const stored = await deps.saveEnvelope({
+            conversation_id: room.id,
+            user_id: device.user_id,
+            device_id: device.device_id,
+            wrapped_key: wrapped.wrappedKeyHex,
+            nonce: wrapped.nonceHex,
+            created_by_device_id: identity.deviceId,
+          });
+          return Boolean(stored);
+        } catch {
+          return false;
+        }
+      }));
+
+    // Do not advertise a usable key until every authorised device can recover it.
+    if (recipientResults.some((saved) => !saved)) {
       return {
         key: null,
         status: 'unavailable',
