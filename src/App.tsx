@@ -1976,7 +1976,7 @@ export default function App() {
       return decryptedOk || message.isBurned || !row.nonce;
     };
 
-    const hydrate = async () => {
+    const hydrate = async (): Promise<boolean> => {
       setConversationKeyState({ roomId: activeRoomId, status: 'loading' });
       if (!room) {
         setConversationKeyState({
@@ -1984,8 +1984,9 @@ export default function App() {
           status: 'unavailable',
           reason: 'This conversation is still loading.',
         });
-        return;
+        return false;
       }
+      let shouldRetry = false;
       try {
         let result = await messageProcessorRef.current.key(room, supabaseUserId);
         // Newly accepted interests create a fresh conversation. Allow the
@@ -1993,32 +1994,25 @@ export default function App() {
         // settle before declaring the secure chat unavailable.
         for (let attempt = 1; !result.key && result.transient && attempt < 5 && !disposed; attempt += 1) {
           await new Promise((resolve) => window.setTimeout(resolve, 350 * attempt));
-          if (disposed) return;
+          if (disposed) return false;
           result = await messageProcessorRef.current.key(room, supabaseUserId);
         }
-        if (disposed) return;
+        if (disposed) return false;
         keyReady = Boolean(result.key);
         setConversationKeyState({
           roomId: activeRoomId,
           status: result.status,
           reason: result.reason,
         });
-        // Keep recovering while this chat remains open. The initial realtime
-        // "connected" event can fire while keyLoad is still running; in that
-        // case its refresh request is coalesced and otherwise no retry occurs.
-        // Retry only transient key failures, with a delay and disposal guard.
-        if (!result.key && result.transient && !disposed) {
-          window.setTimeout(() => {
-            if (!disposed) refreshKeys();
-          }, 2000);
-        }
+        shouldRetry = !result.key && Boolean(result.transient);
       } catch (error: any) {
-        if (disposed) return;
+        if (disposed) return false;
         setConversationKeyState({
           roomId: activeRoomId,
           status: 'unavailable',
           reason: error?.message || 'The conversation key could not be resolved on this device.',
         });
+        shouldRetry = true;
       }
 
       // Direct conversations get a real safety code, derived from both device
@@ -2050,14 +2044,34 @@ export default function App() {
         }
       }
 
+      return shouldRetry;
     };
 
     let keyLoad: Promise<void> | null = null;
+    let keyRetryTimer: number | undefined;
     const refreshKeys = () => {
       if (keyLoad || disposed) return;
-      keyLoad = hydrate().catch(() => {
-        if (!disposed) setConversationKeyState({ roomId: activeRoomId, status: 'unavailable', reason: 'Secure conversation setup is temporarily unavailable.' });
-      }).finally(() => { keyLoad = null; });
+      if (keyRetryTimer !== undefined) {
+        window.clearTimeout(keyRetryTimer);
+        keyRetryTimer = undefined;
+      }
+      let shouldRetry = false;
+      keyLoad = hydrate().then((retry) => {
+        shouldRetry = retry;
+      }).catch(() => {
+        if (!disposed) {
+          setConversationKeyState({ roomId: activeRoomId, status: 'unavailable', reason: 'Secure conversation setup is temporarily unavailable.' });
+          shouldRetry = true;
+        }
+      }).finally(() => {
+        keyLoad = null;
+        if (shouldRetry && !disposed) {
+          keyRetryTimer = window.setTimeout(() => {
+            keyRetryTimer = undefined;
+            refreshKeys();
+          }, 2000);
+        }
+      });
     };
 
     // Subscribe independently of key/history hydration. A failed initial read
@@ -2077,7 +2091,11 @@ export default function App() {
     );
     refreshKeys();
 
-    return () => { disposed = true; unsubscribe(); };
+    return () => {
+      disposed = true;
+      if (keyRetryTimer !== undefined) window.clearTimeout(keyRetryTimer);
+      unsubscribe();
+    };
   }, [activeRoomId, supabaseUserId, isAuthenticated, isSigningOut, secureChatRetryNonce, rooms.some((room) => room.id === activeRoomId)]);
 
   // Chat message sending with real WebCrypto AES-GCM
