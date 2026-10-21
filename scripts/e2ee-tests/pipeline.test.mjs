@@ -245,6 +245,65 @@ test('direct chat bootstraps device envelopes while preserving legacy history re
   assert.equal(unprovisioned.legacyKey, legacyKey, 'legacy key is retained only as a historical decryption candidate');
 });
 
+test('failed creator envelope does not strand a partial key bootstrap and can be retried', async () => {
+  const creatorDevice = createDevice('bootstrap-creator-retry');
+  const peerDevice = createDevice('bootstrap-peer-retry');
+  const activate = (device) => {
+    device.use();
+    globalThis.window = dom.window;
+    globalThis.localStorage = device.localStorage;
+  };
+  const crypto = await loadModule('src/services/cryptoService.ts');
+  activate(creatorDevice);
+  const creatorIdentity = await crypto.getOrCreateDeviceIdentity();
+  activate(peerDevice);
+  const peerIdentity = await crypto.getOrCreateDeviceIdentity();
+
+  const devices = [
+    { user_id: accountA, device_id: creatorIdentity.deviceId, public_key: creatorIdentity.publicKeyJwkString, status: 'active' },
+    { user_id: accountB, device_id: peerIdentity.deviceId, public_key: peerIdentity.publicKeyJwkString, status: 'active' },
+  ];
+  const envelopes = [];
+  let failCreatorSave = true;
+  const { resolveConversationKeyForTest } = await loadModule('src/services/conversationKeyService.ts');
+  const deps = {
+    async readEnvelopes() { return { ok: true, envelopes: [...envelopes] }; },
+    async readDevices() { return { ok: true, devices }; },
+    async readMemberDevices() { return { ok: true, devices }; },
+    async getIdentity() { return creatorIdentity; },
+    async resolveLegacyKey() { return null; },
+    async claimBootstrap() { return true; },
+    async saveEnvelope(envelope) {
+      if (envelope.device_id === creatorIdentity.deviceId && failCreatorSave) {
+        failCreatorSave = false;
+        return null;
+      }
+      const row = { ...envelope, created_at: new Date().toISOString() };
+      envelopes.push(row);
+      return row;
+    },
+    createKey: crypto.createConversationKey,
+    retryDelayMs: 1,
+  };
+  const room = {
+    id: conversationId,
+    type: 'direct',
+    peerUserId: accountB,
+    peerKey: peerIdentity.publicKeyJwkString,
+    memberIds: [accountA, accountB],
+  };
+
+  activate(creatorDevice);
+  const firstAttempt = await resolveConversationKeyForTest(room, accountA, deps);
+  assert.equal(firstAttempt.status, 'unavailable');
+  assert.equal(envelopes.length, 0, 'no peer envelope is written if the creator cannot save its own');
+
+  const retry = await resolveConversationKeyForTest(room, accountA, deps);
+  assert.equal(retry.status, 'ready');
+  assert.ok(retry.key);
+  assert.equal(envelopes.length, devices.length, 'a retry provisions the creator and peer envelopes');
+});
+
 
 test('recovers an existing envelope when iOS loses the local device-id entry but retains the same identity keypair', async () => {
   const oldDevice = createDevice('same-identity-old-id');
