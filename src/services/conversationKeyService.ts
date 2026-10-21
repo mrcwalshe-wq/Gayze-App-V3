@@ -263,7 +263,7 @@ async function resolveDeviceAwareKey(
     // The envelope key is authoritative for new sends. A legacy key may still
     // decrypt historical rows, but must never unlock the composer on a device
     // that has not received its envelope.
-    return legacyReadFallback('This device has not been provisioned with the existing conversation key yet.');
+    return legacyReadFallback('This device (for example the Home Screen app, which has separate storage from Safari) has not received this chat\'s key yet. Open the chat once on your other signed-in device, or restore your identity backup in Profile, then retry.');
   }
 
   if (devices.length === 0) {
