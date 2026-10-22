@@ -281,6 +281,7 @@ test('restored identity can recover an envelope after its previous device was re
     },
   ];
 
+  activate(deviceA); // The real unwrap path reads the local ECDH identity from this device's store.
   const { resolveConversationKeyForTest } = await loadModule('src/services/conversationKeyService.ts');
   const resolved = await resolveConversationKeyForTest({
     id: conversationId, type: 'direct', peerUserId: accountB,
