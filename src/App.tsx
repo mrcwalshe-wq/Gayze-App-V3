@@ -2409,7 +2409,15 @@ export default function App() {
       await blockUser(peerId);
       const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
       setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
-      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+      // ⚡ Bolt: Performance Optimization
+      // Use a shallow copy and delete instead of Object.fromEntries() and Object.entries() chains to avoid unnecessary intermediate array allocations, reducing CPU execution time and GC pressure.
+      setMessages((previous) => {
+        const next = { ...previous };
+        for (const roomId of blockedRoomIds) {
+          delete next[roomId];
+        }
+        return next;
+      });
       setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
       setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
       setNotificationToast(`${peerName} blocked`);

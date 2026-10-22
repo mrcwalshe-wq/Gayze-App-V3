@@ -225,6 +225,25 @@ async function resolveDeviceAwareKey(
       };
     }
 
+    // If the recovered envelope belonged to an older device ID (e.g. lost local
+    // storage but identical public key), persist it against the new device ID
+    // so subsequent reads don't depend on the fallback heuristic.
+    if (mine.device_id !== identity.deviceId) {
+      try {
+        await deps.saveEnvelope({
+          conversation_id: room.id,
+          user_id: currentDevice.user_id,
+          device_id: identity.deviceId,
+          // Duplicate the existing valid envelope cryptographically:
+          wrapped_key: mine.wrapped_key,
+          nonce: mine.nonce,
+          created_by_device_id: mine.created_by_device_id || mine.device_id,
+        });
+      } catch (error) {
+        console.warn('[GAYZE] Failed to duplicate recovered key envelope', error);
+      }
+    }
+
     // If another authorised device was added after this key was created,
     // the current key holder can add only that device's envelope. Existing
     // envelopes are never overwritten.
