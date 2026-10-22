@@ -245,6 +245,70 @@ test('direct chat bootstraps device envelopes while preserving legacy history re
   assert.equal(unprovisioned.legacyKey, legacyKey, 'legacy key is retained only as a historical decryption candidate');
 });
 
+test('restored identity can recover an envelope after its previous device was revoked', async () => {
+  const deviceA = createDevice('restored-identity-account');
+  const deviceB = createDevice('envelope-creator');
+  const activate = (device) => {
+    device.use();
+    globalThis.window = dom.window;
+    globalThis.localStorage = device.localStorage;
+  };
+  const crypto = await loadModule('src/services/cryptoService.ts');
+  activate(deviceA);
+  const originalIdentity = await crypto.getOrCreateDeviceIdentity();
+  activate(deviceB);
+  const peerIdentity = await crypto.getOrCreateDeviceIdentity();
+
+  // A recovery import retains A's ECDH key pair but creates a new device ID.
+  const restoredIdentity = { ...originalIdentity, deviceId: 'restored-device-new-id' };
+  const devices = [
+    { user_id: accountA, device_id: restoredIdentity.deviceId, public_key: restoredIdentity.publicKeyJwkString, status: 'active' },
+    { user_id: accountB, device_id: peerIdentity.deviceId, public_key: peerIdentity.publicKeyJwkString, status: 'active' },
+  ];
+  const conversationKey = await crypto.createConversationKey();
+  const oldWrapped = await crypto.wrapConversationKey(conversationId, conversationKey, originalIdentity.publicKeyJwk);
+  const peerWrapped = await crypto.wrapConversationKey(conversationId, conversationKey, peerIdentity.publicKeyJwk);
+  const envelopes = [
+    {
+      conversation_id: conversationId, user_id: accountA, device_id: originalIdentity.deviceId,
+      wrapped_key: oldWrapped.wrappedKeyHex, nonce: oldWrapped.nonceHex,
+      created_by_device_id: peerIdentity.deviceId, created_at: new Date().toISOString(),
+    },
+    {
+      conversation_id: conversationId, user_id: accountB, device_id: peerIdentity.deviceId,
+      wrapped_key: peerWrapped.wrappedKeyHex, nonce: peerWrapped.nonceHex,
+      created_by_device_id: originalIdentity.deviceId, created_at: new Date().toISOString(),
+    },
+  ];
+
+  const { resolveConversationKeyForTest } = await loadModule('src/services/conversationKeyService.ts');
+  const resolved = await resolveConversationKeyForTest({
+    id: conversationId, type: 'direct', peerUserId: accountB,
+    peerKey: peerIdentity.publicKeyJwkString, memberIds: [accountA, accountB],
+  }, accountA, {
+    async readEnvelopes() { return { ok: true, envelopes: [...envelopes] }; },
+    async readDevices() { return { ok: true, devices }; },
+    async readMemberDevices() { return { ok: true, devices }; },
+    async getIdentity() { return restoredIdentity; },
+    async resolveLegacyKey() { return null; },
+    async claimBootstrap() { return true; },
+    async saveEnvelope(envelope) {
+      const existing = envelopes.find((row) => row.device_id === envelope.device_id);
+      if (existing) return existing;
+      const row = { ...envelope, created_at: new Date().toISOString() };
+      envelopes.push(row);
+      return row;
+    },
+    createKey: crypto.createConversationKey,
+    retryDelayMs: 1,
+  });
+
+  assert.equal(resolved.status, 'ready', 'revoked old device ID does not strand a restored matching identity');
+  assert.ok(resolved.key, 'restored device can send using the recovered conversation key');
+  assert.ok(envelopes.some((row) => row.device_id === restoredIdentity.deviceId),
+    'the recovered key is provisioned to the newly registered device ID');
+});
+
 test('failed creator envelope does not strand a partial key bootstrap and can be retried', async () => {
   const creatorDevice = createDevice('bootstrap-creator-retry');
   const peerDevice = createDevice('bootstrap-peer-retry');
