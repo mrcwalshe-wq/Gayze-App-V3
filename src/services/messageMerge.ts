@@ -13,10 +13,11 @@ export function mergeMessages(existing: EncryptedMessage[], incomingRows: Encryp
     const old = byId.get(incoming.id);
     const burned = Boolean(old?.isBurned || incoming.isBurned);
     const sameCipher = old?.cipherText === incoming.cipherText && old?.nonceHex === incoming.nonceHex;
+    const keepsOldPlaintext = incoming.plainText === '[Encrypted message]' && Boolean(old?.plainText) && sameCipher;
     const message = {
       ...old, ...incoming,
-      plainText: burned ? '' : incoming.plainText === '[Encrypted message]' && old?.plainText && sameCipher
-        ? old.plainText : incoming.plainText,
+      plainText: burned ? '' : keepsOldPlaintext ? old!.plainText : incoming.plainText,
+      decryptFailure: burned ? undefined : keepsOldPlaintext ? old!.decryptFailure : incoming.decryptFailure,
       isBurned: burned,
       mediaUrl: burned ? undefined : incoming.mediaUrl ?? (sameCipher ? old?.mediaUrl : undefined),
     };

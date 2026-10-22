@@ -392,11 +392,16 @@ export async function unwrapConversationKey(
     wrappingKey,
     hexToBuf(wrappedKeyHex) as unknown as BufferSource,
   );
+  // Extractable on purpose: a device that unwraps its envelope must be able to
+  // wrap the same key for a user's other / newly enrolled devices. A
+  // non-extractable import made exportKey('raw') throw, so only the device that
+  // originally generated the key (in that same page session) could ever
+  // provision another device. The key lives only in page memory.
   return window.crypto.subtle.importKey(
     'raw',
     rawConversationKey,
     { name: 'AES-GCM' },
-    false,
+    true,
     ['encrypt', 'decrypt'],
   );
 }

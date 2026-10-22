@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SupabaseMessageRow } from './supabaseService';
 import { RealtimeRecovery, requireRealtimeSession, type ChatConnectionState, type RecoveryEnvironment } from './realtimeRecovery';
 
-const MESSAGE_COLUMNS = 'id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at';
+const MESSAGE_COLUMNS = 'id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at,key_version';
 export interface MessageDelivery {
   /** False for old history on initial load, expired rows and duplicate delivery. */
   notify: boolean;

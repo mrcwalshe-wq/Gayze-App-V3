@@ -8,7 +8,7 @@ import type { ChatConnectionState } from './services/realtimeRecovery';
 import type { MessageDelivery } from './services/chatSubscriptions';
 import { watchNotificationInbox, markNotificationRead, type NotificationInbox, type InboxNotification } from './services/notificationInbox';
 import { mergeMessage, mergeMessages } from './services/messageMerge';
-import { ChatMessageProcessor, MessageBatcher } from './services/chatMessageProcessing';
+import { ChatMessageProcessor, MessageBatcher, MessageDecryptError } from './services/chatMessageProcessing';
 import { beginChatTrace, clearChatTrace } from './services/chatTrace';
 import { ChatHistoryOwnership } from './services/chatHistoryOwnership';
 import { MessageAlerts } from './services/messageAlerts';
@@ -143,7 +143,7 @@ import {
 } from './services/supabaseService';
 import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';
 import { deleteMessageForMe, unsendMessage, setMessageExpiry } from './services/messageLifecycleService';
-import { resolveConversationKey } from './services/conversationKeyService';
+import { resolveConversationKey, rekeyConversationKey } from './services/conversationKeyService';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -636,6 +636,8 @@ export default function App() {
     roomId: string;
     status: 'loading' | 'ready' | 'unavailable';
     reason?: string;
+    /** A member may start a fresh key version (explicit, user-confirmed). */
+    canRekey?: boolean;
   }>({ roomId: '', status: 'loading' });
   // Canonical intent state. In live mode this is hydrated from Supabase
   // (`intents`) and only ever written back through the Supabase service layer.
@@ -700,7 +702,7 @@ export default function App() {
       const next = prev.map((room) => {
         const latest = (grouped.has(room.id) ? mergeMessages([], grouped.get(room.id)!).at(-1) : undefined);
         if (!latest || latest.timestamp < room.lastTimestamp) return room;
-        const text = latest.isBurned ? '' : latest.plainText === '[Encrypted message]' && room.lastTimestamp === latest.timestamp ? room.lastMessage : latest.plainText;
+        const text = latest.isBurned ? '' : latest.decryptFailure ? 'Can\'t decrypt on this device' : latest.plainText === '[Encrypted message]' && room.lastTimestamp === latest.timestamp ? room.lastMessage : latest.plainText;
         if (room.lastTimestamp === latest.timestamp && room.lastMessage === text) return room;
         changed = true;
         return { ...room, lastTimestamp: latest.timestamp, lastMessage: text };
@@ -1078,6 +1080,7 @@ export default function App() {
         let plainText = '[Encrypted message]';
         let mediaUrl: string | undefined;
         let decryptedOk = false;
+        let decryptFailure: EncryptedMessage['decryptFailure'];
         for (let attempt = 0; attempt < (delivery.notify ? 3 : 1) && row.nonce && !row.burned_at && (!row.expires_at || Date.parse(row.expires_at) > Date.now()) && !decryptedOk; attempt += 1) {
           try {
             if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
@@ -1091,6 +1094,7 @@ export default function App() {
             } else { plainText = decrypted; }
             decryptedOk = true;
           } catch (error) {
+            if (error instanceof MessageDecryptError) decryptFailure = error.code === 'authentication_failed' ? 'tampered_or_wrong_key' : 'no_key';
             if (attempt < (delivery.notify ? 2 : 0)) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
             else console.warn('[GAYZE] Global message decryption failed', error);
           }
@@ -1104,6 +1108,7 @@ export default function App() {
           timestamp: new Date(row.created_at).getTime(), cipherText: row.ciphertext,
           nonceHex: row.nonce || '', plainText, expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
           isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined,
+          decryptFailure: decryptedOk ? undefined : decryptFailure,
         };
 
         queueMessage(message);
@@ -1919,6 +1924,7 @@ export default function App() {
       let plainText = '[Encrypted message]';
       let mediaUrl: string | undefined = undefined;
       let decryptedOk = false;
+      let decryptFailure: EncryptedMessage['decryptFailure'];
 
       // A message can arrive through Realtime before the device identity/key
       // bootstrap has finished. Resolve the key again and retry a few times so
@@ -1942,6 +1948,7 @@ export default function App() {
           decryptedOk = true;
         } catch (error) {
           keyReady = false;
+          if (error instanceof MessageDecryptError) decryptFailure = error.code === 'authentication_failed' ? 'tampered_or_wrong_key' : 'no_key';
           if (attempt < (delivery.notify ? 2 : 0)) await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
           else console.warn('[GAYZE] Unable to decrypt conversation message', error);
         }
@@ -1969,6 +1976,7 @@ export default function App() {
         isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())),
         mediaUrl,
         mediaType: mediaUrl ? 'image' : undefined,
+        decryptFailure: decryptedOk ? undefined : decryptFailure,
       };
 
       if (!decryptedOk && !message.isBurned && row.nonce) historyHadFailure = true;
@@ -2003,6 +2011,7 @@ export default function App() {
           roomId: activeRoomId,
           status: result.status,
           reason: result.reason,
+          canRekey: result.canRekey,
         });
         shouldRetry = !result.key && Boolean(result.transient);
       } catch (error: any) {
@@ -2098,6 +2107,24 @@ export default function App() {
     };
   }, [activeRoomId, supabaseUserId, isAuthenticated, isSigningOut, secureChatRetryNonce, rooms.some((room) => room.id === activeRoomId)]);
 
+  // Explicit, user-confirmed fresh conversation key for a chat this device cannot open.
+  const handleStartFreshSecureSession = async () => {
+    const room = rooms.find((candidate) => candidate.id === activeRoomId);
+    if (!room || !supabaseUserIdRef.current) return;
+    const confirmed = window.confirm(
+      'Start a fresh secure session for this chat?\n\nNew messages will work again. Messages sent before this can only be read on devices that still hold the old key; this device will show them as "Can\'t decrypt".',
+    );
+    if (!confirmed) return;
+    const result = await rekeyConversationKey(room);
+    messageProcessorRef.current.forgetConversation(room.id);
+    if (result.status === 'ready') {
+      showToast('Fresh secure session started');
+    } else {
+      showToast(result.reason || 'Could not start a fresh secure session. Nothing was changed.');
+    }
+    setSecureChatRetryNonce((value) => value + 1);
+  };
+
   // Chat message sending with real WebCrypto AES-GCM
   const handleSendMessage = async (
     roomId: string,
@@ -2115,6 +2142,7 @@ export default function App() {
     const isSupabaseRoom = IS_LIVE_BACKEND && /^[0-9a-f-]{36}$/i.test(roomId);
     let cipherHex: string;
     let nonceHex: string;
+    let keyVersion = 1;
     const textToEncrypt = mediaUrl
       ? JSON.stringify({ text: plainText, mediaUrl })
       : plainText;
@@ -2124,6 +2152,7 @@ export default function App() {
       if (!resolved.key) {
         throw new Error(resolved.reason || 'This conversation cannot be encrypted on this device yet');
       }
+      keyVersion = resolved.keyVersion ?? 1;
       try {
         ({ cipherHex, nonceHex } = await encryptWithConversationKey(textToEncrypt, resolved.key));
       } catch (error) {
@@ -2177,7 +2206,7 @@ export default function App() {
           ? new Date(Date.now() + ephemeralTtlSeconds * 1000).toISOString()
           : null;
         if (isSigningOutRef.current || supabaseUserIdRef.current !== sendingUserId || authGenerationRef.current !== sendingGeneration) throw new Error('Session changed');
-        const persisted = await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt, messageId, sendingUserId ?? undefined);
+        const persisted = await persistConversationMessage(roomId, cipherHex, nonceHex, expiresAt, messageId, sendingUserId ?? undefined, keyVersion);
         if (isSigningOutRef.current || supabaseUserIdRef.current !== sendingUserId || authGenerationRef.current !== sendingGeneration) throw new Error('Session changed');
         setMessages((prev) => ({
           ...prev,
@@ -3567,6 +3596,8 @@ export default function App() {
                     }
                     conversationKeyReason={conversationKeyState.reason}
                     onRetrySecureChat={() => setSecureChatRetryNonce((value) => value + 1)}
+                    conversationKeyCanRekey={conversationKeyState.roomId === activeRoomId && conversationKeyState.canRekey === true}
+                    onStartFreshSecureSession={handleStartFreshSecureSession}
                     activeIntentMode={activeUserIntent?.mode}
                   />
                   </>

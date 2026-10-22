@@ -67,6 +67,8 @@ interface ChatRoomViewProps {
   conversationKeyUnavailable?: boolean;
   conversationKeyReason?: string;
   onRetrySecureChat?: () => void;
+  conversationKeyCanRekey?: boolean;
+  onStartFreshSecureSession?: () => void;
   onBlockPeer?: (peerId: string, peerName: string) => void;
   /** Current GAYZE mode controls the live chat border hue. */
   activeIntentMode?: TopLevelIntentMode;
@@ -98,6 +100,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   conversationKeyUnavailable = false,
   conversationKeyReason,
   onRetrySecureChat,
+  conversationKeyCanRekey = false,
+  onStartFreshSecureSession,
   onBlockPeer,
   activeIntentMode,
 }) => {
@@ -816,7 +820,16 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       </div>
                     )}
 
-                    <p className="whitespace-pre-wrap">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>
+                    {msg.decryptFailure && !msg.deletedForEveryone ? (
+                      <p className="flex items-start gap-1.5 text-[13px] italic opacity-80" data-decrypt-failure={msg.decryptFailure}>
+                        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        <span>{msg.decryptFailure === 'tampered_or_wrong_key'
+                          ? 'This message failed its integrity check and was not shown.'
+                          : 'Can\'t decrypt this message on this device. Re-verify this device or open the chat on one that already has the key.'}</span>
+                      </p>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>
+                    )}
 
                     {/* Rich Meeting Proposal Card if present */}
                     {msg.meetingData && (
@@ -949,6 +962,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     : 'Some saved messages are still encrypted on this device. Reload the secure key and message history to retry decryption.'}</span>
                 </div>
                 {onRetrySecureChat && <button type="button" className="g-secure-chat-error__retry" onClick={onRetrySecureChat}>Retry</button>}
+                {conversationKeyCanRekey && onStartFreshSecureSession && (
+                  <button type="button" className="g-secure-chat-error__retry" onClick={onStartFreshSecureSession}>Start fresh secure session</button>
+                )}
               </div>
             )}
             <div className="g-chat-composer flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors">
