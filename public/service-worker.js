@@ -2,13 +2,13 @@
  * GAYZE production service worker.
  * Web Push is always user-visible on iOS; no silent/invisible push path.
  */
-const SW_VERSION = 'gayze-sw-v23-icon-refresh-20261015';
+const SW_VERSION = 'gayze-sw-v24-ios-icon-20261022';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 const APP_SHELL_URL = '/index.html';
-const ICON_VERSION = '?v=20261015-3';
+const ICON_VERSION = '?v=20261022-1';
 const IOS_ICON = `/brand/gayze-nav-mark-v1.png${ICON_VERSION}`;
-const PRECACHE_URLS = ['/', `/manifest.webmanifest${ICON_VERSION}`, IOS_ICON, `/brand/gayze-nav-v3.svg${ICON_VERSION}`, `/brand/gayze-app-icon-v3.svg${ICON_VERSION}`, `/icons/gayze-180.png${ICON_VERSION}`, `/icons/gayze-192.png${ICON_VERSION}`, `/icons/gayze-512.png${ICON_VERSION}`, `/icons/gayze-512-maskable.png${ICON_VERSION}`];
+const PRECACHE_URLS = ['/', `/manifest.webmanifest${ICON_VERSION}`, IOS_ICON, `/brand/gayze-nav-v3.svg${ICON_VERSION}`, `/brand/gayze-app-icon-v3.svg${ICON_VERSION}`, `/icons/gayze-180.png${ICON_VERSION}`, `/icons/gayze-apple-touch-180.png${ICON_VERSION}`, `/icons/gayze-apple-touch-167.png${ICON_VERSION}`, `/icons/gayze-apple-touch-152.png${ICON_VERSION}`, `/icons/gayze-apple-touch-120.png${ICON_VERSION}`, `/icons/gayze-192.png${ICON_VERSION}`, `/icons/gayze-512.png${ICON_VERSION}`, `/icons/gayze-512-maskable.png${ICON_VERSION}`];
 const NOTIFICATION_ICON = IOS_ICON;
 const NOTIFICATION_BADGE = IOS_ICON;
 
