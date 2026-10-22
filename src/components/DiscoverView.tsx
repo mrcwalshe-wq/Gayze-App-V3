@@ -262,13 +262,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       )}
 
       {/* Mode segmented control */}
-      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4">
+      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4" role="group" aria-label="Filter by mode">
         {(['All', 'Social', 'Private'] as const).map((mode) => {
           const isSelected = modeFilter === mode;
           return (
             <button
               key={mode}
               type="button"
+              aria-pressed={isSelected}
               className={`g-discover-mode-filter__button h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
                 isSelected
                   ? mode === 'Private'
@@ -487,13 +488,12 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                       online: selected.live,
                     });
                   }}
-                  aria-label="View public profile"
                 >
                   <User className="w-4 h-4" />
                   <span>Profile</span>
                 </button>
               )}
-              <button type="button" className="g-btn g-btn--quiet !px-3" onClick={() => handleGaze(selected)} aria-label="Send Gayze request">
+              <button type="button" className="g-btn g-btn--quiet !px-3" onClick={() => handleGaze(selected)}>
                 <Eye className="w-4 h-4" />
                 {gazedNames.has(selected.kind === 'pulse' ? selected.item.peerId : selected.item.id) ? 'Gayze sent' : 'Send Gayze'}
               </button>
@@ -504,7 +504,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   hapticLight();
                   onOpenScheduleMeeting?.(selected.kind === 'pulse' ? selected.item.peerName : selected.item.name);
                 }}
-                aria-label="Safe meet"
               >
                 <Calendar className="w-4 h-4" />
                 Meet
