@@ -173,12 +173,14 @@ async function resolveDeviceAwareKey(
       && jwk.y === identity.publicKeyJwk.y,
     );
   };
+  // A restored recovery identity keeps its ECDH private key but receives a new
+  // physical-device ID. The previous device may already be revoked and is
+  // therefore intentionally absent from `devices`. It is safe to consider an
+  // older envelope belonging to this same account: the AES-GCM authentication
+  // tag below only permits it to unlock when this device actually holds the
+  // matching private identity. A different device's envelope fails closed.
   const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId)
-    ?? envelopes.find((envelope) => {
-      if (envelope.user_id !== currentDevice.user_id) return false;
-      const previousDevice = devices.find((device) => device.device_id === envelope.device_id);
-      return Boolean(previousDevice && samePublicIdentity(previousDevice));
-    });
+    ?? envelopes.find((envelope) => envelope.user_id === currentDevice.user_id);
   if (mine) {
     const creatorDeviceId = mine.created_by_device_id || mine.device_id;
     const creator = devices.find((device) => device.device_id === creatorDeviceId)
