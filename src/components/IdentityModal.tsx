@@ -224,8 +224,8 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">Display Name</label>
-              <input
+              <label htmlFor="displayName" className="block text-xs font-medium text-zinc-300 mb-1">Display Name</label>
+              <input id="displayName"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -233,8 +233,8 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">Handle</label>
-              <input
+              <label htmlFor="handle" className="block text-xs font-medium text-zinc-300 mb-1">Handle</label>
+              <input id="handle"
                 type="text"
                 value={handle}
                 onChange={(e) => setHandle(e.target.value)}
@@ -244,8 +244,8 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">Bio / Interests</label>
-            <textarea
+            <label htmlFor="bio" className="block text-xs font-medium text-zinc-300 mb-1">Bio / Interests</label>
+            <textarea id="bio"
               rows={2}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
