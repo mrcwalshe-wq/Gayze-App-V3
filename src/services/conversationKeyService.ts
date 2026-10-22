@@ -175,58 +175,56 @@ async function resolveDeviceAwareKey(
   };
   // A restored recovery identity keeps its ECDH private key but receives a new
   // physical-device ID. The previous device may already be revoked and is
-  // therefore intentionally absent from `devices`. It is safe to consider an
-  // older envelope belonging to this same account: the AES-GCM authentication
-  // tag below only permits it to unlock when this device actually holds the
-  // matching private identity. A different device's envelope fails closed.
-  const mine = envelopes.find((envelope) => envelope.device_id === identity.deviceId)
-    ?? envelopes.find((envelope) => envelope.user_id === currentDevice.user_id);
-  if (mine) {
-    const creatorDeviceId = mine.created_by_device_id || mine.device_id;
-    const creator = devices.find((device) => device.device_id === creatorDeviceId)
-      ?? (creatorDeviceId === identity.deviceId
-        ? { public_key: identity.publicKeyJwkString }
-        : undefined);
+  // therefore intentionally absent from `devices`. Consider old envelopes
+  // belonging to this account, but accept one only if authenticated decryption
+  // proves this device has the matching private identity.
+  const ownEnvelopeCandidates = [
+    ...envelopes.filter((envelope) => envelope.device_id === identity.deviceId),
+    ...envelopes.filter((envelope) =>
+      envelope.device_id !== identity.deviceId && envelope.user_id === currentDevice.user_id),
+  ];
+  let mine: typeof envelopes[number] | undefined;
+  let key: CryptoKey | null = null;
+
+  for (const envelope of ownEnvelopeCandidates) {
+    const creatorDeviceId = envelope.created_by_device_id || envelope.device_id;
+    const creator = devices.find((device) => device.device_id === creatorDeviceId);
     const creatorJwk = parseJwk(creator?.public_key);
-    if (!creatorJwk) {
-      return {
-        key: null,
-        status: 'unavailable',
-        transient: true,
-        legacyKey: legacyKey ?? undefined,
-        reason: 'The device that created this conversation key is not currently available.',
-      };
-    }
-    // Prefer the envelope's recorded creator. Some historical rows have stale
-    // or missing creator metadata, however, and AES-GCM can safely identify the
-    // correct authorised peer: only the matching ECDH key authenticates the
-    // envelope. Never change stored envelopes or create a competing key here.
-    let key: CryptoKey | null = null;
+    // A creator can have been revoked too. Trying this device's own public key
+    // is safe: AES-GCM authentication rejects it unless it is the matching key.
     const creatorCandidates = [
-      ...(creatorJwk ? [{ deviceId: creatorDeviceId, jwk: creatorJwk }] : []),
+      ...(creatorJwk ? [{ jwk: creatorJwk }] : []),
       ...devices
         .filter((device) => device.device_id !== creatorDeviceId)
-        .map((device) => ({ deviceId: device.device_id, jwk: parseJwk(device.public_key) }))
-        .filter((candidate): candidate is { deviceId: string; jwk: JsonWebKey } => Boolean(candidate.jwk)),
+        .map((device) => ({ jwk: parseJwk(device.public_key) }))
+        .filter((candidate): candidate is { jwk: JsonWebKey } => Boolean(candidate.jwk)),
+      { jwk: identity.publicKeyJwk },
     ];
     for (const candidate of creatorCandidates) {
       try {
-        key = await unwrapConversationKey(room.id, mine.wrapped_key, mine.nonce, candidate.jwk);
+        key = await unwrapConversationKey(room.id, envelope.wrapped_key, envelope.nonce, candidate.jwk);
         if (key) break;
       } catch {
-        // Authentication failure means this registered public key is not the
-        // matching envelope creator. Continue only across authorised devices.
+        // Wrong ECDH pair or tampered envelope: try another authorised key
+        // candidate or the next account-owned envelope, never bypass auth.
       }
     }
-    if (!key) {
-      return {
-        key: null,
-        status: 'unavailable',
-        legacyKey: legacyKey ?? undefined,
-        reason: 'This device could not unlock its conversation key envelope. Retry, or restore the original identity on this device.',
-      };
+    if (key) {
+      mine = envelope;
+      break;
     }
+  }
 
+  if (ownEnvelopeCandidates.length > 0 && (!mine || !key)) {
+    return {
+      key: null,
+      status: 'unavailable',
+      legacyKey: legacyKey ?? undefined,
+      reason: 'This device could not unlock its conversation key envelope. Retry, or restore the original identity on this device.',
+    };
+  }
+
+  if (mine && key) {
     // If another authorised device was added after this key was created,
     // the current key holder can add only that device's envelope. Existing
     // envelopes are never overwritten.
