@@ -226,6 +226,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             type="button"
             onClick={() => { hapticLight(); onOpenMap(); }}
             className={`g-btn g-btn--quiet g-discover-map-button shrink-0 !min-h-[38px] !px-3.5 !rounded-xl !text-[12.5px] ${activeUserIntent?.mode === 'private' ? 'g-discover-map-button--private' : activeUserIntent?.mode === 'social' ? 'g-discover-map-button--social' : ''}`}
+            aria-label="View map"
           >
             <MapIcon className="w-4 h-4" />
             Map
@@ -239,6 +240,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           type="button"
           onClick={() => { hapticLight(); onOpenSetIntent?.(); }}
           className={`g-discover-signal-strip g-discover-signal-strip--${activeUserIntent.mode === 'private' ? 'private' : 'social'} mb-4 flex items-center gap-3 text-left cursor-pointer`}
+          aria-label="Manage your intent"
         >
           <span
             className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
@@ -279,6 +281,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'
               }`}
               onClick={() => { hapticLight(); setModeFilter(mode); }}
+              aria-label={`Filter by ${mode} intents`}
             >
               {mode}
             </button>
@@ -298,7 +301,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             the moment you go live.
           </p>
           {onOpenSetIntent && !activeUserIntent && (
-            <button type="button" className="g-btn g-btn--primary w-full mt-1" onClick={() => { hapticLight(); onOpenSetIntent(); }}>
+            <button type="button" className="g-btn g-btn--primary w-full mt-1" onClick={() => { hapticLight(); onOpenSetIntent(); }} aria-label="Create your intent">
               <Plus className="w-4 h-4" />
               Create your intent
             </button>

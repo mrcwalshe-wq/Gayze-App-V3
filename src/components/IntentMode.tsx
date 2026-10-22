@@ -62,6 +62,7 @@ export const IntentMode: React.FC<IntentModeProps> = ({
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             aria-pressed={isRightNow}
+            aria-label="Switch to Right now mode"
           >
             <span
               className={`w-[6px] h-[6px] rounded-full transition-colors duration-300 ${
@@ -83,6 +84,7 @@ export const IntentMode: React.FC<IntentModeProps> = ({
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             aria-pressed={!isRightNow}
+            aria-label="Switch to Later mode"
           >
             <span className={`text-[13px] sm:text-sm ${!isRightNow ? 'font-semibold' : 'font-medium'}`}>
               Later
