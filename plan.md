@@ -1,0 +1,4 @@
+1. **Analyze the performance issue**: The `handleBlockPeer` function in `src/App.tsx` has a performance bottleneck where it filters out blocked rooms from the `messages` dictionary using `Object.fromEntries(Object.entries(previous).filter(...))`. This is an O(N) operation that creates new object references, leading to unnecessary re-renders across the entire component tree.
+2. **Optimize `setMessages`**: Change the update logic to only iterate through `blockedRoomIds` and use the `delete` operator on a shallow copy of the state (`{ ...previous }`), avoiding the O(N) array allocation overhead and ensuring that unaffected rooms maintain their object references.
+3. **Verify correctness**: Ensure `npm run lint` and `npm run build` continue to succeed without errors.
+4. **Create PR**: Commit the change, create a PR, and complete pre commit instructions.
