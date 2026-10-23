@@ -8,6 +8,7 @@ const { intentStartsAt, intentWhenLabel } = await loadModule('src/services/inten
 
 function watcher() {
   const db = backend(), env = environment(), states = [];
+  db.clock = env.now; // server time follows the fake clock
   return { db, env, states, start: () => watchPeerIntent(user, peer, s => states.push(s), db, env) };
 }
 
@@ -64,7 +65,7 @@ test('watcher reads only authenticated peer data and authoritative update/pause/
     await env.advance(200); assert.equal(states.at(-1).intent.intent, 'Coffee');
     assert.equal(db.channels.length, 1);
     assert.equal(db.channels[0].bindings[0].filter.filter, `user_id=eq.${peer}`);
-    assert(db.reads.every(r => r.limit === 1 && r.filters.user_id === peer && r.filters.is_paused === false));
+    assert(db.reads.length > 0 && db.reads.every(r => r.rpc === 'get_peer_intent' && r.args.p_peer_id === peer), 'only the membership-checked RPC is used, never a table read');
     db.rows[0] = { ...db.rows[0], mode: 'private', intent: 'Meet' };
     db.channels[0].emit({ new: { intent: 'DO NOT TRUST PAYLOAD' } }); await flush();
     assert.equal(states.at(-1).intent.mode, 'private'); assert.equal(states.at(-1).intent.intent, 'Meet');

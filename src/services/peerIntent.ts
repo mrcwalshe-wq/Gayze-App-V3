@@ -19,7 +19,7 @@ export function parsePeerIntent(row: Record<string, unknown> | null, peerId: str
   return { id: row.id, peerId, mode: row.mode, intent: row.intent, startsAt, expiresAt };
 }
 
-/** Same SDK/recovery owner as chat. Narrow, authenticated, RLS-governed reads.
+/** Same SDK/recovery owner as chat. One narrow, authenticated, membership-checked RPC.
  * Polling covers dropped events and filtered DELETEs (which Postgres Changes
  * cannot reliably deliver). No schema assumptions beyond existing intents columns.
  */
@@ -55,14 +55,15 @@ export function watchPeerIntent(userId: string, peerId: string, receive: (state:
     reconcile: async (signal, current) => {
       const readingRevision = revision;
       try {
-        const result = await client.from('intents')
-          .select('id,user_id,mode,intent,starts_at,expires_at,is_paused')
-          .eq('user_id', peerId).eq('is_paused', false).gt('expires_at', new Date(now()).toISOString())
-          .order('starts_at', { ascending: false }).order('id').limit(1).abortSignal(signal).maybeSingle();
+        // RLS on `intents` is owner-only, so a table read can never return the peer's row.
+        // get_peer_intent() returns only the display fields of the partner's LIVE intent,
+        // and only to a member of a conversation with them (never across a block).
+        const result = await client.rpc('get_peer_intent', { p_peer_id: peerId }).abortSignal(signal);
         if (!current() || stopped || readingRevision !== revision) return;
         cancelExpiry();
         if (result.error) throw new Error('Peer intent unavailable');
-        const intent = parsePeerIntent(result.data, peerId, now());
+        const row = (Array.isArray(result.data) ? result.data[0] : result.data) as Record<string, unknown> | null | undefined;
+        const intent = parsePeerIntent(row ?? null, peerId, now());
         publish(intent ? { status: 'ready', intent } : { status: 'none' });
         if (intent) {
           const published = publication;
