@@ -45,21 +45,20 @@ export function backend() {
         async unsubscribe() { ch.closed = true; ch.status('CLOSED'); return 'ok'; }, teardown() { ch.closed = true; }, bindings };
       channels.push(ch); return ch;
     },
-    from(table) {
-      if (table !== 'intents') throw new Error('Unexpected table: ' + table);
-      const filters = {}, orders = []; let columns, limit;
-      const q = {
-        select(value) { columns = value; return q; }, eq(key, value) { filters[key] = value; return q; },
-        gt(key, value) { filters[key + '>'] = value; return q; }, order(key, opts) { orders.push([key, opts]); return q; },
-        limit(value) { limit = value; return q; }, abortSignal() { return q; }, maybeSingle() { return q; },
+    // The peer's row is NOT readable by table select (intents RLS is owner-only): any direct read is a bug.
+    from(table) { throw new Error('Direct table read is not allowed (RLS is owner-only): ' + table); },
+    // Models public.get_peer_intent(): live (not paused, not expired by SERVER time) intent of that peer only, newest first.
+    rpc(name, args) {
+      if (name !== 'get_peer_intent') throw new Error('Unexpected rpc: ' + name);
+      const q = { abortSignal() { return q; },
         then(resolve, reject) {
-          data.reads.push({ filters, columns, orders, limit });
-          const rows = data.rows.filter(r => r.user_id === filters.user_id && r.is_paused === filters.is_paused && r.expires_at > filters['expires_at>'])
+          data.reads.push({ rpc: name, args });
+          const nowMs = data.clock ? data.clock() : Date.now();
+          const rows = data.rows.filter(r => r.user_id === args.p_peer_id && r.is_paused === false && Date.parse(r.expires_at) > nowMs)
             .sort((a, b) => b.starts_at.localeCompare(a.starts_at) || a.id.localeCompare(b.id));
-          const result = { data: rows[0] ?? null, error: data.error };
+          const result = { data: rows.slice(0, 1), error: data.error };
           return Promise.resolve(data.held).then(() => result).then(resolve, reject);
-        },
-      };
+        } };
       return q;
     }, channels, authListeners,
   };
