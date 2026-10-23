@@ -70,6 +70,10 @@ for (const [size, path] of Object.entries(ICONS)) {
   });
 }
 
+test('public/apple-touch-icon-precomposed.png (legacy iOS probe) is the same valid 180px icon', () => {
+  assert.ok(read('public/apple-touch-icon-precomposed.png').equals(read(ICONS[180])));
+});
+
 test('public/apple-touch-icon.png (iOS default request) is a valid opaque 180x180 identical to the linked icon', () => {
   const img = decodePng(read('public/apple-touch-icon.png'));
   assert.equal(img.w, 180); assert.equal(img.h, 180);
@@ -81,12 +85,22 @@ test('index.html links sized apple-touch-icons that exist; manifest icons exist;
   const links = [...html.matchAll(/<link rel="apple-touch-icon" sizes="(\d+)x\1" href="([^"]+)"/g)];
   assert.deepEqual(links.map((m) => m[1]).sort(), ['120', '152', '167', '180']);
   for (const [, size, href] of links) {
+    if (href.startsWith('data:')) {
+      // Inlined so iOS needs no separate (blockable) request for the Home Screen icon.
+      const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(href);
+      assert.ok(match, 'inline icon is a base64 PNG data URI');
+      const bytes = Buffer.from(match[1], 'base64');
+      assert.ok(bytes.equals(read(ICONS[size])), `inline ${size}px icon is byte-identical to ${ICONS[size]}`);
+      assert.equal(decodePng(bytes).w, Number(size));
+      continue;
+    }
     const file = `public${href.split('?')[0]}`;
     assert.ok(existsSync(new URL(file, root)), `${file} exists`);
     assert.equal(decodePng(read(file)).w, Number(size));
   }
+  assert.ok(links.some(([, size, href]) => size === '180' && href.startsWith('data:')), 'the iPhone (180px) icon is inlined');
   assert.ok(!/rel="apple-touch-icon"[^>]*gayze-nav-mark/.test(html), 'must not point at the 64px transparent nav mark');
-  const version = /\?v=(\d{8}-\d+)/.exec(links[0][2])[1];
+  const version = /\?v=(\d{8}-\d+)/.exec(html.match(/rel="manifest" href="([^"]+)"/)[1])[1];
   const manifest = JSON.parse(read('public/manifest.webmanifest').toString());
   for (const icon of manifest.icons) {
     assert.ok(existsSync(new URL(`public${icon.src.split('?')[0]}`, root)), `${icon.src} exists`);
