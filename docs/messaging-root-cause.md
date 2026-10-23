@@ -109,3 +109,28 @@ registry.
   user), so `device_id` alone is not a global identifier; the guard compares `auth.uid()` too.
 * Device rows accumulate (one account: 46 revoked + 15 active). A stale-device pruning policy would
   reduce envelope fan-out.
+
+
+## Production application and verification (2026-10-23)
+
+Applied to `qdewyupsqmtonkloqxsh` through `apply_migration`, so they are in the migration history as
+`conversation_key_versions` and `messaging_rls_and_grants_hardening`. The tool's SQL gate times out on any
+statement containing `DROP FUNCTION|TRIGGER|POLICY` (even no-ops), which is why the migrations use
+`CREATE OR REPLACE` shims and `ALTER POLICY` instead of dropping objects.
+
+Verified afterwards (read-only queries): both RPC overloads exist; both key primary keys include
+`key_version`; 358/358 envelopes carry a creator public key; all 148 messages are version 1;
+`authenticated` holds only SELECT (+INSERT on `messages`) on the messaging tables and `anon` holds nothing.
+
+`scripts/messaging-tests/prod-rls-check.sql` runs the access-control and key protocol against the
+**live** schema under real `anon`/`authenticated` roles inside a transaction that always rolls back:
+48/48 PASS on 2026-10-23 (self-join exploit rejected, non-member reads/inserts rejected, anon rejected,
+duplicate and spoof rejected, ciphertext immutable, second-device provisioning from a non-creator holder
+accepted, re-key serialised, unknown key versions rejected, old-client shims, leave removes access), and
+the post-run count of test users was 0.
+
+**Not verified end to end:** browser-driven send/receive, Realtime delivery, page refresh/reconnect and a
+second physical or browser-profile device. The agent sandbox cannot reach `*.supabase.co` or `*.vercel.app`
+(network policy), so those remain to be exercised by a person or after the allow-list is widened. What is
+verified instead: the `messages` table is in the `supabase_realtime` publication, the client/key flow runs
+across simulated devices in `scripts/messaging-tests/keyring.test.mjs`, and the SQL layer above.
