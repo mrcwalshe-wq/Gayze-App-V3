@@ -5,6 +5,8 @@ import {
   Check,
   Home,
   Radio,
+  UsersRound,
+  EyeOff,
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import {
@@ -286,6 +288,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   data-active={mode === 'social'}
                   onClick={() => handleSelectMode('social')}
                 >
+                  <span className="g-opt__orb" aria-hidden="true"><UsersRound className="w-[18px] h-[18px]" /></span>
                   <span className="g-opt__t">Social</span>
                   <span className="g-opt__d">Meet · Drinks · Dates · Groups</span>
                   {mode === 'social' && (
@@ -302,6 +305,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   data-active={mode === 'private'}
                   onClick={() => handleSelectMode('private')}
                 >
+                  <span className="g-opt__orb" aria-hidden="true"><EyeOff className="w-[18px] h-[18px]" /></span>
                   <span className="g-opt__t">Private</span>
                   <span className="g-opt__d">Discreet · one-to-one</span>
                   {mode === 'private' && (

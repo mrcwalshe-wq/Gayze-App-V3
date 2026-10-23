@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, Flame, Users } from 'lucide-react';
 import { watchPeerIntent, type PeerIntentState } from '../services/peerIntent';
+import { SparkWaterfall } from './SparkWaterfall';
 
 /** Mounted with a room/account/peer key. Historical connectionContext is NOT current intent. */
 export function PeerIntentBanner({ userId, peerId, peerName, now }: {
@@ -20,9 +21,10 @@ export function PeerIntentBanner({ userId, peerId, peerName, now }: {
   return (
     <section aria-label={`${peerName}'s current intent`} aria-live="polite"
       className={`peer-intent-card peer-intent-card--${intent ? spicy ? 'private' : 'social' : 'quiet'} shrink-0`}>
-      {intent && <div className="peer-intent-card__sparks" aria-hidden="true">
-        {Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--spark-index': i } as React.CSSProperties} />)}
-      </div>}
+      {intent && <>
+        <div className="peer-intent-card__curtain" aria-hidden="true" />
+        <SparkWaterfall mode={spicy ? 'private' : 'social'} />
+      </>}
       <div className="peer-intent-card__content">
         <div className="peer-intent-card__topline">
           <span className="peer-intent-card__eyebrow">{peerName}'s live intent</span>
