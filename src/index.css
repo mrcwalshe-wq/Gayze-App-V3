@@ -4726,3 +4726,53 @@ body:has([data-gayze-call-screen="true"]) .g-desktop-header {
 @keyframes peer-intent-pulse { 0%,100% { opacity:1; box-shadow:0 0 10px currentColor; } 50% { opacity:.58; box-shadow:0 0 3px currentColor; } }
 @media (prefers-reduced-motion:reduce) { .peer-intent-card__sparks i,.peer-intent-card__state.is-live .peer-intent-card__state-dot { animation:none; } }
 @media (max-width:480px) { .peer-intent-card { margin:7px 8px 9px; } .peer-intent-card__content { padding:10px 11px 9px; } }
+
+
+/* iPad/iOS scroll containment and profile layout.
+   The app shell is viewport-locked, so the main flex child must have a
+   definite constrained height to become a reliable touch scroll surface. */
+.g-main-viewport {
+  flex: 1 1 0% !important;
+  height: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  padding-bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 20px) !important;
+}
+
+/* Give Profile one consistent vertical rhythm instead of competing card
+   margins; this prevents sections from visually crowding or colliding. */
+.gayze-premium-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.gayze-premium-page > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  flex-shrink: 0;
+}
+.gayze-premium-page > section,
+.gayze-premium-page > button {
+  width: 100%;
+  min-width: 0;
+}
+.gayze-premium-page > section {
+  box-sizing: border-box;
+}
+@media (min-width: 768px) {
+  .gayze-premium-page {
+    max-width: 42rem;
+    padding-bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 20px);
+  }
+}
+@media (max-width: 767px) {
+  .g-main-viewport {
+    padding-bottom: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 20px) !important;
+  }
+}
