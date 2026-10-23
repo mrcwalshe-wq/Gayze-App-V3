@@ -1206,6 +1206,8 @@ export interface ConversationPeerKey {
 export interface ConversationSummary {
   id: string;
   createdAt: string | null;
+  /** Newest message time (metadata only), used to order the Messages list. */
+  lastMessageAt?: string | null;
 }
 
 export interface ConversationMemberRecord {
@@ -1263,6 +1265,15 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
     const conversationIds = Array.from(new Set(rows.map((row) => row.conversation_id)));
     if (!conversationIds.length) return { summaries: [], members: [], profiles: [] };
 
+    // Ordering metadata only: a failure here leaves the list ordered by creation
+    // time rather than hiding conversations.
+    const lastMessageAt = new Map<string, string>();
+    const activity = await supabase.rpc('get_my_conversation_activity');
+    if (activity.error) console.warn('[GAYZE] Conversation activity unavailable:', activity.error.message);
+    else for (const item of (activity.data ?? []) as Array<{ conversation_id: string; last_message_at: string | null }>) {
+      if (item.last_message_at) lastMessageAt.set(item.conversation_id, item.last_message_at);
+    }
+
     const summaries: ConversationSummary[] = [];
     const seenSummaries = new Set<string>();
     const members: ConversationMemberRecord[] = [];
@@ -1276,6 +1287,7 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
         summaries.push({
           id: row.conversation_id,
           createdAt: row.conversation_created_at,
+          lastMessageAt: lastMessageAt.get(row.conversation_id) ?? null,
         });
       }
 
