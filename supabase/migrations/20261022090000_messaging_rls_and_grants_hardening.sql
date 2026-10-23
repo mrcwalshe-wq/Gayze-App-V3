@@ -6,7 +6,7 @@
 --    The client never writes conversation_members directly: conversations and
 --    both membership rows are created atomically, in one SECURITY DEFINER
 --    transaction, by public.accept_interest(); members leave via
---    public.leave_conversation(). Dropping the policy therefore needs no
+--    public.leave_conversation(). Neutralising the policy therefore needs no
 --    client change. conversation_members_member_read (SELECT) is untouched.
 -- 2. Table privileges: anon and authenticated held INSERT/UPDATE/DELETE/TRUNCATE
 --    on the messaging tables. RLS blocked most of it, but TRUNCATE is not
@@ -19,7 +19,15 @@
 set lock_timeout = '5s';
 
 -- 1. Self-join exploit -------------------------------------------------------
-drop policy if exists member_self_all on public.conversation_members;
+-- The policy is made inert (deny-all) rather than removed, and the table
+-- privileges below are revoked as well: either alone closes the hole.
+do $policy$
+begin
+  if exists (select 1 from pg_policies where schemaname='public' and tablename='conversation_members' and policyname='member_self_all') then
+    alter policy member_self_all on public.conversation_members using (false) with check (false);
+  end if;
+end
+$policy$;
 
 -- 2. Privileges --------------------------------------------------------------
 revoke all on table
@@ -57,8 +65,16 @@ from authenticated;
 -- Device rows are written only by register_identity_device / revoke_identity_device
 -- (which enforce the fingerprint and recent-verification rules). The self_insert and
 -- self_update policies let a user bypass both, including un-revoking a device.
-drop policy if exists identity_devices_self_insert on public.identity_devices;
-drop policy if exists identity_devices_self_update on public.identity_devices;
+do $policy$
+begin
+  if exists (select 1 from pg_policies where schemaname='public' and tablename='identity_devices' and policyname='identity_devices_self_insert') then
+    alter policy identity_devices_self_insert on public.identity_devices with check (false);
+  end if;
+  if exists (select 1 from pg_policies where schemaname='public' and tablename='identity_devices' and policyname='identity_devices_self_update') then
+    alter policy identity_devices_self_update on public.identity_devices using (false) with check (false);
+  end if;
+end
+$policy$;
 revoke insert, update, delete on table public.identity_devices from authenticated;
 
 -- 3. One conversation per pair ----------------------------------------------

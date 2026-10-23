@@ -49,13 +49,18 @@ update public.conversation_key_envelopes e
    );
 
 -- Keys ------------------------------------------------------------------------
-alter table public.conversation_key_envelopes drop constraint conversation_key_envelopes_pkey;
-alter table public.conversation_key_envelopes
-  add constraint conversation_key_envelopes_pkey primary key (conversation_id, device_id, key_version);
-
-alter table public.conversation_key_bootstrap drop constraint conversation_key_bootstrap_pkey;
-alter table public.conversation_key_bootstrap
-  add constraint conversation_key_bootstrap_pkey primary key (conversation_id, key_version);
+do $keys$
+begin
+  if (select pg_get_constraintdef(oid) from pg_constraint where conname = 'conversation_key_envelopes_pkey') not like '%key_version%' then
+    alter table public.conversation_key_envelopes drop constraint conversation_key_envelopes_pkey,
+      add constraint conversation_key_envelopes_pkey primary key (conversation_id, device_id, key_version);
+  end if;
+  if (select pg_get_constraintdef(oid) from pg_constraint where conname = 'conversation_key_bootstrap_pkey') not like '%key_version%' then
+    alter table public.conversation_key_bootstrap drop constraint conversation_key_bootstrap_pkey,
+      add constraint conversation_key_bootstrap_pkey primary key (conversation_id, key_version);
+  end if;
+end
+$keys$;
 
 create index if not exists conversation_key_envelopes_conversation_version_idx
   on public.conversation_key_envelopes (conversation_id, key_version);
@@ -107,12 +112,14 @@ end;
 $function$;
 
 -- Claim ---------------------------------------------------------------------------
-drop function if exists public.claim_conversation_key_bootstrap(uuid, uuid);
-
+-- Versioned overload (no default, so PostgREST resolves a 2-argument call only
+-- to the shim below). The 2-argument signature used by the deployed client is
+-- kept as a version-1 shim: its old body inserted into the bootstrap table with
+-- ON CONFLICT (conversation_id), which no longer exists after the key change.
 create or replace function public.claim_conversation_key_bootstrap(
   p_conversation_id uuid,
   p_device_id uuid,
-  p_key_version integer default 1
+  p_key_version integer
 )
 returns boolean
 language plpgsql
@@ -194,9 +201,16 @@ $function$;
 revoke all on function public.claim_conversation_key_bootstrap(uuid, uuid, integer) from public, anon;
 grant execute on function public.claim_conversation_key_bootstrap(uuid, uuid, integer) to authenticated, service_role;
 
--- Save envelope -----------------------------------------------------------------
-drop function if exists public.save_conversation_key_envelope(uuid, uuid, uuid, text, text, uuid);
+create or replace function public.claim_conversation_key_bootstrap(p_conversation_id uuid, p_device_id uuid)
+returns boolean
+language sql
+security invoker
+set search_path to 'public', 'pg_temp'
+as $function$
+  select public.claim_conversation_key_bootstrap(p_conversation_id, p_device_id, 1)
+$function$;
 
+-- Save envelope -----------------------------------------------------------------
 create or replace function public.save_conversation_key_envelope(
   p_conversation_id uuid,
   p_user_id uuid,
@@ -204,7 +218,7 @@ create or replace function public.save_conversation_key_envelope(
   p_wrapped_key text,
   p_nonce text,
   p_created_by_device_id uuid,
-  p_key_version integer default 1
+  p_key_version integer
 )
 returns public.conversation_key_envelopes
 language plpgsql
@@ -264,6 +278,18 @@ $function$;
 revoke all on function public.save_conversation_key_envelope(uuid, uuid, uuid, text, text, uuid, integer) from public, anon;
 grant execute on function public.save_conversation_key_envelope(uuid, uuid, uuid, text, text, uuid, integer) to authenticated, service_role;
 
+-- Version-1 shim for the 6-argument call made by the deployed client.
+create or replace function public.save_conversation_key_envelope(
+  p_conversation_id uuid, p_user_id uuid, p_device_id uuid, p_wrapped_key text, p_nonce text, p_created_by_device_id uuid
+)
+returns public.conversation_key_envelopes
+language sql
+security invoker
+set search_path to 'public', 'pg_temp'
+as $function$
+  select * from public.save_conversation_key_envelope(p_conversation_id, p_user_id, p_device_id, p_wrapped_key, p_nonce, p_created_by_device_id, 1)
+$function$;
+
 -- Messages may only reference a key version that exists ----------------------
 create or replace function public.guard_message_key_version()
 returns trigger
@@ -280,7 +306,15 @@ begin
 end;
 $function$;
 
-drop trigger if exists messages_guard_key_version on public.messages;
-create trigger messages_guard_key_version
-  before insert on public.messages
-  for each row execute function public.guard_message_key_version();
+do $trg$
+begin
+  if not exists (select 1 from pg_trigger where tgname = 'messages_guard_key_version' and tgrelid = 'public.messages'::regclass) then
+    create trigger messages_guard_key_version
+      before insert on public.messages
+      for each row execute function public.guard_message_key_version();
+  end if;
+end
+$trg$;
+
+-- Trigger functions are never meant to be called through the API.
+revoke execute on function public.guard_conversation_key_envelope_creator(), public.guard_message_key_version() from public, anon, authenticated;
