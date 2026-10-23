@@ -35,6 +35,7 @@ import { AuthView, type AuthMode } from './components/AuthView';
 import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { InstallPrompt } from './components/InstallPrompt';
 import { NotificationsModal } from './components/NotificationsModal';
+import { PushEnableBanner } from './components/PushEnableBanner';
 import {
   finishPendingPushRevoke,
   registerServiceWorker,
@@ -3443,6 +3444,7 @@ export default function App() {
 
           {activeTab === 'swarms' && (
             <div className="g-messages-hub">
+              {IS_LIVE_BACKEND && <PushEnableBanner userId={supabaseUserId} />}
               <div className="g-messages-subtabs" role="tablist" aria-label="Messages sections">
                 <button
                   type="button"

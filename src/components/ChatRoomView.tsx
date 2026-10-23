@@ -36,6 +36,7 @@ import {
 import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
 import { PhotoStudio } from './PhotoStudio';
+import { buildChatTimeline, roomActivityAt } from '../services/chatTimeline';
 
 interface ChatRoomViewProps {
   rooms: SwarmRoom[];
@@ -270,6 +271,31 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [historyWindow, setHistoryWindow] = useState({ roomId: activeRoomId, count: 100 });
   const visibleCount = historyWindow.roomId === activeRoomId ? historyWindow.count : 100;
   const visibleMessages = currentMessages.slice(-visibleCount);
+  const roomGayzes = useMemo(() => gayzeEvents.filter((event) => currentRoom?.type === 'direct' && (
+    event.actorId === currentRoom.peerUserId
+    || Boolean(currentRoom.memberIds?.includes(event.actorId) && currentRoom.memberIds?.includes(currentUserId ?? ''))
+  )), [gayzeEvents, currentRoom?.type, currentRoom?.peerUserId, currentRoom?.memberIds, currentUserId]);
+  const timeline = useMemo(
+    () => buildChatTimeline(visibleMessages, roomGayzes, currentMessages.length > visibleCount),
+    [visibleMessages, roomGayzes, currentMessages.length, visibleCount],
+  );
+  // Latest activity first: newest message or newest received Gayze in each chat.
+  const sortedRooms = useMemo(() => {
+    const latestGayze = new Map<string, number>();
+    for (const event of gayzeEvents) {
+      const at = Date.parse(event.createdAt);
+      if (Number.isFinite(at)) latestGayze.set(event.actorId, Math.max(latestGayze.get(event.actorId) ?? 0, at));
+    }
+    const activity = (room: SwarmRoom) => {
+      const roomMessages = messages[room.id];
+      return roomActivityAt(
+        room.lastTimestamp,
+        roomMessages?.length ? roomMessages[roomMessages.length - 1].timestamp : undefined,
+        room.peerUserId ? latestGayze.get(room.peerUserId) : undefined,
+      );
+    };
+    return [...rooms].sort((a, b) => activity(b) - activity(a));
+  }, [rooms, messages, gayzeEvents]);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
   const previousTailRef = useRef<{ room: string; id?: string }>({ room: '', id: undefined });
@@ -442,7 +468,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </p>
             </div>
           )}
-          {rooms.map((room) => {
+          {sortedRooms.map((room) => {
             const isSelected = room.id === currentRoom?.id;
             const isGathering = room.type === 'gathering';
             const roomAvatar = room.peerAvatar && room.peerAvatar !== 'user'
@@ -737,35 +763,27 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 setHistoryWindow({ roomId: activeRoomId, count: visibleCount + 100 });
               }}>Show older messages</button>
             )}
-            {gayzeEvents
-              .filter((event) => currentRoom?.type === 'direct' && (
-                event.actorId === currentRoom.peerUserId
-                || Boolean(currentRoom.memberIds?.includes(event.actorId) && currentRoom.memberIds?.includes(currentUserId ?? ''))
-              ))
-              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-              .map((event) => (
-                <div key={`gayze-event-${event.id}`} className="flex justify-center py-1" role="note" aria-label={`${currentRoom?.name ?? 'Someone'} sent you a Gayze`}>
-                  <div className="relative flex max-w-[92%] items-center gap-3 rounded-2xl border border-violet-300/35 bg-gradient-to-r from-violet-950/80 via-fuchsia-950/45 to-amber-950/25 px-4 py-3 shadow-[0_0_22px_rgba(139,92,246,0.14)]">
-                    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-200/50 bg-gradient-to-br from-violet-500/35 to-amber-300/20 p-1.5">
-                      <img
-                        src="/brand/gayze-nav-v3.svg?v=20261008-8"
-                        alt="GAYZE logo"
-                        className="h-5 w-8 object-contain"
-                        width={32}
-                        height={20}
-                        draggable={false}
-                      />
-                      <Sparkles className="absolute -right-1 -top-1 h-4 w-4 text-amber-200" />
+            {timeline.map((entry) => {
+              if (entry.kind === 'gayze') {
+                const who = currentRoom?.name ?? 'Someone';
+                const label = entry.count > 1 ? `${who} sent you ${entry.count} Gayzes` : `${who} sent you a Gayze`;
+                return (
+                  <div key={entry.key} className="flex items-center gap-2 py-0.5" role="note" aria-label={label} data-gayze-event>
+                    <span className="h-px flex-1 bg-gradient-to-r from-transparent to-violet-300/25" aria-hidden="true" />
+                    <span className="inline-flex max-w-[86%] items-center gap-2 rounded-full border border-violet-300/30 bg-violet-950/50 py-1 pl-1.5 pr-3 text-[11px] text-violet-100">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/40 to-amber-300/25">
+                        <img src="/brand/gayze-nav-v3.svg?v=20261008-8" alt="" className="h-3 w-5 object-contain" width={20} height={12} draggable={false} />
+                      </span>
+                      <span className="min-w-0 truncate font-medium">{label}</span>
+                      <time className="shrink-0 text-[10px] text-violet-100/60" dateTime={entry.latestCreatedAt}>
+                        {new Date(entry.latestCreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </time>
                     </span>
-                    <span className="min-w-0">
-                      <span className="block text-xs font-semibold text-white">{currentRoom?.name ?? 'Someone'} sent you a Gayze</span>
-                      <time className="mt-1 block text-[10px] text-violet-100/65" dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time>
-                    </span>
-                    <span className="absolute -right-1 -top-1 text-amber-200" aria-hidden="true">✦</span>
+                    <span className="h-px flex-1 bg-gradient-to-l from-transparent to-violet-300/25" aria-hidden="true" />
                   </div>
-                </div>
-              ))}
-            {visibleMessages.map((msg) => {
+                );
+              }
+              const msg = entry.message;
               const isMe = currentUserId
                 ? msg.senderKey === currentUserId
                 : msg.senderKey === currentUser.publicKey;

@@ -36,7 +36,11 @@ export function buildRoomsFromSupabase(
 
     const others = memberIds.filter((id) => id !== currentUserId);
     const parsedTimestamp = summary.createdAt ? Date.parse(summary.createdAt) : NaN;
-    const lastTimestamp = Number.isFinite(parsedTimestamp) ? parsedTimestamp : Date.now();
+    const parsedLastMessage = summary.lastMessageAt ? Date.parse(summary.lastMessageAt) : NaN;
+    const createdTimestamp = Number.isFinite(parsedTimestamp) ? parsedTimestamp : Date.now();
+    // Latest activity wins, so the newest conversation is first from the first load.
+    const lastTimestamp = Number.isFinite(parsedLastMessage) ? Math.max(createdTimestamp, parsedLastMessage) : createdTimestamp;
+    const hasMessages = Number.isFinite(parsedLastMessage);
 
     // One other member = direct message. Anything else is a real group.
     if (memberIds.length <= 2 && others.length === 1) {
@@ -57,7 +61,7 @@ export function buildRoomsFromSupabase(
         peerAvatar,
         safetyNumber: '',
         swarmSecretKeyHex: '',
-        lastMessage: '',
+        lastMessage: hasMessages ? 'Encrypted message' : '',
         lastTimestamp,
         ephemeralTtlSeconds: 0,
         memberIds,
@@ -71,7 +75,7 @@ export function buildRoomsFromSupabase(
       type: 'gathering' as const,
       safetyNumber: '',
       swarmSecretKeyHex: '',
-      lastMessage: '',
+      lastMessage: hasMessages ? 'Encrypted message' : '',
       lastTimestamp,
       ephemeralTtlSeconds: 0,
       memberIds,
@@ -107,6 +111,9 @@ export function mergeBackendRooms(
       peerAvatar: room.peerAvatar,
       // A newly hidden/absent server value must clear stale presence metadata.
       peerLastSeenAt: room.peerLastSeenAt,
+      // Newer server-side activity (e.g. a message read on another device) moves the chat up.
+      lastTimestamp: Math.max(local.lastTimestamp, room.lastTimestamp),
+      lastMessage: room.lastTimestamp > local.lastTimestamp && !local.lastMessage ? room.lastMessage : local.lastMessage,
       memberIds: room.memberIds?.length ? room.memberIds : local.memberIds,
       memberNames: room.memberNames && Object.keys(room.memberNames).length
         ? room.memberNames
