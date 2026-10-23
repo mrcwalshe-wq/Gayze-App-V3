@@ -582,13 +582,18 @@ export async function submitInterest(
 }
 
 
-/** Claim the one-time creator slot used to serialize first conversation-key provisioning. */
-export async function claimConversationKeyBootstrap(conversationId: string, deviceId: string): Promise<boolean> {
+/**
+ * Claim the creator slot for `keyVersion` (1 for the first key, current + 1 for a
+ * re-key). Serialises key creation: only one device wins; false means another
+ * device is minting it, or that version already exists.
+ */
+export async function claimConversationKeyBootstrap(conversationId: string, deviceId: string, keyVersion = 1): Promise<boolean> {
   if (!supabase || !conversationId || !deviceId) return false;
   try {
     const { data, error } = await supabase.rpc('claim_conversation_key_bootstrap', {
       p_conversation_id: conversationId,
       p_device_id: deviceId,
+      p_key_version: keyVersion,
     });
     if (error) throw error;
     return data === true;
@@ -776,13 +781,17 @@ export interface SupabaseMessageRow {
   created_at: string;
   expires_at: string | null;
   burned_at: string | null;
+  /** Which conversation key version encrypted this row (absent on pre-versioning rows = 1). */
+  key_version?: number | null;
 }
+
+export const MESSAGE_ROW_COLUMNS = 'id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at,key_version';
 
 export async function loadConversationMessages(conversationId: string): Promise<SupabaseMessageRow[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('messages')
-    .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
+    .select(MESSAGE_ROW_COLUMNS)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -796,6 +805,7 @@ export async function persistConversationMessage(
   expiresAt?: string | null,
   messageId: string = crypto.randomUUID(),
   expectedUserId?: string,
+  keyVersion = 1,
 ) {
   if (!supabase) throw new Error('Supabase is not configured');
   const user = await ensureSupabaseSession();
@@ -810,15 +820,16 @@ export async function persistConversationMessage(
       ciphertext,
       nonce,
       expires_at: expiresAt ?? null,
+      key_version: keyVersion,
     })
-    .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
+    .select(MESSAGE_ROW_COLUMNS)
     .single();
 
   if (error) {
     // A timeout can hide a successful commit. Manual retry uses the same
     // messages primary key, not a new send. Never upsert/update ciphertext.
     const receipt = await supabase.from('messages')
-      .select('id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at')
+      .select(MESSAGE_ROW_COLUMNS)
       .eq('id', messageId).eq('conversation_id', conversationId).eq('sender_id', user.id).maybeSingle();
     if (!receipt.error && receipt.data) return receipt.data as SupabaseMessageRow;
     throw error;
@@ -1333,6 +1344,10 @@ export interface ConversationKeyEnvelope {
   nonce: string;
   created_by_device_id: string | null;
   created_at: string;
+  /** Absent on rows read from a pre-versioning schema: treated as version 1. */
+  key_version?: number;
+  /** Public key of the wrapping device, recorded server-side; stays openable after that device is revoked. */
+  creator_public_key?: string | null;
 }
 
 export interface ConversationKeyEnvelopeRead {
@@ -1346,7 +1361,7 @@ export async function readConversationKeyEnvelopes(conversationId: string): Prom
   try {
     const { data, error } = await supabase
       .from('conversation_key_envelopes')
-      .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at')
+      .select('conversation_id,user_id,device_id,wrapped_key,nonce,created_by_device_id,created_at,key_version,creator_public_key')
       .eq('conversation_id', conversationId);
     if (error) {
       console.warn('[GAYZE] Supabase listConversationKeyEnvelopes unavailable:', error.message);
@@ -1364,7 +1379,7 @@ export async function listConversationKeyEnvelopes(conversationId: string): Prom
 }
 
 export async function saveConversationKeyEnvelope(
-  envelope: Omit<ConversationKeyEnvelope, 'created_at'>,
+  envelope: Omit<ConversationKeyEnvelope, 'created_at' | 'creator_public_key'>,
 ): Promise<ConversationKeyEnvelope | null> {
   if (!supabase) return null;
   try {
@@ -1378,6 +1393,7 @@ export async function saveConversationKeyEnvelope(
       p_wrapped_key: envelope.wrapped_key,
       p_nonce: envelope.nonce,
       p_created_by_device_id: envelope.created_by_device_id,
+      p_key_version: envelope.key_version ?? 1,
     });
     if (error) {
       console.warn('[GAYZE] Supabase save_conversation_key_envelope unavailable:', error.message);

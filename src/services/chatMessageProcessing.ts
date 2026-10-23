@@ -2,6 +2,19 @@ import type { SwarmRoom, EncryptedMessage } from '../types';
 import type { SupabaseMessageRow } from './supabaseService';
 import type { ConversationKeyResult } from './conversationKeyService';
 
+export type MessageDecryptCode = 'key_unavailable' | 'no_key_for_version' | 'authentication_failed';
+
+/**
+ * A message that cannot be opened on this device. Always surfaced to the UI as
+ * an explicit "can't decrypt" state; never swallowed and never shown as delivered text.
+ */
+export class MessageDecryptError extends Error {
+  constructor(public readonly code: MessageDecryptCode, message: string) {
+    super(message);
+    this.name = 'MessageDecryptError';
+  }
+}
+
 /** Account/device-local, bounded, RAM-only reuse. Never persist keys/plaintext.
  * Share in-flight work between inbox, active-room hydration and send. */
 export class ChatMessageProcessor {
@@ -46,15 +59,24 @@ export class ChatMessageProcessor {
       this.texts.delete(id);
       return Promise.reject(new Error('Message no longer readable'));
     }
-    const version = `${this.keyId(room, userId)}|${row.nonce}|${row.ciphertext}`;
+    const keyVersion = row.key_version ?? 1;
+    const version = `${this.keyId(room, userId)}|${keyVersion}|${row.nonce}|${row.ciphertext}`;
     const cached = this.texts.get(id);
     if (cached?.version === version && cached.expires > this.now()) return cached.work;
     const keyId = this.keyId(room, userId);
     const keyWork = this.key(room, userId);
     const entry = { version, created: Date.parse(row.created_at) || 0, expires: Math.min(this.now() + 120_000, row.expires_at ? Date.parse(row.expires_at) : Infinity), work: Promise.resolve('') };
     entry.work = keyWork.then(async (result) => {
-      const candidates = [result.key, result.legacyKey].filter(Boolean) as CryptoKey[];
-      if (!candidates.length) throw new Error(result.reason || 'Conversation key unavailable');
+      // Pick the key that encrypted THIS row. Old rows keep their old version
+      // key; the legacy ECDH key is only ever a read candidate.
+      const versioned = result.keys ? result.keys.get(keyVersion) : result.key;
+      const candidates = [versioned, result.legacyKey].filter(Boolean) as CryptoKey[];
+      if (!candidates.length) {
+        throw new MessageDecryptError(
+          result.keys ? 'no_key_for_version' : 'key_unavailable',
+          result.reason || 'Conversation key unavailable',
+        );
+      }
       let lastError: unknown = null;
       for (const key of candidates) {
         try {
@@ -66,7 +88,8 @@ export class ChatMessageProcessor {
       // A changed/revoked identity or envelope must be retryable; do not let
       // an old request evict the replacement key started by another row.
       if (this.keys.get(keyId)?.work === keyWork) this.keys.delete(keyId);
-      throw lastError ?? new Error('Message decryption failed');
+      // AES-GCM authentication failed: the ciphertext was altered or the key is wrong.
+      throw new MessageDecryptError('authentication_failed', lastError instanceof Error ? lastError.message : 'Message authentication failed');
     }).catch((error) => { if (this.texts.get(id) === entry) this.texts.delete(id); throw error; });
     this.texts.set(id, entry);
     if (this.texts.size > 512) {
