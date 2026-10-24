@@ -1,4 +1,5 @@
 import { PeerIntentBanner } from './PeerIntentBanner';
+import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
@@ -106,6 +107,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onBlockPeer,
   activeIntentMode,
 }) => {
+  const openPeek = useProfilePeek();
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
@@ -485,6 +487,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   }`}
               >
                 <div
+                  {...(isGathering ? {} : peekTapProps(openPeek, room.peerUserId, { name: room.peerName || room.name, photoUrl: room.peerAvatar && room.peerAvatar !== 'user' ? room.peerAvatar : undefined }))}
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold overflow-hidden ${isGathering
                     ? 'bg-[#171922] text-[#C9A24D] border border-[#C9A24D]/30'
                     : 'bg-[#171922] text-zinc-200 border border-white/10'
@@ -559,7 +562,13 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              <div className="g-chat-header__avatar w-10 h-10 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0 overflow-hidden">
+              <div
+                {...(currentRoom.type === 'direct' ? peekTapProps(openPeek, currentRoom.peerUserId, {
+                  name: currentRoom.peerName || currentRoom.name,
+                  photoUrl: currentRoom.peerAvatar && currentRoom.peerAvatar !== 'user' ? currentRoom.peerAvatar : undefined,
+                  online: Boolean(currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId)),
+                }) : {})}
+                className="g-chat-header__avatar w-10 h-10 rounded-xl bg-[#171922] border border-white/10 flex items-center justify-center text-xs font-semibold text-[#C9A24D] shrink-0 overflow-hidden">
                 {currentRoom.type === 'gathering' ? (
                   <Users className="w-4 h-4" />
                 ) : (currentRoom.peerAvatar && currentRoom.peerAvatar !== 'user' && (avatarUrls[currentRoom.peerAvatar] || (currentRoom.peerAvatar.startsWith('http') ? currentRoom.peerAvatar : null))) ? (
