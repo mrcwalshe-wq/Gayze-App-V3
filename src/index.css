@@ -642,7 +642,6 @@ button, input, select, textarea, [role="button"] {
 }
 
 .g-panel {
-  position: relative;
   background:
     var(--g-bloom),
     linear-gradient(180deg, rgba(18, 19, 27, 0.92), rgba(11, 12, 18, 0.95));
@@ -2955,11 +2954,13 @@ button, input, select, textarea, [role="button"] {
 .g-discovery-action--primary:disabled { opacity: .55; }
 /* Shared animated GAYZE frame for primary menu surfaces. */
 .g-gayze-menu-frame {
-  position: relative;
   isolation: isolate;
   border: 1px solid transparent !important;
   background-clip: padding-box !important;
 }
+/* Unlayered, so these must not override Tailwind's absolute/fixed popovers. */
+.g-gayze-menu-frame:not(.absolute, .fixed, .sticky),
+.g-panel:not(.absolute, .fixed, .sticky) { position: relative; }
 .g-gayze-menu-frame::after {
   content: "";
   position: absolute;
