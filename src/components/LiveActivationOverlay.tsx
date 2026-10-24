@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { Radio, Check, Waves, Smartphone, Zap } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { TopLevelIntentMode } from '../types';
+import { hapticSensitiveAction, triggerVibration } from '../services/hapticService';
+import { GayzeWarp } from './GayzeWarp';
 
 interface LiveActivationOverlayProps {
   stage: 'connecting' | 'live';
@@ -9,71 +10,62 @@ interface LiveActivationOverlayProps {
   onComplete: () => void;
 }
 
-/**
- * A short, AirDrop-inspired phone-to-phone handshake. It is only shown for a
- * confirmed first-time "Right now" publish; failure paths dismiss it rather
- * than claiming that the user is live.
- */
-export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({
-  stage, mode, intent, onComplete,
-}) => {
-  // Keep the latest callback without restarting the dismissal timer whenever
-  // the parent renders. App passes an inline callback, so depending on
-  // onComplete here can otherwise reset this timer indefinitely.
-  const onCompleteRef = useRef(onComplete);
-  useEffect(() => {
-    onCompleteRef.current = onComplete;
-  }, [onComplete]);
+/** The go-live event: the Gayze mark rushes out of deep space into the viewer, shockwaves
+ *  roll out, and "You're live" lands. Only shown for a confirmed first-time publish;
+ *  failure paths dismiss it rather than claiming that the user is live. */
+const ARRIVAL_MS = 1100;
+const HOLD_MS = 2600;
 
+export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ stage, mode, intent, onComplete }) => {
+  // Keep the latest callback without restarting the dismissal timer on every parent render.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+
+  // The logo needs its arrival even when the backend answers instantly.
+  const [arrived, setArrived] = useState(false);
   useEffect(() => {
-    if (stage !== 'live') return;
-    const timeout = window.setTimeout(() => onCompleteRef.current(), 1650);
-    return () => window.clearTimeout(timeout);
-  }, [stage]);
+    const t = window.setTimeout(() => setArrived(true), ARRIVAL_MS);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const isLive = stage === 'live' && arrived;
+  useEffect(() => {
+    if (!isLive) return;
+    hapticSensitiveAction();
+    triggerVibration([20, 40, 90]);
+    const t = window.setTimeout(() => onCompleteRef.current(), HOLD_MS);
+    return () => window.clearTimeout(t);
+  }, [isLive]);
 
   const tone = mode === 'private' ? 'private' : 'social';
-  const isLive = stage === 'live';
+  const logo = tone === 'private' ? '/brand/gayze-nav-private.svg?v=20261008-1' : '/brand/gayze-nav-social.svg?v=20261008-1';
 
   return (
     <div
-      className={`g-live-handshake g-live-handshake--${tone} ${isLive ? 'is-live' : 'is-connecting'}`}
+      className={`g-golive g-golive--${tone} ${isLive ? 'is-live' : 'is-connecting'}`}
       role="status"
       aria-live="polite"
       aria-label={isLive ? 'Your intent is live' : 'Connecting your live intent'}
+      onClick={() => { if (isLive) onCompleteRef.current(); }}
     >
-      <div className="g-live-handshake__backdrop" />
-      <div className="g-live-handshake__content">
-        <div className="g-live-orbit" aria-hidden="true">
-          <span className="g-live-orbit__ring g-live-orbit__ring--outer" />
-          <span className="g-live-orbit__ring g-live-orbit__ring--middle" />
-          <span className="g-live-orbit__ring g-live-orbit__ring--inner" />
-          <span className="g-live-orbit__beam" />
-          <span className="g-live-orbit__node g-live-orbit__node--one" />
-          <span className="g-live-orbit__node g-live-orbit__node--two" />
-          <span className="g-live-orbit__node g-live-orbit__node--three" />
-          <span className="g-live-orbit__core">
-            {isLive ? <Check size={25} strokeWidth={2.8} /> : <Radio size={25} strokeWidth={1.8} />}
-          </span>
-          <span className="g-live-orbit__signal"><Waves size={15} /></span>
-          <span className="g-live-devices">
-            <span className="g-live-device g-live-device--one"><Smartphone size={27} strokeWidth={1.8} /></span>
-            <span className="g-live-device-link"><span /><Zap size={13} /></span>
-            <span className="g-live-device g-live-device--two">
-              {isLive ? <Check size={23} strokeWidth={2.7} /> : <Smartphone size={27} strokeWidth={1.8} />}
-            </span>
-          </span>
+      <div className="g-golive__aurora" aria-hidden="true" />
+      <GayzeWarp burst={isLive} />
+      <div className="g-golive__stage">
+        <div className="g-golive__mark" aria-hidden="true">
+          {isLive && <><span className="g-golive__shock g-golive__shock--a" /><span className="g-golive__shock g-golive__shock--b" /><span className="g-golive__shock g-golive__shock--c" /></>}
+          <span className="g-golive__ring" />
+          <span className="g-golive__halo" />
+          <img className="g-golive__logo" src={logo} alt="" width={168} height={84} draggable={false} />
         </div>
-        <div className="g-live-handshake__eyebrow">
-          <span className="g-live-handshake__dot" />
-          {isLive ? 'SIGNAL ESTABLISHED' : 'GAYZE NETWORK'}
+        <div className="g-golive__copy">
+          <div className="g-golive__eyebrow">{isLive ? 'SIGNAL ESTABLISHED' : 'GAYZE NETWORK'}</div>
+          <h2 className="g-golive__title" key={isLive ? 'live' : 'connecting'}>
+            {isLive ? "You're live." : 'Going live'}
+          </h2>
+          <p className="g-golive__sub">{isLive ? 'Your signal is on the map.' : 'Reaching the people around you…'}</p>
+          {isLive && <span className="g-golive__intent">{intent}</span>}
+          {isLive && <span className="g-golive__tap">Tap to continue</span>}
         </div>
-        <h2 className="g-live-handshake__title">
-          {isLive ? "You're live." : 'Connecting nearby'}
-        </h2>
-        <p className="g-live-handshake__copy">
-          {isLive ? 'Your signal is on the map.' : 'Your phone is sharing your intent with people nearby…'}
-        </p>
-        <span className="g-live-handshake__intent">{intent}</span>
       </div>
     </div>
   );
