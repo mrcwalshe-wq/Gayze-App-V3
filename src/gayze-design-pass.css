@@ -305,11 +305,12 @@
 nav.g-tabbar .g-tab--discover { --gj: 184, 92, 222; --gj2: 240, 141, 154; }
 nav.g-tabbar .g-tab--discover[data-intent-mode='private'] { --gj: 139, 92, 246; --gj2: 214, 120, 255; }
 nav.g-tabbar .g-tab--discover[data-intent-mode='social'] { --gj: 214, 168, 70; --gj2: 255, 130, 120; }
-nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action { position: relative !important; overflow: visible !important; }
+nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action { position: relative !important; overflow: visible !important; isolation: isolate !important; z-index: 0 !important; }
+nav.g-tabbar .g-tab--discover .g-tab__label { margin-top: 10px !important; }
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before {
   content: "" !important; display: block !important; position: absolute !important; z-index: -1 !important;
-  left: 50% !important; top: 50% !important; width: 78px !important; height: 78px !important; margin: -39px 0 0 -39px !important;
-  border-radius: 50% !important; padding: 2px !important;
+  left: 50% !important; top: 50% !important; width: 60px !important; height: 60px !important; margin: -30px 0 0 -30px !important;
+  border-radius: 50% !important; padding: 1.5px !important;
   background: conic-gradient(from var(--gayze-action-angle, 0deg), rgba(var(--gj), 1), rgba(var(--gj2), .95), rgba(214, 168, 70, .9), rgba(var(--gj), 1)) !important;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
   -webkit-mask-composite: xor !important; mask-composite: exclude !important;
@@ -317,7 +318,7 @@ nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before {
 }
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after {
   content: "" !important; display: block !important; position: absolute !important; z-index: -2 !important;
-  left: 50% !important; top: 50% !important; width: 78px !important; height: 78px !important; margin: -39px 0 0 -39px !important;
+  left: 50% !important; top: 50% !important; width: 60px !important; height: 60px !important; margin: -30px 0 0 -30px !important;
   border-radius: 50% !important;
   background: radial-gradient(circle at 50% 38%, rgba(var(--gj), .34), rgba(14, 10, 26, .92) 68%) !important;
   box-shadow: 0 0 0 1px rgba(var(--gj), .18), 0 10px 30px rgba(var(--gj), .34), 0 0 46px rgba(var(--gj), .22), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
