@@ -666,6 +666,8 @@ nav.g-tabbar .g-tab--discover .g-tab__label {
 @media (prefers-reduced-motion: reduce) {
   .g-call__blob, .g-orb__spin, .g-orb__ripple, .g-answer__btn--accept, .g-answer__btn--accept::before, .g-voice span, .g-call__status.is-pending::after, .g-call--incoming { animation: none !important; }
 }
+
+/* ==========================================================================
    Later: gatherings as posters
    ========================================================================== */
 .g-later__hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
