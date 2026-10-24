@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { Clock3, EyeOff, Pause, PencilLine, Play, Plus, Power, Radio, Sparkles, UsersRound, X } from 'lucide-react';
 import type { TopLevelIntentMode, UserActiveIntent } from '../types';
 import { hapticLight } from '../services/hapticService';
@@ -37,6 +37,19 @@ export const IntentHub: React.FC<IntentHubProps> = ({
     const t = window.setTimeout(() => setConfirmEnd(false), 4000);
     return () => window.clearTimeout(t);
   }, [confirmEnd]);
+  const [navClearance, setNavClearance] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const measure = () => {
+      const nav = document.querySelector('nav.g-tabbar');
+      if (!nav) return setNavClearance(null);
+      // Sit above the bar and the GAYZE dome that rises out of it.
+      setNavClearance(Math.max(0, window.innerHeight - nav.getBoundingClientRect().top) + 26);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [isOpen]);
   if (!isOpen) return null;
 
   const hasActive = Boolean(activeIntent);
@@ -56,6 +69,61 @@ export const IntentHub: React.FC<IntentHubProps> = ({
     >
       <div className="g-intent-hub__scrim" aria-hidden="true" />
 
+      {hasActive && activeIntent ? (
+        <section
+          className={`g-live-card ${isPrivate ? 'is-private' : 'is-social'} ${isPaused ? 'is-paused' : ''}`}
+          style={navClearance != null ? { marginBottom: navClearance } : undefined}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="g-live-card__head">
+            <span className="g-live-card__mode">
+              <i aria-hidden="true" />
+              {isPaused ? 'PAUSED' : isPrivate ? 'PRIVATE · LIVE' : 'SOCIAL · LIVE'}
+            </span>
+            <button type="button" className="g-live-card__close" onClick={onClose} aria-label="Close">
+              <X className="w-4 h-4" />
+            </button>
+          </header>
+
+          <div className="g-live-card__body">
+            <span className="g-live-card__icon" aria-hidden="true">
+              {isPrivate ? <EyeOff className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+            </span>
+            <div className="g-live-card__copy">
+              <strong>{(activeIntent.intent ?? '').replace(/^(private|social)\s*·\s*/i, '')}</strong>
+              <span>{activeIntent.description || (isPaused ? 'Hidden from the map' : 'Visible on the map')}</span>
+            </div>
+            <div className="g-live-card__time">
+              <b>{formatRemaining(remainingMinutes).replace(' left', '')}</b>
+              <small>left</small>
+            </div>
+          </div>
+
+          <div className="g-live-card__meter" role="progressbar" aria-label="Time remaining" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+            <span style={{ width: `${progress * 100}%` }} />
+          </div>
+
+          <div className="g-live-card__actions">
+            <button type="button" onClick={() => { hapticLight(); onManageIntent(); }}>
+              <PencilLine className="w-4 h-4" /><span>Update</span>
+            </button>
+            {onTogglePause && (
+              <button type="button" onClick={() => { hapticLight(); onTogglePause(); }}>
+                {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}<span>{isPaused ? 'Resume' : 'Pause'}</span>
+              </button>
+            )}
+            {onEndIntent && (
+              <button
+                type="button"
+                className={`is-end ${confirmEnd ? 'is-armed' : ''}`}
+                onClick={() => { if (confirmEnd) { onEndIntent(); } else { hapticLight(); setConfirmEnd(true); } }}
+              >
+                <Power className="w-4 h-4" /><span>{confirmEnd ? 'Tap to end' : 'End'}</span>
+              </button>
+            )}
+          </div>
+        </section>
+      ) : (
       <section
         className={`g-gayze-menu-frame g-intent-hub__sheet ${hasActive ? 'g-intent-hub__sheet--live g-intent-hub__sheet--status' : ''}`}
         onClick={(event) => event.stopPropagation()}
@@ -151,6 +219,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
           </button>
         )}
       </section>
+      )}
     </div>
   );
 };
