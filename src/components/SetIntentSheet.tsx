@@ -9,6 +9,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
+import { SparkBorder } from './SparkBorder';
 import {
   SafeHaven,
   TopLevelIntentMode,
@@ -288,6 +289,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   data-active={mode === 'social'}
                   onClick={() => handleSelectMode('social')}
                 >
+                  {mode === 'social' && <SparkBorder tone="social" />}
                   <span className="g-opt__orb" aria-hidden="true"><UsersRound className="w-[18px] h-[18px]" /></span>
                   <span className="g-opt__t">Social</span>
                   <span className="g-opt__d">Meet · Drinks · Dates · Groups</span>
@@ -305,6 +307,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   data-active={mode === 'private'}
                   onClick={() => handleSelectMode('private')}
                 >
+                  {mode === 'private' && <SparkBorder tone="private" />}
                   <span className="g-opt__orb" aria-hidden="true"><EyeOff className="w-[18px] h-[18px]" /></span>
                   <span className="g-opt__t">Private</span>
                   <span className="g-opt__d">Discreet · one-to-one</span>
@@ -331,6 +334,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                       data-active={intent === opt.value}
                       onClick={() => handleSelectIntent(opt.value)}
                     >
+                      {intent === opt.value && <SparkBorder tone={mode === 'social' ? 'social' : 'private'} />}
                       <span className="g-opt__t">{opt.label}</span>
                       {opt.hint && <span className="g-opt__d hidden sm:block">{opt.hint}</span>}
                     </button>
