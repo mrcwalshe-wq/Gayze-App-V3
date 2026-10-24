@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { isUuid, orderPeerPhotos } from './profilePeek';
 
 export interface ProfilePhoto {
   id: string;
@@ -132,6 +133,36 @@ export async function loadProfilePhotos(): Promise<ProfilePhoto[]> {
       photos.push({ id: row.id, userId: row.user_id, storagePath: row.storage_path, sortOrder: row.sort_order, isPrimary: Boolean(row.is_primary), url });
     } catch {
       // If one image fails to sign, continue loading remaining photos.
+    }
+  }
+  return photos;
+}
+
+export interface PeerPhoto { id: string; url: string; isPrimary: boolean }
+
+/**
+ * Another member's photos, exactly as far as the database lets this viewer see them.
+ * Row-level security on profile_photos already limits rows to people who may see that
+ * member's media (a live intent, a shared conversation, a pending Gayze, or photos
+ * shared with them), and storage signing is gated the same way, so an empty result
+ * means "nothing visible to you", not an error. No SECURITY DEFINER shortcut is used.
+ */
+export async function loadPeerPhotos(userId: string): Promise<PeerPhoto[]> {
+  if (!supabase || !isUuid(userId)) return [];
+  const { data, error } = await supabase
+    .from('profile_photos')
+    .select('id,user_id,storage_path,sort_order,is_primary')
+    .eq('user_id', userId);
+  if (error) {
+    console.warn('[GAYZE] loadPeerPhotos error:', error.message);
+    return [];
+  }
+  const photos: PeerPhoto[] = [];
+  for (const row of orderPeerPhotos(data ?? [])) {
+    try {
+      photos.push({ id: row.id, url: await signedUrl(row.storage_path, userId), isPrimary: Boolean(row.is_primary) });
+    } catch {
+      // A photo that will not sign is simply not shown.
     }
   }
   return photos;

@@ -43,10 +43,10 @@ interface NotificationsModalProps {
   onOpenPublicProfile?: (
     userId: string,
     fallback?: {
-      fallbackName?: string;
-      fallbackAge?: number;
-      fallbackArea?: string;
-      fallbackPhotoUrl?: string;
+      name?: string;
+      age?: number;
+      area?: string;
+      photoUrl?: string;
     },
   ) => void;
   onInterestAccepted?: (conversationId: string) => void;
@@ -391,10 +391,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                           className="relative w-16 h-16 shrink-0 rounded-2xl overflow-hidden border border-[#C9A24D]/45 bg-[#171922] focus:outline-none focus:ring-2 focus:ring-[#C9A24D]/60"
                           aria-label={`View ${interest.fromDisplayName}'s profile`}
                           onClick={() => onOpenPublicProfile?.(interest.fromUserId, {
-                            fallbackName: interest.fromDisplayName,
-                            fallbackAge: interest.fromAge ?? undefined,
-                            fallbackArea: interest.fromNeighborhood ?? undefined,
-                            fallbackPhotoUrl: interest.fromAvatarUrl ?? undefined,
+                            name: interest.fromDisplayName,
+                            age: interest.fromAge ?? undefined,
+                            area: interest.fromNeighborhood ?? undefined,
+                            photoUrl: interest.fromAvatarUrl ?? undefined,
                           })}
                         >
                           <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white">
