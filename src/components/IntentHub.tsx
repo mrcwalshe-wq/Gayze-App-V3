@@ -1,5 +1,5 @@
-import React from 'react';
-import { Clock3, EyeOff, Plus, Radio, Sparkles, UsersRound, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Clock3, EyeOff, Pause, PencilLine, Play, Plus, Power, Radio, Sparkles, UsersRound, X } from 'lucide-react';
 import type { TopLevelIntentMode, UserActiveIntent } from '../types';
 import { hapticLight } from '../services/hapticService';
 
@@ -10,6 +10,8 @@ interface IntentHubProps {
   onClose: () => void;
   onCreateIntent: (mode?: TopLevelIntentMode | null) => void;
   onManageIntent: () => void;
+  onTogglePause?: () => void;
+  onEndIntent?: () => void;
 }
 
 const formatRemaining = (minutes: number) => {
@@ -25,11 +27,24 @@ export const IntentHub: React.FC<IntentHubProps> = ({
   onClose,
   onCreateIntent,
   onManageIntent,
+  onTogglePause,
+  onEndIntent,
 }) => {
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  useEffect(() => { if (!isOpen) setConfirmEnd(false); }, [isOpen]);
+  useEffect(() => {
+    if (!confirmEnd) return;
+    const t = window.setTimeout(() => setConfirmEnd(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [confirmEnd]);
   if (!isOpen) return null;
 
   const hasActive = Boolean(activeIntent);
   const isPrivate = activeIntent?.mode === 'private';
+  const isPaused = Boolean(activeIntent?.isPaused);
+  const total = activeIntent ? Math.max(1, activeIntent.expiresAt - activeIntent.activatedAt) : 1;
+  const left = activeIntent ? Math.max(0, activeIntent.expiresAt - Date.now()) : 0;
+  const progress = Math.min(1, left / total);
 
   return (
     <div
@@ -50,10 +65,10 @@ export const IntentHub: React.FC<IntentHubProps> = ({
         <header className="g-intent-hub__header">
           <div className="g-intent-hub__heading">
             <span className="g-intent-hub__eyebrow">GAYZE · INTENTS</span>
-            <h2>{hasActive ? 'Your intent is live' : 'What do you want to do?'}</h2>
+            <h2>{hasActive ? (isPaused ? 'Your intent is paused' : 'Your intent is live') : 'What do you want to do?'}</h2>
             <p>
               {hasActive
-                ? 'Your signal is visible on the map. You can manage it or create a new one.'
+                ? (isPaused ? 'Hidden from the map until you resume.' : 'Your signal is visible on the map.')
                 : 'Create a time-bound signal and discover people around the same intent.'}
             </p>
           </div>
@@ -75,9 +90,6 @@ export const IntentHub: React.FC<IntentHubProps> = ({
               <strong>{activeIntent?.intent?.replace(' · ', ' ')}</strong>
               <span>{activeIntent?.description || 'Your current GAYZE intent'}</span>
             </div>
-            <button type="button" className="g-intent-hub__manage" onClick={() => { hapticLight(); onManageIntent(); }}>
-              Manage
-            </button>
           </div>
         ) : (
           <div className="g-intent-hub__choices">
@@ -99,6 +111,33 @@ export const IntentHub: React.FC<IntentHubProps> = ({
               <span className="g-intent-hub__choice-arrow">→</span>
             </button>
           </div>
+        )}
+
+        {hasActive && (
+          <>
+            <div className="g-intent-hub__meter" role="progressbar" aria-label="Time remaining" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+              <span style={{ width: `${progress * 100}%` }} />
+            </div>
+            <div className="g-intent-hub__controls">
+              <button type="button" className="g-intent-hub__control" onClick={() => { hapticLight(); onManageIntent(); }}>
+                <PencilLine className="w-[18px] h-[18px]" /><span>Update</span>
+              </button>
+              {onTogglePause && (
+                <button type="button" className="g-intent-hub__control" onClick={() => { hapticLight(); onTogglePause(); }}>
+                  {isPaused ? <Play className="w-[18px] h-[18px]" /> : <Pause className="w-[18px] h-[18px]" />}<span>{isPaused ? 'Resume' : 'Pause'}</span>
+                </button>
+              )}
+              {onEndIntent && (
+                <button
+                  type="button"
+                  className={`g-intent-hub__control g-intent-hub__control--end ${confirmEnd ? 'is-armed' : ''}`}
+                  onClick={() => { if (confirmEnd) { onEndIntent(); } else { hapticLight(); setConfirmEnd(true); } }}
+                >
+                  <Power className="w-[18px] h-[18px]" /><span>{confirmEnd ? 'Tap to end' : 'End'}</span>
+                </button>
+              )}
+            </div>
+          </>
         )}
 
         <div className="g-intent-hub__map-note">

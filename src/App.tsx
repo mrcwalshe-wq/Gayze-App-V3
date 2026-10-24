@@ -3420,6 +3420,7 @@ export default function App() {
               onGazeAtPeer={handleGazeAtPeer}
               onOpenScheduleMeeting={handleOpenScheduleMeeting}
               onOpenSetIntent={handleOpenIntentSheet}
+              onOpenIntentHub={handleOpenIntentHub}
               onSubmitInterest={handleSubmitInterest}
               onSubmitGaze={handleSubmitGaze}
               onSwitchToLater={() => setActiveTab('later')}
@@ -3737,6 +3738,11 @@ export default function App() {
         onManageIntent={() => {
           setIsIntentHubOpen(false);
           setIsSetIntentOpen(true);
+        }}
+        onTogglePause={() => handleToggleIntentPause(!activeUserIntentRef.current?.isPaused)}
+        onEndIntent={() => {
+          setIsIntentHubOpen(false);
+          handleEndUserIntent();
         }}
       />
 
