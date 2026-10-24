@@ -249,7 +249,6 @@
 /* ---- Sparkler border: replaces the floating twinkle dots ---------------- */
 .g-opt[data-tone]::before { display: none; }
 .g-opt[data-tone][data-active='true'] { overflow: visible; }
-.g-sparkborder { position: absolute; left: -34px; top: -34px; pointer-events: none; z-index: 4; }
 
 
 /* ==========================================================================
