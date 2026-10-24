@@ -1,18 +1,45 @@
 import React, { useState } from 'react';
 import { Gathering, UserProfile } from '../types';
-import { 
-  Calendar, 
-  MapPin, 
-  Users, 
-  ShieldCheck, 
-  Lock, 
-  Plus, 
-  Check, 
-  Clock, 
-  X, 
-  ArrowRight
+import {
+  Calendar,
+  MapPin,
+  Users,
+  ShieldCheck,
+  Lock,
+  Plus,
+  Minus,
+  Check,
+  Clock,
+  X,
+  ArrowRight,
+  Wine,
+  Dices,
+  Dumbbell,
+  Palette,
+  MessagesSquare,
+  type LucideIcon,
 } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
+
+const CATEGORY_ART: Record<string, { label: string; icon: LucideIcon; rgb: string; rgb2: string }> = {
+  social: { label: 'Social & drinks', icon: Wine, rgb: '214, 170, 80', rgb2: '184, 92, 222' },
+  games: { label: 'Board games', icon: Dices, rgb: '120, 110, 255', rgb2: '70, 170, 230' },
+  active: { label: 'Outdoor & sports', icon: Dumbbell, rgb: '52, 211, 153', rgb2: '70, 150, 230' },
+  arts: { label: 'Arts & culture', icon: Palette, rgb: '240, 120, 160', rgb2: '184, 92, 222' },
+  discussions: { label: 'Salons & talks', icon: MessagesSquare, rgb: '170, 130, 255', rgb2: '214, 170, 80' },
+};
+const artFor = (category: string) => CATEGORY_ART[category] ?? CATEGORY_ART.social;
+
+const startsIn = (timestamp: number): string => {
+  const diff = timestamp - Date.now();
+  if (diff <= 0) return 'Now';
+  const mins = Math.round(diff / 60000);
+  if (mins < 60) return `In ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `In ${hours}h${mins % 60 ? ` ${mins % 60}m` : ''}`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'Tomorrow' : `In ${days} days`;
+};
 
 interface LaterViewProps {
   gatherings: Gathering[];
@@ -134,376 +161,274 @@ export const LaterView: React.FC<LaterViewProps> = ({
     setFormError(null);
   };
 
+  const nextUp = filteredGatherings[0];
+
   return (
     <div className="gayze-premium-page space-y-5">
-      {/* Header section with host button */}
-      <div className="gayze-page-intro flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
+      <div className="g-later__hero">
+        <div className="min-w-0">
           <div className="g-label">Later</div>
-          <h1 className="text-[25px] sm:text-[30px] font-semibold tracking-[-0.03em] text-white mt-1.5">
-            Planned gatherings
-          </h1>
-          <p className="text-[12.5px] text-zinc-500 sm:max-w-md leading-relaxed mt-1.5">
-            Calm and planned. RSVP, and talk with the people who are going.
-          </p>
+          <h1 className="g-later__title">Plan something real</h1>
+          <p className="g-later__sub">Gatherings with people nearby. RSVP, then talk with everyone who is going.</p>
         </div>
-
-        <button
-          onClick={() => setIsHostModalOpen(true)}
-          className="g-btn g-btn--amber !min-h-[44px] self-start sm:self-auto"
-        >
+        <button onClick={() => setIsHostModalOpen(true)} className="g-btn g-btn--amber g-later__host">
           <Plus className="w-4 h-4" />
-          <span>Host gathering</span>
+          <span>Host</span>
         </button>
       </div>
 
-      {/* Filter bars */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        {/* Time filters */}
-        <div className="gayze-premium-control flex items-center gap-1 p-1 rounded-[14px] border overflow-x-auto no-scrollbar">
+      <div className="g-later__filters">
+        <div className="g-iseg g-iseg--4" data-tone="social" role="tablist" aria-label="When">
           {[
-            { id: 'all', label: 'All Dates' },
+            { id: 'all', label: 'Any day' },
             { id: 'tonight', label: 'Tonight' },
             { id: 'tomorrow', label: 'Tomorrow' },
-            { id: 'weekend', label: 'This Weekend' },
+            { id: 'weekend', label: 'Weekend' },
           ].map((item) => (
             <button
               key={item.id}
-              onClick={() => {
-                hapticLight();
-                setTimeFilter(item.id as any);
-              }}
-              className={`min-h-[38px] px-3.5 text-[12.5px] rounded-[10px] transition-colors whitespace-nowrap cursor-pointer flex items-center justify-center ${
-                timeFilter === item.id
-                  ? 'bg-white/[0.08] text-white font-semibold shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]'
-                  : 'text-zinc-400 font-normal hover:text-white'
-              }`}
+              type="button"
+              role="tab"
+              aria-selected={timeFilter === item.id}
+              className="g-iseg__opt"
+              data-active={timeFilter === item.id}
+              onClick={() => { hapticLight(); setTimeFilter(item.id as typeof timeFilter); }}
             >
               {item.label}
             </button>
           ))}
         </div>
 
-        {/* Category pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {[
-            { id: 'all', label: 'All Circles' },
-            { id: 'social', label: 'Social' },
-            { id: 'games', label: 'Board Games' },
-            { id: 'active', label: 'Sports' },
-            { id: 'arts', label: 'Arts & Film' },
-            { id: 'discussions', label: 'Talks' },
-          ].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => {
-                hapticLight();
-                setCategoryFilter(cat.id);
-              }}
-              className={`min-h-[38px] px-3.5 text-xs font-medium rounded-xl whitespace-nowrap transition-colors cursor-pointer flex items-center justify-center ${
-                categoryFilter === cat.id
-                  ? 'bg-[#1c1f2b] text-white border border-[#C9A24D]/40 font-semibold shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
+        <div className="g-later__cats no-scrollbar">
+          {[{ id: 'all', label: 'Everything' }, ...Object.entries(CATEGORY_ART).map(([id, art]) => ({ id, label: art.label }))].map((cat) => {
+            const art = cat.id === 'all' ? null : artFor(cat.id);
+            const Icon = art?.icon;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                className="g-later__cat"
+                data-active={categoryFilter === cat.id}
+                style={art ? { ['--cat' as string]: art.rgb } : undefined}
+                onClick={() => { hapticLight(); setCategoryFilter(cat.id); }}
+              >
+                {Icon && <Icon className="w-3.5 h-3.5" />}
+                {cat.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {filteredGatherings.length === 0 && (
-        <div className="gayze-premium-panel rounded-2xl p-6 text-center space-y-1.5">
-          <p className="text-sm font-semibold text-zinc-200">
-            {gatherings.length === 0 ? 'No gatherings yet' : 'Nothing matches these filters'}
-          </p>
-          <p className="text-xs text-zinc-400">
+        <div className="g-later__empty">
+          <span className="g-later__empty-icon"><Calendar className="w-6 h-6" /></span>
+          <p>{gatherings.length === 0 ? 'Nothing planned yet' : 'Nothing matches these filters'}</p>
+          <span>
             {gatherings.length === 0
-              ? 'Gatherings posted by the community will appear here. Host one to get things started.'
-              : 'Try a different date range or circle.'}
-          </p>
+              ? 'Be the first. Host a gathering and it appears here for people nearby.'
+              : 'Try a different day or category.'}
+          </span>
+          {gatherings.length === 0 && (
+            <button type="button" onClick={() => setIsHostModalOpen(true)} className="g-btn g-btn--amber !mt-2">
+              <Plus className="w-4 h-4" /><span>Host the first one</span>
+            </button>
+          )}
         </div>
       )}
 
-      {/* Gatherings List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+      <div className="g-later__grid">
         {filteredGatherings.map((gathering) => {
           const spotsLeft = Math.max(0, gathering.capacity - gathering.rsvpCount);
-          const percentFull = Math.min(100, Math.round((gathering.rsvpCount / gathering.capacity) * 100));
+          const percentFull = Math.min(100, Math.round((gathering.rsvpCount / Math.max(1, gathering.capacity)) * 100));
+          const art = artFor(gathering.category);
+          const ArtIcon = art.icon;
+          const when = new Date(gathering.timestamp);
+          const isNext = gathering.id === nextUp?.id;
+          const pile = Math.min(5, gathering.rsvpCount);
 
           return (
-            <div
+            <article
               key={gathering.id}
-              className="gayze-premium-panel hover:border-white/15 rounded-[18px] p-4 sm:p-5 transition-colors flex flex-col justify-between"
+              className={`g-ev ${isNext ? 'is-next' : ''} ${gathering.isAttending ? 'is-going' : ''}`}
+              style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}
             >
-              <div>
-                {/* Header: when + how many are going */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="g-chip g-chip--quiet">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{gathering.dateStr}</span>
-                  </span>
-
-                  <div className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
-                    <Users className="w-3.5 h-3.5 text-zinc-500" />
-                    <span>{gathering.rsvpCount} of {gathering.capacity} going</span>
-                  </div>
+              <div className="g-ev__poster">
+                <ArtIcon className="g-ev__art" aria-hidden="true" />
+                <div className="g-ev__date" aria-label={when.toLocaleString()}>
+                  <b>{when.getDate()}</b>
+                  <span>{when.toLocaleString([], { month: 'short' })}</span>
                 </div>
-
-                {/* Title */}
-                <h3 className="text-[16px] font-semibold text-white mt-3 leading-snug tracking-[-0.012em]">
-                  {gathering.title}
-                </h3>
-
-                {/* Host Info */}
-                <div className="flex items-center gap-2 mt-1.5 text-xs text-zinc-400">
-                  <div className="w-5 h-5 rounded-full bg-[#1c1f2b] border border-white/10 text-[10px] flex items-center justify-center text-[#C9A24D] font-medium">
-                    {gathering.hostName.charAt(0)}
-                  </div>
-                  <span>Hosted by <strong className="text-zinc-200 font-semibold">{gathering.hostName}</strong></span>
+                <div className="g-ev__badges">
+                  <span className="g-ev__badge">{isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}</span>
+                  {gathering.isAttending && <span className="g-ev__badge is-going"><Check className="w-3 h-3" /> Going</span>}
                 </div>
-
-                {/* Description */}
-                <p className="text-[12.5px] text-zinc-400 mt-2 leading-relaxed">
-                  {gathering.description}
-                </p>
-
-                {/* Venue */}
-                <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-[12.5px] text-zinc-200 min-w-0">
-                      <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
-                      <span className="truncate">{gathering.locationName}</span>
-                      {gathering.isSafeHavenVenue && (
-                        <span title="Safe Haven venue" className="inline-flex shrink-0">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[11.5px] text-zinc-500 shrink-0">{gathering.neighborhood}</span>
-                  </div>
-                  {gathering.address && (
-                    <div className="text-[11.5px] text-zinc-500 pl-5 truncate">{gathering.address}</div>
-                  )}
-                </div>
-
-                {/* Host pledge — a quiet line, not another box */}
-                <div className="mt-3 flex items-start gap-2 text-[11.5px] text-zinc-500 leading-relaxed">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400/80 shrink-0 mt-0.5" />
-                  <span>{gathering.safetyGuidelines}</span>
-                </div>
-
-                {/* Capacity */}
-                <div className="mt-3.5 space-y-1.5">
-                  <div className="w-full h-[3px] bg-white/[0.07] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-[#C9A24D]/70 transition-all duration-500"
-                      style={{ width: `${percentFull}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                    <span>{spotsLeft} spots left</span>
-                    <span>{gathering.capacity} max</span>
-                  </div>
-                </div>
+                <span className="g-ev__cat">{art.label}</span>
               </div>
 
-              {/* Action Buttons */}
-              <div className="mt-4 pt-3 border-t border-white/[0.07] flex items-center justify-between gap-2.5">
-                {/* RSVP Toggle Button */}
+              <div className="g-ev__body">
+                <div className="g-ev__time"><Clock className="w-3.5 h-3.5" />{gathering.dateStr}</div>
+                <h3 className="g-ev__name">{gathering.title}</h3>
+                <div className="g-ev__host">
+                  <span className="g-ev__host-av">{gathering.hostName.charAt(0)}</span>
+                  <span>Hosted by <strong>{gathering.hostName}</strong></span>
+                </div>
+                <p className="g-ev__desc">{gathering.description}</p>
+
+                <div className="g-ev__venue">
+                  <MapPin className="w-4 h-4" />
+                  <div className="min-w-0">
+                    <strong>
+                      {gathering.locationName}
+                      {gathering.isSafeHavenVenue && <ShieldCheck className="inline w-3.5 h-3.5 ml-1 text-emerald-400" aria-label="Safe Haven venue" />}
+                    </strong>
+                    <span>{[gathering.address, gathering.neighborhood].filter(Boolean).join(' · ')}</span>
+                  </div>
+                </div>
+
+                <div className="g-ev__crowd">
+                  <div className="g-ev__pile" aria-hidden="true">
+                    {Array.from({ length: pile }, (_, i) => <i key={i} style={{ ['--n' as string]: i }} />)}
+                    {gathering.rsvpCount > pile && <em>+{gathering.rsvpCount - pile}</em>}
+                  </div>
+                  <span className="g-ev__count"><Users className="w-3.5 h-3.5" />{gathering.rsvpCount} going{spotsLeft > 0 ? ` · ${spotsLeft} left` : ' · Full'}</span>
+                </div>
+                <div className="g-ev__meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentFull} aria-label="Spots taken">
+                  <span style={{ width: `${percentFull}%` }} />
+                </div>
+
+                <p className="g-ev__pledge"><ShieldCheck className="w-3.5 h-3.5" /><span>{gathering.safetyGuidelines}</span></p>
+              </div>
+
+              <div className="g-ev__actions">
                 <button
-                  onClick={() => {
-                    hapticLight();
-                    onToggleRsvp(gathering.id);
-                  }}
+                  type="button"
+                  onClick={() => { hapticLight(); onToggleRsvp(gathering.id); }}
                   disabled={busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending)}
-                  className={`g-btn !min-h-[44px] ${
-                    gathering.isAttending ? 'g-btn--selected' : 'g-btn--quiet'
-                  }`}
+                  className={`g-ev__rsvp ${gathering.isAttending ? 'is-going' : ''}`}
                 >
                   {busyGatheringId === gathering.id ? (
                     <span>Saving…</span>
                   ) : gathering.isAttending ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Attending</span>
-                    </>
+                    <><Check className="w-4 h-4" /><span>You're going</span></>
                   ) : spotsLeft === 0 ? (
                     <span>Full</span>
                   ) : (
-                    <span>RSVP</span>
+                    <span>I'm in</span>
                   )}
                 </button>
 
-                {/* Open Group Chat — only offered when a real conversation exists. */}
                 {groupChatAvailable ? (
-                  <button
-                    onClick={() => onOpenGatheringChat(gathering)}
-                    className="g-btn g-btn--amber !min-h-[44px]"
-                  >
-                    <Lock className="w-3.5 h-3.5" />
+                  <button type="button" onClick={() => onOpenGatheringChat(gathering)} className="g-ev__room">
+                    <Lock className="w-4 h-4" />
                     <span>Group room</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 ) : (
-                  <span
-                    title="Group conversations are not available for gatherings yet"
-                    className="h-11 min-h-[44px] flex items-center gap-1.5 px-3 text-[11px] font-medium text-zinc-500 bg-white/[0.03] border border-white/[0.07] rounded-xl"
-                  >
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Group chat not available yet</span>
+                  <span title="Group conversations are not available for gatherings yet" className="g-ev__room is-off">
+                    <Lock className="w-4 h-4" />
+                    <span>Group room soon</span>
                   </span>
                 )}
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
 
-      {/* Host Gathering Modal */}
       {isHostModalOpen && (
-        <div className="g-overlay flex items-center justify-center p-3 sm:p-4" onClick={() => setIsHostModalOpen(false)}>
-          <div
-            className="g-panel relative w-full max-w-lg p-5 sm:p-6 !rounded-[20px] space-y-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-[10px] bg-[#C9A24D]/12 border border-[#C9A24D]/25 flex items-center justify-center text-[#C9A24D]">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Host a Community Gathering</h3>
-                  <span className="text-[11px] text-zinc-400">
-                    Creates an encrypted group for confirmed attendees
-                  </span>
-                </div>
+        <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setIsHostModalOpen(false)} role="dialog" aria-modal="true" aria-label="Host a gathering">
+          <div className="g-sheet g-sheet--above-nav g-iset" onClick={(e) => e.stopPropagation()}>
+            <div className="g-sheet__grip" />
+            <div className="g-sheet__head">
+              <div className="min-w-0">
+                <h2 className="text-[16px] font-semibold tracking-[-0.015em] text-white leading-tight">Host a gathering</h2>
+                <p className="text-[11px] text-zinc-500 leading-tight mt-0.5">Creates an encrypted group room for the people who RSVP.</p>
               </div>
-              <button
-                onClick={() => setIsHostModalOpen(false)}
-                className="w-8 h-8 rounded-lg text-zinc-400 hover:text-white flex items-center justify-center hover:bg-white/[0.06] transition-colors cursor-pointer"
-                aria-label="Close modal"
-              >
-                <X className="w-4 h-4" />
+              <button type="button" onClick={() => setIsHostModalOpen(false)} className="g-icon-btn g-icon-btn--bare shrink-0" aria-label="Close modal">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleHostSubmit} className="space-y-4">
-              {formError && (
-                <p className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-2">
-                  {formError}
-                </p>
-              )}
-              <div>
-                <label htmlFor="gathering-title" className="block text-xs font-medium text-zinc-300 mb-1">
-                  Gathering Title
-                </label>
-                <input
-                  id="gathering-title"
-                  type="text"
-                  required
-                  placeholder="e.g. Queer Sci-Fi Book Club & Wine"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  className="g-field !h-11 !rounded-xl !text-sm focus:!border-[#C9A24D]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="gathering-category" className="block text-xs font-medium text-zinc-300 mb-1">Category</label>
-                  <select
-                    id="gathering-category"
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as any)}
-                    className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D] cursor-pointer"
-                  >
-                    <option value="social">Social & Drinks</option>
-                    <option value="games">Board Games</option>
-                    <option value="active">Outdoor & Sports</option>
-                    <option value="arts">Arts & Culture</option>
-                    <option value="discussions">Salons & Talks</option>
-                  </select>
-                </div>
+            <form onSubmit={handleHostSubmit} className="flex-1 flex flex-col overflow-hidden min-h-0">
+              <div className="g-sheet__body space-y-4">
+                {formError && (
+                  <p className="text-[12px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-2">{formError}</p>
+                )}
 
                 <div>
-                  <label htmlFor="gathering-capacity" className="block text-xs font-medium text-zinc-300 mb-1">Capacity</label>
+                  <label htmlFor="gathering-title" className="g-label">What is it?</label>
                   <input
-                    id="gathering-capacity"
-                    type="number"
-                    min={3}
-                    max={100}
-                    value={formCapacity}
-                    onChange={(e) => setFormCapacity(Number(e.target.value))}
-                    className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D]"
+                    id="gathering-title"
+                    type="text"
+                    required
+                    maxLength={80}
+                    placeholder="e.g. Queer sci-fi book club and wine"
+                    value={formTitle}
+                    onChange={(e) => setFormTitle(e.target.value)}
+                    className="g-field g-iset__field mt-2.5"
                   />
                 </div>
+
+                <div>
+                  <span className="g-label">Kind of gathering</span>
+                  <div className="g-iset__grid mt-2.5">
+                    {Object.entries(CATEGORY_ART).map(([id, art]) => {
+                      const Icon = art.icon;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          className="g-itile"
+                          data-tone="social"
+                          data-active={formCategory === id}
+                          style={{ ['--it-rgb' as string]: art.rgb }}
+                          onClick={() => { hapticLight(); setFormCategory(id as Gathering['category']); }}
+                        >
+                          <span className="g-itile__icon"><Icon className="w-[17px] h-[17px]" /></span>
+                          <span className="g-itile__copy"><span className="g-itile__t">{art.label}</span></span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="gathering-datetime" className="g-label">When</label>
+                    <input id="gathering-datetime" type="datetime-local" required value={formDate} onChange={(e) => setFormDate(e.target.value)} className="g-field g-iset__field mt-2.5" />
+                  </div>
+                  <div>
+                    <span className="g-label">How many can come</span>
+                    <div className="g-stepper mt-2.5">
+                      <button type="button" aria-label="Fewer places" onClick={() => setFormCapacity((n) => Math.max(3, n - 1))}><Minus className="w-4 h-4" /></button>
+                      <input id="gathering-capacity" aria-label="Capacity" type="number" min={3} max={100} value={formCapacity} onChange={(e) => setFormCapacity(Math.max(3, Math.min(100, Number(e.target.value) || 3)))} />
+                      <button type="button" aria-label="More places" onClick={() => setFormCapacity((n) => Math.min(100, n + 1))}><Plus className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="gathering-venue" className="g-label">Where</label>
+                  <input id="gathering-venue" type="text" required value={formLocation} onChange={(e) => setFormLocation(e.target.value)} placeholder="Venue name" className="g-field g-iset__field mt-2.5" />
+                  <input id="gathering-address" type="text" required value={formAddress} onChange={(e) => setFormAddress(e.target.value)} placeholder="Street address" aria-label="Street address" className="g-field g-iset__field mt-2" />
+                  <input id="gathering-neighborhood" type="text" value={formNeighborhood} onChange={(e) => setFormNeighborhood(e.target.value)} placeholder="Neighbourhood (optional)" aria-label="Neighbourhood" className="g-field g-iset__field mt-2" />
+                </div>
+
+                <div>
+                  <label htmlFor="gathering-description" className="g-label">What to expect</label>
+                  <textarea id="gathering-description" rows={3} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="What should people bring or know?" className="g-field mt-2.5 resize-none !py-3 !rounded-[14px]" />
+                </div>
+
+                <p className="g-iset__privacy">
+                  <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+                  <span>Only people who RSVP join the group room, and messages in it are end-to-end encrypted.</span>
+                </p>
               </div>
 
-              <div>
-                <label htmlFor="gathering-datetime" className="block text-xs font-medium text-zinc-300 mb-1">Date & Time</label>
-                <input
-                  id="gathering-datetime"
-                  type="datetime-local"
-                  required
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D]"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="gathering-venue" className="block text-xs font-medium text-zinc-300 mb-1">Venue Name</label>
-                <input
-                  id="gathering-venue"
-                  type="text"
-                  required
-                  value={formLocation}
-                  onChange={(e) => setFormLocation(e.target.value)}
-                  placeholder="e.g. Queer Britain Lounge"
-                  className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D]"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="gathering-address" className="block text-xs font-medium text-zinc-300 mb-1">Address & Neighborhood</label>
-                <input
-                  id="gathering-address"
-                  type="text"
-                  required
-                  value={formAddress}
-                  onChange={(e) => setFormAddress(e.target.value)}
-                  placeholder="Street address"
-                  className="g-field !h-10 !rounded-xl !text-xs focus:!border-[#C9A24D]"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="gathering-description" className="block text-xs font-medium text-zinc-300 mb-1">Description & Guidelines</label>
-                <textarea
-                  id="gathering-description"
-                  rows={2}
-                  value={formDesc}
-                  onChange={(e) => setFormDesc(e.target.value)}
-                  placeholder="What should attendees bring or expect?"
-                  className="g-field !rounded-xl !text-xs focus:!border-[#C9A24D] resize-none !py-2"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-3 border-t border-white/[0.08]">
-                <button
-                  type="button"
-                  onClick={() => setIsHostModalOpen(false)}
-                  className="g-btn g-btn--quiet !min-h-[40px] !px-4 !text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="g-btn g-btn--amber !min-h-[40px] !px-5 !rounded-xl !text-xs font-semibold"
-                >
-                  Publish Gathering
-                </button>
+              <div className="g-sheet__foot">
+                <button type="button" onClick={() => setIsHostModalOpen(false)} className="g-btn g-btn--quiet !min-h-[46px] !px-5">Cancel</button>
+                <button type="submit" className="g-btn g-btn--amber flex-1 !min-h-[46px] font-semibold">Publish gathering</button>
               </div>
             </form>
           </div>
