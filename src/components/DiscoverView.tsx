@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { intentDisplayLabel } from '../services/intentLabels';
 import {
   Map as MapIcon,
@@ -106,6 +107,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   onOpenMap,
   onOpenPublicProfile,
 }) => {
+  const openPeek = useProfilePeek();
   const [modeFilter, setModeFilter] = useState<ModeFilter>('All');
   const [selected, setSelected] = useState<DiscoverRow | null>(null);
   const [gazedNames, setGazedNames] = useState<Set<string>>(new Set());
@@ -315,6 +317,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               onClick={() => { hapticLight(); setSelected(row); }}
             >
               <div
+                {...peekTapProps(openPeek, row.kind === 'pulse' ? row.item.peerId : row.item.id, { name: row.name, age: row.age, area: row.area, intent: row.intentLabel, online: row.live, photoUrl: row.kind === 'profile' ? row.item.photoUrl : (row.item.peerAvatar && row.item.peerAvatar !== 'user' ? row.item.peerAvatar : undefined) })}
                 className={`w-12 h-12 rounded-[16px] overflow-hidden flex items-center justify-center shrink-0 text-[14px] font-semibold border ${
                   row.mode === 'private'
                     ? 'border-[#6F3CC3]/40 bg-[#161324] text-[#d8c3f8]'
@@ -403,6 +406,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             <div className="g-sheet__head">
               <div className="flex items-center gap-3 min-w-0">
                 <div
+                  {...peekTapProps(openPeek, selected.kind === 'pulse' ? selected.item.peerId : selected.item.id, { name: selected.name, age: selected.age, area: selected.area, intent: selected.intentLabel, online: selected.live, photoUrl: selected.kind === 'profile' ? selected.item.photoUrl : (selected.item.peerAvatar && selected.item.peerAvatar !== 'user' ? selected.item.peerAvatar : undefined) })}
                   className={`g-avatar w-12 h-12 text-[15px] ${
                     selected.mode === 'private' ? 'g-avatar--ring-private' : 'g-avatar--ring-social'
                   }`}

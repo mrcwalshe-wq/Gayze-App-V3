@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { intentDisplayLabel } from '../services/intentLabels';
 import { supabase } from '../services/supabaseClient';
 import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../services/profilePhotoService';
@@ -204,6 +205,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   userAvatarUrl,
   isIntentOverlayOpen = false,
 }) => {
+  const openPeek = useProfilePeek();
   // 1. The active Right Now signal is owned by App (Supabase in live mode).
   //    Right Now renders it and routes every change through
   //    `onUpdateActiveUserIntent` — it never writes intent state itself.
@@ -1403,7 +1405,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               className="flex items-start gap-3 flex-1 min-w-0 text-left cursor-pointer"
             >
               {selectedItem.type === 'profile' ? (
-                <div className="relative w-11 h-11 rounded-[14px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
+                <div
+                  {...peekTapProps(openPeek, selectedItem.item.id, { name: selectedItem.item.name, age: selectedItem.item.age, area: selectedItem.item.neighborhood, photoUrl: selectedItem.item.photoUrl })}
+                  className="relative w-11 h-11 rounded-[14px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
                   <span className="absolute inset-0 flex items-center justify-center text-sm text-white" aria-hidden="true">{selectedItem.item.name.charAt(0)}</span>
                   <img
                     src={selectedItem.item.photoUrl}
@@ -1422,7 +1426,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <ShieldCheck className="w-5 h-5" />
                 </div>
               ) : (
-                <div className={`g-avatar w-11 h-11 text-[14px] ${selectedItemIsPrivate ? 'g-avatar--private' : 'g-avatar--social'}`}>
+                <div {...peekTapProps(openPeek, selectedItem.type === 'pulse' ? selectedItem.item.peerId : null, { name: selectedItem.type === 'pulse' ? selectedItem.item.peerName : undefined, age: selectedItem.type === 'pulse' ? selectedItem.item.peerAge : undefined, area: selectedItem.type === 'pulse' ? selectedItem.item.neighborhood : undefined, photoUrl: selectedItem.type === 'pulse' && selectedItem.item.peerAvatar && selectedItem.item.peerAvatar !== 'user' ? selectedItem.item.peerAvatar : undefined })} className={`g-avatar w-11 h-11 text-[14px] ${selectedItemIsPrivate ? 'g-avatar--private' : 'g-avatar--social'}`}>
                   {selectedItem.item.peerName.charAt(0)}
                 </div>
               )}
@@ -1638,7 +1642,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   {selectedItem.type === 'profile' ? (
-                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-[0_12px_24px_rgba(201,162,77,0.22)]">
+                    <div
+                      {...peekTapProps(openPeek, selectedItem.item.id, { name: selectedItem.item.name, age: selectedItem.item.age, area: selectedItem.item.neighborhood, photoUrl: selectedItem.item.photoUrl })}
+                      className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#C9A24D]/60 bg-[#161822] shrink-0 shadow-[0_12px_24px_rgba(201,162,77,0.22)]">
                       <span className="absolute inset-0 flex items-center justify-center text-xl text-white" aria-hidden="true">{selectedItem.item.name.charAt(0)}</span>
                       <img
                         src={selectedItem.item.photoUrl}
@@ -1656,7 +1662,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       <ShieldCheck className="w-6 h-6" />
                     </div>
                   ) : (
-                    <div className={`g-avatar w-14 h-14 text-[20px] ${selectedItemIsPrivate ? 'g-avatar--private' : 'g-avatar--social'}`}>
+                    <div {...peekTapProps(openPeek, selectedItem.type === 'pulse' ? selectedItem.item.peerId : null, { name: selectedItem.type === 'pulse' ? selectedItem.item.peerName : undefined, age: selectedItem.type === 'pulse' ? selectedItem.item.peerAge : undefined, area: selectedItem.type === 'pulse' ? selectedItem.item.neighborhood : undefined, photoUrl: selectedItem.type === 'pulse' && selectedItem.item.peerAvatar && selectedItem.item.peerAvatar !== 'user' ? selectedItem.item.peerAvatar : undefined })} className={`g-avatar w-14 h-14 text-[20px] ${selectedItemIsPrivate ? 'g-avatar--private' : 'g-avatar--social'}`}>
                       {selectedItem.item.peerName.charAt(0)}
                     </div>
                   )}
@@ -2179,6 +2185,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       }}
                     >
                       <div
+                        {...(item.type === 'haven' ? {} : peekTapProps(openPeek, item.type === 'pulse' ? item.item.peerId : item.item.id, { name: item.type === 'pulse' ? item.item.peerName : item.item.name, age: item.type === 'pulse' ? item.item.peerAge : item.item.age, area: item.item.neighborhood, photoUrl: item.type === 'pulse' ? (item.item.peerAvatar && item.item.peerAvatar !== 'user' ? item.item.peerAvatar : undefined) : item.item.photoUrl }))}
                         className={`g-avatar w-10 h-10 text-[13px] ${
                           item.type === 'haven'
                             ? '!bg-[#0f1f1a] !text-emerald-400'

@@ -24,6 +24,7 @@ import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { FullScreenCallModal, FullScreenAudioCallModal } from './components/FullScreenCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
+import { ProfilePeekProvider, type PeekFallback } from './components/ProfilePeek';
 import { initEnhancedPresence, formatLastSeen, type UserPresence } from './services/presenceService';
 import { loadCallHistory, getUnreadCallCount, markCallRecordsAsRead, markCallAsMissed } from './services/callHistoryService';
 import { sendMissedCallNotification, sendIncomingCallNotification, markCallNotificationsAsRead } from './services/callNotificationService';
@@ -3300,7 +3301,21 @@ export default function App() {
     );
   }
 
+  // One way to open someone's profile peek from anywhere: tap their photo.
+  const openPublicProfile = (userId: string | null | undefined, fallback?: PeekFallback) => {
+    setViewingPublicProfile({
+      userId: userId ?? null,
+      fallbackName: fallback?.name,
+      fallbackAge: fallback?.age,
+      fallbackArea: fallback?.area,
+      fallbackIntent: fallback?.intent,
+      fallbackPhotoUrl: fallback?.photoUrl,
+      fallbackOnline: fallback?.online,
+    });
+  };
+
   return (
+    <ProfilePeekProvider open={openPublicProfile}>
     <div className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#090a0f] text-[#f1f3f7] flex flex-col font-sans selection:bg-[#C9A24D]/25 selection:text-[#C9A24D]">
       {/* Atmosphere: one obsidian room lit by violet, above which all chrome sits. */}
       <div
@@ -3362,9 +3377,7 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
-              onOpenPublicProfile={(userId, fallback) => {
-                setViewingPublicProfile({ userId, ...fallback });
-              }}
+              onOpenPublicProfile={openPublicProfile}
             />
           )}
 
@@ -3480,9 +3493,7 @@ export default function App() {
                     inbox={notificationInbox}
                     inboxStatus={notificationInboxStatus}
                     onOpenNotification={openInboxNotification}
-                    onOpenPublicProfile={(userId, fallback) => {
-                      setViewingPublicProfile({ userId, ...fallback });
-                    }}
+                    onOpenPublicProfile={openPublicProfile}
                     onInterestAccepted={async (conversationId) => {
                       setMessagesSubTab('chats');
                       await refreshConversationListRef.current();
@@ -3787,34 +3798,35 @@ export default function App() {
       )}
 
       {/* Public Profile View Sheet */}
-      {viewingPublicProfile && (
-        <Suspense fallback={null}>
-          <PublicProfileSheet
-            userId={viewingPublicProfile.userId}
-            fallbackName={viewingPublicProfile.fallbackName}
-            fallbackAge={viewingPublicProfile.fallbackAge}
-            fallbackArea={viewingPublicProfile.fallbackArea}
-            fallbackIntent={viewingPublicProfile.fallbackIntent}
-            fallbackPhotoUrl={viewingPublicProfile.fallbackPhotoUrl}
-            fallbackOnline={viewingPublicProfile.fallbackOnline}
-            onClose={() => setViewingPublicProfile(null)}
-            onBlock={IS_LIVE_BACKEND ? (peerId) => { void handleBlockPeer(peerId, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
-            onMessage={() => {
-              const peerId = viewingPublicProfile.userId;
-              setViewingPublicProfile(null);
-              if (peerId) {
-                const targetRoom = rooms.find(
-                  (r) => r.peerUserId === peerId || r.id === `room_${peerId}` || r.id.includes(peerId)
-                );
-                if (targetRoom) {
-                  requestConversationOpen(targetRoom.id);
-                  setActiveTab('swarms');
-                }
-              }
-            }}
-          />
-        </Suspense>
-      )}
+      {viewingPublicProfile && (() => {
+        const peerId = viewingPublicProfile.userId;
+        const peerRoom = peerId
+          ? rooms.find((r) => r.peerUserId === peerId || r.id === `room_${peerId}` || r.id.includes(peerId))
+          : undefined;
+        // No Message button when you are already looking at that conversation.
+        const alreadyThere = Boolean(peerRoom && activeTab === 'swarms' && visibleChatRoomId === peerRoom.id);
+        return (
+          <Suspense fallback={null}>
+            <PublicProfileSheet
+              userId={peerId}
+              viewerId={supabaseUserId}
+              fallbackName={viewingPublicProfile.fallbackName}
+              fallbackAge={viewingPublicProfile.fallbackAge}
+              fallbackArea={viewingPublicProfile.fallbackArea}
+              fallbackIntent={viewingPublicProfile.fallbackIntent}
+              fallbackPhotoUrl={viewingPublicProfile.fallbackPhotoUrl}
+              fallbackOnline={viewingPublicProfile.fallbackOnline}
+              onClose={() => setViewingPublicProfile(null)}
+              onBlock={IS_LIVE_BACKEND ? (id) => { void handleBlockPeer(id, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
+              onMessage={peerRoom && !alreadyThere ? () => {
+                setViewingPublicProfile(null);
+                requestConversationOpen(peerRoom.id);
+                setActiveTab('swarms');
+              } : undefined}
+            />
+          </Suspense>
+        );
+      })()}
 
       {/* Local Safety Check-in Timer Modal */}
       <SafetyTimerModal
@@ -3895,5 +3907,6 @@ export default function App() {
         />
       </Suspense>
     </div>
+    </ProfilePeekProvider>
   );
 }

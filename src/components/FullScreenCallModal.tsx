@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   PhoneOff,
+  Minimize2,
   Mic,
   MicOff,
   Video,
@@ -16,6 +17,10 @@ import {
 import { hapticSensitiveAction, triggerVibration } from '../services/hapticService';
 import { webrtcCallService, CallState, type IncomingCall } from '../services/webrtcService';
 import { getCallAudioContext, closeCallAudio } from '../services/callAudioService';
+import {
+  CallAura, CallDockButton, CallOrb, CallSecureChip, CallVoiceBars, DraggablePip,
+  callStatusLabel, formatCallDuration, isCallPending, useCallLevels,
+} from './callUi';
 
 interface FullScreenCallModalProps {
   isOpen: boolean;
@@ -59,6 +64,8 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   const ringtoneTimerRef = useRef<number | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const startAttemptRef = useRef<string | null>(null);
+
+  const levelRef = useCallLevels<HTMLDivElement>(isOpen && callState === 'connected');
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -308,275 +315,106 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
 
   // Render at document.body so app-shell stacking contexts cannot leave the
   // navigation bar above the full-screen call surface on iOS Safari.
-  // Full-screen iPhone-style UI
+  const showRemote = callState === 'connected' && isVideoEnabled;
+  const controlsVisible = !showRemote || showControls || isMinimized;
+  const pending = isCallPending(callState);
+
   return createPortal(
-    <div 
+    <div
+      ref={levelRef}
       data-gayze-call-screen="true"
-      className="fixed inset-0 z-[2147483000] isolate overflow-hidden bg-[#07060c] text-white transition-opacity duration-300"
-      onClick={handleUserActivity}
-      onTouchStart={handleUserActivity}
-      onMouseMove={handleUserActivity}
+      data-state={callState}
+      className={`g-call g-call--video ${isMinimized ? 'is-mini' : ''} ${showRemote ? 'has-remote' : ''}`}
+      onClick={isMinimized ? handleToggleMinimize : handleUserActivity}
+      onTouchStart={isMinimized ? undefined : handleUserActivity}
+      onMouseMove={isMinimized ? undefined : handleUserActivity}
     >
-      {/* Hidden audio element for audio calls */}
       <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+      <CallAura />
 
-      {/* Main call container - iPhone style full screen */}
-      <div className="relative flex h-[100dvh] min-h-[100svh] w-full flex-col overflow-hidden bg-[radial-gradient(ellipse_at_50%_34%,rgba(111,60,195,.24),transparent_42%),radial-gradient(ellipse_at_85%_90%,rgba(201,162,77,.12),transparent_35%),#07060c]">
-        
-        {/* Main video area */}
-        <div className="flex-1 relative overflow-hidden">
-          
-          {/* Remote Video Stream - Full screen */}
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className={`w-full h-full object-cover transition-opacity duration-300 ${
-              callState === 'connected' && isVideoEnabled ? 'opacity-100' : 'opacity-0 absolute'
-            }`}
-          />
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        className={`g-call__remote ${showRemote ? 'is-on' : ''}`}
+      />
+      <div className="g-call__scrim" aria-hidden="true" />
 
-          {/* Fallback UI when no video or audio call */}
-          {(callState !== 'connected' || !isVideoEnabled) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_50%_42%,rgba(111,60,195,.18),transparent_36%),linear-gradient(150deg,#0c0a13,#11101b_55%,#09080d)] px-6 pb-28 pt-28 text-center">
-              <div className="relative">
-                <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-gradient-to-br from-[#6F3CC3]/40 via-[#171522] to-[#C9A24D]/20 text-4xl font-bold text-white shadow-[0_0_70px_rgba(111,60,195,.24)]">
-                  <span aria-hidden="true">{peerName.charAt(0).toUpperCase() || 'G'}</span>
-                  {peerAvatar && (
-                    <img src={peerAvatar} alt={peerName} onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
-                  )}
-                </div>
-                {callState === 'connected' && (
-                  <span className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 border-2 border-[#0c0d14] flex items-center justify-center text-white text-[11px]">
-                    <ShieldCheck className="w-4 h-4" />
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-2 mt-6">
-                <h3 className="text-[30px] font-semibold tracking-[-0.045em] text-white drop-shadow-lg">
-                  {peerName}
-                </h3>
-                <p className="mx-auto max-w-[280px] text-sm leading-6 text-white/55">
-                  {callState === 'connected'
-                    ? 'Direct peer-to-peer connection secured'
-                    : callState === 'ringing'
-                    ? 'Ringing device securely...'
-                    : callState === 'connecting'
-                    ? 'Negotiating WebRTC handshake...'
-                    : callState === 'calling'
-                    ? 'Contacting peer...'
-                    : callState === 'declined'
-                    ? `${peerName} is unavailable`
-                    : callState === 'missed'
-                    ? `${peerName} did not answer`
-                    : callState === 'failed'
-                    ? 'Connection could not be established'
-                    : 'Call finished'}
-                </p>
-              </div>
-
-              {errorMessage && (
-                <div className="max-w-xs p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center gap-2 text-left mt-4">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
-
-              {/* Live audio indicator */}
-              {callState === 'connected' && (
-                <div className="flex items-center gap-2 h-8 mt-4">
-                  <span className="g-live-amber" aria-hidden="true" />
-                  <span className="text-[12px] text-zinc-400">
-                    {formatDuration(durationSeconds)}
-                  </span>
-                </div>
-              )}
+      {!showRemote && (
+        <div className="g-call__center g-call__full">
+          <CallOrb name={peerName} avatar={peerAvatar} state={callState} />
+          <h3 className="g-call__name">{peerName}</h3>
+          <p className={`g-call__status ${pending ? 'is-pending' : ''}`}>
+            {callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'video', peerName)}
+          </p>
+          {errorMessage && (
+            <div className="g-call__error">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
             </div>
           )}
-
-          {/* Self Video Picture-in-Picture */}
-          {initialCallType === 'video' && isVideoEnabled && (
-            <div
-              className={`absolute bottom-6 right-6 w-32 h-44 rounded-2xl bg-black/80 border border-white/20 overflow-hidden shadow-2xl z-30 transition-all ${
-                callState === 'connected' ? 'block' : 'hidden'
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover mirror"
-              />
-              <div className="absolute bottom-2 left-2 text-[11px] font-medium text-white/85 bg-black/55 backdrop-blur-sm px-2 py-1 rounded-lg">
-                You
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Call Controls - iOS style bottom bar */}
-        <div 
-          className="absolute bottom-[max(18px,env(safe-area-inset-bottom))] left-0 right-0 z-40 px-3 pt-2 opacity-100"
-        >
-          <div className="mx-auto flex w-fit max-w-[calc(100vw-24px)] items-center justify-center gap-2 rounded-[28px] border border-white/10 bg-[#17151f]/85 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,.5)] backdrop-blur-2xl sm:gap-3 sm:px-5">
-            
-            {/* Mute Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleToggleMute();
-              }}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
-                isMuted
-                  ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 shadow-lg shadow-rose-950/30'
-                  : 'bg-white/10 border-white/20 text-white hover:bg-white/15'
-              }`}
-              aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-            >
-              {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-            </button>
-
-            {/* Camera Toggle - Video calls only */}
-            {initialCallType === 'video' && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleVideo();
-                }}
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
-                  !isVideoEnabled
-                    ? 'bg-zinc-800/50 text-zinc-500 border-white/5'
-                    : 'bg-white/10 border-white/20 text-white hover:bg-white/15'
-                }`}
-                aria-label={isVideoEnabled ? 'Disable camera' : 'Enable camera'}
-              >
-                {isVideoEnabled ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
-              </button>
-            )}
-
-            {/* Flip Camera - Video calls only */}
-            {initialCallType === 'video' && isVideoEnabled && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleFlipCamera();
-                }}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.07] text-zinc-200 transition-all hover:bg-white/15 hover:text-white sm:h-14 sm:w-14"
-                aria-label="Flip camera"
-              >
-                <RefreshCw className="w-6 h-6" />
-              </button>
-            )}
-
-            {/* Speaker Toggle */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsSpeakerOn((current) => !current);
-              }}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
-                !isSpeakerOn
-                  ? 'bg-zinc-800/50 text-zinc-500 border-white/5'
-                  : 'bg-white/10 border-white/20 text-white hover:bg-white/15'
-              }`}
-              aria-label="Toggle speaker"
-            >
-              {isSpeakerOn ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-            </button>
-
-            {/* End Call Button - Red */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEndCall();
-              }}
-              className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-rose-300/25 bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-[0_10px_35px_rgba(225,29,72,.3)] transition-transform active:scale-90 sm:h-16 sm:w-16"
-              aria-label="End call"
-            >
-              <PhoneOff className="w-7 h-7" />
-            </button>
-          </div>
-
-          {/* Call duration display */}
-          {callState === 'connected' && (
-            <div className="text-center mt-3">
-              <span className="text-2xl font-mono text-white tracking-wider">
-                {formatDuration(durationSeconds)}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Minimize button for picture-in-picture mode */}
-        {!isMinimized && (
-          <button
-            onClick={handleToggleMinimize}
-            className="absolute right-4 top-[max(3.5rem,calc(env(safe-area-inset-top)+2.5rem))] z-40 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/15 bg-black/35 text-white shadow-lg backdrop-blur-xl transition hover:bg-black/60"
-            aria-label="Minimize call"
-          >
-            <ChevronDown className="w-5 h-5" />
-          </button>
-        )}
-      </div>
-
-      {/* Minimized Picture-in-Picture Mode */}
-      {isMinimized && (
-        <div 
-          className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-48 h-64 rounded-2xl bg-[#0a0a0f] border border-white/20 overflow-hidden shadow-2xl z-50"
-          onClick={handleToggleMinimize}
-        >
-          {/* Remote video in minimized mode */}
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-40 object-cover"
-          />
-          
-          {/* Local video preview in minimized mode */}
-          {initialCallType === 'video' && isVideoEnabled && (
-            <div className="absolute top-2 right-2 w-12 h-16 rounded-lg bg-black/80 border border-white/20 overflow-hidden">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover mirror"
-              />
-            </div>
-          )}
-
-          {/* Minimized controls */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 flex items-center justify-between">
-            <div className="text-white text-sm font-medium truncate flex-1 mr-2">
-              {peerName}
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleMute();
-                }}
-                className="w-8 h-8 rounded-lg bg-white/10 border border-white/20 text-white flex items-center justify-center text-xs"
-              >
-                {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEndCall();
-                }}
-                className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center text-xs"
-              >
-                <PhoneOff className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
         </div>
       )}
+
+      <header className="g-call__top g-call__full">
+        <CallSecureChip label={callState === 'connected' ? 'Encrypted · peer to peer' : 'End-to-end encrypted'} />
+        {showRemote && <span className="g-call__time">{formatCallDuration(durationSeconds)}</span>}
+        <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleMinimize(); }} className="g-call__round" aria-label="Minimize call">
+          <Minimize2 className="w-[18px] h-[18px]" />
+        </button>
+      </header>
+
+      {showRemote && (
+        <div className="g-call__who g-call__full">
+          <strong>{peerName}</strong>
+        </div>
+      )}
+
+      <DraggablePip hidden={!(initialCallType === 'video' && isVideoEnabled && callState === 'connected')}>
+        <video ref={localVideoRef} autoPlay playsInline muted className="mirror" />
+      </DraggablePip>
+
+      <div className={`g-call__dock g-call__full ${controlsVisible ? '' : 'is-hidden'}`}>
+        <div className="g-dock">
+          <CallDockButton
+            label={isMuted ? 'Unmute' : 'Mute'}
+            ariaLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+            off={isMuted}
+            icon={isMuted ? <MicOff className="w-[22px] h-[22px]" /> : <Mic className="w-[22px] h-[22px]" />}
+            onClick={handleToggleMute}
+          />
+          {initialCallType === 'video' && (
+            <CallDockButton
+              label={isVideoEnabled ? 'Camera' : 'Camera off'}
+              ariaLabel={isVideoEnabled ? 'Disable camera' : 'Enable camera'}
+              off={!isVideoEnabled}
+              icon={isVideoEnabled ? <Video className="w-[22px] h-[22px]" /> : <VideoOff className="w-[22px] h-[22px]" />}
+              onClick={handleToggleVideo}
+            />
+          )}
+          {initialCallType === 'video' && isVideoEnabled && (
+            <CallDockButton label="Flip" ariaLabel="Flip camera" icon={<RefreshCw className="w-[22px] h-[22px]" />} onClick={handleFlipCamera} />
+          )}
+          <CallDockButton
+            label={isSpeakerOn ? 'Speaker' : 'Speaker off'}
+            ariaLabel="Toggle speaker"
+            off={!isSpeakerOn}
+            icon={isSpeakerOn ? <Volume2 className="w-[22px] h-[22px]" /> : <VolumeX className="w-[22px] h-[22px]" />}
+            onClick={() => setIsSpeakerOn((current) => !current)}
+          />
+        </div>
+        <button type="button" className="g-call__end" onClick={(e) => { e.stopPropagation(); handleEndCall(); }} aria-label="End call">
+          <PhoneOff className="w-6 h-6" /> <span>End call</span>
+        </button>
+      </div>
+
+      <div className="g-call__mini">
+        <div className="g-call__mini-bar">
+          <span className="g-call__mini-name">{peerName}</span>
+          <span className="g-call__mini-time">{callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'video', peerName)}</span>
+          <button type="button" aria-label="End call" onClick={(e) => { e.stopPropagation(); handleEndCall(); }}><PhoneOff className="w-4 h-4" /></button>
+        </div>
+      </div>
     </div>
   , document.body);
 };
@@ -608,6 +446,8 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   const ringtoneTimerRef = useRef<number | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const startAttemptRef = useRef<string | null>(null);
+
+  const levelRef = useCallLevels<HTMLDivElement>(isOpen && callState === 'connected');
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -824,216 +664,79 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const pending = isCallPending(callState);
+
   return createPortal(
-    <div 
+    <div
+      ref={levelRef}
       data-gayze-call-screen="true"
-      className="fixed inset-0 z-[2147483000] isolate overflow-hidden bg-black/95 backdrop-blur-3xl transition-opacity duration-200"
-      onClick={handleUserActivity}
-      onTouchStart={handleUserActivity}
-      onMouseMove={handleUserActivity}
+      data-state={callState}
+      className={`g-call g-call--audio ${isMinimized ? 'is-mini' : ''}`}
+      onClick={isMinimized ? handleToggleMinimize : undefined}
     >
-      {/* Hidden audio element */}
       <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+      <CallAura />
 
-      {/* Main call container - Full screen audio call UI */}
-      <div className="relative w-full h-[100dvh] flex flex-col items-center justify-center px-6 pt-6 pb-32">
-        
-        {/* Audio call visualizer */}
-        <div className="flex-1 flex flex-col items-center justify-center relative">
-          
-          {/* Avatar and info */}
-          <div className="relative">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#C9A24D]/20 to-[#171922] border-2 border-[#C9A24D]/40 flex items-center justify-center text-5xl font-bold text-[#C9A24D] shadow-2xl overflow-hidden ring-4 ring-[#C9A24D]/20 ring-offset-2 ring-offset-[#0a0a0f]">
-              <span aria-hidden="true">{peerName.charAt(0).toUpperCase()}</span>
-              {peerAvatar && (
-                <img
-                  src={peerAvatar}
-                  alt={peerName}
-                  onError={(event) => { event.currentTarget.style.display = 'none'; }}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              )}
-            </div>
-            {callState === 'connected' && (
-              <span className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-emerald-500 border-2 border-[#0c0d14] flex items-center justify-center text-white text-[12px]">
-                <ShieldCheck className="w-5 h-5" />
-              </span>
-            )}
+      <header className="g-call__top g-call__full">
+        <CallSecureChip label={callState === 'connected' ? 'Encrypted · peer to peer' : 'End-to-end encrypted'} />
+        <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleMinimize(); }} className="g-call__round" aria-label="Minimize call">
+          <Minimize2 className="w-[18px] h-[18px]" />
+        </button>
+      </header>
+
+      <div className="g-call__center g-call__full">
+        <CallOrb name={peerName} avatar={peerAvatar} state={callState} />
+        <h3 className="g-call__name">{peerName}</h3>
+        <p className={`g-call__status ${pending ? 'is-pending' : ''}`}>
+          {callState === 'connected' ? callStatusLabel(callState, 'audio', peerName) : callStatusLabel(callState, 'audio', peerName)}
+        </p>
+        {callState === 'connected' && (
+          <>
+            <div className="g-call__timer">{formatCallDuration(durationSeconds)}</div>
+            <CallVoiceBars />
+          </>
+        )}
+        {errorMessage && (
+          <div className="g-call__error">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMessage}</span>
           </div>
-
-          <div className="space-y-2 mt-8 text-center">
-            <h3 className="text-3xl font-bold text-white tracking-[-0.02em] drop-shadow-lg">
-              {peerName}
-            </h3>
-            <p className="text-lg text-zinc-400">
-              {callState === 'connected'
-                ? 'Audio call connected'
-                : callState === 'ringing'
-                ? 'Ringing...'
-                : callState === 'connecting'
-                ? 'Connecting...'
-                : callState === 'calling'
-                ? 'Calling...'
-                : callState === 'declined'
-                ? 'Call declined'
-                : callState === 'missed'
-                ? 'No answer'
-                : callState === 'failed'
-                ? 'Connection failed'
-                : 'Call ended'}
-            </p>
-          </div>
-
-          {errorMessage && (
-            <div className="max-w-xs p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center gap-2 text-left mt-4">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Audio wave animation */}
-          {callState === 'connected' && (
-            <div className="flex items-center gap-4 h-16 mt-8">
-              <div className="flex items-end gap-1 h-12">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div 
-                    key={i}
-                    className="w-2 bg-[#C9A24D] rounded-full transition-all duration-100"
-                    style={{ 
-                      height: `${Math.random() * 80 + 20}%`,
-                      animation: `wave ${Math.random() * 0.5 + 0.5}s ease-in-out infinite alternate`
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="text-3xl font-mono text-white tracking-wider">
-                {formatDuration(durationSeconds)}
-              </div>
-              <div className="flex items-end gap-1 h-12">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div 
-                    key={i}
-                    className="w-2 bg-[#C9A24D] rounded-full transition-all duration-100"
-                    style={{ 
-                      height: `${Math.random() * 80 + 20}%`,
-                      animation: `wave ${Math.random() * 0.5 + 0.5}s ease-in-out infinite alternate-reverse`
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Call Controls - iOS style bottom bar */}
-        <div 
-          className="absolute bottom-[max(18px,env(safe-area-inset-bottom))] left-0 right-0 z-40 px-3 pt-2 opacity-100"
-        >
-          <div className="flex items-center justify-center gap-4 px-2">
-            
-            {/* Mute Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleToggleMute();
-              }}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
-                isMuted
-                  ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 shadow-lg shadow-rose-950/30'
-                  : 'bg-white/10 border-white/20 text-white hover:bg-white/15'
-              }`}
-              aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-            >
-              {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-            </button>
-
-            {/* Speaker Toggle */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsSpeakerOn((current) => !current);
-              }}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all cursor-pointer ${
-                !isSpeakerOn
-                  ? 'bg-zinc-800/50 text-zinc-500 border-white/5'
-                  : 'bg-white/10 border-white/20 text-white hover:bg-white/15'
-              }`}
-              aria-label="Toggle speaker"
-            >
-              {isSpeakerOn ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-            </button>
-
-            {/* End Call Button - Red */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEndCall();
-              }}
-              className="w-16 h-16 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-2xl shadow-rose-950/60 transition-transform active:scale-90 cursor-pointer"
-              aria-label="End call"
-            >
-              <PhoneOff className="w-7 h-7" />
-            </button>
-          </div>
-        </div>
-
-        {/* Minimize button */}
-        {!isMinimized && (
-          <button
-            onClick={handleToggleMinimize}
-            className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-black/50 backdrop-blur-sm border border-white/10 text-white flex items-center justify-center transition-all hover:bg-black/70 z-40"
-            aria-label="Minimize call"
-          >
-            <ChevronDown className="w-5 h-5" />
-          </button>
         )}
       </div>
 
-      {/* Minimized Audio Call Mode */}
-      {isMinimized && (
-        <div 
-          className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-48 h-20 rounded-2xl bg-[#0a0a0f] border border-white/20 overflow-hidden shadow-2xl z-50 flex items-center p-3"
-          onClick={handleToggleMinimize}
-        >
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#C9A24D]/20 to-[#171922] border border-[#C9A24D]/40 flex items-center justify-center text-lg font-bold text-[#C9A24D] overflow-hidden mr-3">
-            {peerAvatar ? (
-              <img src={peerAvatar} alt={peerName} className="w-full h-full object-cover" />
-            ) : (
-              peerName.charAt(0).toUpperCase()
-            )}
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="text-white text-sm font-medium truncate">
-              {peerName}
-            </div>
-            <div className="text-zinc-400 text-xs">
-              {callState === 'connected' ? formatDuration(durationSeconds) : callState}
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2 ml-2">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleToggleMute();
-              }}
-              className="w-8 h-8 rounded-lg bg-white/10 border border-white/20 text-white flex items-center justify-center text-xs"
-            >
-              {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEndCall();
-              }}
-              className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center text-xs"
-            >
-              <PhoneOff className="w-4 h-4" />
-            </button>
-          </div>
+      <div className="g-call__dock g-call__full">
+        <div className="g-dock">
+          <CallDockButton
+            label={isMuted ? 'Unmute' : 'Mute'}
+            ariaLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+            off={isMuted}
+            icon={isMuted ? <MicOff className="w-[22px] h-[22px]" /> : <Mic className="w-[22px] h-[22px]" />}
+            onClick={handleToggleMute}
+          />
+          <CallDockButton
+            label={isSpeakerOn ? 'Speaker' : 'Speaker off'}
+            ariaLabel="Toggle speaker"
+            off={!isSpeakerOn}
+            icon={isSpeakerOn ? <Volume2 className="w-[22px] h-[22px]" /> : <VolumeX className="w-[22px] h-[22px]" />}
+            onClick={() => setIsSpeakerOn((current) => !current)}
+          />
         </div>
-      )}
+        <button type="button" className="g-call__end" onClick={(e) => { e.stopPropagation(); handleEndCall(); }} aria-label="End call">
+          <PhoneOff className="w-6 h-6" /> <span>End call</span>
+        </button>
+      </div>
+
+      <div className="g-call__mini">
+        <CallOrb name={peerName} avatar={peerAvatar} state={callState} size="md" />
+        <div className="g-call__mini-copy">
+          <span className="g-call__mini-name">{peerName}</span>
+          <span className="g-call__mini-time">{callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'audio', peerName)}</span>
+        </div>
+        <button type="button" aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'} className={isMuted ? 'is-off' : ''} onClick={(e) => { e.stopPropagation(); handleToggleMute(); }}>
+          {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+        </button>
+        <button type="button" aria-label="End call" className="is-end" onClick={(e) => { e.stopPropagation(); handleEndCall(); }}><PhoneOff className="w-4 h-4" /></button>
+      </div>
     </div>
   , document.body);
 };
