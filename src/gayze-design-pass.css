@@ -1,0 +1,111 @@
+/* ==========================================================================
+   GAYZE design pass — the light that moves through the app.
+   Direction: dark glass, with the brand hues (violet → magenta → rose → gold)
+   travelling around edges and across surfaces. Three gestures only:
+     1. ORBIT  — a hue ring that circles an element's edge
+     2. SHEEN  — a soft diagonal light that passes over a surface
+     3. DRIFT  — slow aurora behind everything
+   Specificity is kept at zero with :where() wherever this file sets layout
+   properties, so it never overrides a component's own positioning.
+   ========================================================================== */
+:root {
+  --gz-ring: conic-gradient(from var(--gayze-action-angle, 0deg),
+    #6F3CC3 0deg, #b85cde 70deg, #f08d9a 140deg, #C9A24D 210deg, #a05af0 280deg, #6F3CC3 360deg);
+  --gz-sheen: linear-gradient(105deg, transparent 0%, rgba(255,255,255,.30) 50%, transparent 100%);
+}
+
+/* ---- 1. Primary buttons: sheen passes every few seconds ---------------- */
+:where(.g-btn--primary, .g-btn--amber, .g-btn--intent-social, .g-btn--intent-private) {
+  position: relative; overflow: hidden; isolation: isolate;
+}
+:is(.g-btn--primary, .g-btn--amber, .g-btn--intent-social, .g-btn--intent-private)::after {
+  content: ""; position: absolute; top: -25%; bottom: -25%; left: 0; width: 36%;
+  background: var(--gz-sheen); pointer-events: none; z-index: 1;
+  transform: translateX(-170%) skewX(-18deg);
+  animation: gz-sheen 5.4s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+:is(.g-btn--amber, .g-btn--intent-private)::after { animation-delay: 1.7s; }
+@keyframes gz-sheen {
+  0%, 60% { transform: translateX(-170%) skewX(-18deg); }
+  100% { transform: translateX(480%) skewX(-18deg); }
+}
+.g-btn--primary:hover, .g-btn--amber:hover { transform: translateY(-1px); }
+.g-btn--primary { box-shadow: 0 10px 28px rgba(111, 60, 195, .42), 0 0 0 1px rgba(184, 92, 222, .25), inset 0 1px 0 rgba(255,255,255,.18); }
+
+/* ---- 2. Secondary buttons, chips, tabs: orbit ring on interaction ------- */
+:where(.g-btn--quiet, .g-icon-btn:not(.g-icon-btn--bare), .g-nearby-btn, .g-discovery-secondary,
+       .g-chip, .g-seg > *, .g-messages-subtab, .g-navpill__btn, .g-tile) { position: relative; }
+:is(.g-btn--quiet, .g-icon-btn:not(.g-icon-btn--bare), .g-nearby-btn, .g-discovery-secondary,
+    .g-chip, .g-messages-subtab, .g-navpill__btn, .g-tile)::after {
+  content: ""; position: absolute; inset: 0; padding: 1.5px; border-radius: inherit; pointer-events: none; z-index: 2;
+  background: var(--gz-ring);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity .25s ease;
+  animation: gayze-action-orbit 6s linear infinite;
+}
+:is(.g-btn--quiet, .g-icon-btn, .g-nearby-btn, .g-discovery-secondary, .g-chip, .g-tile):is(:hover, :focus-visible)::after,
+.g-btn--selected::after,
+.g-chip[data-active='true']::after,
+.g-messages-subtab[data-active='true']::after,
+.g-navpill__btn[data-active='true']::after { opacity: .95; }
+.g-messages-subtab[data-active='true'], .g-navpill__btn[data-active='true'] {
+  box-shadow: 0 0 22px rgba(160, 90, 240, .22);
+}
+
+/* ---- 3. List rows and tiles: one light pass on touch/hover -------------- */
+:where(.g-row, .g-tile) { overflow: hidden; }
+.g-row { background-repeat: no-repeat; background-size: 40% 100%; background-position: -60% 0; }
+.g-row:hover, .g-row:active {
+  background-image: linear-gradient(105deg, transparent, rgba(184, 92, 222, .10) 50%, transparent);
+  animation: gz-row-pass .9s cubic-bezier(.22, 1, .36, 1) 1;
+}
+@keyframes gz-row-pass { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+
+/* ---- 4. Section headers, labels, empty states --------------------------- */
+.g-label, .g-notification-section-head, .g-empty h3 {
+  background: linear-gradient(90deg, #b796f0, #f0b8c8 55%, #d9b765);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.g-empty__icon, .g-intent-hub__live-icon {
+  box-shadow: 0 0 26px rgba(160, 90, 240, .35), inset 0 1px 0 rgba(255,255,255,.16);
+  animation: g-orb-breathe 3.6s ease-in-out infinite;
+}
+
+/* ---- 5. Tab bar: the active destination glows in the hues --------------- */
+.g-tab[data-active='true'] svg, .g-tab[data-active='true'] img { filter: drop-shadow(0 0 7px rgba(184, 92, 222, .65)); }
+.g-tab[data-active='true'] .g-tab__ind { box-shadow: 0 0 14px rgba(184, 92, 222, .7), 0 0 4px rgba(240, 141, 154, .8); }
+
+/* ---- 6. Atmosphere: slow aurora drifting behind every screen ------------ */
+.g-atmos::before {
+  content: ""; position: absolute; inset: -20%; pointer-events: none; will-change: transform;
+  background:
+    radial-gradient(38% 30% at 20% 24%, rgba(111, 60, 195, .20), transparent 70%),
+    radial-gradient(34% 28% at 82% 18%, rgba(240, 141, 154, .10), transparent 70%),
+    radial-gradient(40% 32% at 70% 86%, rgba(201, 162, 77, .10), transparent 70%),
+    radial-gradient(36% 30% at 14% 82%, rgba(160, 90, 240, .14), transparent 70%);
+  animation: gz-aurora 38s ease-in-out infinite alternate;
+}
+@keyframes gz-aurora {
+  0% { transform: translate3d(-3%, -2%, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(3%, 2%, 0) rotate(4deg) scale(1.06); }
+  100% { transform: translate3d(-2%, 3%, 0) rotate(-3deg) scale(1.02); }
+}
+
+/* ---- 7. Sign-in: the front door gets the full treatment ----------------- */
+.g-shell .g-panel { box-shadow: 0 30px 80px rgba(60, 25, 120, .45), 0 0 60px rgba(160, 90, 240, .16), var(--g-edge); }
+.g-shell .g-panel::after { opacity: .95 !important; padding: 2px !important; animation-duration: 6s !important; }
+.g-shell img[alt='GAYZE logo'] { filter: drop-shadow(0 0 18px rgba(184, 92, 222, .55)); animation: g-orb-breathe 5s ease-in-out infinite; }
+
+/* ---- 8. Chat: your messages carry a quiet hue edge ---------------------- */
+.g-bubble--mine { box-shadow: 0 6px 22px rgba(111, 60, 195, .22), inset 0 1px 0 rgba(255,255,255,.14); }
+.g-chat-header, .gayze-chat-header { box-shadow: 0 1px 0 rgba(184, 92, 222, .18), 0 10px 30px rgba(60, 25, 120, .18); }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.g-btn--primary, .g-btn--amber, .g-btn--intent-social, .g-btn--intent-private)::after,
+  .g-atmos::before, .g-row:hover, .g-row:active, .g-empty__icon, .g-intent-hub__live-icon,
+  .g-shell img[alt='GAYZE logo'],
+  :is(.g-btn--quiet, .g-icon-btn, .g-nearby-btn, .g-discovery-secondary, .g-chip, .g-messages-subtab,
+      .g-navpill__btn, .g-tile)::after { animation: none !important; }
+  :is(.g-btn--primary, .g-btn--amber, .g-btn--intent-social, .g-btn--intent-private)::after { display: none; }
+}
