@@ -244,3 +244,9 @@
 .g-intent-hub__control--end.is-armed { background: linear-gradient(180deg, rgba(220, 70, 90, .35), rgba(160, 40, 70, .3)); border-color: rgba(244, 100, 120, .7); box-shadow: 0 0 22px rgba(244, 63, 94, .3); }
 .g-intent-hub__control--end.is-armed svg { color: #fff; }
 .g-intent-hub__live .g-intent-hub__manage { display: none; }
+
+
+/* ---- Sparkler border: replaces the floating twinkle dots ---------------- */
+.g-opt[data-tone]::before { display: none; }
+.g-opt[data-tone][data-active='true'] { overflow: visible; }
+.g-sparkborder { position: absolute; left: -34px; top: -34px; pointer-events: none; z-index: 4; }
