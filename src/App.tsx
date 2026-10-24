@@ -36,6 +36,7 @@ import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { InstallPrompt } from './components/InstallPrompt';
 import { NotificationsModal } from './components/NotificationsModal';
 import { PushEnableBanner } from './components/PushEnableBanner';
+import { Snack } from './components/Snack';
 import {
   finishPendingPushRevoke,
   registerServiceWorker,
@@ -3309,10 +3310,10 @@ export default function App() {
 
       {/* Toast Notification */}
       {notificationToast && (
-        <div className={`g-toast g-toast--${activeTab}`}>
-          <Shield className="w-4 h-4 text-[#C9A24D] shrink-0" />
-          <span className="flex-1 truncate font-semibold">{notificationToast}</span>
-        </div>
+        <Snack message={notificationToast} onDismiss={() => {
+          if (toastTimeoutRef.current !== null) { window.clearTimeout(toastTimeoutRef.current); toastTimeoutRef.current = null; }
+          setNotificationToast(null);
+        }} />
       )}
 
       {locationError && (
