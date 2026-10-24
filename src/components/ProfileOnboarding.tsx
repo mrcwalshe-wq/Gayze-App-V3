@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { intentDisplayLabel } from '../services/intentLabels';
 import { ArrowRight, Check, ShieldCheck } from 'lucide-react';
 import type { LocationPrivacy, UserProfile } from '../types';
 import { LOOKING_FOR_OPTIONS } from '../config/profileOptions';
@@ -59,7 +60,7 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
             <div className="mt-3 flex flex-wrap gap-2">
               {PREFERENCES.map((preference) => {
                 const selected = preferences.includes(preference); const privatePreference = preference.startsWith('Hookup');
-                return <button key={preference} type="button" onClick={() => togglePreference(preference)} className={`px-3 py-2 rounded-full border text-xs transition-all ${selected ? privatePreference ? 'border-[#6F3CC3]/80 bg-[#6F3CC3]/20 text-white shadow-[0_0_16px_rgba(111,60,195,0.16)]' : 'border-[#C9A24D]/80 bg-[#C9A24D]/15 text-white shadow-[0_0_16px_rgba(201,162,77,0.14)]' : 'border-white/10 bg-white/[0.03] text-zinc-400'}`}>{selected && <Check className="inline w-3 h-3 mr-1" />}{preference}</button>;
+                return <button key={preference} type="button" onClick={() => togglePreference(preference)} className={`px-3 py-2 rounded-full border text-xs transition-all ${selected ? privatePreference ? 'border-[#6F3CC3]/80 bg-[#6F3CC3]/20 text-white shadow-[0_0_16px_rgba(111,60,195,0.16)]' : 'border-[#C9A24D]/80 bg-[#C9A24D]/15 text-white shadow-[0_0_16px_rgba(201,162,77,0.14)]' : 'border-white/10 bg-white/[0.03] text-zinc-400'}`}>{selected && <Check className="inline w-3 h-3 mr-1" />}{intentDisplayLabel(preference)}</button>;
               })}
             </div>
           </div>

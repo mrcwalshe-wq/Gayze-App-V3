@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { intentDisplayLabel } from '../services/intentLabels';
 import { supabase } from '../services/supabaseClient';
 import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../services/profilePhotoService';
 import { loadOutgoingInterestStatuses } from '../services/supabaseService';
@@ -1444,8 +1445,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       }`}
                     >
                       {(selectedItem.type === 'pulse'
-                        ? selectedItem.item.intent?.replace(' · ', ' ')
-                        : selectedItem.item.intent?.replace(' · ', ' ')) ||
+                        ? intentDisplayLabel(selectedItem.item.intent)
+                        : intentDisplayLabel(selectedItem.item.intent)) ||
                         ((selectedItem.type === 'pulse'
                           ? selectedItem.item.intentMode
                           : selectedItem.item.intentMode) === 'private'
@@ -2160,7 +2161,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     item.type === 'haven'
                       ? 'Safe haven'
                       : item.type === 'pulse'
-                        ? item.item.intent?.replace(' · ', ' ') || (isPrivate ? 'Private' : 'Social')
+                        ? intentDisplayLabel(item.item.intent) || (isPrivate ? 'Private' : 'Social')
                         : item.item.intent || item.item.lookingForLabel;
                   const expires =
                     item.type === 'pulse' ? item.item.expiresAt : item.type === 'profile' ? item.item.intentExpiresAt : undefined;
@@ -2292,7 +2293,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
                   </span>
                   <span className="text-[15px] font-extrabold text-white tracking-tight">
-                    {activeUserIntent.intent.replace(' · ', ' ')}
+                    {intentDisplayLabel(activeUserIntent.intent)}
                   </span>
                 </div>
                 <p className="text-[13px] text-zinc-300 leading-relaxed">{activeUserIntent.description}</p>
@@ -2401,7 +2402,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div className="min-w-0">
                 <span className="g-label text-[#C9A24D]">Mutual interest</span>
                 <h3 className="text-[17px] font-semibold text-white tracking-[-0.015em] mt-1">
-                  {(mutualMatchPulse.intent || mutualMatchPulse.title).replace(' · ', ' ')} · now
+                  {intentDisplayLabel(mutualMatchPulse.intent || mutualMatchPulse.title)} · now
                 </h3>
                 <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed">
                   You and {mutualMatchPulse.peerName} both want this right now. The chat is open.

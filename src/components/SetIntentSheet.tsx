@@ -7,6 +7,17 @@ import {
   Radio,
   UsersRound,
   EyeOff,
+  Coffee,
+  Wine,
+  Heart,
+  MessageCircle,
+  Moon,
+  Route,
+  TreePine,
+  Car,
+  Sparkles,
+  ShieldCheck,
+  type LucideIcon,
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import { SparkBorder } from './SparkBorder';
@@ -36,21 +47,25 @@ interface SetIntentSheetProps {
 /* Option vocabularies (stored values are shared across the product)   */
 /* ------------------------------------------------------------------ */
 
-const SOCIAL_OPTIONS: { value: SocialIntent; label: string; hint?: string }[] = [
-  { value: 'Meet', label: 'Meet', hint: 'Coffee, a walk, a wander' },
-  { value: 'Drinks', label: 'Drinks', hint: 'A drink nearby' },
-  { value: 'Date', label: 'Date', hint: 'Something with chemistry' },
-  { value: 'Chat', label: 'Chat', hint: 'Conversation first' },
-  { value: 'Group', label: 'Group', hint: 'Company, not just two' },
+type IntentOption<T> = { value: T; label: string; hint: string; icon: LucideIcon };
+
+const SOCIAL_OPTIONS: IntentOption<SocialIntent>[] = [
+  { value: 'Meet', label: 'Meet', hint: 'Coffee, a walk, a wander', icon: Coffee },
+  { value: 'Drinks', label: 'Drinks', hint: 'A drink nearby', icon: Wine },
+  { value: 'Date', label: 'Date', hint: 'Something with chemistry', icon: Heart },
+  { value: 'Chat', label: 'Chat', hint: 'Conversation first', icon: MessageCircle },
+  { value: 'Group', label: 'Group', hint: 'Company, not just two', icon: UsersRound },
 ];
 
-const PRIVATE_OPTIONS: { value: PrivateIntent; label: string; hint?: string }[] = [
-  { value: 'Hookup', label: 'Hookup', hint: 'Open, no fixed plan' },
-  { value: 'Hookup · Host', label: 'Hookup Host', hint: 'You have the place' },
-  { value: 'Hookup · Travel', label: 'Hookup Travel', hint: 'Happy to come to you' },
-  { value: 'Hookup · Outdoor', label: 'Hookup Outdoor', hint: 'Out & discreet' },
-  { value: 'Hookup · Car', label: 'Hookup Car', hint: 'A private vehicle' },
-  { value: 'Other', label: 'Something else', hint: 'Say it in your words' },
+// Stored values stay as they are (shared with the database and matching);
+// only the words people read are softened.
+const PRIVATE_OPTIONS: IntentOption<PrivateIntent>[] = [
+  { value: 'Hookup', label: 'Intimate', hint: 'Spontaneous, no fixed plan', icon: Moon },
+  { value: 'Hookup · Host', label: 'Host', hint: 'You have the place', icon: Home },
+  { value: 'Hookup · Travel', label: 'Travel', hint: 'Happy to come to you', icon: Route },
+  { value: 'Hookup · Outdoor', label: 'Outdoors', hint: 'Somewhere quiet and discreet', icon: TreePine },
+  { value: 'Hookup · Car', label: 'By car', hint: 'Meet somewhere private', icon: Car },
+  { value: 'Other', label: 'Other', hint: 'Say it in your words', icon: Sparkles },
 ];
 
 const WHEN_OPTIONS: { value: string; label: string }[] = [
@@ -72,10 +87,10 @@ const QUICK_SUGGESTIONS: Record<string, string[]> = {
   Chat: ['Tea and a long conversation', 'Walking chat, no agenda', 'Making a new friend in the area'],
   Group: ['Gym or bouldering session', 'Exhibition or park meetup', 'Joining something happening tonight'],
   Hookup: ['Spontaneous, discreet, respectful', 'Mutual vibes, clear boundaries', 'Low-key connection tonight'],
-  'Hookup · Host': ['Hosting nearby — clean & discreet', 'My place, drinks chilled', 'Low-key hosting right now'],
-  'Hookup · Travel': ['Mobile, can come to you', 'Within a reasonable radius', 'Discreet travel nearby'],
-  'Hookup · Outdoor': ['Quiet secluded spot', 'Night walk, low-key', 'Discreet outdoors'],
-  'Hookup · Car': ['Comfortable private car', 'Discreet car meetup', 'Respectful & safe'],
+  'Hookup · Host': ['Hosting nearby, relaxed and discreet', 'My place, easy evening', 'Low-key hosting right now'],
+  'Hookup · Travel': ['Mobile, can come to you', 'Within a reasonable radius', 'Discreet and easy to reach'],
+  'Hookup · Outdoor': ['A quiet spot, low-key', 'Night walk, no pressure', 'Discreet and outdoors'],
+  'Hookup · Car': ['Easy meet, private and safe', 'Discreet, on the move', 'Respectful and clear'],
   Other: ['Discreet with clear boundaries', 'Open to a specific vibe', 'Respectful communication first'],
 };
 
@@ -242,7 +257,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       aria-labelledby="set-intent-title"
     >
       <div
-        className={`g-sheet g-sheet--above-nav ${mode ? `g-sheet--${mode}` : ""}`}
+        className={`g-sheet g-sheet--above-nav g-iset ${mode ? `g-sheet--${mode}` : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="g-sheet__grip" />
@@ -324,21 +339,27 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             {mode && (
               <div className="g-reveal pt-3 pb-3 border-t border-white/[0.07]">
                 <span className="g-label">What?</span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2.5">
-                  {options.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      className="g-opt g-opt--sm"
-                      data-tone={tone}
-                      data-active={intent === opt.value}
-                      onClick={() => handleSelectIntent(opt.value)}
-                    >
-                      {intent === opt.value && <SparkBorder tone={mode === 'social' ? 'social' : 'private'} />}
-                      <span className="g-opt__t">{opt.label}</span>
-                      {opt.hint && <span className="g-opt__d hidden sm:block">{opt.hint}</span>}
-                    </button>
-                  ))}
+                <div className="g-iset__grid mt-2.5">
+                  {options.map((opt) => {
+                    const Icon = opt.icon;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        className="g-itile"
+                        data-tone={tone}
+                        data-active={intent === opt.value}
+                        onClick={() => handleSelectIntent(opt.value)}
+                      >
+                        {intent === opt.value && <SparkBorder tone={mode === 'social' ? 'social' : 'private'} />}
+                        <span className="g-itile__icon" aria-hidden="true"><Icon className="w-[17px] h-[17px]" /></span>
+                        <span className="g-itile__copy">
+                          <span className="g-itile__t">{opt.label}</span>
+                          <span className="g-itile__d">{opt.hint}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -348,12 +369,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
               <div className="g-reveal pt-3 border-t border-white/[0.07] space-y-4 pb-2">
                 <div>
                   <span className="g-label">When</span>
-                  <div className="flex flex-wrap gap-2 mt-2.5">
+                  <div className="g-iseg g-iseg--4 mt-2.5" data-tone={tone}>
                     {WHEN_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         type="button"
-                        className="g-optpill"
+                        className="g-iseg__opt"
                         data-active={when === opt.value}
                         onClick={() => { hapticLight(); setWhen(opt.value); }}
                       >
@@ -367,12 +388,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <span className="g-label">Time available</span>
-                    <div className="flex flex-wrap gap-2 mt-2.5">
+                    <div className="g-iseg g-iseg--3 mt-2.5" data-tone={tone}>
                       {DURATION_OPTIONS.map((d) => (
                         <button
                           key={d}
                           type="button"
-                          className="g-optpill"
+                          className="g-iseg__opt"
                           data-active={duration === d}
                           onClick={() => { hapticLight(); setDuration(d); }}
                         >
@@ -384,13 +405,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
 
                   <div>
                     <span className="g-label">How far you’ll go</span>
-                    <div className="flex flex-wrap gap-2 mt-2.5">
+                    <div className="g-iseg g-iseg--2 mt-2.5" data-tone={tone}>
                       {DISTANCE_OPTIONS.map((d) => (
                         <button
                           key={d}
                           type="button"
-                          className="g-optpill"
-                          data-tone={mode === 'private' ? 'private' : 'amber'}
+                          className="g-iseg__opt"
                           data-active={travelDistance === d}
                           onClick={() => { hapticLight(); setTravelDistance(d); }}
                         >
@@ -406,12 +426,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     <span className="g-label flex items-center gap-1.5">
                       <Home className="w-3 h-3" /> Can you host?
                     </span>
-                    <div className="flex flex-wrap gap-2 mt-2.5">
+                    <div className="g-iseg g-iseg--3 mt-2.5" data-tone={tone}>
                       {HOST_OPTIONS.map((o) => (
                         <button
                           key={o}
                           type="button"
-                          className="g-optpill"
+                          className="g-iseg__opt"
                           data-active={canHost === o}
                           onClick={() => { hapticLight(); setCanHost(o); }}
                         >
@@ -425,12 +445,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 {showTravel && (
                   <div className="g-reveal">
                     <span className="g-label">Willing to travel?</span>
-                    <div className="flex flex-wrap gap-2 mt-2.5">
+                    <div className="g-iseg g-iseg--3 mt-2.5" data-tone={tone}>
                       {TRAVEL_OPTIONS.map((o) => (
                         <button
                           key={o}
                           type="button"
-                          className="g-optpill"
+                          className="g-iseg__opt"
                           data-active={travelWillingness === o}
                           onClick={() => { hapticLight(); setTravelWillingness(o); }}
                         >
@@ -449,16 +469,18 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     onChange={(e) => setDescription(e.target.value)}
                     maxLength={100}
                     placeholder="One line — what you’re actually open to"
-                    className="g-field mt-2.5"
+                    className="g-field g-iset__field mt-2.5"
                   />
+                  <span className="g-iset__count">{description.length}/100</span>
                   {suggestions.length > 0 && (
-                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-2 pb-0.5">
+                    <div className="g-iset__sugs">
                       {suggestions.map((s) => (
                         <button
                           key={s}
                           type="button"
                           onClick={() => { hapticLight(); setDescription(s); }}
-                          className="shrink-0 h-8 px-3 rounded-lg text-[11px] font-medium text-zinc-400 bg-white/[0.04] border border-white/[0.07] hover:text-zinc-200 hover:border-white/15 transition-colors cursor-pointer"
+                          className="g-iset__sug"
+                          data-active={description === s}
                         >
                           {s}
                         </button>
@@ -508,8 +530,9 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   </div>
                 )}
 
-                <p className="text-[11px] text-zinc-500 leading-relaxed">
-                  Your position stays approximate (±300 m). The signal disappears when it expires. Precise GPS never leaves this device.
+                <p className="g-iset__privacy">
+                  <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+                  <span>Your position stays approximate (±300 m) and the signal disappears when it expires. Precise GPS never leaves this device.</span>
                 </p>
               </div>
             )}

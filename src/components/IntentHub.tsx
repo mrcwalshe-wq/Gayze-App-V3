@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { Clock3, EyeOff, Pause, PencilLine, Play, Plus, Power, Radio, Sparkles, UsersRound, X } from 'lucide-react';
 import type { TopLevelIntentMode, UserActiveIntent } from '../types';
 import { hapticLight } from '../services/hapticService';
+import { intentDisplayLabel } from '../services/intentLabels';
 
 interface IntentHubProps {
   isOpen: boolean;
@@ -90,7 +91,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
               {isPrivate ? <EyeOff className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
             </span>
             <div className="g-live-card__copy">
-              <strong>{(activeIntent.intent ?? '').replace(/^(private|social)\s*·\s*/i, '')}</strong>
+              <strong>{intentDisplayLabel(activeIntent.intent)}</strong>
               <span>{activeIntent.description || (isPaused ? 'Hidden from the map' : 'Visible on the map')}</span>
             </div>
             <div className="g-live-card__time">
@@ -155,7 +156,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
                 <span className="g-intent-hub__live-mode">{isPrivate ? 'PRIVATE' : 'SOCIAL'}</span>
                 <span className="g-intent-hub__live-time"><Clock3 className="w-3 h-3" /> {formatRemaining(remainingMinutes)}</span>
               </div>
-              <strong>{activeIntent?.intent?.replace(' · ', ' ')}</strong>
+              <strong>{intentDisplayLabel(activeIntent?.intent)}</strong>
               <span>{activeIntent?.description || 'Your current GAYZE intent'}</span>
             </div>
           </div>
@@ -174,7 +175,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
               <span className="g-intent-hub__choice-icon"><EyeOff className="w-5 h-5" /></span>
               <span className="g-intent-hub__choice-copy">
                 <strong>Private</strong>
-                <span>Hookup, host, travel, outdoor or car</span>
+                <span>Intimate, host, travel, outdoors or car</span>
               </span>
               <span className="g-intent-hub__choice-arrow">→</span>
             </button>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { intentDisplayLabel } from '../services/intentLabels';
 import {
   Map as MapIcon,
   MessageSquare,
@@ -136,7 +137,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         name: `${profile.name} · ${profile.age}`,
         age: profile.age,
         mode,
-        intentLabel: (profile.intent || profile.lookingForLabel).replace(' · ', ' '),
+        intentLabel: intentDisplayLabel(profile.intent || profile.lookingForLabel),
         description: live ? profile.rightNowDetail || profile.headline : profile.headline,
         area: profile.neighborhood,
         km: profile.approxDistanceKm,
@@ -161,7 +162,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         name: `${pulse.peerName}${pulse.peerAge ? ` · ${pulse.peerAge}` : ''}`,
         age: pulse.peerAge,
         mode,
-        intentLabel: (pulse.intent || pulse.title).replace(' · ', ' '),
+        intentLabel: intentDisplayLabel(pulse.intent || pulse.title),
         description: pulse.description,
         area: pulse.neighborhood || userNeighborhood,
         km: pulse.approxDistanceKm,
@@ -246,7 +247,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           />
           <div className="min-w-0 flex-1">
             <div className="text-[13.5px] font-semibold text-white truncate flex items-center gap-2">
-              <span>{activeUserIntent.intent.replace(' · ', ' ')}</span>
+              <span>{intentDisplayLabel(activeUserIntent.intent)}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-md font-mono bg-white/10 text-zinc-300">
                 {activeUserIntent.mode}
               </span>
