@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Ban, Check, Droplets, Eye, FlipHorizontal2, Grid3x3, RotateCw, Undo2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, Droplets, Eraser, Eye, FlipHorizontal2, Grid3x3, Maximize, RotateCcw, RotateCw, Undo2, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface PhotoStudioProps {
   source: string;
@@ -8,10 +8,15 @@ interface PhotoStudioProps {
   onDone: (editedDataUrl: string) => void;
 }
 
-type Effect = 'none' | 'blur' | 'pixelate';
+type Effect = 'blur' | 'pixelate';
+type Tool = 'paint' | 'erase';
+/** A brush stroke in view space: x/y and size are fractions of the preview square. */
+interface Stroke { tool: Tool; effect: Effect; strength: number; size: number; points: Array<{ x: number; y: number }> }
 type Panel = 'privacy' | 'frame';
 
 const OUTPUT_SIZE = 1200;
+
+const brushSize = (level: number) => 0.04 + level * 0.022;
 
 const makeCanvas = (size: number) => {
   const canvas = document.createElement('canvas');
@@ -22,6 +27,9 @@ const makeCanvas = (size: number) => {
 
 /**
  * Phone-first photo editor.
+ *
+ * Hiding is painted: strokes build a mask, and the pixelated/blurred copy of the
+ * framed photo shows through only where the mask is.
  *
  * Everything is plain canvas drawing (no CanvasRenderingContext2D.filter, which iOS
  * Safari does not reliably support): blur is a two-stage down/up-sample and pixelate
@@ -36,11 +44,18 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
   const stageRef = useRef<HTMLDivElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const paintingRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [panel, setPanel] = useState<Panel>('privacy');
-  const [effect, setEffect] = useState<Effect>('none');
+  const [effect, setEffect] = useState<Effect>('pixelate');
+  const [tool, setTool] = useState<Tool>('paint');
   const [strength, setStrength] = useState(5);
+  const [brush, setBrush] = useState(5);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [liveStroke, setLiveStroke] = useState<Stroke | null>(null);
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0);
@@ -117,24 +132,58 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     bctx.drawImage(image, sx, sy, side, side, -size / 2, -size / 2, size, size);
 
     ctx.clearRect(0, 0, size, size);
-    const f = strength / 10;
+    ctx.drawImage(base, 0, 0);
 
-    if (!withEffect || effect === 'none') {
-      ctx.drawImage(base, 0, 0);
-      return;
+    const all = liveStroke ? [...strokes, liveStroke] : strokes;
+    if (!withEffect || all.length === 0) return;
+
+    // Painted layer: each paint stroke reveals its own pixelated/blurred copy of
+    // the framed photo; erase strokes take it away again.
+    const layer = makeCanvas(size);
+    const lctx = layer.getContext('2d');
+    if (!lctx) return;
+    const fxCache = new Map<string, HTMLCanvasElement | null>();
+    for (const stroke of all) {
+      if (stroke.tool === 'erase') {
+        lctx.globalCompositeOperation = 'destination-out';
+        strokePath(lctx, size, stroke);
+        lctx.globalCompositeOperation = 'source-over';
+        continue;
+      }
+      const key = `${stroke.effect}:${stroke.strength}`;
+      if (!fxCache.has(key)) fxCache.set(key, makeEffect(base, size, stroke.effect, stroke.strength));
+      const fx = fxCache.get(key);
+      if (!fx) continue;
+      const patch = makeCanvas(size);
+      const pctx = patch.getContext('2d');
+      if (!pctx) continue;
+      strokePath(pctx, size, stroke);
+      pctx.shadowBlur = 0;
+      pctx.globalCompositeOperation = 'source-in';
+      pctx.drawImage(fx, 0, 0);
+      lctx.drawImage(patch, 0, 0);
     }
+    ctx.drawImage(layer, 0, 0);
+  };
 
-    if (effect === 'pixelate') {
+  /** Pixelated or blurred copy of the whole framed photo. */
+  const makeEffect = (base: HTMLCanvasElement, size: number, kind: Effect, level: number): HTMLCanvasElement | null => {
+    const f = level / 10;
+    const out = makeCanvas(size);
+    const octx = out.getContext('2d');
+    if (!octx) return null;
+
+    if (kind === 'pixelate') {
       const cells = Math.max(6, Math.round(72 - f * 62));
       const small = makeCanvas(cells);
       const sctx = small.getContext('2d');
-      if (!sctx) return;
+      if (!sctx) return null;
       sctx.imageSmoothingEnabled = true;
       sctx.imageSmoothingQuality = 'high';
       sctx.drawImage(base, 0, 0, cells, cells);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(small, 0, 0, cells, cells, 0, 0, size, size);
-      return;
+      octx.imageSmoothingEnabled = false;
+      octx.drawImage(small, 0, 0, cells, cells, 0, 0, size, size);
+      return out;
     }
 
     // Blur: step down in two stages, then smooth back up.
@@ -142,24 +191,40 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     const mid = Math.min(size, low * 2);
     const midCanvas = makeCanvas(mid);
     const lowCanvas = makeCanvas(low);
+    const upCanvas = makeCanvas(mid);
     const mctx = midCanvas.getContext('2d');
     const lctx = lowCanvas.getContext('2d');
-    if (!mctx || !lctx) return;
-    mctx.imageSmoothingEnabled = true;
-    mctx.imageSmoothingQuality = 'high';
-    lctx.imageSmoothingEnabled = true;
-    lctx.imageSmoothingQuality = 'high';
+    const uctx = upCanvas.getContext('2d');
+    if (!mctx || !lctx || !uctx) return null;
+    for (const c of [mctx, lctx, uctx, octx]) { c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; }
     mctx.drawImage(base, 0, 0, mid, mid);
     lctx.drawImage(midCanvas, 0, 0, low, low);
-    const upCanvas = makeCanvas(mid);
-    const uctx = upCanvas.getContext('2d');
-    if (!uctx) return;
-    uctx.imageSmoothingEnabled = true;
-    uctx.imageSmoothingQuality = 'high';
     uctx.drawImage(lowCanvas, 0, 0, low, low, 0, 0, mid, mid);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(upCanvas, 0, 0, mid, mid, 0, 0, size, size);
+    octx.drawImage(upCanvas, 0, 0, mid, mid, 0, 0, size, size);
+    return out;
+  };
+
+  const strokePath = (ctx: CanvasRenderingContext2D, size: number, stroke: Stroke) => {
+    const width = stroke.size * size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#fff';
+    ctx.fillStyle = '#fff';
+    ctx.lineWidth = width;
+    // Soft edge for blur so the hidden area does not end in a hard line.
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = stroke.effect === 'blur' ? width * 0.3 : 0;
+    const [first, ...rest] = stroke.points;
+    if (!first) return;
+    ctx.beginPath();
+    if (rest.length === 0) {
+      ctx.arc(first.x * size, first.y * size, width / 2, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    ctx.moveTo(first.x * size, first.y * size);
+    for (const point of rest) ctx.lineTo(point.x * size, point.y * size);
+    ctx.stroke();
   };
 
   useEffect(() => {
@@ -168,7 +233,7 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     draw(canvas, Math.round(stageSize * dpr), !comparing);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, stageSize, effect, strength, zoom, pan, rotation, flip, comparing]);
+  }, [ready, stageSize, zoom, pan, rotation, flip, comparing, strokes, liveStroke]);
 
   const done = () => {
     const out = makeCanvas(OUTPUT_SIZE);
@@ -178,21 +243,48 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
   };
 
   const reset = () => {
-    setEffect('none');
+    setEffect('pixelate');
+    setTool('paint');
     setStrength(5);
+    setBrush(5);
+    setStrokes([]);
+    setLiveStroke(null);
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setRotation(0);
     setFlip(false);
   };
 
+  const framePoint = (event: React.PointerEvent) => {
+    const rect = frameRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+    };
+  };
+
   const onPointerDown = (event: React.PointerEvent) => {
-    if (!ready || zoom <= 1) return;
+    if (!ready) return;
     (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+    if (panel === 'privacy') {
+      const point = framePoint(event);
+      paintingRef.current = true;
+      setCursor(point);
+      setLiveStroke({ tool, effect, strength, size: brushSize(brush), points: [point] });
+      return;
+    }
+    if (zoom <= 1) return;
     dragRef.current = { x: event.clientX, y: event.clientY };
     setDragging(true);
   };
   const onPointerMove = (event: React.PointerEvent) => {
+    if (paintingRef.current) {
+      const point = framePoint(event);
+      setCursor(point);
+      setLiveStroke((current) => (current ? { ...current, points: [...current.points, point] } : current));
+      return;
+    }
     const last = dragRef.current;
     const image = imageRef.current;
     if (!last || !image) return;
@@ -207,14 +299,33 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     const scale = cropSide(image) / stageSize;
     setPan((current) => clampPan(image, current.x - rx * scale, current.y - ry * scale));
   };
-  const endDrag = () => { dragRef.current = null; setDragging(false); };
+  const endDrag = () => {
+    dragRef.current = null;
+    setDragging(false);
+    if (paintingRef.current) {
+      paintingRef.current = false;
+      setLiveStroke((current) => {
+        if (current) setStrokes((list) => [...list, current]);
+        return null;
+      });
+      setCursor(null);
+    }
+  };
 
-  const effects: Array<{ id: Effect; label: string; icon: React.ReactNode }> = [
-    { id: 'none', label: 'Original', icon: <Ban className="w-[18px] h-[18px]" /> },
-    { id: 'blur', label: 'Blur', icon: <Droplets className="w-[18px] h-[18px]" /> },
-    { id: 'pixelate', label: 'Pixelate', icon: <Grid3x3 className="w-[18px] h-[18px]" /> },
-  ];
-  const badge = effect === 'none' ? 'Original' : `${effect === 'blur' ? 'Blur' : 'Pixelate'} ${strength}`;
+  /** Strokes live in view space, so keep them on the same pixels when the view turns. */
+  const rotateStrokes = () => setStrokes((list) => list.map((stroke) => ({
+    ...stroke,
+    points: stroke.points.map((p) => ({ x: 1 - p.y, y: p.x })),
+  })));
+  const flipStrokes = () => setStrokes((list) => list.map((stroke) => ({
+    ...stroke,
+    points: stroke.points.map((p) => (rotation % 180 === 0 ? { x: 1 - p.x, y: p.y } : { x: p.x, y: 1 - p.y })),
+  })));
+  const hideAll = () => setStrokes((list) => [...list, { tool: 'paint', effect, strength, size: 2, points: [{ x: 0.5, y: 0.5 }] }]);
+
+  const hasHiding = strokes.length > 0;
+  const lastPaint = [...strokes].reverse().find((stroke) => stroke.tool === 'paint');
+  const badge = lastPaint ? `${strokes.filter((stroke) => stroke.tool === 'paint').length} hidden` : 'Original';
 
   return createPortal(
     <div
@@ -229,7 +340,7 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
         </button>
         <div className="g-studio__title">
           <strong>Photo Studio</strong>
-          <span>Frame it, then hide what you like</span>
+          <span>Paint over anything you want hidden</span>
         </div>
         <button type="button" onClick={done} disabled={!ready} className="g-studio__use" aria-label="Use edited photo">
           <Check className="w-4 h-4" /> Use
@@ -241,7 +352,8 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
           <p className="g-studio__error">This photo could not be opened.</p>
         ) : (
           <div
-            className={`g-studio__frame ${dragging ? 'is-dragging' : ''} ${zoom > 1 ? 'can-pan' : ''}`}
+            ref={frameRef}
+            className={`g-studio__frame ${dragging ? 'is-dragging' : ''} ${panel === 'frame' && zoom > 1 ? 'can-pan' : ''} ${panel === 'privacy' ? 'can-paint' : ''}`}
             style={{ width: stageSize, height: stageSize }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -252,7 +364,14 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
             <div className="g-studio__grid" aria-hidden="true" />
             <span className="g-studio__chip g-studio__chip--l">{comparing ? 'Original' : '1:1'}</span>
             <span className="g-studio__chip g-studio__chip--r">{comparing ? 'Holding' : badge}</span>
-            {zoom > 1 && !dragging && <span className="g-studio__hint">Drag to reposition</span>}
+            {panel === 'frame' && zoom > 1 && !dragging && <span className="g-studio__hint">Drag to reposition</span>}
+            {panel === 'privacy' && !hasHiding && !liveStroke && <span className="g-studio__hint">Drag your finger over what to hide</span>}
+            {cursor && (
+              <span
+                className={`g-studio__brush ${tool === 'erase' ? 'is-erase' : ''}`}
+                style={{ left: cursor.x * stageSize, top: cursor.y * stageSize, width: brushSize(brush) * stageSize, height: brushSize(brush) * stageSize }}
+              />
+            )}
           </div>
         )}
       </div>
@@ -277,29 +396,36 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
         {panel === 'privacy' ? (
           <div className="g-studio__panel">
             <div className="g-studio__effects">
-              {effects.map((item) => (
-                <button key={item.id} type="button" data-active={effect === item.id} onClick={() => setEffect(item.id)}>
-                  {item.icon}<span>{item.label}</span>
-                </button>
-              ))}
+              <button type="button" data-active={tool === 'paint' && effect === 'pixelate'} onClick={() => { setEffect('pixelate'); setTool('paint'); }}>
+                <Grid3x3 className="w-[18px] h-[18px]" /><span>Pixelate</span>
+              </button>
+              <button type="button" data-active={tool === 'paint' && effect === 'blur'} onClick={() => { setEffect('blur'); setTool('paint'); }}>
+                <Droplets className="w-[18px] h-[18px]" /><span>Blur</span>
+              </button>
+              <button type="button" data-active={tool === 'erase'} onClick={() => setTool((t) => (t === 'erase' ? 'paint' : 'erase'))}>
+                <Eraser className="w-[18px] h-[18px]" /><span>Erase</span>
+              </button>
+              <button type="button" disabled={!hasHiding} onClick={() => setStrokes((list) => list.slice(0, -1))}>
+                <RotateCcw className="w-[18px] h-[18px]" /><span>Undo</span>
+              </button>
+              <button type="button" onClick={hideAll}>
+                <Maximize className="w-[18px] h-[18px]" /><span>All</span>
+              </button>
             </div>
-            <label className={`g-studio__slider ${effect === 'none' ? 'is-off' : ''}`}>
+            <label className="g-studio__slider">
               <span>Strength</span>
-              <input
-                aria-label="Effect strength"
-                type="range"
-                min="1"
-                max="10"
-                step="1"
-                value={strength}
-                disabled={effect === 'none'}
-                onChange={(e) => setStrength(Number(e.target.value))}
-              />
-              <b>{effect === 'none' ? '—' : strength}</b>
+              <input aria-label="Effect strength" type="range" min="1" max="10" step="1" value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
+              <b>{strength}</b>
+            </label>
+            <label className="g-studio__slider">
+              <span>Brush</span>
+              <input aria-label="Brush size" type="range" min="1" max="10" step="1" value={brush} onChange={(e) => setBrush(Number(e.target.value))} />
+              <b>{brush}</b>
             </label>
           </div>
         ) : (
           <div className="g-studio__panel">
+            {hasHiding && <p className="g-studio__note">Zooming or moving the photo clears what you've hidden. Rotate and flip keep it.</p>}
             <label className="g-studio__slider">
               <ZoomOut className="w-4 h-4" />
               <input
@@ -312,6 +438,7 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
                 onChange={(e) => {
                   const next = Number(e.target.value);
                   setZoom(next);
+                  if (strokes.length) setStrokes([]);
                   if (next === 1) setPan({ x: 0, y: 0 });
                 }}
               />
@@ -319,8 +446,8 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
               <b>{zoom.toFixed(1)}×</b>
             </label>
             <div className="g-studio__actions">
-              <button type="button" onClick={() => setRotation((value) => (value + 90) % 360)}><RotateCw className="w-4 h-4" /><span>Rotate</span></button>
-              <button type="button" onClick={() => setFlip((value) => !value)} data-active={flip}><FlipHorizontal2 className="w-4 h-4" /><span>Flip</span></button>
+              <button type="button" onClick={() => { rotateStrokes(); setRotation((value) => (value + 90) % 360); }}><RotateCw className="w-4 h-4" /><span>Rotate</span></button>
+              <button type="button" onClick={() => { flipStrokes(); setFlip((value) => !value); }} data-active={flip}><FlipHorizontal2 className="w-4 h-4" /><span>Flip</span></button>
               <button type="button" onClick={reset}><Undo2 className="w-4 h-4" /><span>Reset</span></button>
             </div>
           </div>
