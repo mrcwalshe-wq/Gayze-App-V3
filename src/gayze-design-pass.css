@@ -463,7 +463,7 @@ nav.g-tabbar .g-tab--discover[data-active='true'] .g-discover-action::before { a
 
 /* ---- Photo Studio -------------------------------------------------------- */
 .g-studio {
-  position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; color: #fff;
+  position: fixed; inset: 0; z-index: 2147483100; display: flex; flex-direction: column; color: #fff;
   padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
   background:
     radial-gradient(120% 60% at 50% -10%, rgba(111, 60, 195, .28), transparent 60%),
