@@ -637,7 +637,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 </button>
 
                 {showChatActions && (
-                  <div className="g-gayze-menu-frame absolute right-0 top-11 z-40 w-52 g-panel p-1.5 shadow-2xl">
+                  <div className="g-gayze-menu-frame absolute right-0 top-12 z-40 w-64 g-panel p-1.5 shadow-2xl">
                     {currentRoom.type === 'direct' && onStartCall && (
                       <button
                         type="button"
