@@ -314,23 +314,40 @@ nav.g-tabbar .g-tab--discover .g-tab__label { margin-top: 6px !important; }
    the logo centre sits 31px below the bar's top edge, the dome has radius 47px,
    so it clears the bar by 16px and meets the line 35px either side of centre. */
 nav.g-tabbar { --gd-center: 31px; --gd-r: 47px; --gd-rise: 16px; }
+/* One element draws the whole edge (line + arch) so the hues travel across the full
+   width of the bar, through the arch, and back. The gradient is 3x the bar wide and
+   its position ping-pongs; the mask is what shapes it: two line segments either side
+   of the arch plus the arch ring itself. */
+nav.g-tabbar {
+  --gl1: 111, 60, 195; --gl2: 184, 92, 222; --gl3: 240, 141, 154; --gl4: 201, 162, 77;
+}
+nav.g-tabbar:has(.g-tab--discover[data-intent-mode='private']) { --gl1: 91, 50, 190; --gl2: 139, 92, 246; --gl3: 214, 120, 255; --gl4: 120, 160, 255; }
+nav.g-tabbar:has(.g-tab--discover[data-intent-mode='social']) { --gl1: 214, 168, 70; --gl2: 255, 130, 120; --gl3: 240, 141, 154; --gl4: 184, 92, 222; }
 nav.g-tabbar::before {
-  -webkit-mask: radial-gradient(circle var(--gd-r) at 50% var(--gd-center), transparent calc(var(--gd-r) - 1.5px), #000 calc(var(--gd-r) - .5px)) !important;
-  mask: radial-gradient(circle var(--gd-r) at 50% var(--gd-center), transparent calc(var(--gd-r) - 1.5px), #000 calc(var(--gd-r) - .5px)) !important;
+  content: "" !important; position: absolute !important; z-index: 2 !important; pointer-events: none !important;
+  left: 26px !important; right: 26px !important; top: calc(var(--gd-rise) * -1) !important; bottom: auto !important;
+  height: calc(var(--gd-rise) + 2px) !important; width: auto !important; padding: 0 !important; border-radius: 0 !important;
+  background: linear-gradient(90deg,
+    rgba(var(--gl1), 1), rgba(var(--gl2), 1) 16%, rgba(var(--gl3), 1) 33%, rgba(var(--gl4), 1) 50%,
+    rgba(var(--gl3), 1) 66%, rgba(var(--gl2), 1) 83%, rgba(var(--gl1), 1)) !important;
+  background-size: 300% 100% !important; background-position: calc(var(--gz-sweep) * 1%) 0 !important; background-repeat: no-repeat !important;
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent, #000 7%, #000 calc(50% - 35px), transparent calc(50% - 35px), transparent calc(50% + 35px), #000 calc(50% + 35px), #000 93%, transparent),
+    radial-gradient(circle var(--gd-r) at 50% calc(var(--gd-rise) + var(--gd-center)), transparent calc(var(--gd-r) - 2px), #000 calc(var(--gd-r) - 1.5px), #000 calc(var(--gd-r) - .25px), transparent var(--gd-r)) !important;
+  mask-image:
+    linear-gradient(90deg, transparent, #000 7%, #000 calc(50% - 35px), transparent calc(50% - 35px), transparent calc(50% + 35px), #000 calc(50% + 35px), #000 93%, transparent),
+    radial-gradient(circle var(--gd-r) at 50% calc(var(--gd-rise) + var(--gd-center)), transparent calc(var(--gd-r) - 2px), #000 calc(var(--gd-r) - 1.5px), #000 calc(var(--gd-r) - .25px), transparent var(--gd-r)) !important;
+  -webkit-mask-size: 100% 2px, 100% 100% !important; mask-size: 100% 2px, 100% 100% !important;
+  -webkit-mask-position: 0 100%, 0 0 !important; mask-position: 0 100%, 0 0 !important;
+  -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important;
   -webkit-mask-composite: source-over !important; mask-composite: add !important;
+  filter: drop-shadow(0 0 5px rgba(var(--gl2), .75)) !important;
+  opacity: 1 !important; animation: gz-edge-sweep 9s ease-in-out infinite alternate !important;
 }
-nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before {
-  content: "" !important; display: block !important; position: absolute !important; z-index: 1 !important;
-  left: 50% !important; top: 50% !important; width: calc(var(--gd-r) * 2) !important; height: calc(var(--gd-r) * 2) !important;
-  margin: calc(var(--gd-r) * -1) 0 0 calc(var(--gd-r) * -1) !important;
-  border-radius: 50% !important; padding: 2px !important;
-  background: conic-gradient(from var(--gayze-action-angle, 0deg), rgba(var(--gj), 1), rgba(var(--gj2), 1), rgba(214, 168, 70, 1), rgba(var(--gj), 1)) !important;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important; mask-composite: exclude !important;
-  clip-path: polygon(0 0, 100% 0, 100% calc(var(--gd-rise) + 1px), 0 calc(var(--gd-rise) + 1px)) !important;
-  filter: drop-shadow(0 0 6px rgba(var(--gj), .85)) !important;
-  opacity: 1 !important; animation: gayze-action-orbit 6s linear infinite !important;
-}
+@property --gz-sweep { syntax: '<number>'; inherits: false; initial-value: 0; }
+@keyframes gz-edge-sweep { from { --gz-sweep: 0; } to { --gz-sweep: 100; } }
+/* The old spinning arch is retired: the edge above draws it. */
+nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before { content: none !important; display: none !important; }
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after {
   content: "" !important; display: block !important; position: absolute !important; z-index: -1 !important;
   left: 50% !important; top: 50% !important; width: 118px !important; height: 70px !important; margin: -28px 0 0 -59px !important;
@@ -345,9 +362,8 @@ nav.g-tabbar .g-tab--discover .g-tab__label {
   background: linear-gradient(90deg, rgb(var(--gj)), rgb(var(--gj2))); -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; font-weight: 800 !important; letter-spacing: .16em !important;
 }
-nav.g-tabbar .g-tab--discover[data-active='true'] .g-discover-action::before { animation-duration: 3.2s !important; opacity: 1 !important; }
 @media (prefers-reduced-motion: reduce) {
-  nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before,
+  nav.g-tabbar::before,
   nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after { animation: none !important; }
 }
 
