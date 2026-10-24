@@ -62,7 +62,13 @@ Deno.serve(async (req: Request) => {
 
   // 1. Dispatch-secret path (database trigger / internal bridge)
   if (dispatchSecretHeader) {
-    if (dispatchSecretHeader !== PUSH_DISPATCH_SECRET) {
+    const { data: expectedDispatchSecret, error: dispatchAuthError } = await admin
+      .rpc('gayze_get_push_dispatch_runtime_secret');
+    if (dispatchAuthError || typeof expectedDispatchSecret !== 'string' ||
+        expectedDispatchSecret.length === 0 || dispatchSecretHeader !== expectedDispatchSecret) {
+      console.error('[GAYZE send-push] Dispatch authentication failed', {
+        rpcError: dispatchAuthError?.message ?? null,
+      });
       return jsonResponse({ error: 'Forbidden' }, 403);
     }
 
@@ -133,6 +139,12 @@ Deno.serve(async (req: Request) => {
       } else if (notice.category === 'connection') {
         title = 'New connection';
         bodyText = 'You and someone nearby are both interested.';
+      } else if (notice.category === 'call') {
+        title = 'Incoming call';
+        bodyText = 'Someone is calling you on GAYZE.';
+      } else if (notice.category === 'missed_call') {
+        title = 'Missed call';
+        bodyText = 'You missed a GAYZE call.';
       } else if (notice.category === 'intent_expiring') {
         title = 'Intent expiring soon';
         bodyText = 'Your Right Now intent is about to expire.';
