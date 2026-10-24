@@ -256,8 +256,10 @@
    Snack: transient feedback, a capsule that drops in under the status bar
    ========================================================================== */
 .g-snack-wrap {
-  position: fixed; z-index: 400; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 8px);
-  display: flex; justify-content: center; padding: 0 14px; pointer-events: none;
+  /* Sits just under the top control row (intent chip / tabs / filter) rather than over it,
+     and keeps clear of the map controls down the right-hand edge. */
+  position: fixed; z-index: 400; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 56px);
+  display: flex; justify-content: center; padding: 0 58px; pointer-events: none;
 }
 .g-snack {
   --sn: 184, 92, 222;
