@@ -307,16 +307,25 @@ nav.g-tabbar .g-tab--discover[data-intent-mode='private'] { --gj: 139, 92, 246; 
 nav.g-tabbar .g-tab--discover[data-intent-mode='social'] { --gj: 214, 168, 70; --gj2: 255, 130, 120; }
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action { position: relative !important; overflow: visible !important; isolation: isolate !important; z-index: 0 !important; }
 nav.g-tabbar .g-tab--discover .g-tab__label { margin-top: 6px !important; }
-/* A crown, not a coin: a bright arc rises over the logo and fades away round the
-   shoulders, and the glow pools beneath it on the bar. Nothing is boxed in. */
+/* The bar's top line rises into a dome over the logo and carries on: one
+   continuous edge, not a ring sitting on it. Geometry (measured on the real bar):
+   the logo centre sits 31px below the bar's top edge, the dome has radius 47px,
+   so it clears the bar by 16px and meets the line 35px either side of centre. */
+nav.g-tabbar { --gd-center: 31px; --gd-r: 47px; --gd-rise: 16px; }
+nav.g-tabbar::before {
+  -webkit-mask: radial-gradient(circle var(--gd-r) at 50% var(--gd-center), transparent calc(var(--gd-r) - 1.5px), #000 calc(var(--gd-r) - .5px)) !important;
+  mask: radial-gradient(circle var(--gd-r) at 50% var(--gd-center), transparent calc(var(--gd-r) - 1.5px), #000 calc(var(--gd-r) - .5px)) !important;
+  -webkit-mask-composite: source-over !important; mask-composite: add !important;
+}
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before {
   content: "" !important; display: block !important; position: absolute !important; z-index: 1 !important;
-  left: 50% !important; top: 50% !important; width: 72px !important; height: 72px !important; margin: -38px 0 0 -36px !important;
+  left: 50% !important; top: 50% !important; width: calc(var(--gd-r) * 2) !important; height: calc(var(--gd-r) * 2) !important;
+  margin: calc(var(--gd-r) * -1) 0 0 calc(var(--gd-r) * -1) !important;
   border-radius: 50% !important; padding: 2px !important;
   background: conic-gradient(from var(--gayze-action-angle, 0deg), rgba(var(--gj), 1), rgba(var(--gj2), 1), rgba(214, 168, 70, 1), rgba(var(--gj), 1)) !important;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
   -webkit-mask-composite: xor !important; mask-composite: exclude !important;
-  clip-path: polygon(0 0, 100% 0, 100% 46%, 0 46%) !important;
+  clip-path: polygon(0 0, 100% 0, 100% calc(var(--gd-rise) + 1px), 0 calc(var(--gd-rise) + 1px)) !important;
   filter: drop-shadow(0 0 6px rgba(var(--gj), .85)) !important;
   opacity: 1 !important; animation: gayze-action-orbit 6s linear infinite !important;
 }
