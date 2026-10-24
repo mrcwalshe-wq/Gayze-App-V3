@@ -4726,3 +4726,134 @@ body:has([data-gayze-call-screen="true"]) .g-desktop-header {
 @keyframes peer-intent-pulse { 0%,100% { opacity:1; box-shadow:0 0 10px currentColor; } 50% { opacity:.58; box-shadow:0 0 3px currentColor; } }
 @media (prefers-reduced-motion:reduce) { .peer-intent-card__sparks i,.peer-intent-card__state.is-live .peer-intent-card__state-dot { animation:none; } }
 @media (max-width:480px) { .peer-intent-card { margin:7px 8px 9px; } .peer-intent-card__content { padding:10px 11px 9px; } }
+
+
+/* ==========================================================================
+   GAYZE hue rings — borders that orbit through the brand colours
+   One conic gradient, masked to a 1.5px ring, rotated by the shared
+   --gayze-action-angle property. Calm by default, brighter when selected,
+   focused or live. Motion is removed for reduced-motion users.
+   ========================================================================== */
+.g-empty,
+.g-profile-notification-banner,
+.g-intent-hub__choice,
+.g-intent-hub__live,
+.g-chat-composer { position: relative; }
+
+:is(.g-panel, .g-empty, .g-opt, .g-sheet, .g-profile-notification-banner,
+    .g-intent-hub__choice, .g-intent-hub__live, .g-chat-composer, .peer-intent-card)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--gayze-action-angle, 0deg),
+    #6F3CC3 0deg, #b85cde 70deg, #f08d9a 140deg, #C9A24D 210deg, #a05af0 280deg, #6F3CC3 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: .42;
+  animation: gayze-action-orbit 10s linear infinite;
+  transition: opacity .25s ease;
+}
+:is(.g-panel, .g-empty, .g-profile-notification-banner, .g-intent-hub__choice, .g-chat-composer):is(:hover, :focus-within)::after,
+.g-opt[data-active='true']::after,
+.peer-intent-card:not(.peer-intent-card--quiet)::after,
+.g-intent-hub__live::after { opacity: 1; }
+.g-opt[data-active='true']::after,
+.peer-intent-card:not(.peer-intent-card--quiet)::after { animation-duration: 5s; padding: 2px; }
+.g-chat-composer:focus-within::after { animation-duration: 4s; }
+
+/* ---- Intent chooser: richer cards ------------------------------------- */
+.g-intent-hub__heading h2,
+.g-sheet--private #set-intent-title,
+.g-sheet--social #set-intent-title {
+  background: linear-gradient(95deg, #fff 0%, #dcc8ff 38%, #f6c1cf 66%, #f2d58a 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.g-intent-hub__choice {
+  min-height: 92px;
+  overflow: hidden;
+  transition: transform .2s cubic-bezier(.22,1,.36,1), box-shadow .2s ease;
+}
+.g-intent-hub__choice:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(111,60,195,.28); }
+.g-intent-hub__choice::before {
+  content: ""; position: absolute; inset: -40% auto -40% -60%; width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.14), transparent);
+  transform: skewX(-18deg);
+  animation: g-choice-shimmer 5.5s ease-in-out infinite; pointer-events: none;
+}
+.g-intent-hub__choice.is-private::before { animation-delay: 1.4s; }
+@keyframes g-choice-shimmer { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+.g-intent-hub__choice-icon {
+  width: 44px; height: 44px; border-radius: 15px;
+  box-shadow: 0 0 22px rgba(111,60,195,.35), inset 0 1px 0 rgba(255,255,255,.18);
+  animation: g-orb-breathe 3.2s ease-in-out infinite;
+}
+.is-social .g-intent-hub__choice-icon { box-shadow: 0 0 22px rgba(201,162,77,.38), inset 0 1px 0 rgba(255,255,255,.2); }
+@keyframes g-orb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+.g-intent-hub__choice-copy strong { font-size: 15px; letter-spacing: -.01em; }
+.g-intent-hub__choice-copy span { font-size: 10.5px; }
+
+/* ---- Intent composer: option cards ------------------------------------ */
+.g-opt[data-tone] {
+  min-height: 92px;
+  gap: 4px;
+  overflow: hidden;
+  border-radius: 18px;
+}
+.g-opt[data-tone='social'] { background: linear-gradient(145deg, rgba(201,162,77,.11), rgba(255,255,255,.02) 60%); }
+.g-opt[data-tone='private'] { background: linear-gradient(145deg, rgba(111,60,195,.14), rgba(255,255,255,.02) 60%); }
+.g-opt[data-tone='social'][data-active='true'] { background: radial-gradient(130% 150% at 8% 0%, rgba(255,220,126,.26), transparent 50%), linear-gradient(145deg, rgba(201,162,77,.24), rgba(60,40,12,.12)); }
+.g-opt[data-tone='private'][data-active='true'] { background: radial-gradient(130% 150% at 8% 0%, rgba(177,132,255,.28), transparent 50%), linear-gradient(145deg, rgba(111,60,195,.28), rgba(35,20,66,.14)); }
+.g-opt__orb {
+  display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 2px; border-radius: 12px;
+  color: #e6c66f; background: rgba(201,162,77,.14); border: 1px solid rgba(201,162,77,.3);
+  box-shadow: 0 0 18px rgba(201,162,77,.25), inset 0 1px 0 rgba(255,255,255,.16);
+}
+.g-opt[data-tone='private'] .g-opt__orb { color: #d5b8ff; background: rgba(111,60,195,.2); border-color: rgba(170,132,245,.34); box-shadow: 0 0 18px rgba(111,60,195,.4), inset 0 1px 0 rgba(255,255,255,.16); }
+.g-opt[data-active='true'] .g-opt__orb { animation: g-orb-breathe 2.4s ease-in-out infinite; }
+.g-opt[data-tone]::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s ease;
+  background:
+    radial-gradient(circle at 18% 30%, rgba(255,255,255,.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 22%, rgba(255,230,170,.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 62% 74%, rgba(215,170,255,.9) 0 1.2px, transparent 2.4px),
+    radial-gradient(circle at 36% 82%, rgba(255,255,255,.8) 0 1px, transparent 2px),
+    radial-gradient(circle at 90% 60%, rgba(255,160,180,.85) 0 1px, transparent 2px);
+  animation: g-opt-twinkle 2.8s ease-in-out infinite;
+}
+.g-opt[data-active='true']::before { opacity: 1; }
+@keyframes g-opt-twinkle { 0%, 100% { transform: translateY(0); filter: brightness(1); } 50% { transform: translateY(-3px); filter: brightness(1.6); } }
+.g-sheet .g-label { background: linear-gradient(90deg, #b796f0, #f0b8c8 55%, #d9b765); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.g-optpill { transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease; }
+.g-optpill:hover { transform: translateY(-1px); }
+.g-optpill[data-active='true'] { box-shadow: 0 0 18px rgba(170,132,245,.28), inset 0 1px 0 rgba(255,255,255,.14); }
+
+/* ---- Peer intent: waterfall of light --------------------------------- */
+.peer-intent-card { min-height: 112px; }
+.peer-intent-card__canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; opacity: .88;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 84%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 84%, transparent 100%); }
+.peer-intent-card__curtain {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: .9;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 13px, rgba(var(--peer-accent-rgb), .13) 13px 15px, transparent 15px 31px),
+    repeating-linear-gradient(90deg, transparent 0 7px, rgba(240,141,154,.10) 7px 8px, transparent 8px 19px),
+    linear-gradient(180deg, rgba(var(--peer-accent-rgb), .22), transparent 70%);
+  background-size: 62px 140px, 38px 90px, 100% 100%;
+  animation: peer-curtain-fall 2.6s linear infinite;
+  mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+}
+@keyframes peer-curtain-fall { from { background-position: 0 0, 7px 0, 0 0; } to { background-position: 0 140px, 7px 90px, 0 0; } }
+.peer-intent-card__intent { background: linear-gradient(95deg, #fff, #f3e3ff 50%, #ffe7b3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.g-panel, .g-empty, .g-opt, .g-sheet, .g-profile-notification-banner, .g-intent-hub__choice,
+      .g-intent-hub__live, .g-chat-composer, .peer-intent-card)::after,
+  .g-intent-hub__choice::before, .g-intent-hub__choice-icon, .g-opt::before, .g-opt__orb,
+  .peer-intent-card__curtain { animation: none !important; }
+}
