@@ -9,6 +9,7 @@ import './gayze-premium-intent.css';
 import './discovery-premium.css';
 import './product-design.css';
 import './map-chrome-refinement.css';
+import './gayze-design-pass.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
