@@ -306,26 +306,30 @@ nav.g-tabbar .g-tab--discover { --gj: 184, 92, 222; --gj2: 240, 141, 154; }
 nav.g-tabbar .g-tab--discover[data-intent-mode='private'] { --gj: 139, 92, 246; --gj2: 214, 120, 255; }
 nav.g-tabbar .g-tab--discover[data-intent-mode='social'] { --gj: 214, 168, 70; --gj2: 255, 130, 120; }
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action { position: relative !important; overflow: visible !important; isolation: isolate !important; z-index: 0 !important; }
-nav.g-tabbar .g-tab--discover .g-tab__label { margin-top: 10px !important; }
+nav.g-tabbar .g-tab--discover .g-tab__label { margin-top: 6px !important; }
+/* A crown, not a coin: a bright arc rises over the logo and fades away round the
+   shoulders, and the glow pools beneath it on the bar. Nothing is boxed in. */
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::before {
-  content: "" !important; display: block !important; position: absolute !important; z-index: -1 !important;
-  left: 50% !important; top: 50% !important; width: 60px !important; height: 60px !important; margin: -30px 0 0 -30px !important;
-  border-radius: 50% !important; padding: 1.5px !important;
-  background: conic-gradient(from var(--gayze-action-angle, 0deg), rgba(var(--gj), 1), rgba(var(--gj2), .95), rgba(214, 168, 70, .9), rgba(var(--gj), 1)) !important;
+  content: "" !important; display: block !important; position: absolute !important; z-index: 1 !important;
+  left: 50% !important; top: 50% !important; width: 72px !important; height: 72px !important; margin: -38px 0 0 -36px !important;
+  border-radius: 50% !important; padding: 2px !important;
+  background: conic-gradient(from var(--gayze-action-angle, 0deg), rgba(var(--gj), 1), rgba(var(--gj2), 1), rgba(214, 168, 70, 1), rgba(var(--gj), 1)) !important;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
   -webkit-mask-composite: xor !important; mask-composite: exclude !important;
-  opacity: .9 !important; animation: gayze-action-orbit 7s linear infinite !important;
+  clip-path: polygon(0 0, 100% 0, 100% 46%, 0 46%) !important;
+  filter: drop-shadow(0 0 6px rgba(var(--gj), .85)) !important;
+  opacity: 1 !important; animation: gayze-action-orbit 6s linear infinite !important;
 }
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after {
-  content: "" !important; display: block !important; position: absolute !important; z-index: -2 !important;
-  left: 50% !important; top: 50% !important; width: 60px !important; height: 60px !important; margin: -30px 0 0 -30px !important;
+  content: "" !important; display: block !important; position: absolute !important; z-index: -1 !important;
+  left: 50% !important; top: 50% !important; width: 118px !important; height: 70px !important; margin: -28px 0 0 -59px !important;
   border-radius: 50% !important;
-  background: radial-gradient(circle at 50% 38%, rgba(var(--gj), .34), rgba(14, 10, 26, .92) 68%) !important;
-  box-shadow: 0 0 0 1px rgba(var(--gj), .18), 0 10px 30px rgba(var(--gj), .34), 0 0 46px rgba(var(--gj), .22), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+  background: radial-gradient(ellipse at 50% 46%, rgba(var(--gj), .55), rgba(var(--gj), .18) 48%, transparent 72%) !important;
+  box-shadow: none !important; filter: blur(5px) !important;
   animation: gj-breathe 4.2s ease-in-out infinite !important;
 }
-@keyframes gj-breathe { 0%, 100% { box-shadow: 0 0 0 1px rgba(var(--gj), .18), 0 10px 30px rgba(var(--gj), .30), 0 0 40px rgba(var(--gj), .18), inset 0 1px 0 rgba(255,255,255,.12); } 50% { box-shadow: 0 0 0 1px rgba(var(--gj), .3), 0 12px 36px rgba(var(--gj), .48), 0 0 62px rgba(var(--gj), .34), inset 0 1px 0 rgba(255,255,255,.16); } }
-nav.g-tabbar .g-tab--discover .g-discover-logo-image { filter: drop-shadow(0 0 9px rgba(var(--gj), .75)) !important; }
+@keyframes gj-breathe { 0%, 100% { opacity: .75; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.06); } }
+nav.g-tabbar .g-tab--discover .g-discover-logo-image { width: 56px !important; height: 56px !important; filter: drop-shadow(0 0 8px rgba(var(--gj), .7)) !important; }
 nav.g-tabbar .g-tab--discover .g-tab__label {
   background: linear-gradient(90deg, rgb(var(--gj)), rgb(var(--gj2))); -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; font-weight: 800 !important; letter-spacing: .16em !important;
