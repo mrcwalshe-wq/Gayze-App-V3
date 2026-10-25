@@ -12,6 +12,7 @@ import {
   Clock,
   Flame,
   Key,
+  KeyRound,
   Check,
   Info,
   ChevronLeft,
@@ -86,6 +87,12 @@ const formatListTime = (timestamp: number): string => {
   if (timestamp >= startOfToday - 86_400_000) return 'Yesterday';
   if (timestamp >= startOfToday - 6 * 86_400_000) return date.toLocaleDateString([], { weekday: 'short' });
   return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+};
+
+const avatarHue = (name: string): number => {
+  let h = 0;
+  for (let i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return 250 + (h % 80); // violet to magenta, so initials tiles stay on-brand but differ
 };
 
 export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
@@ -465,25 +472,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           }`}
       >
         {/* Messages / Notifications sub-navigation */}
-        <div className="gayze-message-header">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="text-[15px] font-extrabold text-white tracking-tight">
-                Messages
-              </span>
-              {rooms.length > 0 && (
-                <span className="text-[11px] text-zinc-500 font-mono">{rooms.length}</span>
-              )}
-            </div>
-            <span className="flex items-center gap-1.5 text-[10.5px] text-zinc-500 font-medium shrink-0">
-              <Lock className="w-3 h-3 text-emerald-400" />
-              Encrypted
-            </span>
+        <div className="gayze-message-header g-msglist-head">
+          <div className="g-msglist-head__title">
+            <h2>Messages</h2>
+            {rooms.length > 0 && <span className="g-msglist-head__count">{rooms.length}</span>}
           </div>
-
-          {/* Chats / Notifications navigation is owned by the Messages hub in App.tsx.
-              Keeping a second tab bar here duplicated the navigation on mobile. */}
+          <span className="g-e2ee-chip" title="Messages are encrypted on your device and only readable by the people in the chat.">
+            <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+            End-to-end encrypted
+          </span>
         </div>
 
         {/* Room List */}
@@ -498,6 +495,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           {sortedRooms.map((room) => {
             const isSelected = room.id === currentRoom?.id;
             const isGathering = room.type === 'gathering';
+            const isLocked = /^can.?t decrypt/i.test(room.lastMessage || '');
             const roomAvatar = room.peerAvatar && room.peerAvatar !== 'user'
               ? (avatarUrls[room.peerAvatar] || (room.peerAvatar.startsWith('http') ? room.peerAvatar : null))
               : null;
@@ -515,6 +513,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <span
                   {...(isGathering ? {} : peekTapProps(openPeek, room.peerUserId, { name: room.peerName || room.name, photoUrl: room.peerAvatar && room.peerAvatar !== 'user' ? room.peerAvatar : undefined }))}
                   className={`g-chatrow__av ${isGathering ? 'is-group' : ''}`}
+                  style={{ ['--h' as string]: avatarHue(room.name) }}
                 >
                   {isGathering ? (
                     <Users className="w-5 h-5" />
@@ -531,23 +530,30 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     <strong>{room.name}</strong>
                     <time>{formatListTime(room.lastTimestamp)}</time>
                   </span>
-                  <span className="g-chatrow__msg">{room.lastMessage || 'Say hello. It is encrypted on this device.'}</span>
-                  <span className="g-chatrow__tags">
-                    <span><Lock className="w-3 h-3" />{isGathering ? 'Group' : 'Encrypted'}</span>
-                    {room.ephemeralTtlSeconds > 0 && (
-                      <span className="is-ttl"><Flame className="w-3 h-3" />{getTtlLabel(room.ephemeralTtlSeconds)}</span>
-                    )}
-                  </span>
+                  {isLocked ? (
+                    <span className="g-chatrow__msg is-locked"><KeyRound className="w-3.5 h-3.5" aria-hidden="true" />Locked on this device</span>
+                  ) : (
+                    <span className={`g-chatrow__msg${room.lastMessage ? '' : ' is-empty'}`}>{room.lastMessage || 'Say hello. It is encrypted on this device.'}</span>
+                  )}
+                  {(isGathering || room.ephemeralTtlSeconds > 0 || isLocked) && (
+                    <span className="g-chatrow__tags">
+                      {isGathering && <span className="is-group"><Users className="w-3 h-3" aria-hidden="true" />Group</span>}
+                      {room.ephemeralTtlSeconds > 0 && (
+                        <span className="is-ttl"><Flame className="w-3 h-3" aria-hidden="true" />{getTtlLabel(room.ephemeralTtlSeconds)}</span>
+                      )}
+                      {isLocked && <span className="is-warn">Verify this device to read</span>}
+                    </span>
+                  )}
                 </span>
               </button>
             );
           })}
         </div>
 
-        {/* Footnote */}
-        <div className="p-3 bg-[#090a0e] border-t border-white/[0.08] text-[11px] text-zinc-600 flex items-center gap-1.5">
-          <Lock className="w-3 h-3 text-emerald-400/80" />
-          <span>Encrypted on device · auto-delete per chat</span>
+        {/* Footnote: plain words about what the lock means, clear of the tab bar */}
+        <div className="g-msglist-foot">
+          <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Only you and the people in each chat can read these. Disappearing timers are set per chat.</span>
         </div>
       </div>
 

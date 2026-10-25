@@ -92,7 +92,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-xl border border-emerald-500/30 font-mono">
+          <span className="text-xs font-semibold text-emerald-300 bg-emerald-950/40 px-3 py-1.5 rounded-full border border-emerald-500/30">
             {safeHavens.length} Verified Spots Nearby
           </span>
         </div>
@@ -113,19 +113,22 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                     <h3 className="text-sm sm:text-base font-bold text-white">{haven.name}</h3>
                     <ShieldCheck className="w-4 h-4 text-emerald-400 inline" />
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-zinc-400 mt-1">
-                    <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0" />
-                    <span>{haven.address}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="text-zinc-300">{haven.neighborhood}</span>
+                  <div className="flex items-start gap-2 text-xs text-zinc-400 mt-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#C9A24D] shrink-0 mt-0.5" />
+                    <span className="min-w-0">
+                      {haven.address}
+                      {haven.neighborhood && !haven.address.toLowerCase().includes(haven.neighborhood.toLowerCase()) && (
+                        <span className="text-zinc-300"> · {haven.neighborhood}</span>
+                      )}
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end">
-                  <div className="flex items-center gap-1 text-xs text-emerald-300 bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-500/30 font-mono font-semibold">
-                    <span>{haven.safetyScore} safety</span>
+                  <div className="flex items-center gap-1 whitespace-nowrap text-xs text-emerald-300 bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-500/30 font-semibold tabular-nums">
+                    <ShieldCheck className="w-3 h-3" aria-hidden="true" /><span>{haven.safetyScore}</span><span className="font-medium text-emerald-300/70">safety</span>
                   </div>
-                  <span className="text-[10px] text-zinc-500 font-mono mt-0.5">~{haven.approxDistanceKm} km</span>
+                  <span className="text-[11px] text-zinc-500 mt-1 tabular-nums">~{haven.approxDistanceKm} km away</span>
                 </div>
               </div>
 
@@ -150,7 +153,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                 </div>
 
                 {haven.emergencyPhone && (
-                  <div className="flex items-center gap-1.5 text-zinc-400 font-mono text-[11px]">
+                  <div className="flex items-center gap-1.5 text-zinc-400 text-[11.5px] tabular-nums">
                     <Phone className="w-3 h-3 text-zinc-500" />
                     <span>{haven.emergencyPhone}</span>
                   </div>
@@ -167,7 +170,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                 }}
                 className="g-btn g-btn--quiet !min-h-[42px] text-xs"
               >
-                Start Local Check-in Here
+                Check in here
               </button>
 
               <button
@@ -177,7 +180,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                 }}
                 className="g-btn g-btn--amber !min-h-[42px] text-xs font-semibold"
               >
-                <span>Broadcast Pulse Here</span>
+                <span>Set an intent here</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
