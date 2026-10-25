@@ -260,8 +260,10 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   <span>{when.toLocaleString([], { month: 'short' })}</span>
                 </div>
                 <div className="g-ev__badges">
-                  <span className="g-ev__badge">{isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}</span>
-                  {gathering.isAttending && <span className="g-ev__badge is-going"><Check className="w-3 h-3" /> Going</span>}
+                  <span className={`g-ev__badge ${gathering.isAttending ? 'is-going' : ''}`}>
+                    {gathering.isAttending && <Check className="w-3 h-3" aria-hidden="true" />}
+                    {gathering.isAttending ? 'Going · ' : isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}
+                  </span>
                 </div>
                 <span className="g-ev__cat">{art.label}</span>
               </div>
@@ -300,17 +302,18 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <p className="g-ev__pledge"><ShieldCheck className="w-3.5 h-3.5" /><span>{gathering.safetyGuidelines}</span></p>
               </div>
 
-              <div className="g-ev__actions">
+              <div className={`g-ev__actions ${groupChatAvailable ? '' : 'is-single'}`}>
                 <button
                   type="button"
                   onClick={() => { hapticLight(); onToggleRsvp(gathering.id); }}
                   disabled={busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending)}
                   className={`g-ev__rsvp ${gathering.isAttending ? 'is-going' : ''}`}
+                  aria-label={gathering.isAttending ? `You're going to ${gathering.title}. Tap to leave.` : undefined}
                 >
                   {busyGatheringId === gathering.id ? (
                     <span>Saving…</span>
                   ) : gathering.isAttending ? (
-                    <><Check className="w-4 h-4" /><span>You're going</span></>
+                    <><Check className="w-4 h-4" /><span>Going</span><small>Tap to leave</small></>
                   ) : spotsLeft === 0 ? (
                     <span>Full</span>
                   ) : (
@@ -318,19 +321,17 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   )}
                 </button>
 
-                {groupChatAvailable ? (
+                {groupChatAvailable && (
                   <button type="button" onClick={() => onOpenGatheringChat(gathering)} className="g-ev__room">
                     <Lock className="w-4 h-4" />
                     <span>Group room</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
-                ) : (
-                  <span title="Group conversations are not available for gatherings yet" className="g-ev__room is-off">
-                    <Lock className="w-4 h-4" />
-                    <span>Group room soon</span>
-                  </span>
                 )}
               </div>
+              {!groupChatAvailable && gathering.isAttending && (
+                <p className="g-ev__soon"><Lock className="w-3 h-3" aria-hidden="true" />A private group room for everyone going is coming soon.</p>
+              )}
             </article>
           );
         })}

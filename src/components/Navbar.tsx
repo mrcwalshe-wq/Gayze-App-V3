@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { GayzeLogo } from './GayzeLogo';
 import {
   Shield,
@@ -44,6 +44,72 @@ const TABS: TabDef[] = [
   { id: 'swarms', label: 'Messages', icon: <MessageSquare />, group: 'swarms' },
   { id: 'profile', label: 'Profile', icon: <UserRound />, group: 'profile' },
 ];
+
+
+/**
+ * The bar's top edge: a line that rises into a dome over the GAYZE logo and carries on.
+ * Drawn as SVG (not a CSS mask) so it renders identically in Safari, Chrome and the
+ * installed PWA. The hues travel the full width of the bar and back (SMIL on the
+ * gradient), and are skipped for people who prefer reduced motion.
+ */
+const RISE = 16;        // how far the dome clears the bar
+const CENTER = 31;      // logo centre below the bar's top edge
+const RADIUS = 47;      // dome radius
+const HALF = Math.sqrt(RADIUS * RADIUS - CENTER * CENTER); // where the dome meets the line (~35px)
+
+const TabbarEdge: React.FC = () => {
+  const ref = useRef<SVGSVGElement | null>(null);
+  const [width, setWidth] = useState(0);
+  const [still, setStill] = useState(false);
+  const uid = useId().replace(/:/g, '');
+
+  useEffect(() => {
+    const el = ref.current?.parentElement;
+    if (!el) return;
+    const measure = () => setWidth(Math.max(0, el.clientWidth - 52));
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    setStill(Boolean(mq?.matches));
+    return () => ro?.disconnect();
+  }, []);
+
+  const cx = width / 2;
+  const y = RISE + 1;
+  const d = width > HALF * 2 + 20
+    ? `M0 ${y} H${cx - HALF} A${RADIUS} ${RADIUS} 0 0 1 ${cx + HALF} ${y} H${width}`
+    : '';
+
+  return (
+    <svg ref={ref} className="g-tabbar__edge" width={width} height={RISE + 4} viewBox={`0 0 ${width || 1} ${RISE + 4}`} aria-hidden="true" focusable="false">
+      {d && (
+        <>
+          <defs>
+            <linearGradient id={`${uid}-paint`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={width * 3} y2="0">
+              {['1', '2', '3', '4', '3', '2', '1'].map((n, i) => (
+                <stop key={i} offset={i / 6} style={{ stopColor: `rgb(var(--gl${n}))` }} />
+              ))}
+              {!still && (
+                <animateTransform attributeName="gradientTransform" type="translate" values={`0 0; ${-width * 2} 0; 0 0`} dur="18s" calcMode="spline" keyTimes="0;.5;1" keySplines=".45 0 .55 1; .45 0 .55 1" repeatCount="indefinite" />
+              )}
+            </linearGradient>
+            <linearGradient id={`${uid}-fade`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={width} y2="0">
+              <stop offset="0" stopColor="#fff" stopOpacity="0" />
+              <stop offset=".08" stopColor="#fff" stopOpacity="1" />
+              <stop offset=".92" stopColor="#fff" stopOpacity="1" />
+              <stop offset="1" stopColor="#fff" stopOpacity="0" />
+            </linearGradient>
+            <mask id={`${uid}-mask`} maskUnits="userSpaceOnUse" x="0" y="0" width={width} height={RISE + 4}>
+              <path d={d} fill="none" stroke={`url(#${uid}-fade)`} strokeWidth="2" strokeLinecap="round" />
+            </mask>
+          </defs>
+          <rect x="0" y="0" width={width} height={RISE + 4} fill={`url(#${uid}-paint)`} mask={`url(#${uid}-mask)`} />
+        </>
+      )}
+    </svg>
+  );
+};
 
 const playGayzePressAnimation = (button: HTMLButtonElement) => {
   const action = button.querySelector<HTMLElement>('.g-discover-action');
@@ -165,6 +231,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </header>
 
       <nav className="g-tabbar md:hidden" aria-label="Primary">
+        <TabbarEdge />
         <div className="g-tabbar__inner">
           {TABS.map((tab) => {
             const isActive = activeGroup === tab.group;

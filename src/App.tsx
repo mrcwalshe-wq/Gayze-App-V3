@@ -206,6 +206,7 @@ export default function App() {
   const recoverySessionRef = useRef(false);
   const [userLocation, setUserLocation] = useState<GeoLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [dismissedLocationError, setDismissedLocationError] = useState<string | null>(null);
   // Travel distance the user picked in the Right Now filter sheet. Always
   // clamped to the 5 km ceiling and mirrored into a ref so the discovery
   // refresher can read it without re-subscribing.
@@ -3387,10 +3388,16 @@ export default function App() {
         }} />
       )}
 
-      {locationError && (
-        <div className="g-location-error g-float fixed z-40 rounded-[14px] px-3.5 py-2.5 text-[11.5px] text-zinc-300 leading-snug">
-          <span className="text-amber-300 font-semibold">Live location unavailable.</span>{' '}
-          {locationError}
+      {/* Only where location matters (the map views), and the person can dismiss it. */}
+      {locationError && dismissedLocationError !== locationError && (activeTab === 'right_now' || activeTab === 'dating') && (
+        <div className="g-location-error g-float fixed z-40 rounded-[14px] pl-3.5 pr-1.5 py-2 text-[11.5px] text-zinc-300 leading-snug flex items-start gap-2" role="status">
+          <span className="min-w-0 flex-1 pt-0.5">
+            <span className="text-amber-300 font-semibold">Live location unavailable.</span>{' '}
+            {locationError}
+          </span>
+          <button type="button" onClick={() => setDismissedLocationError(locationError)} aria-label="Dismiss location message" className="shrink-0 w-8 h-8 -my-0.5 grid place-items-center rounded-full text-zinc-400 hover:text-white">
+            <X className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
         </div>
       )}
 
