@@ -94,6 +94,11 @@ test('my_account_status is for signed-in users only', async () => {
   const db = await adminDb();
   const u = await addUser(db, 1);
   assert.equal((await as(db, 'authenticated', { sub: u }, 'select public.my_account_status() s')).rows[0].s, 'active');
+  await db.query('select public.admin_set_suspension($1, true, $2, $1)', [u, 'test']);
+  assert.equal((await as(db, 'authenticated', { sub: u }, 'select public.my_account_status() s')).rows[0].s, 'suspended');
+  const other = await addUser(db, 9);
+  assert.equal((await as(db, 'authenticated', { sub: other }, 'select public.my_account_status() s')).rows[0].s, 'active');
+  await db.query('select public.admin_set_suspension($1, false, null, $1)', [u]);
   await assert.rejects(as(db, 'anon', { role: 'anon' }, 'select public.my_account_status()'), denied);
 });
 

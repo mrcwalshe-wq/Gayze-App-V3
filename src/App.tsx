@@ -365,9 +365,10 @@ export default function App() {
     if (!isSupabaseConfigured || !supabase || !isAuthenticated) return;
     const client = supabase;
     let cancelled = false;
-    void client.rpc('my_account_status').then(({ error }) => {
-      if (cancelled || !error) return;
-      if (/account_suspended/i.test(error.message ?? '') || (error as { code?: string }).code === 'PT403') {
+    void client.rpc('my_account_status').then(({ data, error }) => {
+      if (cancelled) return;
+      const refused = Boolean(error) && (/account_suspended/i.test(error?.message ?? '') || (error as { code?: string }).code === 'PT403');
+      if (data === 'suspended' || refused) {
         setAuthNotice({ kind: 'suspended', message: 'This account has been suspended. If you think this is a mistake, contact support.' });
         void client.auth.signOut({ scope: 'local' });
         setIsAuthenticated(false);

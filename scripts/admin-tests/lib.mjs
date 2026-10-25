@@ -51,6 +51,7 @@ export async function adminDb() {
     '20261025100000_admin_console.sql',
     '20261025110000_admin_enforcement.sql',
     '20261025120000_suspension_write_guards.sql',
+    '20261025121000_my_account_status_reports_suspension.sql',
   ]) await db.exec(migration(name));
   return db;
 }

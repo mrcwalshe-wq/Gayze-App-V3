@@ -32,7 +32,7 @@ Classes: **Verified** = implemented and verified by the evidence named; **Unveri
 | Email verification flow end to end | Blocked | Needs dashboard + real inbox |
 | Google OAuth | Blocked / Unverified | Pre-existing, unchanged flow; consent screen shows the Supabase hostname until a Supabase custom domain exists |
 | Session expiry and sign-out notices | Unverified | Logic present, not run on device |
-| Suspended-account notice | Unverified | App calls `my_account_status`; the refusal path it keys on is the (disabled) hook, so the notice cannot fire until the hook is on. Write guards still stop actions |
+| Suspended-account notice | Unverified | App calls `my_account_status`, which now answers `suspended` from `account_restrictions` itself (migration `20261025121000`, applied; SQL-tested); not run on a device |
 | Leaked-password protection | Blocked | Dashboard setting |
 
 ## Core product (not changed by this work except where noted; not re-verified end to end)
