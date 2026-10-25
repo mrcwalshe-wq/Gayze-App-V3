@@ -267,7 +267,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   return (
     <div ref={embedded ? embeddedScrollRef : undefined} className={embedded ? 'g-messages-notifications' : 'g-overlay g-notifications-overlay flex items-end sm:items-center justify-center sm:p-4'} onClick={embedded ? undefined : onClose}>
       <div className={embedded ? 'g-messages-notifications__panel' : 'g-sheet g-notifications-sheet'} onClick={embedded ? undefined : (e) => e.stopPropagation()}>
-        <div className="g-sheet__grip" />
+        {!embedded && <div className="g-sheet__grip" />}
 
         <div className="g-sheet__head flex items-center gap-3">
           <span className="g-notifications-title-icon">
@@ -275,7 +275,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
           </span>
           <div className="min-w-0 flex-1">
             <h2 className="text-[15px] font-bold text-white leading-tight">Notifications</h2>
-            <p className="text-[11.5px] text-zinc-500">Real Intent. Real Time.</p>
+            <p className="text-[11.5px] text-zinc-500">Choose what GAYZE can tell you, and catch up on what you missed.</p>
           </div>
           {!embedded && (
             <button type="button" className="g-icon-btn g-icon-btn--bare" onClick={onClose} aria-label="Close">

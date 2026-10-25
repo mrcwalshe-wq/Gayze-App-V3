@@ -1269,11 +1269,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 hapticLight();
                 if (onOpenIntentHub) onOpenIntentHub(); else setIsUserIntentDrawerOpen(true);
               }}
-              aria-label={`${activeUserIntent.mode === 'private' ? 'Private' : 'Social'} intent ${activeUserIntent.intent}, ${activeUserIntent.isPaused ? 'paused' : 'live'}, ${formatRemainingTime(remainingMinutes)} left. Open intent controls`}
+              aria-label={`${activeUserIntent.mode === 'private' ? 'Private' : 'Social'} intent ${intentDisplayLabel(activeUserIntent.intent)}, ${activeUserIntent.isPaused ? 'paused' : 'live'}, ${formatRemainingTime(remainingMinutes)} left. Open intent controls`}
             >
               <span className="g-intent-chip__dot" aria-hidden="true" />
               <span className="g-intent-chip__mode">{activeUserIntent.mode === 'private' ? 'Private' : 'Social'}</span>
-              <span className="g-intent-chip__title">{activeUserIntent.intent}</span>
+              <span className="g-intent-chip__title">{intentDisplayLabel(activeUserIntent.intent)}</span>
               <span className="g-intent-chip__time">{activeUserIntent.isPaused ? 'Paused' : formatRemainingTime(remainingMinutes)}</span>
             </button>
           ) : (
@@ -1284,7 +1284,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </div>
           )}
         </div>
-        <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className={`g-float g-icon-btn shrink-0 relative ${activeFilterCount > 0 ? '!border-[#6F3CC3]/70 !text-white' : ''}`} aria-label="Open discovery filters">
+        <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className={`g-float g-icon-btn pointer-events-auto shrink-0 relative ${activeFilterCount > 0 ? '!border-[#6F3CC3]/70 !text-white' : ''}`} aria-label="Open discovery filters">
           <SlidersHorizontal className="w-4 h-4" />
           {activeFilterCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0b0c11]">{activeFilterCount}</span>}
         </button>
@@ -2168,7 +2168,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       ? 'Safe haven'
                       : item.type === 'pulse'
                         ? intentDisplayLabel(item.item.intent) || (isPrivate ? 'Private' : 'Social')
-                        : item.item.intent || item.item.lookingForLabel;
+                        : intentDisplayLabel(item.item.intent) || item.item.lookingForLabel;
                   const expires =
                     item.type === 'pulse' ? item.item.expiresAt : item.type === 'profile' ? item.item.intentExpiresAt : undefined;
 
