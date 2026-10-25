@@ -871,3 +871,65 @@ nav.g-tabbar .g-tab--discover .g-tab__label {
 .g-chatrow__tags span { display: inline-flex; align-items: center; gap: 4px; color: rgba(143, 240, 196, .85); }
 .g-chatrow__tags .is-ttl { color: #c4a9f7; }
 @media (prefers-reduced-motion: reduce) { .g-chat-overlay { animation: none; } }
+
+
+/* ==========================================================================
+   Design polish pass
+   ========================================================================== */
+
+/* Tab-bar edge: now an SVG (see TabbarEdge) so Safari draws it exactly like Chrome.
+   The old mask-based line is retired. */
+nav.g-tabbar::before { content: none !important; display: none !important; animation: none !important; }
+nav.g-tabbar .g-tabbar__edge {
+  position: absolute; z-index: 2; pointer-events: none; overflow: visible;
+  left: 26px; top: -16px; display: block;
+  filter: drop-shadow(0 0 5px rgba(var(--gl2), .7));
+}
+
+/* ---- Later: one status pill, one primary action, no dead controls ---------- */
+.g-later__title { line-height: 1.12; padding-bottom: .08em; }
+.g-later__cats {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  padding-right: 28px;
+}
+.g-ev__art { color: rgba(255, 255, 255, .07); }
+.g-ev__badges { top: 18px; right: 16px; flex-direction: row; gap: 6px; }
+.g-ev__badge { padding: 6px 12px; font-size: 11.5px; line-height: 1; white-space: nowrap; }
+.g-ev__badge.is-going { background: rgba(7, 40, 28, .72); color: #9af5cb; }
+.g-ev__actions.is-single { grid-template-columns: 1fr; }
+.g-ev__rsvp small { font-size: 11px; font-weight: 600; opacity: .6; margin-left: 2px; }
+.g-ev__rsvp.is-going span { font-weight: 800; }
+.g-ev__soon { display: flex; align-items: center; justify-content: center; gap: 6px; margin: -6px 18px 16px; font-size: 11.5px; color: rgba(255, 255, 255, .42); text-align: center; }
+.g-ev__pledge { padding-top: 10px; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, .06); }
+
+/* ---- Tab bar: solid enough that content never reads through it ------------- */
+nav.g-tabbar {
+  background: linear-gradient(180deg, rgba(18, 16, 28, .94), rgba(9, 8, 15, .97)) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.3) !important; backdrop-filter: blur(24px) saturate(1.3) !important;
+}
+
+/* ---- Chat: calmer bubbles, quiet encryption control, clear of the tab bar ----- */
+.g-bubble__meta { display: flex; align-items: center; justify-content: flex-end; gap: 2px; margin-top: 2px; font-size: 11px; opacity: .6; }
+.g-bubble__info { display: inline-grid; place-items: center; width: 28px; height: 28px; margin: -6px -8px -6px 0; border-radius: 999px; color: inherit; opacity: .8; }
+.g-bubble__info:hover, .g-bubble__info[aria-expanded='true'] { opacity: 1; background: rgba(255, 255, 255, .08); }
+@media (max-width: 767px) { .g-composer-note { margin-bottom: 20px; } }
+
+/* ---- Profile: header aligned to the photo, quieter empty slots ---------------- */
+.g-profile-id > button { margin-top: 2px; }
+.g-photo-slot { background: linear-gradient(180deg, rgba(255, 255, 255, .025), rgba(255, 255, 255, .008)) !important; }
+
+/* ---- Later header: title gets the full width, Host sits on the eyebrow row ----- */
+.g-later__hero { position: relative; display: block; }
+.g-later__host { position: absolute !important; top: -6px; right: 0; min-height: 38px !important; padding: 0 14px !important; font-size: 13px !important; }
+.g-later__title { white-space: nowrap; font-size: clamp(26px, 8vw, 32px); }
+.g-later__sub { max-width: none; }
+
+/* ---- Panels: a quiet hairline that shimmers on interaction, not a loud frame ---- */
+.g-shell .g-panel::after { opacity: .5 !important; padding: 1px !important; animation-duration: 9s !important; }
+.g-shell .g-panel:is(:hover, :focus-within)::after { opacity: .95 !important; }
+.g-panel--danger::after { display: none !important; }
+.g-panel--danger { border-color: rgba(248, 113, 113, .28) !important; background: linear-gradient(180deg, rgba(60, 18, 24, .35), rgba(20, 12, 16, .6)) !important; }
+.g-later__hero { padding-top: 4px; }
+.g-later__host { top: 4px; }
+@media (min-width: 768px) { .g-later__hero { padding-top: 10px; } .g-later__host { top: 10px; } }

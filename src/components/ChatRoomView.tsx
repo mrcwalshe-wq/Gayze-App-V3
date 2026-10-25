@@ -914,7 +914,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       </div>
                     )}
 
-                    <div className="mt-1 flex items-center justify-end gap-1.5 pt-0.5 text-[11px] opacity-70">
+                    <div className="g-bubble__meta">
                       {msg.sendState === 'failed' ? (
                         <button
                           type="button"
@@ -929,7 +929,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                           Retry
                         </button>
                       ) : (
-                        <Lock className="w-2.5 h-2.5" />
+                        <Lock className="w-2.5 h-2.5" aria-hidden="true" />
                       )}
                       <button
                         type="button"
@@ -940,9 +940,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                             hapticMessageDecrypted();
                           }
                         }}
-                        className="underline hover:opacity-100 cursor-pointer text-[11px]"
+                        className="g-bubble__info"
+                        aria-label={isInspecting ? 'Hide encryption details' : 'Show encryption details'}
+                        aria-expanded={isInspecting}
                       >
-                        {isInspecting ? 'Hide Details' : 'Details'}
+                        <Info className="w-3 h-3" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -1053,7 +1055,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </button>
             </div>
 
-            <div className="mt-1.5 flex items-center gap-1 text-[10px] text-zinc-600 px-1">
+            <div className="g-composer-note mt-1.5 flex items-center gap-1 text-[10px] text-zinc-500 px-1">
               <Lock className="w-3 h-3 text-emerald-400/80" />
               <span>End-to-end encrypted · keys stay on your device</span>
             </div>

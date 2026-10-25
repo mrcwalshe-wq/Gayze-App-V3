@@ -422,7 +422,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       {/* Identity — prominent primary photo, authentic personal presence */}
-      <section className="flex items-center gap-4 py-4">
+      <section className="g-profile-id flex items-start gap-4 py-4">
         <div
           onClick={() => {
             if (photos.length > 0) setViewerIndex(0);
@@ -566,7 +566,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 ) : (
                   <>
                     {/* Reorder Buttons */}
-                    <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
                       {index > 0 && (
                         <button
                           type="button"
@@ -575,7 +575,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             void handleMovePhoto(index, 'left');
                           }}
                           disabled={photoBusy}
-                          className="w-6 h-6 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-zinc-300 hover:text-white flex items-center justify-center cursor-pointer"
+                          className="w-8 h-8 rounded-lg bg-black/70 backdrop-blur-md border border-white/15 text-zinc-300 hover:text-white flex items-center justify-center cursor-pointer"
                           aria-label="Move photo left"
                         >
                           <ArrowLeft className="w-3 h-3" />
@@ -589,7 +589,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             void handleMovePhoto(index, 'right');
                           }}
                           disabled={photoBusy}
-                          className="w-6 h-6 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-zinc-300 hover:text-white flex items-center justify-center cursor-pointer"
+                          className="w-8 h-8 rounded-lg bg-black/70 backdrop-blur-md border border-white/15 text-zinc-300 hover:text-white flex items-center justify-center cursor-pointer"
                           aria-label="Move photo right"
                         >
                           <ArrowRight className="w-3 h-3" />
@@ -655,10 +655,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {Array.from({ length: Math.max(0, emptySlotsCount - 1) }).map((_, i) => (
             <div
               key={`empty-${i}`}
-              className="relative aspect-square rounded-[18px] border border-dashed border-white/[0.07] bg-white/[0.01] flex items-center justify-center"
-            >
-              <div className="w-2 h-2 rounded-full bg-white/[0.08]" />
-            </div>
+              className="g-photo-slot relative aspect-square rounded-[18px] border border-dashed border-white/[0.07] bg-white/[0.01]"
+              aria-hidden="true"
+            />
           ))}
         </div>
 
@@ -889,7 +888,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       {onDeleteAccount && (
-        <section className="g-panel mb-5 overflow-hidden border border-red-400/20">
+        <section className="g-panel g-panel--danger mb-5 overflow-hidden border border-red-400/20">
           <div className="p-4">
             <div className="flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-400/20 bg-red-400/5 text-red-300">
@@ -914,17 +913,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       {/* Footer */}
-      <footer className="flex items-center justify-between px-1 pb-4 opacity-75">
-        <div className="flex items-center gap-2 text-zinc-500">
-          <Radio className="w-3.5 h-3.5 text-[#6F3CC3]" />
-          <span className="text-[11px] font-medium tracking-[0.1em] text-zinc-400">Gayze</span>
-          <span className="text-[11px] text-zinc-600">Real Intent. Real Time.</span>
-        </div>
-        {onOpenDiscover && (
-          <button type="button" className="g-btn g-btn--ghost !min-h-[32px] text-[11.5px]" onClick={() => { hapticLight(); onOpenDiscover(); }}>
-            <Compass className="w-3.5 h-3.5" /> Discover
-          </button>
-        )}
+      <footer className="flex items-center justify-center gap-2 px-1 pb-6 text-zinc-500">
+        <Radio className="w-3.5 h-3.5 text-[#6F3CC3]" aria-hidden="true" />
+        <span className="text-[11px] font-semibold tracking-[0.14em] text-zinc-400">GAYZE</span>
+        <span className="text-[11px] text-zinc-600">Real Intent. Real Time.</span>
       </footer>
 
       {/* Full-screen Photo Lightbox / Viewer with Swipe and Navigation */}
