@@ -54,3 +54,51 @@ The four failing suites fail with the **same failure counts on unmodified `main`
 * **Live HTTP smoke tests against `gayze.co.uk` and the Supabase API from this environment**: the sandbox network policy denies `gayze.co.uk` and `qdewyupsqmtonkloqxsh.supabase.co` (proxy 403). Anything needing a real request, including an authenticated owner call to `admin-api`, is recorded in `PRODUCTION_COMPLETION_AUDIT.md` as unverified. The environment owner can allow those hosts under the environment's network settings.
 * **Owner flow, reauth and suspension through the deployed function with a real session**: the owner signs in with Google; no credential for that account is available here.
 * **Two-account messaging, calls, push on iOS, installed-PWA behaviour, Google OAuth, email delivery**: need devices, real inboxes and dashboard settings.
+
+## Release verification, 2026-10-26 (branch `verify/release-audit`, base `25a8a02`)
+
+Commands run from the repository root; results as printed.
+
+| Command | Result |
+| --- | --- |
+| `npx tsc --noEmit -p .` / `npm run build` | pass / pass |
+| `npm run test:admin` | handler 21/21 (incl. insights, broadcast.send), insights text and CSV 2/2, SQL 12/12 |
+| `npm run test:notices` (new) | 7/7: host cannot leave; join requests (ask, accept, decline, withdraw, rejoin); capacity and full notice once; legacy toggle cannot admit; table closed to direct writes; notices read/mark own only; broadcast targeting; insights definitions; k-suppression |
+| `npm run test:push-e2e` | **ALL PASSED** (77 checks). Was failing on `main` |
+| `npm run test:push-sw` | pass |
+| `npm run test:push-sql` | pass |
+| `test:auth` 6/6, `test:email` 3/3, `test:e2ee` 5/5, `test:messaging` 22/22, `test:timeline` 7/7, `test:peek` 7/7, `test:icons` 7/7, `test:discovery`, `test:inspect-script`, `test:profile-migration` | pass |
+| `npm run test:profile` | **3 failures, identical on `main` (`25a8a02`, run in a separate worktree)**: permanent Notifications row |
+| `npm run test:interaction` | **9 failures, identical on `main`**: filter drawer / 5 km copy / pills |
+
+### Push E2E: root causes found (not weakened)
+1. The scenario asserted a client-to-edge "connection" call that production replaced with RPC -> `gayze_notifications` -> trigger -> `pg_net` -> `send-push`. The harness now loads the durable-notification migrations and bridges recorded `pg_net` calls to the real edge handler.
+2. A database rebuilt from the repository sent the wrong secret to `send-push` (production authenticates with `gayze_push_dispatch_runtime_secret`; the repository migration never recorded that). Fixed by migrations `20261025130000` and `20261026130000` (identical to what production already runs).
+3. The test hook returned `undefined`, so `send-push`'s `__webpush?.() ?? webpush.sendNotification()` ran the real sender as well and every push was counted twice. The mock now returns a truthy value.
+4. Several assertions had lost their dispatch / reset lines and could never pass; restored.
+5. Real defect found by the test: `sendTestNotification()` replaced the server's honest reason ("Notifications are switched off in your settings.") with a generic "No provider accepted" message. Fixed in `pushService.ts`.
+6. A hung browser `unsubscribe()` could hold the registration lock forever; capped at 8 s (kept). Verified a sign-out cleanup and a re-subscribe still proceed after a hang.
+
+What this does not prove: a real phone receiving a push. See the production section.
+
+## Production checks run during this verification (read-only unless stated)
+
+| Check | Evidence |
+| --- | --- |
+| Frontend serves current main | Production HTML references `index-BcuHkzmP.css`, identical to the local build of `25a8a02`; GitHub run 433 (`25a8a02`) succeeded. The JS filename differs from a local build (`index-DaqaGnF_.js` vs `index-DUABEKmj.js`); CI bakes build-time env into the bundle. Run 432 (`e0f7491`, PR #199) was *cancelled* by the next push; the code is in run 433. |
+| Edge functions | `admin-api` v2 and `send-push` v22 ACTIVE; deployed `handler.ts` read back and compared with the repository. `verify_jwt` true / false as designed. |
+| Platform gate | Unauthenticated GET to `/functions/v1/admin-api` -> `401 UNAUTHORIZED_NO_AUTH_HEADER`. |
+| Live admin API, owner | `admin_audit_log` holds real `success` rows for `reports.list`, `diagnostics.*`, `audit.list`, `metrics` from the owner session (v1). The new v2 actions (`insights`, `broadcast.*`) have **not** been called from a signed-in owner session (this sandbox cannot sign in). |
+| Live admin API, non-admin | `admin_audit_log`: `admin.access` / `denied` / `not_an_admin` at 18:55:08 from a signed-in non-admin (second test account). |
+| Production logs | 24 h postgres errors are only my own rolled-back test markers and a type error fixed in the same hour; no 5xx; no function errors. |
+| Gathering regression (rolled back) | Guest join -> exactly one host notice; host toggle stays attending; other member sees 0 notices. |
+| Gathering regression (real use) | A second real account joined two gatherings at 18:55; host notices were created and `push_processed_at` set within ~1 s (push service accepted); the host marked one read at 19:53. |
+| Controlled push to the owner | One labelled notice, audience = owner only (broadcast `cb324fb4-...`): `send-push` returned `{"delivered":23}`. All 23 stored iOS endpoints were accepted by the push service; **device receipt not verified by me**. |
+| Insights reconciliation | New query vs independent raw queries: sign-up days sum 11 = 11; activity 395 = 181 intents + 160 messages + 54 Gayzes/interests; active members 10 = 10. |
+
+Findings from the production checks are in `PRODUCTION_COMPLETION_AUDIT.md`.
+
+## Not run, and why (this release)
+- Signed-in owner session against `admin-api` v2 (no credentials or network egress in the sandbox).
+- Real-device push receipt, call audio/video, PWA install/update, iOS Safari rendering.
+- Browser print-to-PDF output of the report builder (CSS written and previewed in Chromium only).

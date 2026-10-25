@@ -79,17 +79,15 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     return [];
   }
   const ids = (data ?? []).map((row) => row.id);
-  let attending = new Set<string>();
-  let counts = new Map<string, number>();
+  // Counts and guest lists come from one function that applies the visibility rules: members see a
+  // count, the host sees who is waiting, accepted guests see who is going. (Reading the table directly
+  // only ever returned the member's own row, so every card showed at most "1 going".)
+  type Overview = { gathering_id: string; attending_count: number; my_status: string | null; pending: { userId: string; name: string; requestedAt: string }[]; attendees: { userId: string; name: string; isHost: boolean }[] };
+  const overview = new Map<string, Overview>();
   if (ids.length) {
-    const { data: rsvps } = await supabase
-      .from('gathering_rsvps')
-      .select('gathering_id,user_id,status')
-      .in('gathering_id', ids)
-      .eq('status', 'attending');
-    attending = new Set((rsvps ?? []).filter((row) => row.user_id === user.id).map((row) => row.gathering_id));
-    counts = new Map<string, number>();
-    for (const row of rsvps ?? []) counts.set(row.gathering_id, (counts.get(row.gathering_id) ?? 0) + 1);
+    const { data: rows, error: overviewError } = await supabase.rpc('get_gathering_rsvp_overview', { p_ids: ids });
+    if (overviewError) console.warn('[GAYZE] Gathering guest lists unavailable:', overviewError.message);
+    for (const row of (rows ?? []) as Overview[]) overview.set(row.gathering_id, row);
   }
   return (data ?? []).map((row: SupabaseGatheringRow) => ({
     id: row.id,
@@ -109,8 +107,11 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     lat: row.lat ?? null,
     lng: row.lng ?? null,
     capacity: row.capacity,
-    rsvpCount: counts.get(row.id) ?? 0,
-    isAttending: attending.has(row.id),
+    rsvpCount: overview.get(row.id)?.attending_count ?? 0,
+    isAttending: overview.get(row.id)?.my_status === 'attending',
+    myStatus: (overview.get(row.id)?.my_status ?? null) as import('../types').Gathering['myStatus'],
+    pending: overview.get(row.id)?.pending ?? [],
+    attendees: overview.get(row.id)?.attendees ?? [],
     tags: Array.isArray(row.tags) ? row.tags as string[] : [],
     safetyGuidelines: row.safety_guidelines,
   }));
@@ -143,14 +144,30 @@ export async function createGathering(input: Omit<import('../types').Gathering, 
   return data?.id ?? null;
 }
 
-export async function toggleGatheringRsvp(gatheringId: string): Promise<boolean> {
-  if (!supabase) return false;
-  const { data, error } = await supabase.rpc('toggle_gathering_rsvp', { p_gathering_id: gatheringId });
-  if (error) {
-    console.warn('[GAYZE] Gathering RSVP failed:', error.message);
-    return false;
-  }
-  return Boolean(data);
+export type GatheringStatus = 'requested' | 'attending' | 'declined' | 'cancelled';
+
+/** Ask to join (the host decides). For the host this simply confirms they are going. */
+export async function requestToJoinGathering(gatheringId: string): Promise<GatheringStatus | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('request_to_join_gathering', { p_gathering_id: gatheringId });
+  if (error) { console.warn('[GAYZE] Join request failed:', error.message); throw new Error(/full/i.test(error.message) ? 'full' : /ended/i.test(error.message) ? 'ended' : 'failed'); }
+  return data as GatheringStatus;
+}
+
+/** Withdraw a request or leave. */
+export async function leaveGathering(gatheringId: string): Promise<GatheringStatus | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('leave_gathering', { p_gathering_id: gatheringId });
+  if (error) { console.warn('[GAYZE] Leaving gathering failed:', error.message); throw new Error('failed'); }
+  return data as GatheringStatus;
+}
+
+/** Host only: accept or decline a request. */
+export async function respondToGatheringRequest(gatheringId: string, userId: string, accept: boolean): Promise<GatheringStatus | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('respond_to_gathering_request', { p_gathering_id: gatheringId, p_user_id: userId, p_accept: accept });
+  if (error) { console.warn('[GAYZE] Responding to request failed:', error.message); throw new Error(/full/i.test(error.message) ? 'full' : 'failed'); }
+  return data as GatheringStatus;
 }
 
 export interface SafetyCheckinRecord {

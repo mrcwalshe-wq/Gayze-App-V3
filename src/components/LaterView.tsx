@@ -44,6 +44,9 @@ const startsIn = (timestamp: number): string => {
 interface LaterViewProps {
   gatherings: Gathering[];
   onToggleRsvp: (gatheringId: string) => void;
+  /** Host only: accept or decline someone who asked to join. */
+  onRespondToRequest?: (gatheringId: string, userId: string, accept: boolean) => void | Promise<void>;
+  onOpenProfile?: (userId: string, name: string) => void;
   onOpenGatheringChat: (gathering: Gathering) => void;
   onCreateGathering: (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => void;
   currentUser: UserProfile;
@@ -59,6 +62,8 @@ interface LaterViewProps {
 export const LaterView: React.FC<LaterViewProps> = ({
   gatherings,
   onToggleRsvp,
+  onRespondToRequest,
+  onOpenProfile,
   onOpenGatheringChat,
   onCreateGathering,
   currentUser,
@@ -263,7 +268,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <div className="g-ev__badges">
                   <span className={`g-ev__badge ${gathering.isAttending ? 'is-going' : ''}`}>
                     {gathering.isAttending && <Check className="w-3 h-3" aria-hidden="true" />}
-                    {isHost ? 'Hosting · ' : gathering.isAttending ? 'Going · ' : isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}
+                    {isHost ? 'Hosting · ' : gathering.isAttending ? 'Going · ' : gathering.myStatus === 'requested' ? 'Requested · ' : isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}
                   </span>
                 </div>
                 <span className="g-ev__cat">{art.label}</span>
@@ -300,6 +305,27 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   <span style={{ width: `${percentFull}%` }} />
                 </div>
 
+                {(gathering.attendees?.length ?? 0) > 0 && (
+                  <p className="g-ev__who"><Users className="w-3.5 h-3.5" aria-hidden="true" />
+                    {gathering.attendees!.map((a, i) => (
+                      <React.Fragment key={a.userId}>{i > 0 && ', '}<button type="button" onClick={() => onOpenProfile?.(a.userId, a.name)}>{a.userId === currentUserId ? 'You' : a.name}{a.isHost ? ' (host)' : ''}</button></React.Fragment>
+                    ))}
+                  </p>
+                )}
+                {isHost && (gathering.pending?.length ?? 0) > 0 && (
+                  <div className="g-ev__requests" role="group" aria-label={`Requests to join ${gathering.title}`}>
+                    <h4>Waiting for you · {gathering.pending!.length}</h4>
+                    {gathering.pending!.map((r) => (
+                      <div key={r.userId} className="g-ev__request">
+                        <button type="button" className="g-ev__request-name" onClick={() => onOpenProfile?.(r.userId, r.name)}>{r.name}<small>wants to join</small></button>
+                        <button type="button" className="g-ev__decline" onClick={() => { hapticLight(); void onRespondToRequest?.(gathering.id, r.userId, false); }}>Decline</button>
+                        <button type="button" className="g-ev__accept" disabled={spotsLeft === 0} onClick={() => { hapticLight(); void onRespondToRequest?.(gathering.id, r.userId, true); }}>Accept</button>
+                      </div>
+                    ))}
+                    {spotsLeft === 0 && <p className="g-ev__soon">Full. Decline someone, or no one else can be accepted.</p>}
+                  </div>
+                )}
+
                 <p className="g-ev__pledge"><ShieldCheck className="w-3.5 h-3.5" /><span>{gathering.safetyGuidelines}</span></p>
               </div>
 
@@ -307,20 +333,24 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <button
                   type="button"
                   onClick={() => { hapticLight(); onToggleRsvp(gathering.id); }}
-                  disabled={isHost || busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending)}
-                  className={`g-ev__rsvp ${gathering.isAttending ? 'is-going' : ''}`}
-                  aria-label={isHost ? `You're hosting ${gathering.title}.` : gathering.isAttending ? `You're going to ${gathering.title}. Tap to leave.` : undefined}
+                  disabled={isHost || gathering.myStatus === 'declined' || busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending && gathering.myStatus !== 'requested')}
+                  className={`g-ev__rsvp ${gathering.isAttending || isHost ? 'is-going' : ''} ${gathering.myStatus === 'requested' ? 'is-requested' : ''}`}
+                  aria-label={isHost ? `You're hosting ${gathering.title}.` : gathering.isAttending ? `You're going to ${gathering.title}. Tap to leave.` : gathering.myStatus === 'requested' ? `Request sent for ${gathering.title}. Tap to withdraw.` : undefined}
                 >
                   {isHost ? (
-                    <><Check className="w-4 h-4" /><span>You're hosting</span><small>{gathering.rsvpCount > 1 ? `${gathering.rsvpCount - 1} joining` : 'No guests yet'}</small></>
+                    <><Check className="w-4 h-4" /><span>You're hosting</span><small>{(gathering.pending?.length ?? 0) > 0 ? `${gathering.pending!.length} waiting` : gathering.rsvpCount > 1 ? `${gathering.rsvpCount - 1} joining` : 'No guests yet'}</small></>
                   ) : busyGatheringId === gathering.id ? (
                     <span>Saving…</span>
                   ) : gathering.isAttending ? (
                     <><Check className="w-4 h-4" /><span>Going</span><small>Tap to leave</small></>
+                  ) : gathering.myStatus === 'requested' ? (
+                    <><Clock className="w-4 h-4" /><span>Requested</span><small>Waiting for the host · tap to withdraw</small></>
+                  ) : gathering.myStatus === 'declined' ? (
+                    <span>Not this time</span>
                   ) : spotsLeft === 0 ? (
                     <span>Full</span>
                   ) : (
-                    <span>I'm in</span>
+                    <span>Ask to join</span>
                   )}
                 </button>
 

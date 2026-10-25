@@ -768,9 +768,12 @@ export async function sendTestNotification(): Promise<{ ok: boolean; reason?: st
         : status === 503 ? 'The server Web Push configuration is unavailable.' : 'The push test request failed. Check the server diagnostics.' };
     }
     if ((data as { skipped?: string } | null)?.skipped === 'preferences') return { ok: false, reason: 'Push notifications are disabled in your preferences.' };
-    const delivered = (data as { delivered?: number } | null)?.delivered ?? 0;
+    const body = data as { delivered?: number; reason?: string } | null;
+    const delivered = body?.delivered ?? 0;
     if (delivered === 0) {
-      return { ok: false, reason: 'No provider accepted this test. Check device registration and server diagnostics. Repeated tests within one minute are deduplicated.' };
+      // The server says why (notifications switched off, no registered device); show that, not a guess.
+      const serverReason = typeof body?.reason === 'string' && body.reason.length <= 200 ? body.reason : null;
+      return { ok: false, reason: serverReason ?? 'No provider accepted this test. Check device registration and server diagnostics. Repeated tests within one minute are deduplicated.' };
     }
     return { ok: true };
   } catch (error) {

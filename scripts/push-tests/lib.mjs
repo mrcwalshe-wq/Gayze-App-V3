@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 export const REPO = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 export const MIGRATION = `${REPO}/supabase/migrations/20260929120000_push_notifications.sql`;
 export const MIGRATION_RUNTIME_SECRET = `${REPO}/supabase/migrations/20261025130000_record_push_runtime_secret_getter.sql`;
+// The durable-notification path used in production: RPC -> gayze_notifications -> trigger -> pg_net -> send-push.
+export const MIGRATIONS_DURABLE = [
+  '20261002100000_durable_notifications.sql', '20261003050000_push_delivery_race_hardening.sql', '20261026130000_record_runtime_secret_dispatch.sql',
+].map((f) => `${REPO}/supabase/migrations/${f}`);
 export const MIGRATION_URL_FIX = `${REPO}/supabase/migrations/20261002090000_push_dispatch_url_fix.sql`;
 
 // The sandbox DB has no pgcrypto/pg_net extension binaries wired up: the two
@@ -14,7 +18,15 @@ export function migrationSql() {
     .replace(/^create extension if not exists pgcrypto;$/m, '-- (stubbed in test)')
     .replace(/^create extension if not exists pg_net with schema extensions;$/m, '-- (stubbed in test)');
   // Applied in filename order, exactly as Supabase applies them.
-  return clean(MIGRATION) + '\n' + clean(MIGRATION_URL_FIX) + '\n' + clean(MIGRATION_RUNTIME_SECRET);
+  return [MIGRATION, MIGRATION_URL_FIX, MIGRATION_RUNTIME_SECRET].map(clean).join('\n');
+}
+
+// Same, plus the durable-notification migrations production runs (RPC -> inbox row -> trigger -> pg_net -> send-push).
+export function migrationSqlDurable() {
+  const clean = (file) => fs.readFileSync(file, 'utf8')
+    .replace(/^create extension if not exists pgcrypto;$/m, '-- (stubbed in test)')
+    .replace(/^create extension if not exists pg_net with schema extensions;$/m, '-- (stubbed in test)');
+  return [MIGRATION, MIGRATION_URL_FIX, MIGRATIONS_DURABLE[0], MIGRATIONS_DURABLE[1], MIGRATION_RUNTIME_SECRET, MIGRATIONS_DURABLE[2]].map(clean).join('\n');
 }
 
 export async function bootstrap(db, { netFails = false } = {}) {
@@ -51,6 +63,7 @@ export async function baseSchema(db) {
       ciphertext text, nonce text, created_at timestamptz default now(), expires_at timestamptz, burned_at timestamptz);
     create table public.intents (id uuid primary key default gen_random_uuid(), user_id uuid, expires_at timestamptz, is_paused boolean default false);
     create table public.safety_checkins (id uuid primary key default gen_random_uuid(), user_id uuid, status text, expires_at timestamptz);
+    create table public.gazes (id uuid primary key default gen_random_uuid(), from_user_id uuid, to_user_id uuid, intent_id uuid, created_at timestamptz default now());
   `);
 }
 

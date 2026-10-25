@@ -111,7 +111,9 @@ import {
   loadSafeHavens,
   loadGatherings,
   createGathering,
-  toggleGatheringRsvp,
+  requestToJoinGathering,
+  leaveGathering,
+  respondToGatheringRequest,
   loadActiveSafetyCheckin,
   startSafetyCheckin,
   updateSafetyCheckin,
@@ -1899,19 +1901,26 @@ export default function App() {
   };
 
   // Handlers for "Later"
+  const refreshGatherings = async () => {
+    try { setGatherings(await loadGatherings()); } catch { /* keep what is on screen */ }
+  };
   const handleToggleRsvp = async (gatheringId: string) => {
+    const gathering = gatherings.find((g) => g.id === gatheringId);
     if (isSupabaseConfigured && isAuthenticated) {
-      const changedToAttending = await toggleGatheringRsvp(gatheringId);
-      setGatherings((prev) => prev.map((g) => g.id === gatheringId
-        ? {
-            ...g,
-            isAttending: changedToAttending,
-            rsvpCount: Math.max(0, g.rsvpCount + (changedToAttending ? 1 : -1)),
-          }
-        : g
-      ));
-      const gathering = gatherings.find((g) => g.id === gatheringId);
-      showToast(changedToAttending ? `RSVP confirmed for ${gathering?.title || 'gathering'}` : `RSVP cancelled for ${gathering?.title || 'gathering'}`);
+      if (!gathering || gathering.hostName === 'You') return;
+      const asked = gathering.myStatus === 'requested' || gathering.myStatus === 'attending';
+      try {
+        if (asked) {
+          await leaveGathering(gatheringId);
+          showToast(gathering.myStatus === 'attending' ? `You left ${gathering.title}` : 'Request withdrawn');
+        } else {
+          const status = await requestToJoinGathering(gatheringId);
+          showToast(status === 'declined' ? 'The host has already answered this request.' : `Request sent. ${gathering.hostName === 'You' ? '' : 'The host will let you know.'}`.trim());
+        }
+      } catch (e) {
+        showToast(e instanceof Error && e.message === 'full' ? 'This gathering is full.' : e instanceof Error && e.message === 'ended' ? 'This gathering has finished.' : 'Could not update that. Please try again.');
+      }
+      await refreshGatherings();
       return;
     }
     setGatherings((prev) =>
@@ -1924,6 +1933,16 @@ export default function App() {
         return g;
       })
     );
+  };
+
+  const handleRespondToRequest = async (gatheringId: string, userId: string, accept: boolean) => {
+    try {
+      await respondToGatheringRequest(gatheringId, userId, accept);
+      showToast(accept ? 'Accepted. They have been told.' : 'Declined.');
+    } catch (e) {
+      showToast(e instanceof Error && e.message === 'full' ? 'This gathering is full.' : 'Could not update that. Please try again.');
+    }
+    await refreshGatherings();
   };
 
   const handleOpenGatheringChat = (gathering: Gathering) => {
@@ -1963,9 +1982,9 @@ export default function App() {
       }
       const created: Gathering = { ...newGathering, id, rsvpCount: 0, isAttending: false };
       setGatherings((prev) => [created, ...prev]);
-      const attending = await toggleGatheringRsvp(id);
-      setGatherings((prev) => prev.map((g) => g.id === id ? { ...g, isAttending: attending, rsvpCount: attending ? 1 : 0 } : g));
-      showToast('Gathering created and RSVP recorded.');
+      try { await requestToJoinGathering(id); } catch { /* the host is added server-side on the next load */ }
+      await refreshGatherings();
+      showToast('Gathering created. You are hosting.');
       return;
     }
     const gathering: Gathering = { ...newGathering, id: 'gath_' + Date.now(), rsvpCount: 1, isAttending: true };
@@ -3541,6 +3560,8 @@ export default function App() {
             <LaterView
               gatherings={gatherings}
               onToggleRsvp={handleToggleRsvp}
+              onRespondToRequest={handleRespondToRequest}
+              onOpenProfile={(userId, name) => openPublicProfile(userId, { name })}
               onOpenGatheringChat={handleOpenGatheringChat}
               onCreateGathering={handleCreateGathering}
               currentUser={currentUser}

@@ -81,6 +81,12 @@ export interface Gathering {
   capacity: number;
   rsvpCount: number;
   isAttending: boolean;
+  /** The signed-in member's state: asked, accepted, turned down, or withdrawn. */
+  myStatus?: 'requested' | 'attending' | 'declined' | 'cancelled' | null;
+  /** Host only: people waiting for a decision. */
+  pending?: { userId: string; name: string; requestedAt: string }[];
+  /** Host and accepted guests only: who is going. */
+  attendees?: { userId: string; name: string; isHost: boolean }[];
   tags: string[];
   safetyGuidelines: string;
 }

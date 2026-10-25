@@ -27,14 +27,14 @@ const describe = (a: Audience) => {
 };
 
 /** Composer used for broadcasts and, with a fixed audience, for a message to one member. */
-export const Composer: React.FC<{ fixedAudience?: Audience; recipientName?: string; onSent?: () => void; compact?: boolean }> = ({ fixedAudience, recipientName, onSent, compact }) => {
+export const Composer: React.FC<{ fixedAudience?: Audience; recipientName?: string; onSent?: () => void; compact?: boolean; selfId?: string }> = ({ fixedAudience, recipientName, onSent, compact, selfId }) => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('/');
-  const [scope, setScope] = useState<AudienceScope>('all');
+  const [scope, setScope] = useState<AudienceScope | 'me'>('all');
   const [days, setDays] = useState(30);
   const [intent, setIntent] = useState('');
-  const audience: Audience = fixedAudience ?? { scope, ...(scope === 'active' || scope === 'inactive' ? { days } : {}), ...(scope === 'intent' && intent.trim() ? { intent: intent.trim() } : {}) };
+  const audience: Audience = fixedAudience ?? (scope === 'me' && selfId ? { scope: 'user', user: selfId } : { scope: scope === 'me' ? 'all' : scope, ...(scope === 'active' || scope === 'inactive' ? { days } : {}), ...(scope === 'intent' && intent.trim() ? { intent: intent.trim() } : {}) });
   const audienceKey = JSON.stringify(audience);
 
   const [count, setCount] = useState<number | null>(null);
@@ -75,9 +75,9 @@ export const Composer: React.FC<{ fixedAudience?: Audience; recipientName?: stri
           {!fixedAudience && (
             <>
               <label className="ga-field"><span>Who gets it</span>
-                <span className="ga-select"><select value={scope} onChange={(e) => setScope(e.target.value as AudienceScope)}>{SCOPES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></span>
+                <span className="ga-select"><select value={scope} onChange={(e) => setScope(e.target.value as AudienceScope | 'me')}>{selfId && <option value="me">Just me (send a test)</option>}{SCOPES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></span>
               </label>
-              <p className="ga-note" style={{ marginTop: -4 }}>{SCOPES.find((s) => s.id === scope)?.hint}</p>
+              <p className="ga-note" style={{ marginTop: -4 }}>{scope === 'me' ? 'Only you. Use this to check how a message looks and arrives before sending it to anyone else.' : SCOPES.find((s) => s.id === scope)?.hint}</p>
               {(scope === 'active' || scope === 'inactive') && (
                 <label className="ga-field"><span>Window</span>
                   <span className="ga-select"><select value={days} onChange={(e) => setDays(Number(e.target.value))}>{[3, 7, 14, 30, 60, 90].map((d) => <option key={d} value={d}>{d} days</option>)}</select></span>
@@ -93,7 +93,7 @@ export const Composer: React.FC<{ fixedAudience?: Audience; recipientName?: stri
           <label className="ga-field"><span>When they tap it</span>
             <span className="ga-select"><select value={url} onChange={(e) => setUrl(e.target.value)}>{LINKS.map((l) => <option key={l.v} value={l.v}>{l.label}</option>)}</select></span>
           </label>
-          <p className="ga-note">{countErr ? humanise(countErr) : count === null ? 'Counting recipients…' : <><b>{count.toLocaleString()}</b> {count === 1 ? 'person' : 'people'} · {recipientName ?? describe(audience)}. Suspended accounts and admins are never included.</>}</p>
+          <p className="ga-note">{countErr ? humanise(countErr) : count === null ? 'Counting recipients…' : <><b>{count.toLocaleString()}</b> {count === 1 ? 'person' : 'people'} · {scope === 'me' && !fixedAudience ? 'you' : (recipientName ?? describe(audience))}. Suspended accounts and admins are never included.</>}</p>
           {err != null && !confirming && <div className="ga-banner ga-banner--bad" role="alert">{humanise(err)}</div>}
           <div className="ga-actions" style={{ marginTop: 12 }}>
             <button type="button" className="ga-btn ga-btn--primary" disabled={!valid} onClick={() => { setDone(null); setErr(null); setAck(false); setConfirming(true); }}><Send aria-hidden="true" />Review and send</button>
@@ -128,10 +128,11 @@ export const Composer: React.FC<{ fixedAudience?: Audience; recipientName?: stri
 };
 
 export const Broadcasts: React.FC = () => {
+  const me = useAsync(() => adminCall<{ userId: string }>('whoami'), []);
   const { loading, data, error, reload } = useAsync(() => adminCall<BroadcastRow[]>('broadcast.list', { limit: 25 }), []);
   return (
     <div className="ga-stack">
-      <section aria-labelledby="bc-new"><h2 id="bc-new">New broadcast</h2><Composer onSent={reload} /></section>
+      <section aria-labelledby="bc-new"><h2 id="bc-new">New broadcast</h2><Composer onSent={reload} selfId={me.data?.userId} /></section>
       <section aria-labelledby="bc-hist"><h2 id="bc-hist">Sent</h2>
         {loading && !data ? <Spinner /> : error || !data ? <ErrorState error={error} onRetry={reload} /> : data.length === 0 ? <Empty>Nothing sent yet.</Empty> : (
           <ul className="ga-rows">
