@@ -239,6 +239,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
       <div className="g-later__grid">
         {filteredGatherings.map((gathering) => {
+          const isHost = gathering.hostName === 'You';
           const spotsLeft = Math.max(0, gathering.capacity - gathering.rsvpCount);
           const percentFull = Math.min(100, Math.round((gathering.rsvpCount / Math.max(1, gathering.capacity)) * 100));
           const art = artFor(gathering.category);
@@ -262,7 +263,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <div className="g-ev__badges">
                   <span className={`g-ev__badge ${gathering.isAttending ? 'is-going' : ''}`}>
                     {gathering.isAttending && <Check className="w-3 h-3" aria-hidden="true" />}
-                    {gathering.isAttending ? 'Going · ' : isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}
+                    {isHost ? 'Hosting · ' : gathering.isAttending ? 'Going · ' : isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}
                   </span>
                 </div>
                 <span className="g-ev__cat">{art.label}</span>
@@ -306,11 +307,13 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <button
                   type="button"
                   onClick={() => { hapticLight(); onToggleRsvp(gathering.id); }}
-                  disabled={busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending)}
+                  disabled={isHost || busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending)}
                   className={`g-ev__rsvp ${gathering.isAttending ? 'is-going' : ''}`}
-                  aria-label={gathering.isAttending ? `You're going to ${gathering.title}. Tap to leave.` : undefined}
+                  aria-label={isHost ? `You're hosting ${gathering.title}.` : gathering.isAttending ? `You're going to ${gathering.title}. Tap to leave.` : undefined}
                 >
-                  {busyGatheringId === gathering.id ? (
+                  {isHost ? (
+                    <><Check className="w-4 h-4" /><span>You're hosting</span><small>{gathering.rsvpCount > 1 ? `${gathering.rsvpCount - 1} joining` : 'No guests yet'}</small></>
+                  ) : busyGatheringId === gathering.id ? (
                     <span>Saving…</span>
                   ) : gathering.isAttending ? (
                     <><Check className="w-4 h-4" /><span>Going</span><small>Tap to leave</small></>

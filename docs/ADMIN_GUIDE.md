@@ -105,3 +105,13 @@ Actions: `whoami`, `metrics`, `accounts.list|detail|photoProblems|suspend|reinst
 8. Optional, needs a Supabase-privileged session: `20261025111000_enable_pre_request.sql` (read blocking). Roll back with `alter role authenticator reset pgrst.db_pre_request; notify pgrst, 'reload config';`.
 
 Production status as of this change: migrations 1 to 3 and 7 applied, `admin-api` v1 deployed, owner bootstrapped (one `owner.bootstrap` audit row), step 8 not possible with the available database role.
+
+## Insights, broadcasts and reports (added 2026-10-26)
+
+**Insights** (owner console → Insights): aggregate product analytics for 7, 30 or 90 days: growth, active members per day, sign-ins and activity by hour and weekday (in your timezone), the most popular intents and variants, private vs social, engagement (Gayzes, interests, messages, gatherings), onboarding funnel, retention, audience (age bands, neighbourhoods, interests), notification opt-outs and push delivery, and trust and safety. A plain-English "What the data says" summary sits at the top. Everything is a count: no individual's data, message content, or sensitive profile fields (intimacy preferences are deliberately excluded). Source: `admin_insights()` (service role only).
+
+**Report builder**: pick a title, who it is prepared for, the period and sections, then Print / save as PDF (the browser's print dialog, so nothing is uploaded), download the data as CSV, or copy the summary. The report is branded and always light so it prints well.
+
+**Broadcasts**: send a notice to everyone, recently active, gone quiet, members with a live intent (optionally one type), or members with push on. Preview, recipient count (re-checked on the server at send time), confirmation, and a fresh sign-in are required. Suspended accounts and admins are never targeted. Members always see it under Messages → Notifications → From Gayze; those with push on also get a push. A history shows recipients, opened and pushed counts. **Send message** on an account's page sends the same kind of notice to one member. The message text is stored on the notice but not copied into the audit log.
+
+**Gatherings**: the host now shows "Hosting" (not "Going") and cannot leave their own gathering; hosts get a notice when someone joins and when the gathering is full.
