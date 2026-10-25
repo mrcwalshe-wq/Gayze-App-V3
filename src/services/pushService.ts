@@ -614,7 +614,7 @@ export async function releasePushOnSignOut(timeoutMs = 2500): Promise<void> {
     const { endpoint } = subscription;
 
     const [unsubscribed, rowRemoved] = await Promise.all([
-      subscription.unsubscribe().catch(() => false),
+      withTimeout(subscription.unsubscribe(), 8_000, false).catch(() => false),
       removeSubscriptionRow(endpoint).catch(() => false),
     ]);
     // `unsubscribed` is the security-critical half (it makes the endpoint
