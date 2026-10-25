@@ -346,17 +346,18 @@ const res3 = await svc.submitInterest(B, intentB);
 await new Promise((r2) => setTimeout(r2, 300));
 assert(res3.sent && !res3.mutual && webpushSends.length === 0, 'repeat submitInterest from A is deduped at the ledger (already claimed)');
 const intentB2 = (await db.query(`insert into intents(user_id,expires_at,is_paused) values ($1, now()+interval '1 hour', false) returning id`, [B])).rows[0].id;
+signIn(A);
 const res4 = await svc.submitInterest(B, intentB2);
 await new Promise((r2) => setTimeout(r2, 300));
-console.log('    [dbg4]', JSON.stringify({res4, sends: webpushSends.map(x=>[x.endpoint,x.payload.type])}));
-assert(res4.sent && webpushSends.length === 1 && webpushSends[0].payload.type === 'intent', 'submitInterest(non-mutual, intentId) triggers exactly one interest push');
+// The interest notification is created and pushed by the database (trigger on interests), not by the client,
+// so a non-mutual submit sends nothing from the browser. A client push here would be a duplicate.
+assert(res4.sent && webpushSends.length === 0, 'submitInterest(non-mutual) sends no client-side push (the database trigger owns it)');
 const conv5 = (await db.query(`insert into conversations default values returning id`)).rows[0].id;
 await db.query(`insert into conversation_members values ($1,$2),($1,$3)`, [conv5, A, B]);
 globalThis.__clientSb.rpc = async (name, args) => name === 'submit_interest' ? { data: { mutual: true, conversation_id: conv5, sent: true, interest_id: uuid(779) }, error: null } : realRpc(name, args);
-webpushSends.length = 0;
+webpushSends.length = 0; signIn(A);
 const res5 = await svc.submitInterest(B, uuid(8));
 await new Promise((r2) => setTimeout(r2, 300)); await flushDispatch();
-console.log('    [dbg5]', JSON.stringify({res5, sends: webpushSends.map(x=>[x.endpoint,x.payload.type,x.payload.url])}));
 assert(webpushSends.length === 1 && webpushSends[0].payload.type === 'connection' && webpushSends[0].payload.url.startsWith(`/messages/${conv5}`),
   'submitInterest(mutual) sends the CONNECTION push only — never a second interest push for the same call');
 await db.query('delete from notification_dispatch_log'); await db.query('delete from notification_preferences');
@@ -373,7 +374,6 @@ assert(webpushSends.length === 2 && webpushSends[1].endpoint === epB7, 'test act
 await db.query(`insert into notification_preferences(user_id, push_enabled) values ($1,false)`, [B]);
 webpushSends.length = 0;
 ts = await push.sendTestNotification();
-console.log('    [dbg7]', JSON.stringify({ts, n: webpushSends.length}));
 assert(!ts.ok && webpushSends.length === 0 && /switched off/.test(ts.reason),
   'master switch off -> test push refused with the honest reason (not "no device")');
 await db.query('delete from notification_preferences'); await db.query('delete from push_subscriptions'); await db.query('delete from notification_dispatch_log');
