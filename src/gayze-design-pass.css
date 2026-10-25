@@ -982,3 +982,17 @@ nav.g-tabbar {
 
 /* ---- Later: hosting is a state, not a button ----------------------------------- */
 .g-ev__rsvp:disabled.is-going { opacity: 1; cursor: default; }
+
+/* ---- Later: join requests ------------------------------------------------------ */
+.g-ev__rsvp.is-requested { border-color: rgba(201, 162, 77, .45); color: #f0d9a0; background: rgba(201, 162, 77, .08); }
+.g-ev__who { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 10px 0 0; font-size: 12.5px; color: rgba(255,255,255,.62); }
+.g-ev__who button { background: none; border: 0; padding: 0; color: #e8dcff; font: inherit; font-weight: 600; text-decoration: underline; text-decoration-color: rgba(255,255,255,.2); text-underline-offset: 3px; }
+.g-ev__requests { margin-top: 12px; padding: 12px; border-radius: 16px; border: 1px solid rgba(201,162,77,.35); background: rgba(201,162,77,.07); display: flex; flex-direction: column; gap: 10px; }
+.g-ev__requests h4 { margin: 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #e5c176; }
+.g-ev__request { display: flex; align-items: center; gap: 8px; }
+.g-ev__request-name { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; color: #fff; font: inherit; font-weight: 700; display: flex; flex-direction: column; }
+.g-ev__request-name small { font-weight: 500; color: rgba(255,255,255,.5); font-size: 11.5px; }
+.g-ev__accept, .g-ev__decline { min-height: 40px; padding: 0 14px; border-radius: 12px; font: inherit; font-weight: 700; font-size: 13px; }
+.g-ev__accept { background: linear-gradient(135deg, #6f3cc3, #8a5be0); color: #fff; border: 0; }
+.g-ev__accept:disabled { opacity: .4; }
+.g-ev__decline { background: transparent; color: rgba(255,255,255,.7); border: 1px solid rgba(255,255,255,.18); }

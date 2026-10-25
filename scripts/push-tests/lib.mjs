@@ -18,7 +18,15 @@ export function migrationSql() {
     .replace(/^create extension if not exists pgcrypto;$/m, '-- (stubbed in test)')
     .replace(/^create extension if not exists pg_net with schema extensions;$/m, '-- (stubbed in test)');
   // Applied in filename order, exactly as Supabase applies them.
-  return [MIGRATION, MIGRATION_URL_FIX, ...MIGRATIONS_DURABLE.slice(0, 2), MIGRATION_RUNTIME_SECRET, MIGRATIONS_DURABLE[2]].map(clean).join('\n');
+  return [MIGRATION, MIGRATION_URL_FIX, MIGRATION_RUNTIME_SECRET].map(clean).join('\n');
+}
+
+// Same, plus the durable-notification migrations production runs (RPC -> inbox row -> trigger -> pg_net -> send-push).
+export function migrationSqlDurable() {
+  const clean = (file) => fs.readFileSync(file, 'utf8')
+    .replace(/^create extension if not exists pgcrypto;$/m, '-- (stubbed in test)')
+    .replace(/^create extension if not exists pg_net with schema extensions;$/m, '-- (stubbed in test)');
+  return [MIGRATION, MIGRATION_URL_FIX, MIGRATIONS_DURABLE[0], MIGRATIONS_DURABLE[1], MIGRATION_RUNTIME_SECRET, MIGRATIONS_DURABLE[2]].map(clean).join('\n');
 }
 
 export async function bootstrap(db, { netFails = false } = {}) {

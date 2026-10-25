@@ -21,14 +21,18 @@ async function noticeDb() {
     create table public.stories (id uuid primary key default gen_random_uuid(), user_id uuid, created_at timestamptz default now());
     create table public.safety_checkins (id uuid primary key default gen_random_uuid(), created_at timestamptz default now());
     create table public.notification_preferences (user_id uuid primary key, push_enabled boolean, messages boolean, intent_activity boolean, connections boolean, intent_expiry boolean, safety boolean);
-    create table public.gatherings (id uuid primary key default gen_random_uuid(), host_id uuid, title text, category text, capacity int default 3, created_at timestamptz default now());
+    create table public.gatherings (id uuid primary key default gen_random_uuid(), host_id uuid, title text, category text, capacity int default 3, scheduled_at timestamptz default now() + interval '1 day', created_at timestamptz default now());
     create table public.gathering_rsvps (gathering_id uuid, user_id uuid, status text, created_at timestamptz default now(), updated_at timestamptz default now(), primary key (gathering_id, user_id));
+    alter table public.gathering_rsvps enable row level security;
+    create policy "users manage own gathering rsvps" on public.gathering_rsvps for all using (user_id = (select auth.uid()));
     create table public.__dispatch (payload jsonb);
     create function public.gayze_notification_http_dispatch(p_payload jsonb) returns void language sql as $$ insert into public.__dispatch values (p_payload) $$;
   `);
   await db.exec(mig('20261026090000_member_notices_and_insights.sql'));
   await db.exec(mig('20261026090500_admin_insights_fix_can_host.sql'));
   await db.exec(mig('20261026120000_insights_definitions_and_privacy.sql'));
+  await db.exec(mig('20261026140000_audience_allows_explicit_self.sql'));
+  await db.exec(mig('20261026150000_gathering_join_requests.sql'));
   return db;
 }
 const claims = (u) => ({ sub: u, role: 'authenticated' });
@@ -40,36 +44,96 @@ async function gathering(db, host, capacity = 3) {
   return id;
 }
 
+const status = async (db, g, u) => (await db.query('select status from public.gathering_rsvps where gathering_id=$1 and user_id=$2', [g, u])).rows[0]?.status;
+const overview = async (db, u, g) => (await rpc(db, u, 'select * from public.get_gathering_rsvp_overview(array[$1::uuid])', [g])).rows[0];
+
 test('gathering host: always going, cannot leave, repeated calls change nothing', async () => {
   const db = await noticeDb();
   const host = await addUser(db, 1); const g = await gathering(db, host);
-  assert.equal((await rpc(db, host, 'select public.toggle_gathering_rsvp($1) r', [g])).rows[0].r, true);
-  for (let i = 0; i < 3; i++) assert.equal((await rpc(db, host, 'select public.toggle_gathering_rsvp($1) r', [g])).rows[0].r, true, 'host toggle never leaves');
-  const rows = (await db.query('select user_id, status from public.gathering_rsvps where gathering_id=$1', [g])).rows;
-  assert.equal(rows.length, 1); assert.equal(rows[0].status, 'attending');
-  assert.equal((await db.query('select count(*)::int c from public.member_notices')).rows[0].c, 0, 'host joining their own gathering notifies nobody');
+  assert.equal((await rpc(db, host, 'select public.request_to_join_gathering($1) r', [g])).rows[0].r, 'attending');
+  for (let i = 0; i < 3; i++) {
+    assert.equal((await rpc(db, host, 'select public.leave_gathering($1) r', [g])).rows[0].r, 'attending', 'host cannot leave');
+    assert.equal((await rpc(db, host, 'select public.toggle_gathering_rsvp($1) r', [g])).rows[0].r, true, 'legacy toggle never removes the host');
+  }
+  assert.equal((await db.query('select count(*)::int c from public.gathering_rsvps where gathering_id=$1', [g])).rows[0].c, 1);
+  assert.equal((await db.query('select count(*)::int c from public.member_notices')).rows[0].c, 0, 'the host joining their own gathering notifies nobody');
 });
 
-test('guest join: host gets exactly one notice; leave and rejoin do not duplicate; full notice fires once at capacity', async () => {
+test('join requests: the guest asks, the host decides; counts and lists follow the rules', async () => {
   const db = await noticeDb();
-  const host = await addUser(db, 1); const a = await addUser(db, 2); const b = await addUser(db, 3);
+  const host = await addUser(db, 1); const a = await addUser(db, 2); const b = await addUser(db, 3); const c = await addUser(db, 4);
   const g = await gathering(db, host, 3);
-  await rpc(db, host, 'select public.toggle_gathering_rsvp($1)', [g]);
-  assert.equal((await rpc(db, a, 'select public.toggle_gathering_rsvp($1) r', [g])).rows[0].r, true);
+  await rpc(db, host, 'select public.request_to_join_gathering($1)', [g]);
+
+  // A asks. Idempotent: asking again changes nothing and notifies once.
+  assert.equal((await rpc(db, a, 'select public.request_to_join_gathering($1) r', [g])).rows[0].r, 'requested');
+  assert.equal((await rpc(db, a, 'select public.request_to_join_gathering($1) r', [g])).rows[0].r, 'requested');
   let n = (await db.query("select * from public.member_notices where user_id=$1", [host])).rows;
-  assert.equal(n.length, 1); assert.equal(n[0].kind, 'gathering_rsvp'); assert.match(n[0].body, /User 2 is going to Arts night/);
-  assert.equal((await db.query("select count(*)::int c from public.member_notices where kind='gathering_full'")).rows[0].c, 0, 'not full yet (2 of 3)');
+  assert.equal(n.length, 1); assert.equal(n[0].title, 'Request to join'); assert.match(n[0].body, /User 2 wants to join Arts night/);
+  assert.equal(await status(db, a, a) ?? await status(db, g, a), 'requested');
 
-  assert.equal((await rpc(db, a, 'select public.toggle_gathering_rsvp($1) r', [g])).rows[0].r, false, 'guest can leave');
-  assert.equal((await rpc(db, a, 'select public.toggle_gathering_rsvp($1) r', [g])).rows[0].r, true, 'and rejoin');
-  assert.equal((await db.query("select count(*)::int c from public.member_notices where kind='gathering_rsvp'")).rows[0].c, 1, 'rejoining does not notify twice');
+  // Not going until accepted: the count does not move, and A cannot see who else is going.
+  let ov = await overview(db, a, g);
+  assert.equal(ov.attending_count, 1); assert.equal(ov.my_status, 'requested'); assert.deepEqual(ov.pending, []); assert.deepEqual(ov.attendees, []);
+  // The host sees the request and the name.
+  ov = await overview(db, host, g);
+  assert.equal(ov.pending.length, 1); assert.equal(ov.pending[0].userId, a); assert.equal(ov.pending[0].name, 'User 2');
 
-  await rpc(db, b, 'select public.toggle_gathering_rsvp($1)', [g]); // 3 of 3
+  // Only the host can decide.
+  await assert.rejects(rpc(db, b, 'select public.respond_to_gathering_request($1,$2,true)', [g, a]), /only the host/);
+  await assert.rejects(rpc(db, a, 'select public.respond_to_gathering_request($1,$2,true)', [g, a]), /only the host/);
+  assert.equal(await status(db, g, a), 'requested');
+
+  // Accept: the guest is going, is told once, and everybody's count is right.
+  assert.equal((await rpc(db, host, 'select public.respond_to_gathering_request($1,$2,true) r', [g, a])).rows[0].r, 'attending');
+  assert.equal((await rpc(db, host, 'select public.respond_to_gathering_request($1,$2,true) r', [g, a])).rows[0].r, 'attending', 'accepting twice is a no-op');
+  const told = (await db.query("select title from public.member_notices where user_id=$1", [a])).rows;
+  assert.deepEqual(told.map((r) => r.title), ['You\'re in']);
+  ov = await overview(db, a, g);
+  assert.equal(ov.attending_count, 2); assert.equal(ov.my_status, 'attending');
+  assert.deepEqual(ov.attendees.map((x) => x.name), ['User 1', 'User 2'], 'accepted guests see who is going, host first');
+  assert.deepEqual((await overview(db, c, g)).attendees, [], 'a non-guest sees a count, never names');
+  assert.equal((await overview(db, c, g)).attending_count, 2);
+
+  // Decline: stays declined, the guest is told once, and cannot ask again.
+  await rpc(db, b, 'select public.request_to_join_gathering($1)', [g]);
+  assert.equal((await rpc(db, host, 'select public.respond_to_gathering_request($1,$2,false) r', [g, b])).rows[0].r, 'declined');
+  assert.equal((await rpc(db, b, 'select public.request_to_join_gathering($1) r', [g])).rows[0].r, 'declined');
+  assert.equal((await db.query("select count(*)::int c from public.member_notices where user_id=$1", [b])).rows[0].c, 1);
+
+  // A can leave and the count drops; rejoining is a fresh request, not an automatic seat.
+  assert.equal((await rpc(db, a, 'select public.leave_gathering($1) r', [g])).rows[0].r, 'cancelled');
+  assert.equal((await overview(db, host, g)).attending_count, 1);
+  assert.equal((await rpc(db, a, 'select public.request_to_join_gathering($1) r', [g])).rows[0].r, 'requested');
+});
+
+test('join requests: capacity, the full notice, legacy toggle, and no way around approval', async () => {
+  const db = await noticeDb();
+  const host = await addUser(db, 1); const a = await addUser(db, 2); const b = await addUser(db, 3); const c = await addUser(db, 4);
+  const g = await gathering(db, host, 2);
+  await rpc(db, host, 'select public.request_to_join_gathering($1)', [g]);
+  await rpc(db, a, 'select public.request_to_join_gathering($1)', [g]);
+  await rpc(db, b, 'select public.request_to_join_gathering($1)', [g]);
+  assert.equal((await db.query("select count(*)::int c from public.member_notices where kind='gathering_full'")).rows[0].c, 0, 'not full yet');
+  await rpc(db, host, 'select public.respond_to_gathering_request($1,$2,true)', [g, a]);        // 2 of 2
   assert.equal((await db.query("select count(*)::int c from public.member_notices where kind='gathering_full'")).rows[0].c, 1, 'full notice at capacity');
-  const c = await addUser(db, 4);
-  await assert.rejects(rpc(db, c, 'select public.toggle_gathering_rsvp($1)', [g]), /full/);
-  assert.equal((await db.query("select count(*)::int c from public.member_notices where kind='gathering_full'")).rows[0].c, 1, 'full notice is not repeated');
-  assert.equal((await db.query("select count(*)::int c from public.gathering_rsvps where gathering_id=$1 and status='attending'", [g])).rows[0].c, 3, 'attendance matches capacity');
+  await assert.rejects(rpc(db, host, 'select public.respond_to_gathering_request($1,$2,true)', [g, b]), /full/, 'the host cannot over-fill');
+  await assert.rejects(rpc(db, c, 'select public.request_to_join_gathering($1)', [g]), /full/, 'nobody can ask once it is full');
+  assert.equal((await db.query("select count(*)::int c from public.gathering_rsvps where gathering_id=$1 and status='attending'", [g])).rows[0].c, 2);
+
+  // An older app calling the old function cannot get a seat.
+  const g2 = await gathering(db, host, 5);
+  assert.equal((await rpc(db, c, 'select public.toggle_gathering_rsvp($1) r', [g2])).rows[0].r, false);
+  assert.equal(await status(db, g2, c), 'requested', 'legacy toggle only asks');
+  assert.equal((await rpc(db, c, 'select public.toggle_gathering_rsvp($1) r', [g2])).rows[0].r, false);
+  assert.equal(await status(db, g2, c), 'cancelled', 'second legacy toggle withdraws');
+
+  // The table itself is closed: no direct insert, update, delete or read.
+  await assert.rejects(rpc(db, c, "insert into public.gathering_rsvps (gathering_id, user_id, status) values ($1, $2, 'attending')", [g2, c]), denied);
+  await assert.rejects(rpc(db, a, "update public.gathering_rsvps set status='attending'"), denied);
+  await assert.rejects(rpc(db, a, 'delete from public.gathering_rsvps'), denied);
+  assert.equal((await rpc(db, a, 'select count(*)::int c from public.gathering_rsvps')).rows[0].c, 0, 'rows are invisible to direct reads');
+  await assert.rejects(as(db, 'anon', null, 'select * from public.get_gathering_rsvp_overview()'), denied);
   assert.ok((await db.query('select count(*)::int c from public.__dispatch')).rows[0].c >= 3, 'every notice is handed to push dispatch');
 });
 
@@ -102,7 +166,11 @@ test('admin broadcast functions are service_role only; audience excludes suspend
 
   assert.equal((await as(db, 'service_role', null, "select public.admin_audience_count('{\"scope\":\"all\"}') n")).rows[0].n, 2, 'owner and suspended excluded');
   assert.equal((await as(db, 'service_role', null, `select public.admin_audience_count('{"scope":"user","user":"${s}"}') n`)).rows[0].n, 0, 'cannot message a suspended member');
-  assert.equal((await as(db, 'service_role', null, `select public.admin_audience_count('{"scope":"user","user":"${owner}"}') n`)).rows[0].n, 0, 'cannot target an admin');
+  assert.equal((await as(db, 'service_role', null, `select public.admin_audience_count('{"scope":"user","user":"${owner}"}') n`)).rows[0].n, 1, 'the owner can send themselves a test');
+  for (const scope of ['all', 'active', 'inactive', 'push', 'intent']) {
+    const rows = (await as(db, 'service_role', null, `select user_id from public.admin_resolve_audience('{"scope":"${scope}","days":9999}')`)).rows.map((r) => r.user_id);
+    assert.ok(!rows.includes(owner) && !rows.includes(s), `bulk audience "${scope}" never includes admins or suspended members`);
+  }
   await assert.rejects(as(db, 'service_role', null, `select public.admin_send_broadcast('${owner}','t','b','/','{"scope":"user","user":"${s}"}')`), /empty_audience/);
   await assert.rejects(as(db, 'service_role', null, `select public.admin_audience_count('{"scope":"everyone"}')`), /invalid_audience/);
 
