@@ -25,7 +25,9 @@
     "test:inspect-script": "node scripts/discovery-tests/inspect-script.test.mjs",
     "test:interaction": "tsx --import ./scripts/interaction-tests/register-hooks.mjs scripts/interaction-tests/interaction.test.tsx",
     "test:messaging": "node --test scripts/messaging-tests/rls.test.mjs scripts/messaging-tests/keyring.test.mjs",
-    "test:admin": "node --test scripts/admin-tests/sql.test.mjs && tsx --test scripts/admin-tests/handler.test.ts"
+    "test:admin": "node --test scripts/admin-tests/sql.test.mjs && tsx --test scripts/admin-tests/handler.test.ts",
+    "test:auth": "tsx --test scripts/auth-tests/auth.test.ts",
+    "test:email": "node scripts/email-templates/build.mjs && node --test scripts/email-templates/templates.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

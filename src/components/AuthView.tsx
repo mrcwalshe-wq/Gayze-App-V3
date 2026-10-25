@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Chrome } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
+import { checkPassword, describeAuthError, isPlausibleEmail, type AuthContext, type AuthIssue } from '../services/authMessages';
+
+/** The multi-colour Google "G", as required by Google's sign-in branding guidelines. */
+const GoogleG: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+  </svg>
+);
 
 export type AuthMode = 'signin' | 'signup' | 'forgot' | 'reset' | 'confirm_pending';
 
@@ -13,6 +24,8 @@ interface AuthViewProps {
   pendingEmail?: string | null;
   onClearForcedMode?: () => void;
   onPasswordResetComplete?: () => void;
+  /** Something the person should know on arrival (expired link, cancelled Google, suspended, signed out). */
+  notice?: AuthIssue | { kind: 'info' | 'signed_out' | 'suspended'; message: string; action?: undefined } | null;
 }
 
 const NEUTRAL_RESET_SUCCESS =
@@ -24,6 +37,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   pendingEmail = null,
   onClearForcedMode,
   onPasswordResetComplete,
+  notice = null,
 }) => {
   const [mode, setMode] = useState<AuthMode>(forcedMode || 'signin');
   const [email, setEmail] = useState(pendingEmail || '');
@@ -33,11 +47,29 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<'error' | 'success' | 'info'>('info');
+  const [followUp, setFollowUp] = useState<AuthIssue['action'] | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const touch = (field: string) => setTouched((t) => ({ ...t, [field]: true }));
+
+  // Arrival notices from the callback (expired link, cancelled Google, suspended account...).
+  React.useEffect(() => {
+    if (!notice) return;
+    setMessage(notice.message);
+    setMessageTone(notice.kind === 'info' || notice.kind === 'signed_out' ? 'info' : 'error');
+    setFollowUp(notice.action ?? null);
+  }, [notice]);
+
+  const emailError = touched.email && email.trim() && !isPlausibleEmail(email) ? 'Enter a valid email address.' : null;
+  const passwordCheck = checkPassword(password);
+  const passwordError = touched.password && mode !== 'signin' && password && !passwordCheck.ok ? passwordCheck.problems.join(' · ') : null;
+  const confirmError = touched.confirm && confirmPassword && password !== confirmPassword ? 'Passwords do not match.' : null;
 
   React.useEffect(() => {
     if (forcedMode) {
       setMode(forcedMode);
-      setMessage(null);
+      // Keep any arrival notice (e.g. "this link has expired") that came with the forced mode.
+      if (!notice) setMessage(null);
     }
   }, [forcedMode]);
 
@@ -48,6 +80,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const goMode = (next: AuthMode) => {
     setMode(next);
     setMessage(null);
+    setFollowUp(null);
+    setTouched({});
     setPassword('');
     setConfirmPassword('');
     if (next !== 'confirm_pending' && next !== 'reset') {
@@ -55,9 +89,15 @@ export const AuthView: React.FC<AuthViewProps> = ({
     }
   };
 
-  const setFeedback = (text: string, tone: 'error' | 'success' | 'info' = 'info') => {
+  const setFeedback = (text: string, tone: 'error' | 'success' | 'info' = 'info', next: AuthIssue['action'] | null = null) => {
     setMessage(text);
     setMessageTone(tone);
+    setFollowUp(next);
+  };
+  const fail = (error: unknown, context: AuthContext) => {
+    const issue = describeAuthError(error, context);
+    if (issue.kind === 'unavailable' || issue.kind === 'oauth_failed') console.warn('[GAYZE] auth issue:', issue.kind);
+    setFeedback(issue.message, issue.kind === 'oauth_cancelled' ? 'info' : 'error', issue.action ?? null);
   };
 
   const submitGoogle = async () => {
@@ -71,13 +111,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
       });
       if (error) throw error;
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Google sign-in failed. Please try again.', 'error');
+      fail(error, 'oauth');
       setBusy(false);
     }
   };
 
   const submitSignIn = async () => {
     if (!supabase) return;
+    if (!isPlausibleEmail(email)) { touch('email'); setFeedback('Enter a valid email address.', 'error'); return; }
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -89,6 +130,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   const submitSignUp = async () => {
     if (!supabase) return;
+    if (!checkPassword(password).ok) { touch('password'); setFeedback('Choose a stronger password to continue.', 'error'); return; }
+    if (password !== confirmPassword) { touch('confirm'); setFeedback('Passwords do not match.', 'error'); return; }
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
@@ -103,7 +146,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       onAuthenticated();
     } else {
       setFeedback(
-        'Confirm your email to finish creating your account. We sent a link to the address below.',
+        'Check your email to finish creating your account. If this address can be used, a link is on its way.',
         'success',
       );
       setMode('confirm_pending');
@@ -113,7 +156,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const submitForgot = async () => {
     if (!supabase) return;
     const trimmed = email.trim();
-    if (!trimmed) {
+    if (!isPlausibleEmail(trimmed)) {
+      touch('email');
       setFeedback('Enter the email address for your account.', 'error');
       return;
     }
@@ -129,8 +173,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   const submitReset = async () => {
     if (!supabase) return;
-    if (password.length < 8) {
-      setFeedback('Password must be at least 8 characters.', 'error');
+    if (!checkPassword(password).ok) {
+      touch('password');
+      setFeedback('Choose a stronger password to continue.', 'error');
       return;
     }
     if (password !== confirmPassword) {
@@ -139,15 +184,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
     }
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !sessionData.session) {
-      setFeedback(
-        'This reset link is invalid or has expired. Request a new password reset email.',
-        'error',
-      );
+      setFeedback('This reset link has expired or was already used. Request a new one.', 'error', 'request_reset');
       return;
     }
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
-    setFeedback('Password updated. You can continue into GAYZE.', 'success');
+    setFeedback('Password updated. Taking you into GAYZE.', 'success');
     analytics.logEvent('login_completed');
     onPasswordResetComplete?.();
     onAuthenticated();
@@ -156,7 +198,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const resendConfirmation = async () => {
     if (!supabase) return;
     const trimmed = email.trim();
-    if (!trimmed) {
+    if (!isPlausibleEmail(trimmed)) {
+      touch('email');
       setFeedback('Enter your email address to resend the confirmation link.', 'error');
       return;
     }
@@ -166,7 +209,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       options: { emailRedirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.emailConfirm) },
     });
     if (error) throw error;
-    setFeedback('Confirmation email sent. Check your inbox and spam folder.', 'success');
+    setFeedback('If this address needs confirming, a new link is on its way. Check spam too.', 'success');
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -182,18 +225,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       else if (mode === 'confirm_pending') await resendConfirmation();
       else await submitSignIn();
     } catch (error) {
-      const raw = error instanceof Error ? error.message : 'Authentication failed. Please try again.';
-      const lowered = raw.toLowerCase();
-      if (lowered.includes('expired') || lowered.includes('invalid') || lowered.includes('otp')) {
-        setFeedback(
-          mode === 'reset'
-            ? 'This reset link is invalid or has expired. Request a new password reset email.'
-            : raw,
-          'error',
-        );
-      } else {
-        setFeedback(raw, 'error');
-      }
+      fail(error, mode === 'signup' ? 'signup' : mode === 'reset' ? 'reset' : mode === 'forgot' ? 'forgot' : mode === 'confirm_pending' ? 'resend' : 'signin');
     } finally {
       setBusy(false);
     }
@@ -231,7 +263,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         <div className="mb-8 text-center">
           <img
             src="/brand/gayze-nav-v3.svg"
-            alt="GAYZE logo"
+            alt="GAYZE"
             width={112}
             height={56}
             className="mx-auto mb-3 block h-14 w-28 object-contain"
@@ -268,65 +300,107 @@ export const AuthView: React.FC<AuthViewProps> = ({
             )}
 
             {(mode === 'signin' || mode === 'signup' || mode === 'forgot' || mode === 'confirm_pending') && (
-              <label className="relative block">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <input
-                  required={mode !== 'confirm_pending' || !email.trim()}
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email address"
-                  autoComplete="email"
-                  readOnly={mode === 'confirm_pending' && Boolean(pendingEmail)}
-                  className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11 read-only:opacity-80"
-                />
-              </label>
+              <div>
+                <label className="relative block">
+                  <span className="sr-only">Email address</span>
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" aria-hidden="true" />
+                  <input
+                    required={mode !== 'confirm_pending' || !email.trim()}
+                    type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => touch('email')}
+                    placeholder="Email address"
+                    autoComplete="email"
+                    aria-invalid={Boolean(emailError)}
+                    aria-describedby={emailError ? 'auth-email-error' : undefined}
+                    readOnly={mode === 'confirm_pending' && Boolean(pendingEmail)}
+                    className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11 read-only:opacity-80 aria-[invalid=true]:!border-rose-400/60"
+                  />
+                </label>
+                {emailError && <p id="auth-email-error" className="mt-1.5 text-[11px] text-rose-300">{emailError}</p>}
+              </div>
             )}
 
             {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
-              <label className="relative block">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <input
-                  required
-                  minLength={8}
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === 'reset' ? 'New password' : 'Password'}
-                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                  className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11"
-                />
-              </label>
-            )}
-
-            {mode === 'reset' && (
-              <label className="relative block">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <input
-                  required
-                  minLength={8}
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  autoComplete="new-password"
-                  className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11"
-                />
-              </label>
-            )}
-
-            {message && (
-              <div className={`rounded-xl border px-3.5 py-3 text-xs ${messageClass}`}>
-                {message}
+              <div>
+                <label className="relative block">
+                  <span className="sr-only">{mode === 'reset' ? 'New password' : 'Password'}</span>
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" aria-hidden="true" />
+                  <input
+                    required
+                    minLength={8}
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => touch('password')}
+                    placeholder={mode === 'reset' ? 'New password' : 'Password'}
+                    autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                    aria-invalid={Boolean(passwordError)}
+                    aria-describedby={passwordError ? 'auth-password-error' : undefined}
+                    className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11 !pr-12 aria-[invalid=true]:!border-rose-400/60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 grid place-items-center text-zinc-500 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </label>
+                {passwordError && <p id="auth-password-error" className="mt-1.5 text-[11px] text-rose-300">{passwordError}</p>}
+                {mode !== 'signin' && !passwordError && <p className="mt-1.5 text-[11px] text-zinc-500">At least 8 characters, with letters and numbers.</p>}
               </div>
             )}
+
+            {(mode === 'reset' || mode === 'signup') && (
+              <div>
+                <label className="relative block">
+                  <span className="sr-only">{mode === 'reset' ? 'Confirm new password' : 'Confirm password'}</span>
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" aria-hidden="true" />
+                  <input
+                    required
+                    minLength={8}
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onBlur={() => touch('confirm')}
+                    placeholder={mode === 'reset' ? 'Confirm new password' : 'Confirm password'}
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(confirmError)}
+                    aria-describedby={confirmError ? 'auth-confirm-error' : undefined}
+                    className="g-field !h-12 !rounded-xl !bg-[#0b0c12] !border-white/10 focus:!border-[#6F3CC3]/70 !text-sm !pl-11 aria-[invalid=true]:!border-rose-400/60"
+                  />
+                </label>
+                {confirmError && <p id="auth-confirm-error" className="mt-1.5 text-[11px] text-rose-300">{confirmError}</p>}
+              </div>
+            )}
+
+            <div aria-live="polite" role={messageTone === 'error' ? 'alert' : 'status'}>
+              {message && (
+                <div className={`rounded-xl border px-3.5 py-3 text-xs ${messageClass}`}>
+                  <p>{message}</p>
+                  {followUp === 'resend' && (
+                    <button type="button" className="mt-2 font-semibold text-[#c9a24d] hover:text-white underline underline-offset-4" onClick={() => goMode('confirm_pending')}>Send the confirmation link again</button>
+                  )}
+                  {followUp === 'request_reset' && (
+                    <button type="button" className="mt-2 font-semibold text-[#c9a24d] hover:text-white underline underline-offset-4" onClick={() => goMode('forgot')}>Request a new reset link</button>
+                  )}
+                </div>
+              )}
+            </div>
 
             <button
               type="submit"
               disabled={busy}
               className="g-btn g-btn--primary w-full !h-12 !rounded-xl !text-sm font-semibold !gap-2"
             >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="w-4 h-4" aria-hidden="true" />}
               {mode === 'signin' && 'Sign in'}
               {mode === 'signup' && 'Create account'}
               {mode === 'forgot' && 'Send reset link'}
@@ -349,15 +423,6 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
           {(mode === 'forgot' || mode === 'confirm_pending' || mode === 'reset') && (
             <div className="mt-5 flex flex-col items-center gap-2 text-xs text-zinc-500">
-              {mode === 'reset' && messageTone === 'error' && (
-                <button
-                  type="button"
-                  onClick={() => goMode('forgot')}
-                  className="text-[#c9a24d] hover:text-white font-semibold"
-                >
-                  Request another reset link
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => goMode('signin')}
@@ -381,12 +446,21 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 type="button"
                 disabled={busy}
                 onClick={() => void submitGoogle()}
-                className="w-full h-12 rounded-xl bg-white text-[#111318] hover:bg-zinc-100 disabled:opacity-50 font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                className="w-full h-12 rounded-xl bg-white text-[#1f1f1f] border border-[#747775] hover:bg-zinc-100 disabled:opacity-50 font-medium text-sm flex items-center justify-center gap-2.5 transition-colors"
               >
-                <Chrome className="w-4 h-4" />
-                Continue with Google
+                {busy ? <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden="true" /> : <GoogleG />}
+                {mode === 'signup' ? 'Sign up with Google' : 'Sign in with Google'}
               </button>
             </>
+          )}
+
+          {mode === 'signup' && (
+            <p className="mt-4 text-center text-[11px] leading-relaxed text-zinc-500">
+              By creating an account or continuing with Google you agree to the{' '}
+              <a href="/terms.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Terms</a>,{' '}
+              <a href="/privacy.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Privacy Policy</a> and{' '}
+              <a href="/community-guidelines.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Community Guidelines</a>.
+            </p>
           )}
 
           {(mode === 'signin' || mode === 'signup') && (

@@ -33,6 +33,8 @@ import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { LiveActivationOverlay } from './components/LiveActivationOverlay';
 import { AuthView, type AuthMode } from './components/AuthView';
+import { consumeAuthCallbackOnce } from './services/authCallback';
+import { describeAuthError, type AuthIssue } from './services/authMessages';
 const AdminConsole = React.lazy(() => import('./components/AdminConsole'));
 import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -196,6 +198,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!isSupabaseConfigured);
   const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
   const [pendingAuthEmail, setPendingAuthEmail] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<React.ComponentProps<typeof AuthView>['notice']>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const isSigningOutRef = useRef(false);
@@ -259,9 +262,11 @@ export default function App() {
       const hash = window.location.hash || '';
       const search = window.location.search || '';
       const pathname = window.location.pathname;
-      const isRecovery = pathname === AUTH_REDIRECT_PATHS.resetPassword
+      // An error in the URL (expired link) is a failed recovery, handled by the callback below.
+      const urlHasError = /[?&#]error(_code)?=/.test(search + hash);
+      const isRecovery = !urlHasError && (pathname === AUTH_REDIRECT_PATHS.resetPassword
         || hash.includes('type=recovery')
-        || search.includes('type=recovery');
+        || search.includes('type=recovery'));
       if (isRecovery) {
         recoverySessionRef.current = true;
         setForcedAuthMode('reset');
@@ -269,8 +274,28 @@ export default function App() {
       }
     }
 
+    // Branded return trips: emails link to GAYZE's own domain with a token_hash, Google and
+    // expired-link failures come back as URL parameters. Handle both before reading the session.
+    const callbackDone = typeof window === 'undefined'
+      ? Promise.resolve({ kind: 'none' } as const)
+      : consumeAuthCallbackOnce(supabaseClient, window.location).catch((error) => ({ kind: 'error', issue: describeAuthError(error, 'signin'), flow: 'other' } as const));
+
     const generation = authGenerationRef.current;
-    void supabase.auth.getSession().then(({ data }) => {
+    void callbackDone.then((result) => {
+      if (disposed) return;
+      if (result.kind === 'recovery') {
+        recoverySessionRef.current = true;
+        setForcedAuthMode('reset');
+        setIsAuthenticated(false);
+      } else if (result.kind === 'error') {
+        setAuthNotice(result.issue);
+        setForcedAuthMode(result.flow === 'recovery' ? 'forgot' : null);
+        setIsAuthenticated(false);
+      } else if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('signed_out') === '1') {
+        setAuthNotice({ kind: 'signed_out', message: 'You have been signed out.' });
+        window.history.replaceState({}, '', '/');
+      }
+    }).then(() => supabase!.auth.getSession()).then(({ data }) => {
       if (disposed || generation !== authGenerationRef.current) return;
       if (recoverySessionRef.current) {
         setIsAuthenticated(false);
@@ -332,6 +357,24 @@ export default function App() {
       subscription.subscription.unsubscribe();
     };
   }, []);
+
+  // A suspended account is refused by the database for every API call (see
+  // gayze_pre_request). Ask once per session so the person sees why instead of
+  // a broken app, and is signed out on this device.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !isAuthenticated) return;
+    const client = supabase;
+    let cancelled = false;
+    void client.rpc('my_account_status').then(({ error }) => {
+      if (cancelled || !error) return;
+      if (/account_suspended/i.test(error.message ?? '') || (error as { code?: string }).code === 'PT403') {
+        setAuthNotice({ kind: 'suspended', message: 'This account has been suspended. If you think this is a mistake, contact support.' });
+        void client.auth.signOut({ scope: 'local' });
+        setIsAuthenticated(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [isAuthenticated]);
 
   const lastSyncedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const lastLocationSyncAtRef = useRef(0);
@@ -3291,6 +3334,7 @@ export default function App() {
       <AuthView
         onAuthenticated={() => setIsAuthenticated(true)}
         forcedMode={forcedAuthMode}
+        notice={authNotice}
         pendingEmail={pendingAuthEmail}
         onClearForcedMode={() => setForcedAuthMode(null)}
         onPasswordResetComplete={() => {
