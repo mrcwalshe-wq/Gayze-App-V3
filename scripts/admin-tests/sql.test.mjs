@@ -187,3 +187,37 @@ test('pre-request hook enablement migration is reversible and idempotent', async
   await db.exec("alter role authenticator reset pgrst.db_pre_request");
   assert.equal(await cfg(), '', 'rollback statement removes the hook');
 });
+
+test('suspended members cannot write anywhere (direct writes and definer RPCs); everyone else can', async () => {
+  const db = await adminDb();
+  const bad = await addUser(db, 1), good = await addUser(db, 2);
+  const conv = (await db.query('insert into public.conversations default values returning id')).rows[0].id;
+  // A SECURITY DEFINER function stands in for submit_interest/accept_interest: it bypasses RLS.
+  await db.exec(`create function public.fake_definer_send(c uuid) returns void language sql security definer as $$ insert into public.messages (conversation_id) values (c) $$;
+                 grant execute on function public.fake_definer_send(uuid) to authenticated;`);
+  await db.query('select public.admin_set_suspension($1, true, $2, $3)', [bad, 'abuse', good]);
+
+  const writes = [
+    ['insert into public.messages (conversation_id) values ($1)', [conv]],
+    ['insert into public.intents (user_id, expires_at) values ($1, now() + interval \'1 hour\')', [bad]],
+    ['update public.profiles set display_name = \'x\' where id = $1', [bad]],
+    ['insert into public.push_subscriptions (user_id, endpoint) values ($1, \'https://x\')', [bad]],
+    ['select public.fake_definer_send($1)', [conv]],
+  ];
+  for (const [sql, params] of writes) {
+    await assert.rejects(as(db, 'authenticated', { sub: bad, role: 'authenticated' }, sql, params), /account_suspended/, sql);
+  }
+  // Active member: same statements succeed.
+  await as(db, 'authenticated', { sub: good, role: 'authenticated' }, 'insert into public.messages (conversation_id) values ($1)', [conv]);
+  await as(db, 'authenticated', { sub: good, role: 'authenticated' }, 'select public.fake_definer_send($1)', [conv]);
+  // Service role / no-subject callers (admin function, cron, sign-up trigger) are never blocked.
+  await as(db, 'service_role', { role: 'service_role' }, 'insert into public.messages (conversation_id) values ($1)', [conv]);
+  await db.query('insert into public.messages (conversation_id) values ($1)', [conv]);
+  await db.query('select public.admin_set_suspension($1, true, $2, $3)', [bad, 'again', good]); // admin path still works while suspended
+  // Clients cannot call the guard directly.
+  await assert.rejects(as(db, 'authenticated', { sub: good }, 'select public.gayze_block_suspended_writes()'), denied);
+  // Reinstating restores writes, without resurrecting the paused intent.
+  await db.query('select public.admin_set_suspension($1, false, null, $2)', [bad, good]);
+  await as(db, 'authenticated', { sub: bad, role: 'authenticated' }, 'insert into public.messages (conversation_id) values ($1)', [conv]);
+  assert.equal((await db.query('select count(*)::int n from public.intents where user_id=$1 and is_paused=false', [bad])).rows[0].n, 0);
+});

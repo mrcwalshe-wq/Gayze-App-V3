@@ -50,6 +50,7 @@ export async function adminDb() {
   for (const name of [
     '20261025100000_admin_console.sql',
     '20261025110000_admin_enforcement.sql',
+    '20261025120000_suspension_write_guards.sql',
   ]) await db.exec(migration(name));
   return db;
 }
