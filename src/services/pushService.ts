@@ -448,7 +448,7 @@ export async function unsubscribeFromPush(expectedUserId?: string): Promise<bool
       const subscription = await getExistingSubscription();
       await owner.check();
       if (!subscription) return true;
-      const revoked = await subscription.unsubscribe();
+      const revoked = await withTimeout(subscription.unsubscribe(), 8_000, false);
       const removed = await removeSubscriptionRow(subscription.endpoint);
       return revoked && removed;
     } catch { return false; }
@@ -650,7 +650,7 @@ export async function revokeLocalPushSubscription(): Promise<void> {
       const subscription = await currentBrowserSubscription();
       if (epoch !== revocationEpoch) return;
       if (subscription) {
-        const ok = await subscription.unsubscribe();
+        const ok = await withTimeout(subscription.unsubscribe(), 8_000, false);
         if (!ok) return;
       }
       if (epoch === revocationEpoch) setPendingRevoke(false);
