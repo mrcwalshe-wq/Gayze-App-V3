@@ -33,6 +33,7 @@ import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { LiveActivationOverlay } from './components/LiveActivationOverlay';
 import { AuthView, type AuthMode } from './components/AuthView';
+const AdminConsole = React.lazy(() => import('./components/AdminConsole'));
 import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { InstallPrompt } from './components/InstallPrompt';
 import { NotificationsModal } from './components/NotificationsModal';
@@ -3298,6 +3299,16 @@ export default function App() {
           window.history.replaceState({}, '', '/');
         }}
       />
+    );
+  }
+
+  // /admin is the owner console. It is only a view: every call it makes is
+  // authorised again on the server, so reaching this branch grants nothing.
+  if (isSupabaseConfigured && typeof window !== 'undefined' && (window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/'))) {
+    return (
+      <React.Suspense fallback={<GayzeLoadingScreen mode="startup" />}>
+        <AdminConsole />
+      </React.Suspense>
     );
   }
 
