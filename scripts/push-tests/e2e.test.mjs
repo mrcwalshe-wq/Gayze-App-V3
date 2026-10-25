@@ -7,6 +7,7 @@ const VAPID = 'BEEwOKTZtTD1IvFia4YFeyfXS0GpxRKAMbIcqxB-dUeYWdPWU-_dYygdycwOWSdSA
 // ---------- database with the REAL migration ----------
 const db = await newDb(); await baseSchema(db); await addUsers(db, A, B, C);
 await db.exec(migrationSql());
+await db.query(`insert into vault.decrypted_secrets values ('gayze_push_dispatch_runtime_secret','dispatch-secret')`);
 
 // ---------- session + fake browser device ----------
 let ctx = { role: 'anon', sub: null };            // who is signed in on this device
