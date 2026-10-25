@@ -8,7 +8,7 @@ Classes: **Verified** = implemented and verified by the evidence named; **Unveri
 | --- | --- | --- |
 | Owner-only authorisation (JWT verified server-side, role from `app_admins`) | Verified (handler + SQL tests); Unverified live | 18 handler tests incl. forged claims, non-owner, admin-not-owner. No real authenticated call to the deployed function could be made from this environment |
 | Owner bootstrap | Verified | Production row and audit entry queried after the controlled call |
-| `admin-api` deployed | Verified (deployment) | Version 1 ACTIVE, `verify_jwt` true. Not exercised over HTTP |
+| `admin-api` deployed | Verified | Version 2 ACTIVE, `verify_jwt` true, source read back and compared. v1 actions used live by the owner (audit rows); unauthenticated call gets 401 at the gate; a signed-in non-admin was denied and audited. v2 actions not yet called from a signed-in session |
 | Admin tables/functions closed to clients | Verified | Privilege queries on production; SQL tests |
 | Audit log append-only | Verified | Trigger test; production trigger present |
 | Rate limiting, validation, CORS | Verified (tests) | Handler tests; limiter table exists in production |
@@ -42,7 +42,7 @@ Classes: **Verified** = implemented and verified by the evidence named; **Unveri
 | Messaging persistence, E2EE, key versions | Unverified | `test:e2ee` 5/5, `test:messaging` 22/22, chat timeline 7/7. No two-account/device run in a browser. Earlier-reported gap stands |
 | Scheduled messages delivery | Partial | RPCs exist; no delivery job (earlier finding) |
 | Notifications in-app inbox and unread counts | Unverified | Tables and RPCs present; foreground banner/badge gap reported earlier |
-| Web Push delivery | Failing / Unverified | `test:push-e2e` and `test:push-sw` fail (same on main); deliveries "accepted" by push services in production (425 rows), device receipt unproven |
+| Web Push delivery | Partial: server side verified, device receipt unverified | **(updated 2026-10-26)** `test:push-e2e` now passes (77 checks), `test:push-sw` passes; production `send-push` v22 returned `delivered:23` for a controlled owner-only notice (push service accepted). Previously: | `test:push-e2e` and `test:push-sw` fail (same on main); deliveries "accepted" by push services in production (425 rows), device receipt unproven |
 | Expiry-notification scheduler | Verified (job running) | pg_cron job `gayze-expiry-notifications` has run; admin Health lists it |
 | WebRTC audio/video | Unverified | TURN function deployed (source now mirrored in repo); TURN secrets presence shown in admin config; no call placed |
 | Profile photos, peek | Unverified | `test:peek` 7/7; missing-file diagnostics added; no real-photo run |
@@ -55,3 +55,17 @@ Classes: **Verified** = implemented and verified by the evidence named; **Unveri
 | Account deletion (self) | Unverified | `delete-account` function deployed v1; not exercised |
 | Obsolete "swarm" copy | Verified (user-visible) | Only internal identifiers (`SwarmRoom`, tab id `swarms`, variable names) remain; the visible tab label is "Messages" |
 | Terms state a minimum age | Missing | `terms.html` and `community-guidelines.html` contain no age requirement; sign-up copy deliberately does not claim one |
+
+
+## Added in the 2026-10-26 release
+
+| Feature | Class | Evidence / gap |
+| --- | --- | --- |
+| Admin Insights (aggregates, definitions, k-anonymity 5) | Implemented and verified (database); UI verified on mock data only | `admin_insights` reconciled to raw queries on production; `test:notices` covers definitions, windows, suppression, privacy; no sensitive profile fields; owner session not yet used on this tab |
+| Admin Broadcasts and per-member message | Implemented; end to end through admin-api not yet exercised | handler tests (confirm, reauth, recount, link guard, rate limit, audit has no message text); audience/ targeting tested on PGlite; owner can send a test to themselves ("Just me"); one real owner-only notice sent via SQL path |
+| Report builder (branded, print/PDF, CSV) | Implemented, partially verified | rendered in Chromium on mock data (desktop and phone); CSV injection guard tested; real print-to-PDF not run |
+| Member notices ("From Gayze") + push | Implemented and verified server side | production notices created, pushed (provider accepted) and marked read by a real user; RLS: members read only their own |
+| Gathering host decides (request / accept / decline / withdraw) | Implemented; verified on PGlite and in production SQL; UI not yet seen on a device | `test:notices` 7/7; production migration applied; **older cached app builds can only "ask"; reload the app** |
+| Gathering guest counts and lists | Fixed | Cause: the only RLS policy on `gathering_rsvps` was own-row, so every card counted at most 1. Now `get_gathering_rsvp_overview` |
+| Gathering group chat | **Missing** | Not implemented. Needs a conversation marker (a 2-person room is indistinguishable from a DM), key versioning on every accept/leave, and multi-device tests. Cards still say "group room coming soon" |
+| Test-push message honesty | Fixed | server reason shown |

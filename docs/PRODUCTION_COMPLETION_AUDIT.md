@@ -39,3 +39,28 @@ Vite/React/TypeScript SPA, path-based routing in `src/App.tsx` (no router): `/`,
 4. Optional: ask Supabase to enable `pgrst.db_pre_request = 'public.gayze_pre_request'` for read blocking.
 5. Allow `gayze.co.uk` and the Supabase project host in the sandbox network policy if live smoke tests should run from this environment.
 6. Sign in as the owner on `https://gayze.co.uk/admin` and exercise Dashboard, Accounts, Audit (the first real end-to-end run).
+
+
+## Release verification findings, 2026-10-26
+
+| # | Severity | Finding | Evidence | Status |
+| --- | --- | --- | --- | --- |
+| 13 | High | Anyone could join a gathering instantly; the host had no say | product behaviour + `gathering_rsvps` ALL policy | **Fixed** (requests; table closed to direct writes) |
+| 14 | High | Guest counts wrong for everyone (each member could read only their own RSVP row) | `pg_policies` on production | **Fixed** (definer overview function) |
+| 15 | Medium | Insights double-counted intents (a story is created per intent: 181 of 181), used two definitions of "active", and a rolling window against calendar-day charts | reconciliation against raw tables | **Fixed** (migration `20261026120000`) |
+| 16 | Medium | Small-group breakdowns could identify individuals; top interests read an unused table | audience queries | **Fixed**: groups under 5 merged/hidden; interests from `profiles.interests` |
+| 17 | Medium | Repository migrations did not match production for push dispatch (wrong secret name) | repo vs `pg_proc` | **Fixed** (recorded) |
+| 18 | Low | Owner could not message themselves (admins excluded from every audience) | owner test send failed `empty_audience` | **Fixed**; bulk audiences still exclude admins and suspended |
+| 19 | Low | Test push showed a misleading generic reason | E2E | **Fixed** |
+| 20 | Medium | One owner account holds **23** push subscriptions over 13 days (1-3 per day); all 23 accepted a push. Likely duplicate or stale registrations (each re-install or hand-off adds one); every send fans out to all | `push_subscriptions` | **Open**. Recommended: cap per user (e.g. 10 newest) via an insert trigger plus pruning on 404/410; not applied (deletes data) |
+| 21 | Info | `gayze_pre_request` is anon/authenticated-executable by design (cannot be enabled; reads only the caller's own status) | advisor | Accepted |
+| 22 | Info | Neighbourhood on all profiles is the placeholder "Near You" (10 of 10) | audience query | Product data issue: neighbourhood analytics are meaningless until real values are stored |
+| 23 | Medium | PR #199's own deploy run was cancelled by the next push | Actions run 432 vs 433 | No impact (433 contains it); worth knowing when reading run history |
+| 24 | Info | `profile` (3) and `interaction` (9) test failures are identical on `main` | worktree run | Open, pre-existing |
+
+### Authorisation review (this release)
+- Admin database functions: service_role only; `anon` and `authenticated` get `permission denied` (tested for every new function).
+- `member_notices`: members select own rows; no direct insert/update/delete; read/mark via definer functions scoped to `auth.uid()`; same dedupe key cannot create a second row.
+- Broadcast: owner only, fresh sign-in required, audience re-counted on the server at send time (409 if changed), recipient count and link validated, per-actor rate limit, audited with counts and lengths but not message text; bulk audiences exclude suspended members and admins.
+- Gatherings: only the host can answer requests; guests cannot be added any other way; declined guests cannot re-ask; host cannot leave; table closed to direct reads.
+- Service-role key: only inside Edge Functions; the browser bundle uses the publishable key (verified in `supabaseClient.ts`).
