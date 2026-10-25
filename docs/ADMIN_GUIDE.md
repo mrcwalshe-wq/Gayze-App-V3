@@ -57,10 +57,32 @@ To transfer ownership: delete the `app_admins` row in a privileged session, then
 * **Health**: failed push deliveries, scheduled jobs and recent failures, authentication events (reports "Unavailable" when the project stores none, which is currently the case), admin API errors, and configuration status (set / not set; values never shown).
 * **Audit log**: searchable, paginated, append-only (a trigger rejects `UPDATE` and `DELETE`). Records actor, action, target, outcome (`success`, `denied`, `error`, `reauth_required`) and non-sensitive metadata. Search text and suspension reasons are not duplicated into metadata.
 
+## Suspension enforcement (what is actually active)
+
+| Control | Status |
+| --- | --- |
+| Auth ban (`ban_duration`) + deleting `auth.sessions` | Active. Blocks new sign-ins and token refresh. |
+| `gayze_suspended_guard` BEFORE INSERT/UPDATE triggers on `messages`, `interests`, `gazes`, `intents`, `stories`, `scheduled_messages`, `conversation_members`, `conversations`, `profile_photos`, `profiles`, `push_subscriptions`, `safety_checkins`, `gatherings`, `gathering_rsvps`, `message_user_state` | **Active** (migration `20261025120000`). Fires for direct REST writes and for `SECURITY DEFINER` RPCs such as `submit_interest`, `accept_interest`, `schedule_encrypted_message`. Callers with no user subject (service role, pg_cron, sign-up) are unaffected. Verified in production inside a rolled-back transaction. |
+| `gayze_pre_request()` PostgREST hook | **Not enabled.** The function and its tests exist, but `alter role authenticator set pgrst.db_pre_request` is refused ("reserved role, only superusers") and the database-level alternative is also denied for the project's `postgres` role. It would add read blocking. Enabling it needs a Supabase-privileged session (support request) and is optional. |
+
+Residual: a suspended member's **reads** of their own data, realtime subscriptions, Storage and Edge Functions that only check JWT validity can continue until their access token expires (`jwt_exp` = 3600 s on this project). Sessions are deleted, so the token cannot be renewed.
+
+### Rolling back suspension enforcement
+
+```sql
+-- remove the write guards
+do $$ declare t text; begin
+  for t in select c.relname from pg_trigger g join pg_class c on c.oid = g.tgrelid where g.tgname = 'gayze_suspended_guard'
+  loop execute format('drop trigger gayze_suspended_guard on public.%I', t); end loop; end $$;
+-- optional: remove the function
+drop function if exists public.gayze_block_suspended_writes();
+```
+Suspending/reinstating from the console keeps working without them; only the data-layer refusal is removed.
+
 ## Known limits (stated plainly)
 
-* After suspension, a device that already holds an access token (default lifetime: 1 hour) is refused by the REST/RPC API immediately, but realtime sockets, Storage and Edge Functions that only check a JWT's signature (for example `webrtc-ice-servers`) can keep working until that token expires. Sessions are deleted so it cannot be renewed.
-* `gayze_pre_request` adds one primary-key lookup per API request.
+* Suspension residuals are listed under *Suspension enforcement*.
+* The write guards add one primary-key lookup per write on guarded tables.
 * Auth events are not observable because `auth.audit_log_entries` is empty on this project.
 
 ## API contract
@@ -79,4 +101,7 @@ Actions: `whoami`, `metrics`, `accounts.list|detail|photoProblems|suspend|reinst
 4. Deploy the `admin-api` Edge Function.
 5. Run the owner bootstrap and verify the row.
 6. Deploy the frontend.
-7. `20261025111000_enable_pre_request.sql` (switches suspension enforcement on). Roll back with `alter role authenticator reset pgrst.db_pre_request; notify pgrst, 'reload config';`.
+7. `20261025120000_suspension_write_guards.sql` (turns write enforcement on).
+8. Optional, needs a Supabase-privileged session: `20261025111000_enable_pre_request.sql` (read blocking). Roll back with `alter role authenticator reset pgrst.db_pre_request; notify pgrst, 'reload config';`.
+
+Production status as of this change: migrations 1 to 3 and 7 applied, `admin-api` v1 deployed, owner bootstrapped (one `owner.bootstrap` audit row), step 8 not possible with the available database role.
