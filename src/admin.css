@@ -232,3 +232,8 @@
 .ga-insights li::before { content: ''; position: absolute; left: 0; top: .6em; width: 6px; height: 6px; border-radius: 50%; background: var(--ga-amber, #C9A24D); }
 @media (min-width: 900px) { .ga-insights { grid-template-columns: 1fr 1fr; } }
 .ga-report .ga-insights { background: #faf6ea; border-color: #ead9a6; }
+
+.ga-defs { margin: 0; display: grid; gap: 8px 24px; grid-template-columns: 1fr; font-size: 12.5px; }
+.ga-defs dt { font-weight: 700; text-transform: capitalize; color: var(--ga-text); }
+.ga-defs dd { margin: 0 0 4px; color: var(--ga-dim); line-height: 1.5; }
+@media (min-width: 820px) { .ga-defs { grid-template-columns: 1fr 1fr; } }

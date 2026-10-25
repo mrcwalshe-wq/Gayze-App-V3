@@ -18,7 +18,7 @@ export function download(name: string, mime: string, text: string) {
 
 export const SECTION_KEYS = [
   ['take', 'Key findings'], ['grow', 'Growth and activity'], ['when', 'When people use Gayze'], ['int', 'Intents'], ['eng', 'Engagement'],
-  ['fun', 'Funnel and retention'], ['aud', 'Audience'], ['not', 'Notifications'], ['saf', 'Trust and safety'],
+  ['fun', 'Funnel and retention'], ['aud', 'Audience'], ['not', 'Notifications'], ['saf', 'Trust and safety'], ['def', 'Metric definitions'],
 ] as const;
 
 export const InsightBody: React.FC<{ d: InsightsData; only?: string[] }> = ({ d, only }) => {
@@ -137,6 +137,11 @@ export const InsightBody: React.FC<{ d: InsightsData; only?: string[] }> = ({ d,
         </div>
       </section>}
 
+      {on('def') && d.definitions && <section aria-labelledby="in-def"><h2 id="in-def">How these numbers are defined</h2>
+        <dl className="ga-defs">
+          {(Object.entries(d.definitions) as [string, string][]).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+        </dl>
+      </section>}
       {on('saf') && <section aria-labelledby="in-saf"><h2 id="in-saf">Trust and safety</h2>
         <div className="ga-grid">
           <Stat label={`Reports · ${d.days} days`} value={d.safety.reportsInPeriod} />

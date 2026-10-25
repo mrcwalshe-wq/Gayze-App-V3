@@ -7,7 +7,7 @@ const VAPID = 'BEEwOKTZtTD1IvFia4YFeyfXS0GpxRKAMbIcqxB-dUeYWdPWU-_dYygdycwOWSdSA
 // ---------- database with the REAL migration ----------
 const db = await newDb(); await baseSchema(db); await addUsers(db, A, B, C);
 await db.exec(migrationSql());
-await db.query(`insert into vault.decrypted_secrets values ('gayze_push_dispatch_runtime_secret','dispatch-secret')`);
+await db.query(`insert into vault.decrypted_secrets values ('gayze_push_dispatch_runtime_secret','dispatch-secret'),('gayze_functions_url','https://x.functions.supabase.co')`);
 
 // ---------- session + fake browser device ----------
 let ctx = { role: 'anon', sub: null };            // who is signed in on this device
@@ -87,6 +87,13 @@ const push = await vite.ssrLoadModule(`${REPO}/src/services/pushService.ts`);
 
 const rows = async (where = '', p = []) => (await db.query(`select user_id, endpoint from push_subscriptions ${where} order by created_at, endpoint`, p)).rows;
 const dispatchMessage = (sender, conv) => callEdge({ event: 'message', conversationId: conv, senderId: sender, senderName: 'X' }, { 'x-gayze-dispatch-secret': 'dispatch-secret' });
+// What pg_net does in production: deliver each recorded database HTTP call to the real edge handler.
+let bridged = 0;
+const flushDispatch = async () => {
+  const calls = (await db.query('select id, url, body, headers from __net_calls where id > $1 order by id', [bridged])).rows;
+  for (const c of calls) { bridged = c.id; await callEdge(c.body, c.headers); }
+  return calls.length;
+};
 const convAB = (await db.query(`insert into conversations default values returning id`)).rows[0].id;
 await db.query(`insert into conversation_members values ($1,$2),($1,$3)`, [convAB, A, B]);
 
@@ -191,12 +198,15 @@ signIn(B); device.unsubMode = 'ok'; await push.subscribeToPush(); const epBc = d
 webpushSends.length = 0;
 signIn(A);
 await push.requestConnectionPush(conv2);
+assert(await flushDispatch() === 1, 'the notification row fires exactly one database dispatch to send-push, authenticated with the runtime secret');
 assert(webpushSends.length === 1 && webpushSends[0].endpoint === epBc && webpushSends[0].payload.type === 'connection', 'mutual created by A -> exactly one push, to B\'s device');
-assert(webpushSends[0].payload.url === `/messages/${conv2}` && !/A|Alex/.test(webpushSends[0].payload.body.replace(/and someone nearby are both interested/,'')), 'deep-links to the conversation; no names in body');
+assert(webpushSends[0].payload.url.startsWith(`/messages/${conv2}`) && !/Alex/.test(webpushSends[0].payload.body.replace(/and someone nearby are both interested/,'')), 'deep-links to the conversation; no names in body');
 await push.requestConnectionPush(conv2);
+assert(await flushDispatch() === 0, 'a retried call creates no second notification and no second dispatch');
 signIn(B); await push.requestConnectionPush(conv2);
-assert(webpushSends.length === 1, 'duplicate / retried / OTHER-SIDE calls send nothing more (exactly once per conversation)');
-assert((await db.query(`select count(*)::int c from notification_dispatch_log where category='connection'`)).rows[0].c === 1, 'one ledger row');
+await flushDispatch();
+assert(webpushSends.length === 1, 'the other side completing the call pushes nothing more (A has no device)');
+assert((await db.query(`select count(*)::int c from gayze_notifications where category='connection' and event_key=$1 and user_id=$2`, [conv2, B])).rows[0].c === 1, 'one inbox row for B');
 
 // preferences respected
 const conv3 = (await db.query(`insert into conversations default values returning id`)).rows[0].id;
@@ -240,13 +250,14 @@ assert(e.status === 403, 'dispatch path still requires the secret');
 const svc = await vite.ssrLoadModule(`${REPO}/src/services/supabaseService.ts`);
 const convWire = (await db.query(`insert into conversations default values returning id`)).rows[0].id;
 await db.query(`insert into conversation_members values ($1,$2),($1,$3)`, [convWire, A, B]);
-globalThis.__clientSb.rpc = async (name) => name === 'submit_interest' ? { data: { mutual: true, conversation_id: convWire }, error: null } : { data: null, error: { message: 'x' } };
+const realRpc = globalThis.__clientSb.rpc.bind(globalThis.__clientSb);
+globalThis.__clientSb.rpc = async (name, args) => name === 'submit_interest' ? { data: { mutual: true, conversation_id: convWire }, error: null } : realRpc(name, args);
 webpushSends.length = 0; signIn(A);
 const res = await svc.submitInterest(B, undefined);
-await new Promise((r2) => setTimeout(r2, 300));
+await new Promise((r2) => setTimeout(r2, 300)); await flushDispatch();
 assert(res.sent && res.mutual && res.conversation_id === convWire, 'submitInterest return value unchanged');
 assert(webpushSends.length === 1 && webpushSends[0].payload.conversationId === convWire, 'submitInterest(mutual) triggers exactly one connection push');
-globalThis.__clientSb.rpc = async () => ({ data: { mutual: false, conversation_id: null }, error: null });
+globalThis.__clientSb.rpc = async (name, args) => name === 'submit_interest' ? { data: { mutual: false, conversation_id: null }, error: null } : realRpc(name, args);
 webpushSends.length = 0;
 const res2 = await svc.submitInterest(B, undefined);
 await new Promise((r2) => setTimeout(r2, 200));

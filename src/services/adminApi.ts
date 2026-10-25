@@ -70,7 +70,8 @@ export interface Metrics {
 
 export interface Labelled { label: string; n: number }
 export interface Insights {
-  generatedAt: string; days: number; timezone: string;
+  generatedAt: string; days: number; timezone: string; windowStart?: string; minGroupSize?: number;
+  definitions?: Record<'window' | 'active' | 'activity' | 'funnel' | 'retention' | 'mutual' | 'privacy', string>;
   totals: Record<'members' | 'newInPeriod' | 'activeInPeriod' | 'active1d' | 'active7d' | 'active30d' | 'withPush' | 'verifiedProfiles', number>;
   signupsByDay: { day: string; n: number }[];
   activeByDay: { day: string; n: number }[];
