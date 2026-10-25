@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 export const REPO = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 export const MIGRATION = `${REPO}/supabase/migrations/20260929120000_push_notifications.sql`;
+export const MIGRATION_RUNTIME_SECRET = `${REPO}/supabase/migrations/20261025130000_record_push_runtime_secret_getter.sql`;
 export const MIGRATION_URL_FIX = `${REPO}/supabase/migrations/20261002090000_push_dispatch_url_fix.sql`;
 
 // The sandbox DB has no pgcrypto/pg_net extension binaries wired up: the two
@@ -13,7 +14,7 @@ export function migrationSql() {
     .replace(/^create extension if not exists pgcrypto;$/m, '-- (stubbed in test)')
     .replace(/^create extension if not exists pg_net with schema extensions;$/m, '-- (stubbed in test)');
   // Applied in filename order, exactly as Supabase applies them.
-  return clean(MIGRATION) + '\n' + clean(MIGRATION_URL_FIX);
+  return clean(MIGRATION) + '\n' + clean(MIGRATION_URL_FIX) + '\n' + clean(MIGRATION_RUNTIME_SECRET);
 }
 
 export async function bootstrap(db, { netFails = false } = {}) {
@@ -111,7 +112,7 @@ export function makeClient(db, getCtx, { invoke } = {}) {
   return {
     from: (t) => new B(t),
     async rpc(name, args) {
-      const ctx = getCtx(); const keys = Object.keys(args);
+      const ctx = getCtx(); const keys = Object.keys(args || {});
       try {
         let rows;
         await db.transaction(async (tx) => {
