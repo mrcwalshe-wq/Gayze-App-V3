@@ -2,9 +2,12 @@
 -- and the remaining read models. Additive and non-destructive: nothing here
 -- alters existing rows or existing application functions.
 --
--- Replaces admin_list_accounts(text,int,int) from 20261025100000 with a version
--- that sorts (whitelisted). That earlier function has never been called by
--- anything but the admin Edge Function, which is introduced in this change.
+-- Adds admin_list_accounts_v2 (whitelisted sorting). The unsorted
+-- admin_list_accounts(text,int,int) from 20261025100000 is deliberately LEFT IN
+-- PLACE: it has no dependents (checked in pg_depend and function bodies) and is
+-- service_role-only, so it is harmless, and not dropping it keeps this migration
+-- free of destructive statements. A distinct name (not an overload with a default
+-- argument) means no call can ever be ambiguous between the two.
 
 -- ---------------------------------------------------------------------------
 -- Owner bootstrap: controlled, one-off, never reachable from the browser.
@@ -118,10 +121,9 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Account directory with whitelisted sorting (replaces the unsorted version).
+-- Account directory with whitelisted sorting.
 -- ---------------------------------------------------------------------------
-drop function if exists public.admin_list_accounts(text, integer, integer);
-create or replace function public.admin_list_accounts(p_query text, p_limit int, p_offset int, p_sort text default 'created_desc')
+create or replace function public.admin_list_accounts_v2(p_query text, p_limit int, p_offset int, p_sort text)
 returns jsonb language plpgsql stable security definer set search_path = public, auth, pg_temp as $$
 declare q text := nullif(btrim(coalesce(p_query, '')), '');
         -- LIKE metacharacters in the search text are literals, not wildcards.
@@ -278,7 +280,7 @@ begin
     'public.admin_bootstrap_owner(text)',
     'public.admin_rate_hit(text, text, integer)',
     'public.admin_revoke_sessions(uuid)',
-    'public.admin_list_accounts(text, integer, integer, text)',
+    'public.admin_list_accounts_v2(text, integer, integer, text)',
     'public.admin_list_reports(text, integer, integer)',
     'public.admin_update_report(uuid, text)',
     'public.admin_audit_search(text, text, integer, integer)',

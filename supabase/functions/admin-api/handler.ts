@@ -45,7 +45,7 @@ export interface AdminConfig {
 }
 
 export const RPC_ALLOWLIST = new Set([
-  'admin_dashboard_metrics', 'admin_list_accounts', 'admin_account_detail', 'admin_set_suspension',
+  'admin_dashboard_metrics', 'admin_list_accounts_v2', 'admin_account_detail', 'admin_set_suspension',
   'admin_delivery_failures', 'admin_failed_jobs', 'admin_revoke_sessions', 'admin_list_reports',
   'admin_update_report', 'admin_audit_search', 'admin_profile_photo_problems', 'admin_auth_events', 'admin_cron_status',
 ]);
@@ -132,7 +132,7 @@ const ACTIONS: Record<string, ActionDef> = {
       const limit = intParam(params, 'limit', 25, 1, 100);
       const offset = intParam(params, 'offset', 0, 0, 100000);
       const sort = enumParam(params, 'sort', SORTS, 'created_desc');
-      const data = await rpc(store, 'admin_list_accounts', { p_query: query, p_limit: limit, p_offset: offset, p_sort: sort });
+      const data = await rpc(store, 'admin_list_accounts_v2', { p_query: query, p_limit: limit, p_offset: offset, p_sort: sort });
       return { data, meta: { queryLength: query?.length ?? 0, limit, offset, sort } };
     },
   },

@@ -8,7 +8,7 @@ test('privileged admin functions and tables are unreachable from anon/authentica
   const db = await adminDb();
   const u = await addUser(db, 1);
   const fns = [
-    'admin_dashboard_metrics()', "admin_list_accounts('', 10, 0, 'created_desc')", `admin_account_detail('${u}')`,
+    'admin_dashboard_metrics()', "admin_list_accounts_v2('', 10, 0, 'created_desc')", `admin_account_detail('${u}')`,
     `admin_set_suspension('${u}', true, 'x', '${u}')`, 'admin_delivery_failures(10)', 'admin_failed_jobs(10)',
     "admin_bootstrap_owner('user1@example.test')", "admin_rate_hit('a','b',10)", `admin_revoke_sessions('${u}')`,
     "admin_list_reports(null, 10, 0)", `admin_update_report('${u}', 'resolved')`, "admin_audit_search(null, null, 10, 0)",
@@ -110,7 +110,7 @@ test('rate limiter counts per actor and bucket', async () => {
 test('account directory: search, pagination clamps, whitelisted sort, hostile input', async () => {
   const db = await adminDb();
   for (let i = 1; i <= 30; i++) await addUser(db, i, { email: `person${i}@example.test` });
-  const list = async (q, l, o, s) => (await db.query('select public.admin_list_accounts($1,$2,$3,$4) r', [q, l, o, s])).rows[0].r;
+  const list = async (q, l, o, s) => (await db.query('select public.admin_list_accounts_v2($1,$2,$3,$4) r', [q, l, o, s])).rows[0].r;
   assert.equal((await list('', 10, 0, 'created_desc')).rows.length, 10);
   assert.equal((await list('', 100000, 0, 'created_desc')).limit, 100);
   assert.equal((await list('', -5, -5, 'created_desc')).limit, 1);
@@ -158,4 +158,32 @@ test('audit search filters and caps', async () => {
   assert.equal((await s(null, 'denied', 50, 0)).total, 2);
   assert.equal((await s('t3', null, 50, 0)).total, 1);
   assert.equal((await s("' or 1=1 --", null, 50, 0)).total, 0);
+});
+
+test('legacy 3-arg directory function coexists with v2 without ambiguity and stays service-only', async () => {
+  const db = await adminDb();
+  const u = await addUser(db, 1);
+  assert.equal((await db.query("select public.admin_list_accounts('', 10, 0) r")).rows[0].r.total, 1);
+  assert.equal((await db.query("select public.admin_list_accounts_v2('', 10, 0, 'created_desc') r")).rows[0].r.total, 1);
+  assert.equal((await db.query("select public.admin_list_accounts_v2(p_query => '', p_limit => 10, p_offset => 0, p_sort => 'created_desc') r")).rows[0].r.total, 1);
+  for (const role of ['anon', 'authenticated']) {
+    await assert.rejects(as(db, role, { sub: u }, "select public.admin_list_accounts('', 10, 0)"), denied);
+    await assert.rejects(as(db, role, { sub: u }, "select public.admin_list_accounts_v2('', 10, 0, 'x')"), denied);
+  }
+  // No dependents on the legacy function: nothing in pg_depend or other function bodies references it.
+  const deps = await db.query("select count(*)::int n from pg_proc where prosrc ilike '%admin_list_accounts(%' and proname not like 'admin_list_accounts%'");
+  assert.equal(deps.rows[0].n, 0);
+});
+
+test('pre-request hook enablement migration is reversible and idempotent', async () => {
+  const fs = await import('node:fs');
+  const { REPO } = await import('./lib.mjs');
+  const db = await adminDb();
+  const enable = fs.readFileSync(`${REPO}/supabase/migrations/20261025111000_enable_pre_request.sql`, 'utf8');
+  const cfg = async () => (await db.query("select coalesce(array_to_string(rolconfig, ','), '') c from pg_roles where rolname='authenticator'")).rows[0].c;
+  assert.equal(await cfg(), '');
+  await db.exec(enable); await db.exec(enable);
+  assert.match(await cfg(), /pgrst\.db_pre_request=public\.gayze_pre_request/);
+  await db.exec("alter role authenticator reset pgrst.db_pre_request");
+  assert.equal(await cfg(), '', 'rollback statement removes the hook');
 });

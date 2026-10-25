@@ -141,7 +141,7 @@ test('hostile search text is passed as a bound parameter, never interpolated or 
   const evil = "' OR 1=1; DROP TABLE users; --";
   const r = await h.call({ action: 'accounts.list', query: evil, limit: 100, offset: 100000, sort: 'reports_desc' });
   assert.equal(r.status, 200);
-  assert.deepEqual(h.rpcCalls[0], { name: 'admin_list_accounts', args: { p_query: evil, p_limit: 100, p_offset: 100000, p_sort: 'reports_desc' } });
+  assert.deepEqual(h.rpcCalls[0], { name: 'admin_list_accounts_v2', args: { p_query: evil, p_limit: 100, p_offset: 100000, p_sort: 'reports_desc' } });
   assert.equal(JSON.stringify(h.audits).includes('DROP TABLE'), false, 'search text is not stored in the audit log');
   assert.equal(h.audits.at(-1)?.metadata?.queryLength, evil.length);
 });
