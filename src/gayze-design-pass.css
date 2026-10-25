@@ -970,3 +970,12 @@ nav.g-tabbar {
 
 /* Scrollable pill rows fade at the edge instead of cutting a label in half. */
 .gayze-premium-control.overflow-x-auto { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); padding-right: 26px; }
+
+/* ---- Send a GAYZE sheet: above the tab bar, readable title, no stray disc ---- */
+.g-overlay.g-overlay--above-nav { z-index: 1500; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.g-interest-composer { max-height: min(calc(100dvh - env(safe-area-inset-top, 0px) - 32px), 780px); }
+.g-interest-composer__title { white-space: normal; overflow: visible; text-overflow: clip; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.g-interest-composer__intent::after { display: none; }
+.g-interest-composer__header > div:first-child { border-radius: 18px; }
+.g-interest-composer textarea { min-height: 84px; }
+.g-interest-composer__photos > button { border-width: 1.5px; }
