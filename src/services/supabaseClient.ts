@@ -10,6 +10,10 @@ const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_TeBAtLH6YljGFKbz4pvNtg_
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || DEFAULT_SUPABASE_URL;
 const supabasePublishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim() || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
+/** Base URL for Edge Function calls. Never rendered in the UI. */
+export const SUPABASE_FUNCTIONS_URL = `${supabaseUrl}/functions/v1`;
+export const SUPABASE_PUBLISHABLE_KEY = supabasePublishableKey;
+
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
 
 // Keep the browser auth session in one deterministic GAYZE-owned storage key.

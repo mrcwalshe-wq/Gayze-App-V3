@@ -7,3 +7,11 @@ project_id = "gayze"
 # off, otherwise pg_net trigger dispatches would be rejected before reaching
 # our own checks.
 verify_jwt = false
+
+[functions.admin-api]
+# Defence in depth: the platform rejects requests without a valid Supabase JWT
+# first; the handler then verifies the token again with supabase.auth.getUser,
+# authorises against public.app_admins and audits. The platform gate alone is
+# never treated as authorisation (any signed-in user, and the public anon key,
+# hold a valid JWT).
+verify_jwt = true

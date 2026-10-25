@@ -1,0 +1,9 @@
+{
+  "confirmation": "Confirm your GAYZE account",
+  "recovery": "Reset your GAYZE password",
+  "email_change": "Confirm your new GAYZE email",
+  "magic_link": "Your GAYZE sign-in link",
+  "reauthentication": "Your GAYZE confirmation code",
+  "password_changed_notification": "Your GAYZE password was changed",
+  "email_changed_notification": "Your GAYZE email address was changed"
+}
