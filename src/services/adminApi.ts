@@ -15,7 +15,7 @@ export class AdminApiError extends Error {
 const CODE_MAP: Record<string, AdminErrorCode> = {
   unauthenticated: 'unauthenticated', forbidden: 'forbidden', reauth_required: 'reauth_required',
   invalid_request: 'invalid_request', not_found: 'not_found', rate_limited: 'rate_limited', internal: 'internal',
-  target_is_self: 'conflict', target_is_admin: 'conflict', already_suspended: 'conflict', not_suspended: 'conflict',
+  conflict: 'conflict', target_is_self: 'conflict', target_is_admin: 'conflict', already_suspended: 'conflict', not_suspended: 'conflict',
   already_verified: 'conflict', confirmation_mismatch: 'conflict', no_email: 'conflict',
 };
 
@@ -67,3 +67,26 @@ export interface Metrics {
   notifications: { pushSubscriptions: number; inboxLast24h: number; deliveriesLast24h: Record<string, number> };
   jobs: { cronRunsLast24h: number; cronFailedLast24h: number };
 }
+
+export interface Labelled { label: string; n: number }
+export interface Insights {
+  generatedAt: string; days: number; timezone: string;
+  totals: Record<'members' | 'newInPeriod' | 'activeInPeriod' | 'active1d' | 'active7d' | 'active30d' | 'withPush' | 'verifiedProfiles', number>;
+  signupsByDay: { day: string; n: number }[];
+  activeByDay: { day: string; n: number }[];
+  signInsByHour: { hour: number; n: number }[];
+  activityByHour: { hour: number; n: number }[];
+  activityByWeekday: { dow: number; n: number }[];
+  intents: { createdInPeriod: number; liveNow: number; byMode: Labelled[]; top: Labelled[]; topVariants: Labelled[]; byHour: { hour: number; n: number }[]; avgHours: number | null; travelWilling: number; canHost: number };
+  engagement: { gayzesSent: number; interestsSent: number; interestsByStatus: Labelled[]; conversationsStarted: number; messagesSent: number; messagesPerActiveMember: number | null; storiesPosted: number };
+  gatherings: { created: number; goingTotal: number; byCategory: Labelled[]; avgFillPercent: number | null };
+  audience: { ageBands: Labelled[]; neighbourhoods: Labelled[]; topInterests: Labelled[]; profileCompleteness: { withPhoto: number; withBio: number; profiles: number } };
+  notifications: { pushEnabledMembers: number; optedOutOfPush: number; categoryOptOuts: Record<'messages' | 'intentActivity' | 'connections' | 'intentExpiry' | 'safety', number>; inboxCreated: number; deliveriesByState: Labelled[] };
+  funnel: { step: string; n: number }[];
+  retention: { eligible: number; returnedAfterDay1: number; activeLast7d: number };
+  safety: { reportsInPeriod: number; openReports: number; blocks: number; checkinsInPeriod: number; suspended: number };
+}
+
+export type AudienceScope = 'all' | 'active' | 'inactive' | 'intent' | 'push' | 'user';
+export interface Audience { scope: AudienceScope; days?: number; intent?: string; user?: string }
+export interface BroadcastRow { id: string; title: string; body: string; url: string; audience: Audience; recipient_count: number; created_at: string; read_count: number; pushed_count: number }

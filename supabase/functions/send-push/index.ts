@@ -72,6 +72,64 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Forbidden' }, 403);
     }
 
+    // Member notices: admin broadcasts/messages and gathering updates. The title and body are
+    // written by the owner or by the database (never by another member), so they are safe to show.
+    if (body.noticeId) {
+      const noticeId = body.noticeId;
+      if (!isValidUuid(noticeId)) return jsonResponse({ error: 'Invalid notice' }, 400);
+
+      const { data: notice, error: noticeErr } = await admin
+        .from('member_notices')
+        .select('id, user_id, kind, title, body, url, read_at, push_processed_at')
+        .eq('id', noticeId)
+        .maybeSingle();
+      if (noticeErr || !notice) return jsonResponse({ delivered: 0, reason: noticeErr?.message || 'notice_not_found' });
+      if (notice.read_at || notice.push_processed_at) return jsonResponse({ delivered: 0, reason: 'notice_already_handled' });
+
+      const { data: noticePref } = await admin
+        .from('notification_preferences')
+        .select('push_enabled')
+        .eq('user_id', notice.user_id)
+        .maybeSingle();
+      if (noticePref?.push_enabled === false) return jsonResponse({ delivered: 0, reason: 'notifications_disabled' });
+
+      const { data: noticeSubs, error: noticeSubErr } = await admin
+        .from('push_subscriptions')
+        .select('endpoint, p256dh, auth')
+        .eq('user_id', notice.user_id);
+      if (noticeSubErr || !noticeSubs || noticeSubs.length === 0) {
+        return jsonResponse({ delivered: 0, reason: noticeSubErr?.message || 'no_subscriptions' });
+      }
+
+      const noticePayload = {
+        type: 'notice',
+        title: notice.title,
+        body: notice.body,
+        url: notice.url,
+        recipientId: notice.user_id,
+        tag: `gayze-notice-${notice.id}`,
+      };
+      let noticeDelivered = 0;
+      for (const sub of noticeSubs) {
+        try {
+          await (globalThis as any).__webpush?.(sub, JSON.stringify(noticePayload)) ??
+            webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              JSON.stringify(noticePayload),
+            );
+          noticeDelivered += 1;
+        } catch (err: any) {
+          if (err?.statusCode === 404 || err?.statusCode === 410) {
+            await admin.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          }
+        }
+      }
+      if (noticeDelivered > 0) {
+        await admin.from('member_notices').update({ push_processed_at: new Date().toISOString() }).eq('id', notice.id);
+      }
+      return jsonResponse({ delivered: noticeDelivered });
+    }
+
     // Durable notification bridge. Database triggers send only the notificationId;
     // the server derives recipient, category and copy from the trusted inbox row.
     if (body.notificationId) {

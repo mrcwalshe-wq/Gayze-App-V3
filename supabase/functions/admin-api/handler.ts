@@ -48,6 +48,7 @@ export const RPC_ALLOWLIST = new Set([
   'admin_dashboard_metrics', 'admin_list_accounts_v2', 'admin_account_detail', 'admin_set_suspension',
   'admin_delivery_failures', 'admin_failed_jobs', 'admin_revoke_sessions', 'admin_list_reports',
   'admin_update_report', 'admin_audit_search', 'admin_profile_photo_problems', 'admin_auth_events', 'admin_cron_status',
+  'admin_insights', 'admin_audience_count', 'admin_send_broadcast', 'admin_list_broadcasts',
 ]);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -55,6 +56,7 @@ const MAX_BODY = 8192;
 const SORTS = ['created_desc', 'created_asc', 'signin_desc', 'signin_asc', 'reports_desc'] as const;
 const REPORT_STATUSES = ['open', 'reviewing', 'resolved', 'dismissed'] as const;
 const OUTCOMES = ['success', 'denied', 'error', 'reauth_required'] as const;
+const AUDIENCE_SCOPES = ['all', 'active', 'inactive', 'intent', 'push', 'user'] as const;
 
 class HttpError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); }
@@ -107,6 +109,9 @@ async function rpc(store: AdminStore, name: string, args: Record<string, unknown
     const m = error.message ?? '';
     if (/report_not_found/.test(m)) throw new HttpError(404, 'not_found', 'Report not found.');
     if (/invalid_status/.test(m)) throw bad('Invalid status.');
+    if (/empty_audience/.test(m)) throw new HttpError(409, 'conflict', 'No eligible recipients for that audience.');
+    if (/audience_too_large/.test(m)) throw new HttpError(409, 'conflict', 'That audience is too large to send in one go.');
+    if (/invalid_audience/.test(m)) throw bad('Invalid audience.');
     throw new HttpError(500, 'internal', 'The operation could not be completed.');
   }
   return data;
@@ -119,6 +124,26 @@ async function assertManageable(ctx: Ctx, target: string): Promise<TargetUser> {
   if (await ctx.store.roleOf(target)) throw new HttpError(409, 'target_is_admin', 'Administrator accounts cannot be managed here.');
   return user;
 }
+
+/** Validates an audience description; the database re-validates it as well. */
+function audienceParam(p: Params): { scope: string; days?: number; intent?: string; user?: string } {
+  const raw = p.audience;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw bad('audience is required');
+  const a = raw as Params;
+  const scope = enumParam(a, 'scope', AUDIENCE_SCOPES);
+  if (!scope) throw bad('audience.scope is required');
+  const out: { scope: string; days?: number; intent?: string; user?: string } = { scope };
+  if (scope === 'active' || scope === 'inactive') out.days = intParam(a, 'days', 30, 1, 365);
+  if (scope === 'intent') { const i = textParam(a, 'intent', 40); if (i) out.intent = i; }
+  if (scope === 'user') out.user = uuidParam(a, 'user');
+  return out;
+}
+const linkParam = (p: Params): string => {
+  const v = textParam(p, 'url', 200);
+  if (!v) return '/';
+  if (!v.startsWith('/') || v.startsWith('//') || /\s/.test(v)) throw bad('url must be a path inside the app, such as /later');
+  return v;
+};
 
 const ACTIONS: Record<string, ActionDef> = {
   whoami: { kind: 'read', run: async ({ actor }) => ({ data: { userId: actor.id, role: 'owner' } }) },
@@ -244,6 +269,44 @@ const ACTIONS: Record<string, ActionDef> = {
       }
       await ctx.store.deleteAccount(id);
       return { data: { deleted: true }, target: id };
+    },
+  },
+
+  insights: {
+    kind: 'read',
+    run: async ({ store, params }) => {
+      const days = intParam(params, 'days', 30, 1, 365);
+      const tz = textParam(params, 'timezone', 64) ?? 'Europe/London';
+      return { data: await rpc(store, 'admin_insights', { p_days: days, p_tz: tz }), meta: { days, tz } };
+    },
+  },
+
+  'broadcast.audienceCount': {
+    kind: 'read',
+    run: async ({ store, params }) => {
+      const audience = audienceParam(params);
+      return { data: { recipients: await rpc(store, 'admin_audience_count', { p_audience: audience }) }, meta: { scope: audience.scope } };
+    },
+  },
+
+  'broadcast.list': { kind: 'read', run: async ({ store, params }) => ({ data: await rpc(store, 'admin_list_broadcasts', { p_limit: intParam(params, 'limit', 25, 1, 100) }) }) },
+
+  // Sends an in-app notice (and a push where the member has push enabled) to an audience.
+  'broadcast.send': {
+    kind: 'write', sensitive: true, targetType: 'broadcast',
+    run: async (ctx) => {
+      const title = textParam(ctx.params, 'title', 80, true)!;
+      const body = textParam(ctx.params, 'body', 500, true)!;
+      const url = linkParam(ctx.params);
+      const audience = audienceParam(ctx.params);
+      if (ctx.params.confirm !== true) throw bad('confirm must be true');
+      const expected = intParam(ctx.params, 'expectedRecipients', -1, -1, 1000000);
+      if (!await ctx.store.rateHit(ctx.actor.id, 'broadcast', 5)) throw new HttpError(429, 'rate_limited', 'Too many broadcasts. Wait a minute.');
+      // Re-count on the server so the audience cannot have changed under the person confirming.
+      const current = await rpc(ctx.store, 'admin_audience_count', { p_audience: audience }) as number;
+      if (expected !== current) throw new HttpError(409, 'conflict', `The audience changed (now ${current} people). Review it and send again.`);
+      const sent = await rpc(ctx.store, 'admin_send_broadcast', { p_actor: ctx.actor.id, p_title: title, p_body: body, p_url: url, p_audience: audience }) as { broadcastId?: string; recipients?: number };
+      return { data: sent, target: sent?.broadcastId ?? undefined, meta: { scope: audience.scope, recipients: sent?.recipients, titleLength: title.length, bodyLength: body.length } };
     },
   },
 

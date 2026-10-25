@@ -286,3 +286,59 @@ test('only allow-listed RPCs are reachable and every action maps to one', () => 
   assert.ok(ACTION_NAMES.includes('accounts.suspend'));
   assert.equal(ACTION_NAMES.includes('owner.grant'), false, 'there is no API to grant roles');
 });
+
+test('insights: owner only, bounded days, passes timezone through', async () => {
+  const h = harness();
+  assert.equal((await h.call({ action: 'insights' }, { token: 'user' })).status, 403);
+  assert.equal((await h.call({ action: 'insights', days: 0 })).status, 400);
+  assert.equal((await h.call({ action: 'insights', days: 9999 })).status, 400);
+  const ok = await h.call({ action: 'insights', days: 90, timezone: 'Europe/London' });
+  assert.equal(ok.status, 200);
+  const rpc = h.rpcCalls.at(-1)!;
+  assert.equal(rpc.name, 'admin_insights');
+  assert.deepEqual(rpc.args, { p_days: 90, p_tz: 'Europe/London' });
+});
+
+test('broadcast.send: confirmation, fresh sign-in, bounded text, in-app links only, audience re-count', async () => {
+  const send = { action: 'broadcast.send', title: 'Hello', body: 'Welcome to Gayze', audience: { scope: 'all' }, confirm: true, expectedRecipients: 5 };
+  const impl = (name: string) => (name === 'admin_audience_count' ? { data: 5, error: null } : name === 'admin_send_broadcast' ? { data: { broadcastId: OTHER, recipients: 5 }, error: null } : { data: null, error: null });
+
+  let h = harness({ rpcImpl: impl });
+  assert.equal((await h.call(send, { token: 'ownerStale' })).status, 403, 'needs a recent sign-in');
+  assert.equal((await h.call({ ...send, confirm: false })).status, 400);
+  assert.equal((await h.call({ ...send, title: '' })).status, 400);
+  assert.equal((await h.call({ ...send, body: 'x'.repeat(501) })).status, 400);
+  assert.equal((await h.call({ ...send, url: 'https://evil.example' })).status, 400);
+  assert.equal((await h.call({ ...send, url: '//evil.example' })).status, 400);
+  assert.equal((await h.call({ ...send, audience: { scope: 'everyone' } })).status, 400);
+  assert.equal((await h.call({ ...send, audience: { scope: 'user' } })).status, 400, 'user scope needs a uuid');
+  assert.equal(h.rpcCalls.some((c) => c.name === 'admin_send_broadcast'), false, 'nothing sent on invalid requests');
+
+  const mismatch = await h.call({ ...send, expectedRecipients: 4 });
+  assert.equal(mismatch.status, 409);
+  assert.equal(h.rpcCalls.some((c) => c.name === 'admin_send_broadcast'), false, 'audience changed -> not sent');
+
+  const ok = await h.call({ ...send, url: '/later' });
+  assert.equal(ok.status, 200);
+  assert.equal((await json(ok)).data.recipients, 5);
+  const call = h.rpcCalls.find((c) => c.name === 'admin_send_broadcast')!;
+  assert.equal(call.args.p_actor, OWNER);
+  assert.equal(call.args.p_url, '/later');
+  const audit = h.audits.at(-1)!;
+  assert.equal(audit.action, 'broadcast.send');
+  assert.equal(audit.outcome, 'success');
+  assert.equal(JSON.stringify(audit.metadata).includes('Welcome to Gayze'), false, 'message text is not copied into the audit log');
+
+  h = harness({ rpcImpl: (name) => (name === 'admin_audience_count' ? { data: 0, error: null } : { data: null, error: { message: 'empty_audience' } }) });
+  assert.equal((await h.call({ ...send, expectedRecipients: 0 })).status, 409, 'empty audience is a conflict, not a crash');
+});
+
+test('broadcast.send: owner only and rate limited', async () => {
+  const send = { action: 'broadcast.send', title: 'Hi', body: 'Hi', audience: { scope: 'all' }, confirm: true, expectedRecipients: 1 };
+  let h = harness();
+  assert.equal((await h.call(send, { token: 'user' })).status, 403);
+  assert.equal((await h.call(send, { token: 'admin2' })).status, 403);
+  assert.equal(h.rpcCalls.length, 0);
+  h = harness({ rateOk: (b) => b !== 'broadcast' });
+  assert.equal((await h.call(send)).status, 429);
+});

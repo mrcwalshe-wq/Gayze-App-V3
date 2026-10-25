@@ -1,5 +1,6 @@
 import { notificationCopy, type NotificationInbox, type InboxNotification } from '../services/notificationInbox';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
+import type { MemberNotice } from '../services/memberNotices';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bell,
@@ -39,6 +40,8 @@ interface NotificationsModalProps {
   onClose: () => void;
   inbox?: NotificationInbox | null;
   inboxStatus?: ChatConnectionState;
+  notices?: MemberNotice[];
+  onOpenNotice?: (notice: MemberNotice) => void;
   onOpenNotification?: (notice: InboxNotification) => void;
   onOpenPublicProfile?: (
     userId: string,
@@ -86,7 +89,7 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', onOpenNotification, onOpenPublicProfile, onInterestAccepted, embedded = false }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', notices = [], onOpenNotice, onOpenNotification, onOpenPublicProfile, onInterestAccepted, embedded = false }) => {
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -466,6 +469,29 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                         <button type="button" disabled={interestBusyId===interest.id} onClick={async()=>{setInterestBusyId(interest.id);const ok=await declineIncomingInterest(interest.id);setInterestBusyId(null);if(ok){setIncomingInterests(prev=>prev.filter(item=>item.id!==interest.id));setFeedback({text:'Declined. The sender will not be notified.',tone:'info'});}else setFeedback({text:'Could not decline this interest. Try again.',tone:'error'});}} className="g-btn g-btn--quiet min-h-[44px]">Decline</button>
                       </div>
                     </div>
+                  ))}
+                </section>
+              )}
+
+              {notices.length > 0 && (
+                <section className="g-panel g-notification-inbox" aria-label="Updates from Gayze">
+                  <div className="g-notification-section-head">
+                    <div>
+                      <span className="g-label text-[#C9A24D]">From Gayze</span>
+                      <h3>{notices.some((n) => !n.read_at) ? `${notices.filter((n) => !n.read_at).length} new` : 'Updates'}</h3>
+                    </div>
+                  </div>
+                  {notices.slice(0, 10).map((notice) => (
+                    <button key={notice.id} type="button" onClick={() => onOpenNotice?.(notice)}
+                      className="g-notification-row" aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notice.title}`}>
+                      <span className={`g-notification-row__dot ${notice.read_at ? 'is-read' : ''}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-semibold text-white">{notice.title}</span>
+                        <span className="block mt-0.5 text-[12px] leading-snug text-zinc-400">{notice.body}</span>
+                        <time className="block mt-1 text-[10.5px] text-zinc-600" dateTime={notice.created_at}>{new Date(notice.created_at).toLocaleString()}</time>
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                    </button>
                   ))}
                 </section>
               )}

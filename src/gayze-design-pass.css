@@ -979,3 +979,6 @@ nav.g-tabbar {
 .g-interest-composer__header > div:first-child { border-radius: 18px; }
 .g-interest-composer textarea { min-height: 84px; }
 .g-interest-composer__photos > button { border-width: 1.5px; }
+
+/* ---- Later: hosting is a state, not a button ----------------------------------- */
+.g-ev__rsvp:disabled.is-going { opacity: 1; cursor: default; }

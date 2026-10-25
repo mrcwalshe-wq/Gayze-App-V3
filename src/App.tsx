@@ -6,6 +6,7 @@ import { DeletedRoomTracker } from './services/deletedRooms';
 import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
 import type { ChatConnectionState } from './services/realtimeRecovery';
 import type { MessageDelivery } from './services/chatSubscriptions';
+import { loadMemberNotices, markMemberNoticesRead, type MemberNotice } from './services/memberNotices';
 import { watchNotificationInbox, markNotificationRead, type NotificationInbox, type InboxNotification } from './services/notificationInbox';
 import { mergeMessage, mergeMessages } from './services/messageMerge';
 import { ChatMessageProcessor, MessageBatcher, MessageDecryptError } from './services/chatMessageProcessing';
@@ -648,6 +649,8 @@ export default function App() {
   const knownIncomingInterestIdsRef = useRef<Set<string>>(new Set());
   const [notificationInbox, setNotificationInbox] = useState<NotificationInbox | null>(null);
   const [notificationInboxStatus, setNotificationInboxStatus] = useState<ChatConnectionState>('connecting');
+  const [memberNotices, setMemberNotices] = useState<MemberNotice[]>([]);
+  const memberUnreadCount = memberNotices.filter((n) => !n.read_at).length;
   const notificationRefreshRef = useRef<() => void>(() => {});
   const unreadMessageCount = notificationInbox?.messageUnread ?? 0;
   const toastTimeoutRef = useRef<number | null>(null);
@@ -1451,10 +1454,37 @@ export default function App() {
     return () => { disposed = true; owner.stop(); notificationRefreshRef.current = () => {}; };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
+  // Messages from Gayze itself (broadcasts, admin messages, gathering updates).
+  const refreshMemberNotices = useCallback(async () => {
+    const account = supabaseUserIdRef.current;
+    if (!account) return;
+    try {
+      const rows = await loadMemberNotices();
+      if (supabaseUserIdRef.current === account) setMemberNotices(rows);
+    } catch { /* keep the last list; the inbox shows its own status */ }
+  }, []);
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) { setMemberNotices([]); return; }
+    void refreshMemberNotices();
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshMemberNotices(); }, 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshMemberNotices(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [isAuthenticated, isSigningOut, supabaseUserId, refreshMemberNotices]);
+
+  const openMemberNotice = async (notice: MemberNotice) => {
+    try { if (!notice.read_at) await markMemberNoticesRead([notice.id]); } catch { /* opening still works */ }
+    void refreshMemberNotices();
+    const route = routeFromPath(notice.url);
+    setActiveTab(route.tab);
+    if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+    replacePath(notice.url);
+  };
+
   // Unread state is read from PostgreSQL, never incremented/cleared by tab clicks.
   useEffect(() => {
-    if (notificationInbox) updateAppBadge(notificationInbox.unread);
-  }, [notificationInbox]);
+    if (notificationInbox) updateAppBadge(notificationInbox.unread + memberUnreadCount);
+  }, [notificationInbox, memberUnreadCount]);
 
   useEffect(() => {
     if (!supabaseUserId || !isAuthenticated) return;
@@ -3544,7 +3574,7 @@ export default function App() {
                   onClick={() => setMessagesSubTab('notifications')}
                 >
                   Notifications
-                  {(notificationInbox?.unread ?? 0) > 0 && <span className="g-messages-subtab__badge">{notificationInbox?.unread}</span>}
+                  {((notificationInbox?.unread ?? 0) + memberUnreadCount) > 0 && <span className="g-messages-subtab__badge">{(notificationInbox?.unread ?? 0) + memberUnreadCount}</span>}
                 </button>
               </div>
               <div className="g-messages-hub__content">
@@ -3555,6 +3585,8 @@ export default function App() {
                     isOpen
                     inbox={notificationInbox}
                     inboxStatus={notificationInboxStatus}
+                    notices={memberNotices}
+                    onOpenNotice={openMemberNotice}
                     onOpenNotification={openInboxNotification}
                     onOpenPublicProfile={openPublicProfile}
                     onInterestAccepted={async (conversationId) => {
@@ -3944,7 +3976,7 @@ export default function App() {
           setActiveTab(tab);
         }}
         unreadCount={unreadMessageCount}
-        notificationCount={notificationInbox?.unread ?? 0}
+        notificationCount={(notificationInbox?.unread ?? 0) + memberUnreadCount}
         onOpenIntentHub={handleOpenIntentHub}
         onOpenMask={() => setIsMaskActive(true)}
         onOpenIdentity={() => setIsIdentityOpen(true)}
