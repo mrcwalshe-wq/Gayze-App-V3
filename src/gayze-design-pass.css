@@ -1204,3 +1204,4 @@ nav.g-tabbar {
 .g-jbar__warn { font-size: 11.5px; color: #f5be46; }
 .g-jbar__stop { flex: none; align-self: flex-start; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .1); border: 0; }
 @media (prefers-reduced-motion: reduce) { .g-jbar, .g-jbar--bad { animation: none; } .g-jbar__dial svg { transition: none; } }
+.g-iset__place { margin-top: 14px; }

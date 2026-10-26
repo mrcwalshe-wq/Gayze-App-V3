@@ -22,6 +22,7 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
   const [failed, setFailed] = useState(false);
   const picked = useRef<string | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
   const listId = useId();
 
   useEffect(() => {
@@ -49,6 +50,12 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
     return () => document.removeEventListener('pointerdown', close);
   }, []);
 
+  // Inside a scrolling sheet the list can open below the visible area: bring it into view when it appears.
+  const showing = open && (results.length > 0 || failed);
+  useEffect(() => {
+    if (showing) requestAnimationFrame(() => listRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+  }, [showing, results.length]);
+
   const choose = (p: PlaceResult) => {
     picked.current = p.name.trim();
     onPick(p);
@@ -63,7 +70,7 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
           id={id} type="text" required={required} value={value} autoComplete="off" autoCapitalize="words" maxLength={120}
           role="combobox" aria-expanded={open && results.length > 0} aria-controls={listId} aria-autocomplete="list"
           onChange={(e) => { picked.current = null; onTextChange(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => { setOpen(true); window.setTimeout(() => boxRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250); }}
           placeholder={placeholder}
           className={className}
         />
@@ -71,7 +78,7 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
           : value && <button type="button" className="g-place__clear" aria-label="Clear" onClick={() => { picked.current = null; onTextChange(''); setResults([]); }}><X className="w-3.5 h-3.5" /></button>}
       </div>
       {open && (results.length > 0 || failed) && (
-        <ul id={listId} role="listbox" className="g-place__list">
+        <ul id={listId} ref={listRef} role="listbox" className="g-place__list">
           {results.map((p) => (
             <li key={p.id + p.lat}>
               <button type="button" role="option" aria-selected="false" onClick={() => choose(p)}>

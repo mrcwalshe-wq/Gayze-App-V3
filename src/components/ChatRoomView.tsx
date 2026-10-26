@@ -1,4 +1,5 @@
 import { PeerIntentBanner } from './PeerIntentBanner';
+import { SharePlaceSheet } from './SharePlaceSheet';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
@@ -67,6 +68,7 @@ interface ChatRoomViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   /** Open the "I'm on my way" sheet for this chat. */
   onOpenJourney?: (roomId: string, peerName: string) => void;
+  userLocation?: { lat: number; lng: number } | null;
   journeyRoomId?: string | null;
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
@@ -121,6 +123,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onStartCall,
   onOpenScheduleMeeting,
   onOpenJourney,
+  userLocation,
   journeyRoomId,
   onAcceptMeeting,
   onReturnToDiscovery,
@@ -167,6 +170,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
+  const [showSharePlace, setShowSharePlace] = useState(false);
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -737,6 +741,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         <span className="text-[12px]">Audio call</span>
                       </button>
                     )}
+                    <button
+                      type="button"
+                      aria-label="Share a place"
+                      className="g-row !min-h-[42px] !rounded-xl"
+                      onClick={() => { setShowChatActions(false); setShowSharePlace(true); }}
+                    >
+                      <MapPin className="w-4 h-4 text-[#7be0a8]" />
+                      <span className="text-[12px]">Share a place</span>
+                    </button>
                     {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
                       <button
                         type="button"
@@ -1278,6 +1291,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {currentRoom && currentRoom.type === 'direct' && (
+        <SharePlaceSheet
+          isOpen={showSharePlace}
+          onClose={() => setShowSharePlace(false)}
+          peerName={currentRoom.peerName || currentRoom.name}
+          userLocation={userLocation ?? null}
+          onSend={(text) => onSendMessage(currentRoom.id, text, currentRoom.ephemeralTtlSeconds)}
+        />
       )}
     </div>
     </div>
