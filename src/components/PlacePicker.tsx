@@ -78,6 +78,7 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
   // A category chip lists the nearest popular places of that kind around the member.
   const browseNearby = async (label: string, query: string, Icon: typeof Coffee) => {
     picked.current = null; setPostcodeMode(false);
+    inputRef.current?.blur(); // put the keyboard away so the list is fully visible
     if (!near) { onTextChange(query); setOpen(true); return; }
     browseAbort.current?.abort();
     const controller = new AbortController();

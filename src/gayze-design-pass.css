@@ -1365,3 +1365,8 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-place__chips button { position: relative; transition: transform .15s ease, background .15s ease; }
 .g-place__chips button:hover, .g-place__chips button:focus-visible { background: rgba(138, 77, 255, .26); }
 @media (prefers-reduced-motion: reduce) { .g-gborder::after, .g-place__skeleton i, .g-place__browse li { animation: none !important; } }
+
+/* Rows must fit inside the panel, whatever the button's default box model */
+.g-place__browse, .g-place__browse ul, .g-place__browse li { min-width: 0; box-sizing: border-box; }
+.g-place__browse li button { box-sizing: border-box; max-width: 100%; }
+.g-place__browse li button > span:nth-child(2) { overflow: hidden; }
