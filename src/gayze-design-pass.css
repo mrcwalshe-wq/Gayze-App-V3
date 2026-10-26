@@ -1322,3 +1322,14 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-calln__retry:active { transform: scale(.97); }
 @keyframes g-calln-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 @media (prefers-reduced-motion: reduce) { .g-calln__orb { animation: none; } }
+
+/* ---- Place search: one-tap categories and postcode -------------------------- */
+.g-place__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.g-place__chips button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 650; color: #efe6ff; background: rgba(138, 77, 255, .13); border: 1px solid rgba(184, 120, 255, .34); -webkit-tap-highlight-color: transparent; }
+.g-place__chips button:active { transform: scale(.96); }
+.g-place__chips button.is-on { background: rgba(138, 77, 255, .34); border-color: rgba(214, 170, 255, .8); color: #fff; }
+.g-jr__arranged { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 12px; padding: 12px 14px; text-align: left; border-radius: 16px; color: #fff; background: linear-gradient(135deg, rgba(201, 162, 77, .2), rgba(138, 77, 255, .14)); border: 1px solid rgba(214, 180, 100, .55); }
+.g-jr__arranged small { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #e5c66e; }
+.g-jr__arranged strong { display: block; font-size: 14px; }
+.g-jr__arranged span { min-width: 0; flex: 1; }
+.g-jr__arranged.is-on { border-color: rgba(52, 211, 153, .8); background: linear-gradient(135deg, rgba(16, 185, 129, .22), rgba(138, 77, 255, .12)); }

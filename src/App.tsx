@@ -24,6 +24,7 @@ import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
+import { latestMeetups } from './services/meetupState';
 import { callLineText, decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
 import { JourneyBar } from './components/JourneyBar';
 import { useJourney } from './services/useJourney';
@@ -1525,17 +1526,25 @@ export default function App() {
       if (account !== supabaseUserIdRef.current || generation !== authGenerationRef.current) return;
       notificationRefreshRef.current();
 
-      // Legacy Gayze notifications may still point at /notifications. Resolve the
-      // existing direct room by sender before using the stored URL; never open a profile.
+      // Send people to what the notification is about. A Gayze waiting for an answer scrolls to its Accept/Decline
+      // card; anything about a person who already has a chat with you opens that chat.
       const route = routeFromPath(notice.url);
-      const roomForGayze = notice.category === 'gaze' && !notice.event_key?.startsWith('interest:')
+      const actorId = notice.actor_id;
+      const pending = Boolean(actorId && pendingIncomingInterests.some((interest) => interest.fromUserId === actorId));
+      if (pending && notice.category === 'gaze') {
+        setActiveTab('swarms');
+        setMessagesSubTab('notifications');
+        window.setTimeout(() => window.dispatchEvent(new CustomEvent('gayze:focus-incoming')), 60);
+        return;
+      }
+      const roomForActor = actorId && ['gaze', 'connection', 'message', 'call', 'missed_call'].includes(notice.category)
         ? rooms.find((room) => room.type === 'direct' && (
-            room.peerUserId === notice.actor_id
-            || Boolean(notice.actor_id && room.memberIds?.includes(notice.actor_id) && room.memberIds?.includes(account ?? ''))
+            room.peerUserId === actorId
+            || Boolean(room.memberIds?.includes(actorId) && room.memberIds?.includes(account ?? ''))
           ))
         : undefined;
-      const conversationId = route.conversationId || roomForGayze?.id;
-      if (notice.category === 'gaze' && !notice.event_key?.startsWith('interest:') && conversationId) {
+      const conversationId = route.conversationId || roomForActor?.id;
+      if (conversationId) {
         requestConversationOpen(conversationId);
         replacePath(`/messages/${conversationId}`);
         return;
@@ -2713,6 +2722,17 @@ export default function App() {
     showToast(amending ? `Meetup updated: ${proposal.venueName}` : `Meetup proposal sent to ${scheduleMeetingPeerName} at ${proposal.venueName}`);
   };
 
+  // The meetup already arranged in the chat the guide was opened from: confirmed first, otherwise the newest proposal.
+  const arrangedMeetup = (() => {
+    if (!journeySheet) return null;
+    const mine = (m: { senderKey: string }) => m.senderKey === currentUser.publicKey;
+    const live = Array.from(latestMeetups(messages[journeySheet.roomId] || [], mine).values())
+      .map((state) => state.meeting)
+      .filter((m) => (m.status === 'accepted' || m.status === 'proposed') && m.lat !== undefined && m.lng !== undefined)
+      .sort((a, b) => (a.status === 'accepted' ? 0 : 1) - (b.status === 'accepted' ? 0 : 1) || b.timestamp - a.timestamp)[0];
+    return live ? { venueName: live.venueName, lat: live.lat!, lng: live.lng!, timeStr: live.timeStr, confirmed: live.status === 'accepted' } : null;
+  })();
+
   /** Every meetup change is a message carrying the meetup, so both people's cards agree. */
   const sendMeetingEvent = async (roomId: string, event: MeetingEvent, base: MeetingProposal) => {
     const room = rooms.find((r) => r.id === roomId);
@@ -3682,7 +3702,7 @@ export default function App() {
                     onClose={() => setMessagesSubTab('chats')}
                   />
                 ) : (
-                  <>
+                  <div className="flex h-full min-h-0 flex-col">
                     {/* The reminders only belong on the chat list; inside a chat they pushed the message box off screen. */}
                     {!visibleChatRoomId && notificationInbox?.rows
                       .filter((notice) => notice.category === 'gaze' && !notice.read_at && !notice.event_key?.startsWith('interest:'))
@@ -3755,10 +3775,11 @@ export default function App() {
                           <span className="shrink-0 text-sm font-semibold text-violet-100">View <span aria-hidden="true">›</span></span>
                         </button>
                       )}
+                    <div className="min-h-0 flex-1">
                     <ChatRoomView
                     rooms={rooms}
                     gayzeEvents={(notificationInbox?.rows ?? [])
-                      .filter((notice) => notice.category === 'gaze' && !notice.event_key?.startsWith('interest:') && notice.actor_id)
+                      .filter((notice) => notice.category === 'gaze' && (!notice.event_key?.startsWith('interest:') || notice.event_key.endsWith(':received')) && notice.actor_id)
                       .map((notice) => ({ id: notice.id, actorId: notice.actor_id!, createdAt: notice.created_at }))}
                     messages={messages}
                     activeRoomId={activeRoomId}
@@ -3800,7 +3821,8 @@ export default function App() {
                     onStartFreshSecureSession={handleStartFreshSecureSession}
                     activeIntentMode={activeUserIntent?.mode}
                   />
-                  </>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -3879,6 +3901,7 @@ export default function App() {
         peerName={journeySheet?.peerName ?? ''}
         safeHavens={safeHavens}
         userLocation={userLocation}
+        arranged={arrangedMeetup}
         onStart={(d) => { if (journeySheet) void startJourney({ roomId: journeySheet.roomId, peerName: journeySheet.peerName, venueName: d.venueName, dest: d.dest, share: d.share }); }}
       />
       {journey && (

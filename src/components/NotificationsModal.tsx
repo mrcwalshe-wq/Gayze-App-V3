@@ -110,6 +110,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
         && /^interest:[0-9a-f-]{36}:(?:[0-9a-f-]{36}|none)$/i.test(notice.event_key),
   )?.id ?? null;
 
+  // Tapping a pending-Gayze notification brings its Accept/Decline card into view.
+  useEffect(() => {
+    const focus = () => incomingInterestsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.addEventListener('gayze:focus-incoming', focus);
+    return () => window.removeEventListener('gayze:focus-incoming', focus);
+  }, []);
+
   const refresh = useCallback(async () => {
     setEnv(getPushEnvironment());
 

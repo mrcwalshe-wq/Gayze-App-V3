@@ -1,6 +1,16 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Loader2, MapPin, Search, X } from 'lucide-react';
+import { Coffee, Hash, Loader2, MapPin, Search, Trees, TrainFront, Utensils, Wine, X } from 'lucide-react';
 import { distanceKm, formatDistance, searchPlaces, type LatLng, type PlaceResult } from '../services/placeSearch';
+
+/** One-tap searches for the most common meeting spots. They search near you like anything typed. */
+const PRESETS = [
+  { label: 'Café', query: 'cafe', Icon: Coffee },
+  { label: 'Bar', query: 'bar', Icon: Wine },
+  { label: 'Pub', query: 'pub', Icon: Wine },
+  { label: 'Restaurant', query: 'restaurant', Icon: Utensils },
+  { label: 'Park', query: 'park', Icon: Trees },
+  { label: 'Station', query: 'station', Icon: TrainFront },
+] as const;
 
 interface PlacePickerProps {
   /** The chosen place name (or whatever was typed). */
@@ -20,6 +30,9 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [postcodeMode, setPostcodeMode] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const picked = useRef<string | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
@@ -67,16 +80,29 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
       <div className="g-place__field">
         <Search className="w-4 h-4" aria-hidden="true" />
         <input
-          id={id} type="text" required={required} value={value} autoComplete="off" autoCapitalize="words" maxLength={120}
+          ref={inputRef} id={id} type="text" required={required} value={value} autoComplete="off" autoCapitalize="words" maxLength={120}
           role="combobox" aria-expanded={open && results.length > 0} aria-controls={listId} aria-autocomplete="list"
+          onBlur={() => window.setTimeout(() => setFocused(false), 150)}
           onChange={(e) => { picked.current = null; onTextChange(e.target.value); setOpen(true); }}
-          onFocus={() => { setOpen(true); window.setTimeout(() => boxRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250); }}
-          placeholder={placeholder}
+          onFocus={() => { setFocused(true); setOpen(true); window.setTimeout(() => boxRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250); }}
+          placeholder={postcodeMode ? 'Enter a postcode, e.g. M1 1AE' : placeholder}
           className={className}
         />
         {loading ? <Loader2 className="w-4 h-4 g-place__spin" aria-hidden="true" />
           : value && <button type="button" className="g-place__clear" aria-label="Clear" onClick={() => { picked.current = null; onTextChange(''); setResults([]); }}><X className="w-3.5 h-3.5" /></button>}
       </div>
+      {focused && !value.trim() && (
+        <div className="g-place__chips" role="group" aria-label="Quick searches near you">
+          {PRESETS.map(({ label, query, Icon }) => (
+            <button key={query} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { picked.current = null; setPostcodeMode(false); onTextChange(query); setOpen(true); }}>
+              <Icon className="w-3.5 h-3.5" aria-hidden="true" />{label}
+            </button>
+          ))}
+          <button type="button" className={postcodeMode ? 'is-on' : ''} onMouseDown={(e) => e.preventDefault()} onClick={() => { setPostcodeMode(true); inputRef.current?.focus(); }}>
+            <Hash className="w-3.5 h-3.5" aria-hidden="true" />Postcode
+          </button>
+        </div>
+      )}
       {open && (results.length > 0 || failed) && (
         <ul id={listId} ref={listRef} role="listbox" className="g-place__list">
           {results.map((p) => (

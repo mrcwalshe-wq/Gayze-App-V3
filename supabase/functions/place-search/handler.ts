@@ -87,7 +87,7 @@ export function createPlaceSearchHandler(deps: PlaceSearchDeps) {
     if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
       params.set('lat', String(round2(lat)));
       params.set('lon', String(round2(lng)));
-      params.set('location_bias_scale', '0.4');
+      params.set('location_bias_scale', '0.8');
     }
 
     try {

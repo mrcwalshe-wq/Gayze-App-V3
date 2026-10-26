@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Compass, MapPin, MessageCircle, Navigation, ShieldCheck, X } from 'lucide-react';
+import { CalendarCheck, Check, Compass, MapPin, MessageCircle, Navigation, ShieldCheck, X } from 'lucide-react';
 import type { SafeHaven } from '../types';
 import type { LatLng } from '../services/geo';
 import { withDistances } from '../services/havenDistance';
@@ -15,15 +15,24 @@ interface JourneySheetProps {
   peerName: string;
   safeHavens: SafeHaven[];
   userLocation: LatLng | null;
+  /** A meetup already arranged in this chat; the guide heads there unless you choose somewhere else. */
+  arranged?: { venueName: string; lat: number; lng: number; timeStr: string; confirmed: boolean } | null;
   onStart: (dest: { venueName: string; dest: LatLng; share: boolean }) => void;
 }
 
 /** "I'm on my way": choose where you are heading. GAYZE then points you there and (optionally) keeps them posted. */
-export const JourneySheet: React.FC<JourneySheetProps> = ({ isOpen, onClose, peerName, safeHavens, userLocation, onStart }) => {
+export const JourneySheet: React.FC<JourneySheetProps> = ({ isOpen, onClose, peerName, safeHavens, userLocation, arranged, onStart }) => {
   const [text, setText] = useState('');
   const [dest, setDest] = useState<Destination | null>(null);
   const [share, setShare] = useState(true);
   const nearby = useMemo(() => withDistances(safeHavens, userLocation).slice(0, 3), [safeHavens, userLocation?.lat, userLocation?.lng]);
+
+  // Open already pointing at the arranged place, if there is one.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (arranged) { setText(arranged.venueName); setDest({ name: arranged.venueName, lat: arranged.lat, lng: arranged.lng, note: arranged.timeStr }); }
+    else { setText(''); setDest(null); }
+  }, [isOpen, arranged?.venueName, arranged?.lat, arranged?.lng]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -54,6 +63,14 @@ export const JourneySheet: React.FC<JourneySheetProps> = ({ isOpen, onClose, pee
         <div className="g-plan__body">
           <section>
             <h4><MapPin className="w-3.5 h-3.5" aria-hidden="true" />Where are you heading?</h4>
+            {arranged && (
+              <button type="button" className={`g-jr__arranged ${dest?.name === arranged.venueName ? 'is-on' : ''}`}
+                onClick={() => { hapticLight(); setText(arranged.venueName); setDest({ name: arranged.venueName, lat: arranged.lat, lng: arranged.lng, note: arranged.timeStr }); }}>
+                <CalendarCheck className="w-5 h-5" aria-hidden="true" />
+                <span><small>{arranged.confirmed ? 'Your arranged meetup' : 'Proposed meetup'}</small><strong>{arranged.venueName}</strong><em>{arranged.timeStr}</em></span>
+                {dest?.name === arranged.venueName && <Check className="w-4 h-4" aria-hidden="true" />}
+              </button>
+            )}
             <PlacePicker
               value={text} near={userLocation} placeholder="Search for the place"
               className="g-field g-iset__field"
