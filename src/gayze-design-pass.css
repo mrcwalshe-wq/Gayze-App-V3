@@ -1131,11 +1131,12 @@ nav.g-tabbar {
     box-shadow: 0 -10px 34px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .07) !important;
   }
   nav.g-tabbar.g-tabbar .g-tabbar__inner { height: var(--g-tabbar-h) !important; min-height: 0 !important; }
-  nav.g-tabbar.g-tabbar { --gd-center: 31px; --gd-r: 46px; --gd-rise: 15px; }
-  nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-logo-image { width: 52px !important; height: 52px !important; }
-  nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-action { position: relative !important; top: -24px; }
+  nav.g-tabbar.g-tabbar { --gd-center: 33px; --gd-r: 51px; --gd-rise: 18px; }
+  nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-logo-image { width: 68px !important; height: 68px !important; max-width: none !important; max-height: none !important; }
+  nav.g-tabbar.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action { width: 68px !important; height: 68px !important; padding: 0 !important; }
+  nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-action { position: relative !important; top: -27px; }
   nav.g-tabbar.g-tabbar .g-tab--discover .g-tab__label { position: relative; top: -11px; }
-  nav.g-tabbar .g-tabbar__edge { top: -15px; }
+  nav.g-tabbar .g-tabbar__edge { top: -18px; }
 }
 @media (max-width: 767px) {
   nav.g-tabbar .g-tabbar__edge { z-index: 0; }
