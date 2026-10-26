@@ -3637,7 +3637,7 @@ export default function App() {
 
           {activeTab === 'swarms' && (
             <div className="g-messages-hub">
-              {IS_LIVE_BACKEND && <PushEnableBanner userId={supabaseUserId} />}
+              {IS_LIVE_BACKEND && !(visibleChatRoomId && messagesSubTab === 'chats') && <PushEnableBanner userId={supabaseUserId} />}
               <div className="g-messages-subtabs" role="tablist" aria-label="Messages sections">
                 <button
                   type="button"
@@ -3683,7 +3683,8 @@ export default function App() {
                   />
                 ) : (
                   <>
-                    {notificationInbox?.rows
+                    {/* The reminders only belong on the chat list; inside a chat they pushed the message box off screen. */}
+                    {!visibleChatRoomId && notificationInbox?.rows
                       .filter((notice) => notice.category === 'gaze' && !notice.read_at && !notice.event_key?.startsWith('interest:'))
                       .slice(0, 5)
                       .map((notice) => (
@@ -3709,8 +3710,9 @@ export default function App() {
                           <ChevronRight className="h-5 w-5 shrink-0 text-violet-100" />
                         </button>
                       ))}
-                    {notificationInbox?.rows
-                      .filter((notice) => notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received'))
+                    {!visibleChatRoomId && notificationInbox?.rows
+                      .filter((notice) => notice.event_key?.startsWith('interest:') && notice.event_key.endsWith(':received')
+                        && pendingIncomingInterests.some((interest) => interest.fromUserId === notice.actor_id))
                       .slice(0, 5)
                       .map((notice) => (
                         <button
@@ -3732,7 +3734,7 @@ export default function App() {
                           <span className="shrink-0 text-sm font-semibold text-violet-100">View <span aria-hidden="true">›</span></span>
                         </button>
                       ))}
-                    {pendingIncomingInterests.length > 0 && (
+                    {!visibleChatRoomId && pendingIncomingInterests.length > 0 && (
                         <button
                           type="button"
                           onClick={() => setMessagesSubTab('notifications')}

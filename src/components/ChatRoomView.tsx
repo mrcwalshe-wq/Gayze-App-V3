@@ -888,6 +888,12 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 setHistoryWindow({ roomId: activeRoomId, count: visibleCount + 100 });
               }}>Show older messages</button>
             )}
+            {timeline.length === 0 && currentRoom && (
+              <div className="g-chatlist__empty" role="status">
+                <span className="g-chatlist__empty-icon"><Lock className="w-5 h-5" /></span>
+                <p>You're connected with {currentRoom.peerName || currentRoom.name}. Say hello — it's encrypted on this device.</p>
+              </div>
+            )}
             {timeline.map((entry) => {
               if (entry.kind === 'gayze') {
                 const who = currentRoom?.name ?? 'Someone';
