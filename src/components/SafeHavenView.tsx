@@ -58,7 +58,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
         </div>
 
         {/* Filter Pills with horizontal scroll on mobile */}
-        <div className="gayze-premium-control flex items-center gap-1 p-1 rounded-xl border overflow-x-auto no-scrollbar self-start sm:self-auto max-w-full">
+        <div className="gayze-premium-control flex items-center gap-1 p-1 rounded-xl border overflow-x-auto no-scrollbar self-start sm:self-auto max-w-full" role="group" aria-label="Filter Safe Havens by type">
           {[
             { id: 'all', label: 'All Havens' },
             { id: 'cafe', label: 'Cafes' },
@@ -72,6 +72,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                 hapticLight();
                 setFilterType(item.id);
               }}
+              aria-pressed={filterType === item.id}
               className={`h-8 px-3 text-xs font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer ${filterType === item.id
                 ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
