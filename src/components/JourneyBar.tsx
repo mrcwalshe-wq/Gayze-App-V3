@@ -10,6 +10,7 @@ interface JourneyBarProps {
   live: JourneyLive;
   onStop: () => void;
   onDirections?: () => void;
+  onToggleShare?: (share: boolean) => void;
 }
 
 const headline = (live: JourneyLive): { text: string; sub: string } => {
@@ -27,7 +28,7 @@ const headline = (live: JourneyLive): { text: string; sub: string } => {
 };
 
 /** A find-my-style guide at the top of the screen: green when you face the place, red when you do not. */
-export const JourneyBar: React.FC<JourneyBarProps> = ({ venueName, peerName, share, live, onStop, onDirections }) => {
+export const JourneyBar: React.FC<JourneyBarProps> = ({ venueName, peerName, share, live, onStop, onDirections, onToggleShare }) => {
   const { text, sub } = headline(live);
   const state = live.arrived ? 'arrived' : live.direction;
   const eta = live.etaMin == null ? '' : live.etaMin < 1 ? 'under a minute' : `about ${Math.round(live.etaMin)} min`;
@@ -46,7 +47,11 @@ export const JourneyBar: React.FC<JourneyBarProps> = ({ venueName, peerName, sha
           {live.distM != null && !live.arrived && <> · {formatMeters(live.distM)}{eta ? ` · ${eta}` : ''}</>}
         </span>
         {live.sendError && <span className="g-jbar__warn">Couldn’t send your update to {peerName}. Retrying.</span>}
-        {share && !live.sendError && !live.arrived && <span className="g-jbar__fine">Keeping {peerName} posted</span>}
+        {!live.arrived && onToggleShare && (
+          <button type="button" role="switch" aria-checked={share} className={`g-jbar__share ${share ? 'is-on' : ''}`} onClick={() => onToggleShare(!share)}>
+            <i aria-hidden="true" />{share ? `Keeping ${peerName} posted · tap to pause` : `Updates to ${peerName} paused · tap to resume`}
+          </button>
+        )}
       </div>
       {onDirections && !live.arrived && <button type="button" className="g-jbar__dir" onClick={onDirections}>Directions</button>}
       <button type="button" className="g-jbar__stop" onClick={onStop} aria-label="Stop"><X className="w-4 h-4" /></button>
