@@ -9,6 +9,8 @@ export interface JourneyPlan {
   dest: LatLng;
   /** Send the four progress messages into the chat. Off = compass only. */
   share: boolean;
+  /** The meetup this journey is for, when it was started from a meetup card. */
+  meetingId?: string;
 }
 interface Stored extends JourneyPlan { startedAt: number; origin: LatLng | null; handled: Stage[] }
 

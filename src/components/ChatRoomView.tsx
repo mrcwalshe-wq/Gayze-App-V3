@@ -1,6 +1,7 @@
 import { PeerIntentBanner } from './PeerIntentBanner';
 import { SharePlaceSheet } from './SharePlaceSheet';
 import { MeetupCard, type MeetupAction } from './MeetupCard';
+import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
@@ -308,23 +309,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const visibleCount = historyWindow.roomId === activeRoomId ? historyWindow.count : 100;
   const visibleMessages = currentMessages.slice(-visibleCount);
   // The latest state of every meetup in this chat, and who first proposed it. Cards for older messages collapse.
-  const meetups = useMemo(() => {
-    const map = new Map<string, { msgId: string; meeting: MeetingProposal; at: number; proposedByMe: boolean; firstAt: number }>();
-    for (const m of currentMessages) {
-      if (!m.meetingData) continue;
-      const mine = currentUserId ? m.senderKey === currentUserId : m.senderKey === currentUser.publicKey;
-      const prev = map.get(m.meetingData.id);
-      const at = m.timestamp;
-      map.set(m.meetingData.id, {
-        msgId: !prev || at >= prev.at ? m.id : prev.msgId,
-        meeting: !prev || at >= prev.at ? m.meetingData : prev.meeting,
-        at: !prev || at >= prev.at ? at : prev.at,
-        proposedByMe: !prev || at < prev.firstAt ? mine : prev.proposedByMe,
-        firstAt: !prev ? at : Math.min(prev.firstAt, at),
-      });
-    }
-    return map;
-  }, [currentMessages, currentUserId, currentUser.publicKey]);
+  const meetups = useMemo(
+    () => latestMeetups(currentMessages, (m) => (currentUserId ? m.senderKey === currentUserId : m.senderKey === currentUser.publicKey)),
+    [currentMessages, currentUserId, currentUser.publicKey],
+  );
   const roomGayzes = useMemo(() => gayzeEvents.filter((event) => currentRoom?.type === 'direct' && (
     event.actorId === currentRoom.peerUserId
     || Boolean(currentRoom.memberIds?.includes(event.actorId) && currentRoom.memberIds?.includes(currentUserId ?? ''))

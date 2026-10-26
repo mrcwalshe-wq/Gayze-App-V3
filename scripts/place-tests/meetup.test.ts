@@ -66,3 +66,32 @@ test('route links use only the venue, per platform', () => {
   assert.equal(isApplePlatform('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 5), true);
   assert.equal(isApplePlatform('Mozilla/5.0 (Linux; Android 14)'), false);
 });
+
+import { latestMeetups } from '../../src/services/meetupState.ts';
+const ME = 'me', THEM = 'them';
+const ev = (id: string, who: string, t: number, event: string, status: string): any => ({ id: `${id}-${t}`, senderKey: who, timestamp: t, meetingData: { id, venueName: 'v', address: '', timeStr: 't', timestamp: t, status, event, isSafeHaven: false, safetyTimerDurationMinutes: 60 } });
+const mine = (m: any) => m.senderKey === ME;
+
+test('the proposer is whoever wrote the latest proposal', () => {
+  const s = latestMeetups([ev('m', ME, 1, 'proposed', 'proposed')], mine).get('m')!;
+  assert.equal(s.proposedByMe, true);
+  const accepted = latestMeetups([ev('m', ME, 1, 'proposed', 'proposed'), ev('m', THEM, 2, 'accepted', 'accepted')], mine).get('m')!;
+  assert.equal(accepted.proposedByMe, true);                 // an answer does not change who proposed
+  assert.equal(accepted.meeting.status, 'accepted');
+});
+
+test('after a decline, the person who suggests something else becomes the proposer', () => {
+  const list = [ev('m', ME, 1, 'proposed', 'proposed'), ev('m', THEM, 2, 'declined', 'declined'), ev('m', THEM, 3, 'amended', 'proposed')];
+  const forMe = latestMeetups(list, mine).get('m')!;
+  assert.equal(forMe.proposedByMe, false);                   // I now get Accept / Decline
+  assert.equal(forMe.meeting.status, 'proposed');
+  const forThem = latestMeetups(list, (m) => m.senderKey === THEM).get('m')!;
+  assert.equal(forThem.proposedByMe, true);                  // they see "Waiting for..." and can change or cancel
+});
+
+test('separate meetups in one chat are tracked separately', () => {
+  const map = latestMeetups([ev('a', ME, 1, 'proposed', 'proposed'), ev('b', THEM, 2, 'proposed', 'proposed'), ev('a', THEM, 3, 'cancelled', 'cancelled')], mine);
+  assert.equal(map.get('a')!.meeting.status, 'cancelled');
+  assert.equal(map.get('b')!.meeting.status, 'proposed');
+  assert.equal(map.get('b')!.proposedByMe, false);
+});

@@ -2592,9 +2592,10 @@ export default function App() {
   // If the other person cancels the meetup while you are on your way, stop the guide.
   useEffect(() => {
     if (!journey) return;
-    const cancelled = (messages[journey.roomId] || []).some((m) => m.meetingData?.status === 'cancelled' && m.timestamp > journey.startedAt);
+    // Only a cancellation of the meetup this journey is for. A journey started without a meetup is never auto-stopped.
+    const cancelled = Boolean(journey.meetingId) && (messages[journey.roomId] || []).some((m) => m.meetingData?.id === journey.meetingId && m.meetingData?.status === 'cancelled' && m.timestamp > journey.startedAt);
     if (cancelled) { stopJourney(); showToast('The meetup was cancelled. Your guide has stopped.'); }
-  }, [messages, journey?.roomId, journey?.startedAt]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages, journey?.roomId, journey?.startedAt, journey?.meetingId]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Meeting Scheduling & Acceptance Handlers
   const handleOpenScheduleMeeting = (peerName: string) => {
@@ -2704,7 +2705,7 @@ export default function App() {
         try { await sendMeetingEvent(roomId, 'declined', meeting); } catch { showToast('That was not confirmed. Please try again.'); }
         break;
       case 'cancel':
-        if (journey?.roomId === roomId) stopJourney();
+        if (journey?.roomId === roomId && journey.meetingId === meeting.id) stopJourney();
         try { await sendMeetingEvent(roomId, 'cancelled', meeting); showToast('Meetup cancelled'); }
         catch { showToast('The cancellation was not confirmed. Please try again.'); }
         break;
@@ -2717,7 +2718,7 @@ export default function App() {
       case 'compass':
         if (meeting.lat === undefined || meeting.lng === undefined) { showToast('This meetup has no map position, so the guide cannot point there.'); break; }
         // Called straight from the tap so iOS can show its motion-access prompt.
-        void startJourney({ roomId, peerName, venueName: meeting.venueName, dest: { lat: meeting.lat, lng: meeting.lng }, share: action === 'setoff' });
+        void startJourney({ roomId, peerName, venueName: meeting.venueName, dest: { lat: meeting.lat, lng: meeting.lng }, share: action === 'setoff', meetingId: meeting.id });
         break;
     }
   };
