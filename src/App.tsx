@@ -3027,7 +3027,7 @@ export default function App() {
 
   const handleSubmitGaze = async (pulse: Pulse) => {
     const result = await handleSubmitInterest(pulse);
-    return { sent: result.sent };
+    return { sent: result.sent, errorCode: result.errorCode, retryAfterSeconds: result.retryAfterSeconds };
   };
 
 

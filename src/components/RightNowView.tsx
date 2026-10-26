@@ -166,7 +166,7 @@ interface RightNowViewProps {
   onOpenIntentHub?: () => void;
   onUpdateActiveUserIntent?: (intent: UserActiveIntent | null) => void;
   onSubmitInterest?: (pulse: Pulse, message?: string, sharedPhotoIds?: string[]) => Promise<{ sent: boolean; mutual: boolean; conversation_id: string | null; errorCode?: string; retryAfterSeconds?: number }>;
-  onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean }>;
+  onSubmitGaze?: (pulse: Pulse) => Promise<{ sent: boolean; errorCode?: string; retryAfterSeconds?: number }>;
   onSwitchToLater?: () => void;
   onRequestLocation?: () => void;
   /**
@@ -554,9 +554,20 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const handleGazeAtPerson = async (name: string, peerId: string, pulseObj?: Pulse) => {
     triggerVibration([40, 80]);
     try {
-      const sent = pulseObj && onSubmitGaze
-        ? (await onSubmitGaze(pulseObj)).sent
-        : await onGazeAtPeer?.(name, peerId);
+      let sent: boolean | void | undefined;
+      if (pulseObj && onSubmitGaze) {
+        const result = await onSubmitGaze(pulseObj);
+        sent = result.sent;
+        if (!sent && result.errorCode === 'GAYZE_COOLDOWN') {
+          const seconds = Math.max(0, result.retryAfterSeconds ?? 86400);
+          const hours = Math.floor(seconds / 3600);
+          const minutes = Math.ceil((seconds % 3600) / 60);
+          showStatusMessage(`GAYZE already sent. You can send another in ${hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`}.`, 5000);
+          return;
+        }
+      } else {
+        sent = await onGazeAtPeer?.(name, peerId);
+      }
       if (sent === true) setGazedPeerNames((prev) => new Set(prev).add(peerId));
       else showStatusMessage('Gaze could not be sent — try again');
     } catch { showStatusMessage('Gaze could not be sent — try again'); }
