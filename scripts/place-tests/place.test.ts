@@ -87,3 +87,16 @@ test('a shared place message has the place and a map link, and nothing about the
   assert.match(m, /openstreetmap\.org\/\?mlat=51\.51260&mlon=-0\.12680/);
   assert.equal(m.split('\n').length, 3);
 });
+
+test('category search: nearest places of one kind, position rounded, bad input refused', async () => {
+  const urls: string[] = [];
+  const h = createPlaceSearchHandler({ authenticate: auth, fetchImpl: ok(urls) });
+  const res = await h(req({ category: 'cafe', lat: 52.80123, lng: -1.23456 }));
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).results.length, 2);
+  assert.match(urls[0], /photon\.komoot\.io\/reverse\?/);
+  assert.match(urls[0], /lat=52\.8&lon=-1\.23/);
+  assert.match(urls[0], /osm_tag=amenity%3Acafe/);
+  assert.equal((await h(req({ category: 'nope', lat: 1, lng: 1 }))).status, 400);
+  assert.equal((await h(req({ category: 'cafe' }))).status, 400);
+});
