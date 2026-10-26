@@ -33,7 +33,8 @@ import {
   Image as ImageIcon,
   MoreHorizontal,
   Trash2,
-  Ban
+  Ban,
+  Navigation,
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
@@ -64,6 +65,9 @@ interface ChatRoomViewProps {
   onOpenQR?: (peerName?: string) => void;
   onStartCall?: (peerName: string, callType: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => void;
   onOpenScheduleMeeting?: (peerName: string) => void;
+  /** Open the "I'm on my way" sheet for this chat. */
+  onOpenJourney?: (roomId: string, peerName: string) => void;
+  journeyRoomId?: string | null;
   onAcceptMeeting?: (meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
   onlineUserIds?: Set<string>;
@@ -116,6 +120,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onOpenQR,
   onStartCall,
   onOpenScheduleMeeting,
+  onOpenJourney,
+  journeyRoomId,
   onAcceptMeeting,
   onReturnToDiscovery,
   onlineUserIds,
@@ -681,6 +687,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
             {/* Header Actions — keep the direct actions quiet; secondary controls live in one menu on mobile. */}
             <div className="g-chat-header__actions flex items-center gap-1 shrink-0">
+              {currentRoom.type === 'direct' && onOpenJourney && (
+                <button
+                  type="button"
+                  onClick={() => onOpenJourney(currentRoom.id, currentRoom.peerName || currentRoom.name)}
+                  className={`g-icon-btn g-chat-header__action ${journeyRoomId === currentRoom.id ? 'is-live' : ''}`}
+                  title="I'm on my way"
+                  aria-label="I'm on my way"
+                  disabled={Boolean(journeyRoomId) && journeyRoomId !== currentRoom.id}
+                >
+                  <Navigation className="w-4 h-4 text-[#7be0a8]" />
+                </button>
+              )}
               {currentRoom.type === 'direct' && onStartCall && (
                 <button
                   onClick={() => onStartCall(currentRoom.peerName || currentRoom.name, 'video', currentRoom.peerUserId, currentRoom.peerAvatar)}

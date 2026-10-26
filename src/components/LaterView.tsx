@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
+import { PlacePicker } from './PlacePicker';
 
 const CATEGORY_ART: Record<string, { label: string; icon: LucideIcon; rgb: string; rgb2: string }> = {
   social: { label: 'Social & drinks', icon: Wine, rgb: '214, 170, 80', rgb2: '184, 92, 222' },
@@ -87,6 +88,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [formLocation, setFormLocation] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [formNeighborhood, setFormNeighborhood] = useState('');
+  const [formCoords, setFormCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [formCapacity, setFormCapacity] = useState(16);
   const [formTags, setFormTags] = useState('');
 
@@ -149,8 +151,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
       address: formAddress,
       neighborhood: formNeighborhood,
       isSafeHavenVenue: false,
-      lat: userLocation?.lat ?? null,
-      lng: userLocation?.lng ?? null,
+      lat: formCoords?.lat ?? userLocation?.lat ?? null,
+      lng: formCoords?.lng ?? userLocation?.lng ?? null,
       capacity: formCapacity,
       tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
       safetyGuidelines: 'Safe Haven principles. Consent-first communication and respectful space conduct.',
@@ -163,6 +165,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
     setFormLocation('');
     setFormAddress('');
     setFormNeighborhood('');
+    setFormCoords(null);
     setFormError(null);
   };
 
@@ -444,7 +447,15 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
                 <div>
                   <label htmlFor="gathering-venue" className="g-label">Where</label>
-                  <input id="gathering-venue" type="text" required value={formLocation} onChange={(e) => setFormLocation(e.target.value)} placeholder="Venue name" className="g-field g-iset__field mt-2.5" />
+                  <div className="mt-2.5">
+                    <PlacePicker
+                      id="gathering-venue" required value={formLocation} near={userLocation}
+                      placeholder="Search for a venue near you"
+                      className="g-field g-iset__field"
+                      onTextChange={(t) => { setFormLocation(t); setFormCoords(null); }}
+                      onPick={(pl) => { setFormLocation(pl.name); setFormAddress(pl.address || pl.area || pl.name); setFormNeighborhood(pl.area); setFormCoords({ lat: pl.lat, lng: pl.lng }); }}
+                    />
+                  </div>
                   <input id="gathering-address" type="text" required value={formAddress} onChange={(e) => setFormAddress(e.target.value)} placeholder="Street address" aria-label="Street address" className="g-field g-iset__field mt-2" />
                   <input id="gathering-neighborhood" type="text" value={formNeighborhood} onChange={(e) => setFormNeighborhood(e.target.value)} placeholder="Neighbourhood (optional)" aria-label="Neighbourhood" className="g-field g-iset__field mt-2" />
                 </div>

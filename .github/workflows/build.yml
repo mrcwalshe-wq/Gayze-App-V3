@@ -30,3 +30,6 @@ jobs:
 
       - name: E2EE regression tests
         run: npm run test:e2ee
+
+      - name: Place search and journey tests
+        run: npm run test:places
