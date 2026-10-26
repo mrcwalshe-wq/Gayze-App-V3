@@ -1,22 +1,28 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { withDistances } from '../services/havenDistance';
+import { formatDistance } from '../services/placeSearch';
 import { SafeHaven } from '../types';
 import { Shield, ShieldCheck, MapPin, Phone, Clock, Sparkles, CheckCircle2, ArrowRight, ChevronLeft } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
 
 interface SafeHavenViewProps {
   safeHavens: SafeHaven[];
+  userLocation?: { lat: number; lng: number } | null;
   onSelectVenueForPulse: (haven: SafeHaven) => void;
   onStartSafeCheckinWithVenue: (haven: SafeHaven) => void;
   onBack?: () => void;
 }
 
 export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
-  safeHavens,
+  safeHavens: rawHavens,
+  userLocation,
   onSelectVenueForPulse,
   onStartSafeCheckinWithVenue,
   onBack,
 }) => {
   const [filterType, setFilterType] = useState<string>('all');
+  // Real distance from where the member is now, nearest first. Without a location the stored order and estimate stay.
+  const safeHavens = useMemo(() => withDistances(rawHavens, userLocation), [rawHavens, userLocation?.lat, userLocation?.lng]);
 
   const filteredHavens = safeHavens.filter((h) => {
     if (filterType === 'all') return true;
@@ -128,7 +134,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                   <div className="flex items-center gap-1 whitespace-nowrap text-xs text-emerald-300 bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-500/30 font-semibold tabular-nums">
                     <ShieldCheck className="w-3 h-3" aria-hidden="true" /><span>{haven.safetyScore}</span><span className="font-medium text-emerald-300/70">safety</span>
                   </div>
-                  <span className="text-[11px] text-zinc-500 mt-1 tabular-nums">~{haven.approxDistanceKm} km away</span>
+                  <span className="text-[11px] text-zinc-500 mt-1 tabular-nums">{userLocation ? `${formatDistance(haven.approxDistanceKm)} away` : `~${haven.approxDistanceKm} km away`}</span>
                 </div>
               </div>
 

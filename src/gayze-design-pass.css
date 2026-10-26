@@ -1142,3 +1142,65 @@ nav.g-tabbar {
   nav.g-tabbar .g-tabbar__edge { z-index: 0; }
   nav.g-tabbar.g-tabbar .g-tabbar__inner { position: relative; z-index: 1; }
 }
+
+/* ==========================================================================
+   Place search, "I'm on my way" sheet and the live direction guide
+   ========================================================================== */
+.g-place { position: relative; }
+.g-place__field { position: relative; display: flex; align-items: center; }
+.g-place__field > svg:first-child { position: absolute; left: 13px; color: rgba(255, 255, 255, .45); pointer-events: none; }
+.g-place__field input { width: 100%; padding-left: 38px !important; padding-right: 38px !important; }
+.g-place__field > svg:last-child, .g-place__clear { position: absolute; right: 12px; color: rgba(255, 255, 255, .55); }
+.g-place__clear { background: none; border: 0; padding: 4px; display: grid; place-items: center; }
+.g-place__spin { animation: g-place-spin .9s linear infinite; }
+@keyframes g-place-spin { to { transform: rotate(360deg); } }
+.g-place__list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; max-height: 260px; overflow-y: auto; border-radius: 18px; background: #14111f; border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 18px 40px rgba(0, 0, 0, .55); }
+.g-place__list button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 12px; background: none; color: #fff; text-align: left; }
+.g-place__list button:hover, .g-place__list button:focus-visible { background: rgba(167, 123, 240, .16); }
+.g-place__list button svg { flex: none; color: #c4a9f7; }
+.g-place__list button span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.g-place__list strong { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-place__list small { font-size: 11.5px; color: rgba(255, 255, 255, .5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: capitalize; }
+.g-place__list em { flex: none; font-style: normal; font-size: 11.5px; font-weight: 700; color: #8ff0c4; }
+.g-place__note { padding: 8px 10px 4px; font-size: 11px; color: rgba(255, 255, 255, .45); }
+.g-plan__else { margin-top: 12px; }
+.g-plan__note--warn { color: #e7c46f; }
+.g-plan__note--warn svg { color: #e7c46f; }
+.g-plan__send:disabled { opacity: .45; box-shadow: none; }
+
+.g-jr__badge { background: linear-gradient(145deg, #10b981, #0b6b4d); box-shadow: 0 0 0 2px #0c0b15, 0 0 0 3.5px rgba(52, 211, 153, .7); }
+.g-jr__quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.g-jr__quick button { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 8px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 650; color: #d8f7e8; background: rgba(16, 185, 129, .1); border: 1px solid rgba(52, 211, 153, .3); }
+.g-jr__quick button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-jr__quick button small { opacity: .65; }
+.g-jr__quick button.is-on { background: rgba(16, 185, 129, .26); border-color: rgba(52, 211, 153, .75); color: #fff; }
+.g-jr__chosen { color: #8ff0c4; }
+.g-jr__fine { align-items: flex-start; line-height: 1.5; }
+.g-jr__fine svg { margin-top: 2px; }
+.g-chat-header__action.is-live { box-shadow: 0 0 0 2px rgba(52, 211, 153, .6), 0 0 14px rgba(52, 211, 153, .5); }
+
+.g-jbar {
+  --jc: 150, 150, 170; position: fixed; z-index: 10040; left: 10px; right: 10px; top: calc(env(safe-area-inset-top, 0px) + 8px);
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 22px; color: #fff;
+  background: linear-gradient(135deg, rgba(var(--jc), .3), rgba(12, 10, 20, .94) 62%);
+  border: 1px solid rgba(var(--jc), .75);
+  box-shadow: 0 0 0 1px rgba(var(--jc), .25), 0 8px 34px rgba(var(--jc), .5), 0 14px 40px rgba(0, 0, 0, .5);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); transition: border-color .3s, box-shadow .3s, background .3s;
+  animation: g-jbar-in .35s cubic-bezier(.2, .9, .25, 1);
+}
+.g-jbar--good, .g-jbar--arrived { --jc: 52, 211, 153; }
+.g-jbar--near { --jc: 245, 190, 70; }
+.g-jbar--bad { --jc: 248, 90, 90; animation: g-jbar-in .35s cubic-bezier(.2, .9, .25, 1), g-jbar-warn 1.6s ease-in-out .4s infinite; }
+@keyframes g-jbar-in { from { transform: translateY(-16px); opacity: 0; } }
+@keyframes g-jbar-warn { 50% { box-shadow: 0 0 0 1px rgba(var(--jc), .4), 0 8px 44px rgba(var(--jc), .85), 0 14px 40px rgba(0, 0, 0, .5); } }
+.g-jbar__dial { flex: none; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; color: rgb(var(--jc)); background: rgba(var(--jc), .16); box-shadow: inset 0 0 0 2px rgba(var(--jc), .65), 0 0 18px rgba(var(--jc), .45); }
+.g-jbar__dial svg { transition: transform .25s ease-out; }
+.g-jbar__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.g-jbar__main strong { font-size: 17px; font-weight: 800; letter-spacing: -.02em; color: rgb(var(--jc)); filter: brightness(1.25); }
+.g-jbar__main small { font-size: 12px; color: rgba(255, 255, 255, .62); }
+.g-jbar__meta { margin-top: 3px; font-size: 12.5px; color: rgba(255, 255, 255, .85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-jbar__meta b { font-weight: 700; }
+.g-jbar__fine { font-size: 11px; color: rgba(255, 255, 255, .45); }
+.g-jbar__warn { font-size: 11.5px; color: #f5be46; }
+.g-jbar__stop { flex: none; align-self: flex-start; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .1); border: 0; }
+@media (prefers-reduced-motion: reduce) { .g-jbar, .g-jbar--bad { animation: none; } .g-jbar__dial svg { transition: none; } }

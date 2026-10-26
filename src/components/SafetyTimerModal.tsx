@@ -6,9 +6,11 @@ import {
   hapticLight,
   isVibrationSupported
 } from '../services/hapticService';
+import { PlacePicker } from './PlacePicker';
 import { Shield, Clock, CheckCircle2, AlertTriangle, MapPin, User, X, PhoneCall, Zap } from 'lucide-react';
 
 interface SafetyTimerModalProps {
+  userLocation?: { lat: number; lng: number } | null;
   isOpen: boolean;
   onClose: () => void;
   checkinState: SafetyCheckin;
@@ -19,6 +21,7 @@ interface SafetyTimerModalProps {
 }
 
 export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
+  userLocation,
   isOpen,
   onClose,
   checkinState,
@@ -156,13 +159,14 @@ export const SafetyTimerModal: React.FC<SafetyTimerModalProps> = ({
 
             <div>
               <label htmlFor="safety-venue-name" className="block text-xs font-medium text-zinc-300 mb-1">Meetup Location / Venue</label>
-              <input
+              <PlacePicker
                 id="safety-venue-name"
-                type="text"
                 required
                 value={venueName}
-                onChange={(e) => setVenueName(e.target.value)}
-                placeholder="e.g. Timberyard Cafe / The Yard Courtyard"
+                near={userLocation ?? null}
+                onTextChange={setVenueName}
+                onPick={(pl) => setVenueName(pl.name)}
+                placeholder="Search for the venue, or type it"
                 className="w-full bg-[#171922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-[#C9A24D] focus:outline-none"
               />
             </div>

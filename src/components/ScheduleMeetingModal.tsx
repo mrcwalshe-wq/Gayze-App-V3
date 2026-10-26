@@ -1,14 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SafeHaven } from '../types';
 import { ArrowRight, CalendarClock, Check, Clock, MapPin, Moon, ShieldCheck, Sun, Timer, X, Zap } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
+import { PlacePicker } from './PlacePicker';
+import { withDistances } from '../services/havenDistance';
+import { formatDistance, type LatLng } from '../services/geo';
 
 interface ScheduleMeetingModalProps {
   isOpen: boolean;
   onClose: () => void;
   peerName: string;
   safeHavens: SafeHaven[];
+  userLocation?: LatLng | null;
   onConfirmMeeting: (proposal: {
     venueName: string;
     address: string;
@@ -32,8 +36,10 @@ const FALLBACK_HAVEN: SafeHaven = {
 };
 
 /** A meetup proposal: where, when, and an optional safety timer. A bottom sheet above the tab bar. */
-export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onClose, peerName, safeHavens, onConfirmMeeting }) => {
-  const havens = safeHavens.length > 0 ? safeHavens : [FALLBACK_HAVEN];
+export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onClose, peerName, safeHavens, userLocation, onConfirmMeeting }) => {
+  const havens = useMemo(() => withDistances(safeHavens.length > 0 ? safeHavens : [FALLBACK_HAVEN], userLocation), [safeHavens, userLocation?.lat, userLocation?.lng]);
+  const [search, setSearch] = useState('');
+  const [custom, setCustom] = useState<{ name: string; address: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string>(havens[0].id);
   const [timeOption, setTimeOption] = useState<string>(TIMES[0].label);
   const [startLocalCheckin, setStartLocalCheckin] = useState(true);
@@ -52,15 +58,16 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
 
   if (!isOpen) return null;
   const selected = havens.find((h) => h.id === selectedId) ?? havens[0];
+  const venueLabel = custom ? custom.name : selected.name;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     hapticSensitiveAction();
     onConfirmMeeting({
-      venueName: selected.name,
-      address: `${selected.address}, ${selected.neighborhood}`,
+      venueName: venueLabel,
+      address: custom ? custom.address : `${selected.address}, ${selected.neighborhood}`,
       timeStr: timeOption,
-      isSafeHaven: true,
+      isSafeHaven: !custom,
       durationMinutes,
       startLocalCheckin,
     });
@@ -86,13 +93,13 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
             <h4 id="plan-where"><MapPin className="w-3.5 h-3.5" aria-hidden="true" />Where</h4>
             <div className="g-plan__venues" role="radiogroup" aria-label="Verified Safe Havens">
               {havens.map((haven) => {
-                const on = haven.id === selected.id;
+                const on = !custom && haven.id === selected.id;
                 return (
-                  <button key={haven.id} type="button" role="radio" aria-checked={on} className={`g-plan__venue ${on ? 'is-on' : ''}`} onClick={() => { hapticLight(); setSelectedId(haven.id); }}>
+                  <button key={haven.id} type="button" role="radio" aria-checked={on} className={`g-plan__venue ${on ? 'is-on' : ''}`} onClick={() => { hapticLight(); setCustom(null); setSearch(''); setSelectedId(haven.id); }}>
                     <span className="g-plan__score" aria-label={`Safety score ${haven.safetyScore}`}><b>{haven.safetyScore}</b><small>safety</small></span>
                     <span className="g-plan__venue-main">
                       <strong>{haven.name}</strong>
-                      <span>{haven.neighborhood}{haven.approxDistanceKm ? ` · ${haven.approxDistanceKm} km` : ''}</span>
+                      <span>{haven.neighborhood}{haven.approxDistanceKm ? ` · ${userLocation ? formatDistance(haven.approxDistanceKm) : `${haven.approxDistanceKm} km`}` : ''}</span>
                     </span>
                     <span className="g-plan__tick" aria-hidden="true">{on && <Check className="w-3.5 h-3.5" strokeWidth={3} />}</span>
                   </button>
@@ -100,6 +107,15 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
               })}
             </div>
             <p className="g-plan__note"><ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />Verified Safe Havens are public places with trained staff.</p>
+            <div className="g-plan__else">
+              <PlacePicker
+                value={search} near={userLocation ?? null} placeholder="Or search for another place"
+                className="g-field g-iset__field"
+                onTextChange={(t) => { setSearch(t); if (custom && t !== custom.name) setCustom(null); }}
+                onPick={(p) => { setSearch(p.name); setCustom({ name: p.name, address: [p.address, p.area].filter(Boolean).join(', ') || p.name }); }}
+              />
+              {custom && <p className="g-plan__note g-plan__note--warn"><MapPin className="w-3.5 h-3.5" aria-hidden="true" />Not a verified Safe Haven. Choose a public, busy place and tell a friend.</p>}
+            </div>
           </section>
 
           <section aria-labelledby="plan-when">
@@ -135,7 +151,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
         </div>
 
         <footer className="g-plan__foot">
-          <p><strong>{selected.name}</strong> · {timeOption}</p>
+          <p><strong>{venueLabel}</strong> · {timeOption}</p>
           <button type="submit" className="g-plan__send"><span>Send proposal</span><ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
         </footer>
       </form>

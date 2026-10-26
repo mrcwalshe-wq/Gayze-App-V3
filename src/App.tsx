@@ -23,6 +23,9 @@ import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
+import { JourneySheet } from './components/JourneySheet';
+import { JourneyBar } from './components/JourneyBar';
+import { useJourney } from './services/useJourney';
 import { FullScreenCallModal, FullScreenAudioCallModal } from './components/FullScreenCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
 import { ProfilePeekProvider, type PeekFallback } from './components/ProfilePeek';
@@ -659,6 +662,11 @@ export default function App() {
 
   // Schedule Meeting Modal state
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
+  const handleSendMessageRef = useRef<(roomId: string, text: string, ttl?: number) => Promise<void>>(async () => {});
+  const [journeySheet, setJourneySheet] = useState<{ roomId: string; peerName: string } | null>(null);
+  const { journey, live: journeyLive, start: startJourney, stop: stopJourney } = useJourney(
+    (roomId, text) => handleSendMessageRef.current(roomId, text, rooms.find((r) => r.id === roomId)?.ephemeralTtlSeconds),
+  );
   const [scheduleMeetingPeerName, setScheduleMeetingPeerName] = useState<string>('Marcus');
 
   // Encrypted Calling state
@@ -2589,6 +2597,8 @@ export default function App() {
     showToast(ttl === 0 ? 'Auto-delete turned off (messages will be kept)' : `Messages will auto-delete after ${ttl >= 3600 ? ttl / 3600 + 'h' : ttl / 60 + 'm'}`);
   };
 
+  handleSendMessageRef.current = (roomId, text, ttl) => handleSendMessage(roomId, text, ttl);
+
   // Meeting Scheduling & Acceptance Handlers
   const handleOpenScheduleMeeting = (peerName: string) => {
     setScheduleMeetingPeerName(peerName);
@@ -3723,6 +3733,8 @@ export default function App() {
                     }}
                     onStartCall={handleStartCall}
                     onOpenScheduleMeeting={handleOpenScheduleMeeting}
+                    onOpenJourney={(roomId, peerName) => setJourneySheet({ roomId, peerName })}
+                    journeyRoomId={journey?.roomId ?? null}
                     onAcceptMeeting={handleAcceptMeeting}
                     onReturnToDiscovery={() => setActiveTab('right_now')}
                     onlineUserIds={onlineUserIds}
@@ -3747,6 +3759,7 @@ export default function App() {
           {activeTab === 'safe_havens' && (
             <SafeHavenView
               safeHavens={safeHavens}
+              userLocation={userLocation}
               onBack={() => setActiveTab('profile')}
               onSelectVenueForPulse={(haven) => {
                 setActiveTab('right_now');
@@ -3809,12 +3822,26 @@ export default function App() {
         </div>
       )}
 
+      {/* "I'm on my way": destination sheet and the live guide at the top of the screen */}
+      <JourneySheet
+        isOpen={Boolean(journeySheet)}
+        onClose={() => setJourneySheet(null)}
+        peerName={journeySheet?.peerName ?? ''}
+        safeHavens={safeHavens}
+        userLocation={userLocation}
+        onStart={(d) => { if (journeySheet) void startJourney({ roomId: journeySheet.roomId, peerName: journeySheet.peerName, venueName: d.venueName, dest: d.dest, share: d.share }); }}
+      />
+      {journey && (
+        <JourneyBar venueName={journey.venueName} peerName={journey.peerName} share={journey.share} live={journeyLive} onStop={stopJourney} />
+      )}
+
       {/* Schedule Meeting & Safe Haven Date Modal */}
       <ScheduleMeetingModal
         isOpen={isScheduleMeetingOpen}
         onClose={() => setIsScheduleMeetingOpen(false)}
         peerName={scheduleMeetingPeerName}
         safeHavens={safeHavens}
+        userLocation={userLocation}
         onConfirmMeeting={handleConfirmMeeting}
       />
 
@@ -3953,6 +3980,7 @@ export default function App() {
 
       {/* Local Safety Check-in Timer Modal */}
       <SafetyTimerModal
+        userLocation={userLocation}
         isOpen={isSafetyTimerOpen}
         onClose={() => setIsSafetyTimerOpen(false)}
         checkinState={checkinState}
