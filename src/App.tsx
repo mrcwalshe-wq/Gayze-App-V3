@@ -3734,6 +3734,7 @@ export default function App() {
                     onStartCall={handleStartCall}
                     onOpenScheduleMeeting={handleOpenScheduleMeeting}
                     onOpenJourney={(roomId, peerName) => setJourneySheet({ roomId, peerName })}
+                    userLocation={userLocation}
                     journeyRoomId={journey?.roomId ?? null}
                     onAcceptMeeting={handleAcceptMeeting}
                     onReturnToDiscovery={() => setActiveTab('right_now')}
@@ -3916,6 +3917,7 @@ export default function App() {
         existingIntent={activeUserIntent}
         safeHavens={safeHavens}
         userNeighborhood={currentUser.neighborhood}
+        userLocation={userLocation}
         initialMode={intentHubMode}
       />
 

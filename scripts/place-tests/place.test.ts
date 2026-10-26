@@ -79,3 +79,11 @@ test('an upstream failure is a clean 502, not a leak', async () => {
     assert.deepEqual(await res.json(), { error: 'search_unavailable' });
   }
 });
+
+import { placeMessage } from '../../src/services/placeMessage.ts';
+test('a shared place message has the place and a map link, and nothing about the sender', () => {
+  const m = placeMessage({ name: 'Timberyard', address: '7 Upper St Martin’s Lane, WC2H 9DL', area: 'Covent Garden, London', lat: 51.5126, lng: -0.1268 });
+  assert.match(m, /^Timberyard\n7 Upper St/);
+  assert.match(m, /openstreetmap\.org\/\?mlat=51\.51260&mlon=-0\.12680/);
+  assert.equal(m.split('\n').length, 3);
+});

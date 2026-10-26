@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import { SparkBorder } from './SparkBorder';
+import { PlacePicker } from './PlacePicker';
 import {
   SafeHaven,
   TopLevelIntentMode,
@@ -39,6 +40,7 @@ interface SetIntentSheetProps {
   existingIntent?: UserActiveIntent | null;
   safeHavens?: SafeHaven[];
   userNeighborhood: string;
+  userLocation?: { lat: number; lng: number } | null;
   defaultWhen?: string;
   initialMode?: TopLevelIntentMode | null;
 }
@@ -110,6 +112,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   existingIntent,
   safeHavens = [],
   userNeighborhood,
+  userLocation,
   defaultWhen = 'Now',
   initialMode = null,
 }) => {
@@ -122,6 +125,9 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   const [canHost, setCanHost] = useState<'Can host' | 'Cannot host' | 'Depends'>('Can host');
   const [travelWillingness, setTravelWillingness] = useState<'Yes' | 'Within reason' | 'Car required'>('Yes');
   const [useSafeHaven, setUseSafeHaven] = useState(false);
+  // Social signals only: an optional real place to meet. Its name and area are shown to members who see the signal.
+  const [placeText, setPlaceText] = useState('');
+  const [place, setPlace] = useState<{ name: string; area: string } | null>(null);
   const [selectedHaven, setSelectedHaven] = useState<SafeHaven | null>(safeHavens[0] ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -207,9 +213,12 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     const activatedAt = intentStartsAt(when);
     const expiresAt = activatedAt + durationMs;
 
+    const meetPlace = mode === 'social' && !useSafeHaven ? place : null;
     const areaText = useSafeHaven && selectedHaven
       ? `${selectedHaven.name} (Safe Haven, ${userNeighborhood})`
-      : `${userNeighborhood} (Approximate ±300m)`;
+      : meetPlace
+        ? `${meetPlace.name}${meetPlace.area ? ` (${meetPlace.area})` : ''}`
+        : `${userNeighborhood} (Approximate ±300m)`;
 
     const activeData: UserActiveIntent = {
       remoteId: existingIntent?.remoteId,
@@ -503,7 +512,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                       aria-checked={useSafeHaven}
                       aria-label="Show my signal near a Safe Haven"
                       className="g-toggle"
-                      onClick={() => { hapticLight(); setUseSafeHaven((v) => !v); }}
+                      onClick={() => { hapticLight(); setUseSafeHaven((v) => !v); setPlace(null); setPlaceText(''); }}
                     />
                   </div>
                 )}
@@ -521,6 +530,21 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                         {h.name}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {mode === 'social' && !useSafeHaven && (
+                  <div className="g-iset__place">
+                    <span className="text-[13px] font-medium text-white block mb-1.5">Where to meet <span className="text-zinc-500 font-normal">(optional)</span></span>
+                    <PlacePicker
+                      value={placeText} near={userLocation ?? null} placeholder="Search for a bar, café or park"
+                      className="g-field g-iset__field"
+                      onTextChange={(t) => { setPlaceText(t); if (place && t !== place.name) setPlace(null); }}
+                      onPick={(p) => { setPlaceText(p.name); setPlace({ name: p.name, area: p.area }); }}
+                    />
+                    <span className="text-[11px] text-zinc-500 block mt-1.5">
+                      {place ? 'Members who see your signal will see this place. Pick somewhere public.' : 'Leave empty to show only your approximate area.'}
+                    </span>
                   </div>
                 )}
 
