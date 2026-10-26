@@ -107,15 +107,23 @@ export interface SafeHaven {
   staffTrained: boolean;
 }
 
+export type MeetingEvent = 'proposed' | 'amended' | 'accepted' | 'declined' | 'cancelled';
+
 export interface MeetingProposal {
   id: string;
   venueName: string;
   address: string;
   timeStr: string;
   timestamp: number;
-  status: 'proposed' | 'accepted' | 'declined';
+  /** Where the meetup stands as of this message. Derived from `event` for messages that came over the wire. */
+  status: 'proposed' | 'accepted' | 'declined' | 'cancelled';
+  /** What this message did to the meetup. The card shows the latest event for each meetup id. */
+  event?: MeetingEvent;
   isSafeHaven: boolean;
   safetyTimerDurationMinutes: number;
+  /** The venue's position, used for the compass and directions. Absent on older meetups and typed-in venues. */
+  lat?: number;
+  lng?: number;
 }
 
 export interface EncryptedMessage {

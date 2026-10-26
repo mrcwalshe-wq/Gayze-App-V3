@@ -20,7 +20,11 @@ interface ScheduleMeetingModalProps {
     isSafeHaven: boolean;
     durationMinutes: number;
     startLocalCheckin: boolean;
+    lat?: number;
+    lng?: number;
   }) => void;
+  /** Set when changing a plan that was already sent. */
+  amend?: { id: string; venueName: string; timeStr: string } | null;
 }
 
 const TIMES = [
@@ -36,10 +40,10 @@ const FALLBACK_HAVEN: SafeHaven = {
 };
 
 /** A meetup proposal: where, when, and an optional safety timer. A bottom sheet above the tab bar. */
-export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onClose, peerName, safeHavens, userLocation, onConfirmMeeting }) => {
+export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onClose, peerName, safeHavens, userLocation, onConfirmMeeting, amend }) => {
   const havens = useMemo(() => withDistances(safeHavens.length > 0 ? safeHavens : [FALLBACK_HAVEN], userLocation), [safeHavens, userLocation?.lat, userLocation?.lng]);
   const [search, setSearch] = useState('');
-  const [custom, setCustom] = useState<{ name: string; address: string } | null>(null);
+  const [custom, setCustom] = useState<{ name: string; address: string; lat: number; lng: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string>(havens[0].id);
   const [timeOption, setTimeOption] = useState<string>(TIMES[0].label);
   const [startLocalCheckin, setStartLocalCheckin] = useState(true);
@@ -48,6 +52,14 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
   useEffect(() => {
     if (!havens.some((h) => h.id === selectedId)) setSelectedId(havens[0].id);
   }, [havens, selectedId]);
+
+  // Changing a plan starts from what was agreed: same time and, when it is a known Safe Haven, the same place.
+  useEffect(() => {
+    if (!isOpen || !amend) return;
+    if (TIMES.some((t) => t.label === amend.timeStr)) setTimeOption(amend.timeStr);
+    const match = havens.find((h) => h.name === amend.venueName);
+    if (match) { setSelectedId(match.id); setCustom(null); setSearch(''); }
+  }, [isOpen, amend?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isOpen) return;
@@ -68,6 +80,8 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
       address: custom ? custom.address : `${selected.address}, ${selected.neighborhood}`,
       timeStr: timeOption,
       isSafeHaven: !custom,
+      lat: custom ? custom.lat : selected.lat,
+      lng: custom ? custom.lng : selected.lng,
       durationMinutes,
       startLocalCheckin,
     });
@@ -82,7 +96,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
         <header className="g-plan__head">
           <span className="g-plan__badge" style={{ ['--h' as string]: (peerName.charCodeAt(0) * 37) % 360 }}>{peerName.charAt(0).toUpperCase()}</span>
           <div className="g-plan__title">
-            <small>Plan a meetup</small>
+            <small>{amend ? 'Change the plan' : 'Plan a meetup'}</small>
             <h3>With {peerName}</h3>
           </div>
           <button type="button" className="g-plan__close" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></button>
@@ -112,7 +126,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
                 value={search} near={userLocation ?? null} placeholder="Or search for another place"
                 className="g-field g-iset__field"
                 onTextChange={(t) => { setSearch(t); if (custom && t !== custom.name) setCustom(null); }}
-                onPick={(p) => { setSearch(p.name); setCustom({ name: p.name, address: [p.address, p.area].filter(Boolean).join(', ') || p.name }); }}
+                onPick={(p) => { setSearch(p.name); setCustom({ name: p.name, address: [p.address, p.area].filter(Boolean).join(', ') || p.name, lat: p.lat, lng: p.lng }); }}
               />
               {custom && <p className="g-plan__note g-plan__note--warn"><MapPin className="w-3.5 h-3.5" aria-hidden="true" />Not a verified Safe Haven. Choose a public, busy place and tell a friend.</p>}
             </div>
@@ -152,7 +166,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
 
         <footer className="g-plan__foot">
           <p><strong>{venueLabel}</strong> · {timeOption}</p>
-          <button type="submit" className="g-plan__send"><span>Send proposal</span><ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
+          <button type="submit" className="g-plan__send"><span>{amend ? 'Send update' : 'Send proposal'}</span><ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
         </footer>
       </form>
     </div>,

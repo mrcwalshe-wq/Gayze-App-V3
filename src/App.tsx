@@ -24,6 +24,7 @@ import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
+import { decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
 import { JourneyBar } from './components/JourneyBar';
 import { useJourney } from './services/useJourney';
 import { FullScreenCallModal, FullScreenAudioCallModal } from './components/FullScreenCallModal';
@@ -91,6 +92,7 @@ import {
   DatingProfile,
   SwarmQRPayload,
   MeetingProposal,
+  MeetingEvent,
   TopLevelIntentMode
 } from './types';
 import {
@@ -662,6 +664,7 @@ export default function App() {
 
   // Schedule Meeting Modal state
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
+  const [amendingMeeting, setAmendingMeeting] = useState<{ id: string; venueName: string; timeStr: string } | null>(null);
   const handleSendMessageRef = useRef<(roomId: string, text: string, ttl?: number) => Promise<void>>(async () => {});
   const [journeySheet, setJourneySheet] = useState<{ roomId: string; peerName: string } | null>(null);
   const { journey, live: journeyLive, start: startJourney, stop: stopJourney } = useJourney(
@@ -1141,19 +1144,15 @@ export default function App() {
         if (row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())) messageProcessorRef.current.forget(row, supabaseUserId);
         let plainText = '[Encrypted message]';
         let mediaUrl: string | undefined;
+        let meetingData: MeetingProposal | undefined;
         let decryptedOk = false;
         let decryptFailure: EncryptedMessage['decryptFailure'];
         for (let attempt = 0; attempt < (delivery.notify ? 3 : 1) && row.nonce && !row.burned_at && (!row.expires_at || Date.parse(row.expires_at) > Date.now()) && !decryptedOk; attempt += 1) {
           try {
             if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
             const decrypted = await messageProcessorRef.current.text(room, row, supabaseUserId);
-            if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
-              try {
-                const parsed = JSON.parse(decrypted);
-                plainText = parsed.text || '';
-                mediaUrl = parsed.mediaUrl;
-              } catch { plainText = decrypted; }
-            } else { plainText = decrypted; }
+            const decoded = decodePayload(decrypted, new Date(row.created_at).getTime());
+            plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting;
             decryptedOk = true;
           } catch (error) {
             if (error instanceof MessageDecryptError) decryptFailure = error.code === 'authentication_failed' ? 'tampered_or_wrong_key' : 'no_key';
@@ -1169,7 +1168,7 @@ export default function App() {
           id: row.id, roomId: row.conversation_id, senderKey: row.sender_id, senderName,
           timestamp: new Date(row.created_at).getTime(), cipherText: row.ciphertext,
           nonceHex: row.nonce || '', plainText, expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
-          isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined,
+          isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined, meetingData,
           decryptFailure: decryptedOk ? undefined : decryptFailure,
         };
 
@@ -2035,6 +2034,7 @@ export default function App() {
 
       let plainText = '[Encrypted message]';
       let mediaUrl: string | undefined = undefined;
+      let meetingData: MeetingProposal | undefined;
       let decryptedOk = false;
       let decryptFailure: EncryptedMessage['decryptFailure'];
 
@@ -2046,17 +2046,8 @@ export default function App() {
           if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
           const decrypted = await messageProcessorRef.current.text(targetRoom, row, supabaseUserId);
           keyReady = true;
-          if (decrypted.startsWith('{"') && decrypted.includes('"mediaUrl"')) {
-            try {
-              const parsed = JSON.parse(decrypted);
-              plainText = parsed.text || '';
-              mediaUrl = parsed.mediaUrl;
-            } catch {
-              plainText = decrypted;
-            }
-          } else {
-            plainText = decrypted;
-          }
+          const decoded = decodePayload(decrypted, new Date(row.created_at).getTime());
+          plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting;
           decryptedOk = true;
         } catch (error) {
           keyReady = false;
@@ -2088,6 +2079,7 @@ export default function App() {
         isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())),
         mediaUrl,
         mediaType: mediaUrl ? 'image' : undefined,
+        meetingData,
         decryptFailure: decryptedOk ? undefined : decryptFailure,
       };
 
@@ -2255,9 +2247,7 @@ export default function App() {
     let cipherHex: string;
     let nonceHex: string;
     let keyVersion = 1;
-    const textToEncrypt = mediaUrl
-      ? JSON.stringify({ text: plainText, mediaUrl })
-      : plainText;
+    const textToEncrypt = encodePayload(plainText, mediaUrl, meetingData);
 
     if (isSupabaseRoom) {
       const resolved = await messageProcessorRef.current.key(room, sendingUserId!);
@@ -2601,6 +2591,7 @@ export default function App() {
 
   // Meeting Scheduling & Acceptance Handlers
   const handleOpenScheduleMeeting = (peerName: string) => {
+    setAmendingMeeting(null);
     setScheduleMeetingPeerName(peerName);
     setIsScheduleMeetingOpen(true);
   };
@@ -2612,6 +2603,8 @@ export default function App() {
     isSafeHaven: boolean;
     durationMinutes: number;
     startLocalCheckin: boolean;
+    lat?: number;
+    lng?: number;
   }) => {
     setIsScheduleMeetingOpen(false);
 
@@ -2652,64 +2645,74 @@ export default function App() {
       setRooms((prev) => [targetRoom!, ...prev]);
     }
 
+    const amending = amendingMeeting;
+    const event = amending ? 'amended' : 'proposed';
     const meetingData: MeetingProposal = {
-      id: 'meet_' + Date.now(),
+      id: amending?.id ?? 'meet_' + Date.now(),
       venueName: proposal.venueName,
       address: proposal.address,
       timeStr: proposal.timeStr,
       timestamp: Date.now(),
       status: 'proposed',
+      event,
       isSafeHaven: proposal.isSafeHaven,
       safetyTimerDurationMinutes: proposal.durationMinutes || 60,
+      ...(proposal.lat !== undefined && proposal.lng !== undefined ? { lat: proposal.lat, lng: proposal.lng } : {}),
     };
 
     try {
-      await handleSendMessage(
-      targetRoom.id,
-      `Safe meetup invitation: let's meet at ${proposal.venueName}, ${proposal.timeStr}.`,
-      targetRoom.ephemeralTtlSeconds,
-      meetingData
-    );
-    } catch { showToast('Meetup invitation was not confirmed. Please try again.'); return; }
+      await handleSendMessage(targetRoom.id, meetingEventText(event, proposal.venueName, proposal.timeStr), targetRoom.ephemeralTtlSeconds, meetingData);
+    } catch { showToast(amending ? 'The change was not confirmed. Please try again.' : 'Meetup invitation was not confirmed. Please try again.'); return; }
 
+    setAmendingMeeting(null);
     requestConversationOpen(targetRoom.id);
-    showToast(`Meetup proposal sent to ${scheduleMeetingPeerName} at ${proposal.venueName}`);
+    showToast(amending ? `Meetup updated: ${proposal.venueName}` : `Meetup proposal sent to ${scheduleMeetingPeerName} at ${proposal.venueName}`);
   };
 
-  const handleAcceptMeeting = async (meeting: MeetingProposal) => {
-    // Arm safety timer for user
-    handleStartSafetyTimer({
-      partnerName: 'Peer',
-      venueName: meeting.venueName,
-      durationMinutes: meeting.safetyTimerDurationMinutes || 60,
-      notes: `Accepted meetup at ${meeting.venueName} (${meeting.timeStr})`,
-    });
+  /** Every meetup change is a message carrying the meetup, so both people's cards agree. */
+  const sendMeetingEvent = async (roomId: string, event: MeetingEvent, base: MeetingProposal) => {
+    const room = rooms.find((r) => r.id === roomId);
+    const status = event === 'accepted' ? 'accepted' : event === 'declined' ? 'declined' : event === 'cancelled' ? 'cancelled' : 'proposed';
+    const meeting: MeetingProposal = { ...base, event, status, timestamp: Date.now() };
+    await handleSendMessage(roomId, meetingEventText(event, meeting.venueName, meeting.timeStr), room?.ephemeralTtlSeconds, meeting);
+  };
 
-    // Update message state in current active room
-    setMessages((prev) => {
-      const roomMsgs = prev[activeRoomId] || [];
-      const updated = roomMsgs.map((m) => {
-        if (m.meetingData && m.meetingData.id === meeting.id) {
-          return {
-            ...m,
-            meetingData: {
-              ...m.meetingData,
-              status: 'accepted' as const,
-            },
-          };
-        }
-        return m;
-      });
-      return { ...prev, [activeRoomId]: updated };
-    });
-
-    // Send confirmation in room
-    try {
-      await handleSendMessage(
-      activeRoomId,
-      `Accepted — see you at ${meeting.venueName}, ${meeting.timeStr}. Local check-in timer started.`
-    );
-    } catch { showToast('Acceptance message was not confirmed. Your local safety timer is still active.'); }
+  const handleMeetingAction = async (action: 'accept' | 'decline' | 'cancel' | 'amend' | 'setoff' | 'compass', meeting: MeetingProposal) => {
+    const roomId = activeRoomId;
+    const room = rooms.find((r) => r.id === roomId);
+    const peerName = room?.peerName || room?.name || 'them';
+    switch (action) {
+      case 'accept':
+        // Arm the local safety timer for this device, then tell them.
+        handleStartSafetyTimer({
+          partnerName: peerName,
+          venueName: meeting.venueName,
+          durationMinutes: meeting.safetyTimerDurationMinutes || 60,
+          notes: `Accepted meetup at ${meeting.venueName} (${meeting.timeStr})`,
+        });
+        try { await sendMeetingEvent(roomId, 'accepted', meeting); }
+        catch { showToast('Acceptance was not confirmed. Your local safety timer is still active.'); }
+        break;
+      case 'decline':
+        try { await sendMeetingEvent(roomId, 'declined', meeting); } catch { showToast('That was not confirmed. Please try again.'); }
+        break;
+      case 'cancel':
+        if (journey?.roomId === roomId) stopJourney();
+        try { await sendMeetingEvent(roomId, 'cancelled', meeting); showToast('Meetup cancelled'); }
+        catch { showToast('The cancellation was not confirmed. Please try again.'); }
+        break;
+      case 'amend':
+        setScheduleMeetingPeerName(peerName);
+        setAmendingMeeting({ id: meeting.id, venueName: meeting.venueName, timeStr: meeting.timeStr });
+        setIsScheduleMeetingOpen(true);
+        break;
+      case 'setoff':
+      case 'compass':
+        if (meeting.lat === undefined || meeting.lng === undefined) { showToast('This meetup has no map position, so the guide cannot point there.'); break; }
+        // Called straight from the tap so iOS can show its motion-access prompt.
+        void startJourney({ roomId, peerName, venueName: meeting.venueName, dest: { lat: meeting.lat, lng: meeting.lng }, share: action === 'setoff' });
+        break;
+    }
   };
 
   const handleSaveProfileEdit = async (payload: ProfileSavePayload): Promise<boolean> => {
@@ -3735,7 +3738,7 @@ export default function App() {
                     onOpenScheduleMeeting={handleOpenScheduleMeeting}
                     onOpenJourney={(roomId, peerName) => setJourneySheet({ roomId, peerName })}
                     journeyRoomId={journey?.roomId ?? null}
-                    onAcceptMeeting={handleAcceptMeeting}
+                    onMeetingAction={handleMeetingAction}
                     onReturnToDiscovery={() => setActiveTab('right_now')}
                     onlineUserIds={onlineUserIds}
                     connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
@@ -3838,10 +3841,11 @@ export default function App() {
       {/* Schedule Meeting & Safe Haven Date Modal */}
       <ScheduleMeetingModal
         isOpen={isScheduleMeetingOpen}
-        onClose={() => setIsScheduleMeetingOpen(false)}
+        onClose={() => { setIsScheduleMeetingOpen(false); setAmendingMeeting(null); }}
         peerName={scheduleMeetingPeerName}
         safeHavens={safeHavens}
         userLocation={userLocation}
+        amend={amendingMeeting}
         onConfirmMeeting={handleConfirmMeeting}
       />
 
