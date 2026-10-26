@@ -180,6 +180,18 @@ interface RightNowViewProps {
   isIntentOverlayOpen?: boolean;
 }
 
+/** The person's profile photo over their initial; the initial shows through if there is no photo or it fails to load. */
+const PulsePhoto: React.FC<{ pulse: Pulse }> = ({ pulse }) => {
+  const [failed, setFailed] = useState(false);
+  const url = /^https?:\/\//i.test(pulse.peerAvatar || '') ? pulse.peerAvatar : '';
+  return (
+    <>
+      {pulse.peerName.charAt(0)}
+      {url && !failed && <img src={url} alt="" className="absolute inset-0 h-full w-full rounded-[inherit] object-cover" onError={() => setFailed(true)} />}
+    </>
+  );
+};
+
 export const RightNowView: React.FC<RightNowViewProps> = ({
   pulses,
   safeHavens,
@@ -1438,7 +1450,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 </div>
               ) : (
                 <div {...peekTapProps(openPeek, selectedItem.type === 'pulse' ? selectedItem.item.peerId : null, { name: selectedItem.type === 'pulse' ? selectedItem.item.peerName : undefined, age: selectedItem.type === 'pulse' ? selectedItem.item.peerAge : undefined, area: selectedItem.type === 'pulse' ? selectedItem.item.neighborhood : undefined, photoUrl: selectedItem.type === 'pulse' && selectedItem.item.peerAvatar && selectedItem.item.peerAvatar !== 'user' ? selectedItem.item.peerAvatar : undefined })} className={`g-avatar w-11 h-11 text-[14px] ${selectedItemIsPrivate ? 'g-avatar--private' : 'g-avatar--social'}`}>
-                  {selectedItem.item.peerName.charAt(0)}
+                  <PulsePhoto pulse={selectedItem.item} />
                 </div>
               )}
 
@@ -1674,7 +1686,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     </div>
                   ) : (
                     <div {...peekTapProps(openPeek, selectedItem.type === 'pulse' ? selectedItem.item.peerId : null, { name: selectedItem.type === 'pulse' ? selectedItem.item.peerName : undefined, age: selectedItem.type === 'pulse' ? selectedItem.item.peerAge : undefined, area: selectedItem.type === 'pulse' ? selectedItem.item.neighborhood : undefined, photoUrl: selectedItem.type === 'pulse' && selectedItem.item.peerAvatar && selectedItem.item.peerAvatar !== 'user' ? selectedItem.item.peerAvatar : undefined })} className={`g-avatar w-14 h-14 text-[20px] ${selectedItemIsPrivate ? 'g-avatar--private' : 'g-avatar--social'}`}>
-                      {selectedItem.item.peerName.charAt(0)}
+                      <PulsePhoto pulse={selectedItem.item} />
                     </div>
                   )}
 
@@ -2216,7 +2228,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         ) : item.type === 'haven' ? (
                           <ShieldCheck className="w-4 h-4" />
                         ) : (
-                          <span>{item.item.peerName.charAt(0)}</span>
+                          <PulsePhoto pulse={item.item} />
                         )}
                       </div>
 
