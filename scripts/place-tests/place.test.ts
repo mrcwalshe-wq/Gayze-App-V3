@@ -100,3 +100,19 @@ test('category search: nearest places of one kind, position rounded, bad input r
   assert.equal((await h(req({ category: 'nope', lat: 1, lng: 1 }))).status, 400);
   assert.equal((await h(req({ category: 'cafe' }))).status, 400);
 });
+
+test('route mode: steps in plain English, start rounded, bad input refused', async () => {
+  const { normalizeRoute, stepText } = await import('../../supabase/functions/place-search/handler.ts');
+  assert.equal(stepText({ name: 'High Street', maneuver: { type: 'turn', modifier: 'slight left' } }), 'Turn slightly left onto High Street');
+  assert.equal(stepText({ name: '', maneuver: { type: 'depart', bearing_after: 151 } }), 'Head south-east');
+  assert.equal(stepText({ name: 'Mill Rd', maneuver: { type: 'roundabout', exit: 2 } }), 'At the roundabout take the second exit onto Mill Rd');
+  const r = normalizeRoute({ routes: [{ distance: 707.6, duration: 570.1, legs: [{ steps: [{ distance: 19.1, name: '', maneuver: { type: 'depart', bearing_after: 151 } }, { distance: 0, name: 'Highland Road', maneuver: { type: 'arrive' } }] }] }] });
+  assert.deepEqual(r, { distanceM: 708, durationS: 570, steps: [{ text: 'Head south-east', distanceM: 19 }, { text: 'Arrive at your destination', distanceM: 0 }] });
+  assert.equal(normalizeRoute({}), null);
+  const urls: string[] = [];
+  const h = createPlaceSearchHandler({ authenticate: auth, fetchImpl: (async (u: string) => { urls.push(String(u)); return new Response(JSON.stringify({ routes: [{ distance: 1, duration: 1, legs: [] }] }), { status: 200 }); }) as unknown as typeof fetch });
+  const res = await h(req({ route: { from: { lat: 52.80123, lng: -1.23456 }, to: { lat: 52.9, lng: -1.2 }, mode: 'walk' } }));
+  assert.equal(res.status, 200);
+  assert.match(urls[0], /routed-foot\/route\/v1\/foot\/-1\.235,52\.801;-1\.200000,52\.900000\?steps=true/);
+  assert.equal((await h(req({ route: { from: { lat: 1, lng: 1 }, to: { lat: 1, lng: 1 }, mode: 'transit' } }))).status, 400);
+});

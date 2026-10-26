@@ -6,6 +6,7 @@ import type { LatLng } from '../services/geo';
 import { withDistances } from '../services/havenDistance';
 import { formatDistance, distanceKm } from '../services/geo';
 import { PlacePicker } from './PlacePicker';
+import { DirectionsPanel } from './DirectionsPanel';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 
 interface Destination { name: string; lat: number; lng: number; note?: string }
@@ -91,6 +92,7 @@ export const JourneySheet: React.FC<JourneySheetProps> = ({ isOpen, onClose, pee
               <p className="g-plan__note g-jr__chosen"><Check className="w-3.5 h-3.5" aria-hidden="true" />
                 <span><strong>{dest.name}</strong>{km != null ? ` · ${formatDistance(km)} from you` : ''}</span></p>
             )}
+            {dest && <DirectionsPanel dest={{ lat: dest.lat, lng: dest.lng }} venueName={dest.name} from={userLocation} />}
             {!userLocation && <p className="g-plan__note">Turn on location so GAYZE can point you the right way. You can still pick a place.</p>}
           </section>
 
