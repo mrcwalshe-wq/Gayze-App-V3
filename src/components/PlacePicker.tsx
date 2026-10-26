@@ -32,8 +32,10 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
   const [failed, setFailed] = useState(false);
   const [postcodeMode, setPostcodeMode] = useState(false);
   const [focused, setFocused] = useState(false);
-  const [browse, setBrowse] = useState<string | null>(null);
+  const [browse, setBrowse] = useState<{ label: string; Icon: typeof Coffee } | null>(null);
   const browseAbort = useRef<AbortController | null>(null);
+  const browsing = useRef(false);
+  browsing.current = browse !== null;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const picked = useRef<string | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -42,6 +44,8 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
 
   useEffect(() => {
     const q = value.trim();
+    // A category list stays put when the location refreshes underneath it.
+    if (browsing.current && !q) return;
     if (q.length < 2 || picked.current === q) { setResults([]); setLoading(false); return; }
     const controller = new AbortController();
     setLoading(true);
@@ -72,13 +76,13 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
   }, [showing, results.length]);
 
   // A category chip lists the nearest popular places of that kind around the member.
-  const browseNearby = async (label: string, query: string) => {
+  const browseNearby = async (label: string, query: string, Icon: typeof Coffee) => {
     picked.current = null; setPostcodeMode(false);
     if (!near) { onTextChange(query); setOpen(true); return; }
     browseAbort.current?.abort();
     const controller = new AbortController();
     browseAbort.current = controller;
-    setBrowse(label); setLoading(true); setOpen(true); setFailed(false); setResults([]);
+    setBrowse({ label, Icon }); setLoading(true); setOpen(true); setFailed(false); setResults([]);
     try {
       const found = await nearbyPlaces(query, near, controller.signal);
       if (controller.signal.aborted) return;
@@ -91,6 +95,8 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
       if (!controller.signal.aborted) setLoading(false);
     }
   };
+
+  const closeBrowse = () => { browseAbort.current?.abort(); setBrowse(null); setResults([]); setFailed(false); setLoading(false); };
 
   const choose = (p: PlaceResult) => {
     setBrowse(null);
@@ -115,10 +121,10 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
         {loading ? <Loader2 className="w-4 h-4 g-place__spin" aria-hidden="true" />
           : value && <button type="button" className="g-place__clear" aria-label="Clear" onClick={() => { picked.current = null; onTextChange(''); setResults([]); }}><X className="w-3.5 h-3.5" /></button>}
       </div>
-      {(focused || browse) && !value.trim() && (
+      {focused && !browse && !value.trim() && (
         <div className="g-place__chips" role="group" aria-label="Quick searches near you">
           {PRESETS.map(({ label, query, Icon }) => (
-            <button key={query} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => void browseNearby(label, query)}>
+            <button key={query} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => void browseNearby(label, query, Icon)}>
               <Icon className="w-3.5 h-3.5" aria-hidden="true" />{label}
             </button>
           ))}
@@ -127,9 +133,31 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
           </button>
         </div>
       )}
-      {open && (results.length > 0 || failed) && (
-        <ul id={listId} ref={listRef} role="listbox" className="g-place__list">
-          {browse && results.length > 0 && <li className="g-place__note">Closest {browse.toLowerCase()}s to you</li>}
+      {browse && (
+        <section className="g-place__browse g-gborder" aria-label={`Closest ${browse.label.toLowerCase()}s near you`}>
+          <header>
+            <span><b>Closest {browse.label.toLowerCase()}s</b><small>near you · from OpenStreetMap</small></span>
+            <button type="button" className="g-place__clear" aria-label="Back to quick searches" onClick={closeBrowse}><X className="w-4 h-4" /></button>
+          </header>
+          {loading && <div className="g-place__skeleton" aria-hidden="true"><i /><i /><i /></div>}
+          {!loading && results.length > 0 && (
+            <ul role="listbox">
+              {results.map((p, i) => (
+                <li key={p.id + p.lat} style={{ animationDelay: `${i * 45}ms` }}>
+                  <button type="button" role="option" aria-selected="false" onClick={() => choose(p)}>
+                    <span className="g-place__ico"><browse.Icon className="w-4 h-4" aria-hidden="true" /></span>
+                    <span><strong>{p.name}</strong><small>{[p.address, p.area].filter(Boolean).join(' · ') || p.kind}</small></span>
+                    {near && <em>{formatDistance(distanceKm(near, p))}</em>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!loading && results.length === 0 && <p className="g-place__note">{failed ? `Couldn't load ${browse.label.toLowerCase()}s just now. Try again, or type a name.` : `No ${browse.label.toLowerCase()}s found close by. Try typing a name.`}</p>}
+        </section>
+      )}
+      {!browse && open && (results.length > 0 || failed) && (
+        <ul id={listId} ref={listRef} role="listbox" className="g-place__list g-gborder">
           {results.map((p) => (
             <li key={p.id + p.lat}>
               <button type="button" role="option" aria-selected="false" onClick={() => choose(p)}>
@@ -139,7 +167,7 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
               </button>
             </li>
           ))}
-          {failed && results.length === 0 && <li className="g-place__note">{browse ? `No ${browse.toLowerCase()}s found close by. Try typing a name.` : 'Search is unavailable right now. You can type the venue instead.'}</li>}
+          {failed && results.length === 0 && <li className="g-place__note">Search is unavailable right now. You can type the venue instead.</li>}
           {results.length > 0 && <li className="g-place__note">Places from OpenStreetMap. A search result is not a verified Safe Haven.</li>}
         </ul>
       )}

@@ -1333,3 +1333,35 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-jr__arranged strong { display: block; font-size: 14px; }
 .g-jr__arranged span { min-width: 0; flex: 1; }
 .g-jr__arranged.is-on { border-color: rgba(52, 211, 153, .8); background: linear-gradient(135deg, rgba(16, 185, 129, .22), rgba(138, 77, 255, .12)); }
+
+/* ---- The GAYZE border: the moving hue ring, for panels and menus ------------ */
+.g-gborder { position: relative; }
+.g-gborder::after {
+  content: ""; position: absolute; inset: 0; padding: 1.5px; border-radius: inherit; pointer-events: none; z-index: 3;
+  background: var(--gz-ring);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: gayze-action-orbit 5s linear infinite; opacity: .95;
+}
+.g-place__list.g-gborder { border-color: transparent; background: linear-gradient(180deg, #1a1430, #110d20); box-shadow: 0 18px 44px rgba(0, 0, 0, .6), 0 0 30px rgba(138, 77, 255, .22); }
+
+/* Closest places, in the flow of the sheet so nothing can clip it */
+.g-place__browse { margin-top: 12px; padding: 14px 10px 8px; border-radius: 22px; background: radial-gradient(120% 90% at 0% 0%, rgba(138, 77, 255, .2), transparent 60%), linear-gradient(180deg, #1a1430, #110d20); box-shadow: 0 16px 40px rgba(0, 0, 0, .5), 0 0 34px rgba(138, 77, 255, .2); }
+.g-place__browse > header { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 10px; }
+.g-place__browse > header b { display: block; font-size: 15px; font-weight: 800; letter-spacing: .01em; background: linear-gradient(90deg, #d8c2ff, #f6c3d0 60%, #e8c77a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.g-place__browse > header small { display: block; margin-top: 2px; font-size: 11px; color: rgba(255, 255, 255, .5); }
+.g-place__browse ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.g-place__browse li { animation: g-place-rise .38s cubic-bezier(.2, .9, .3, 1.1) both; }
+.g-place__browse li button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 12px; border: 1px solid rgba(255, 255, 255, .07); border-radius: 16px; background: rgba(255, 255, 255, .04); color: #fff; text-align: left; transition: transform .15s ease, background .15s ease, border-color .15s ease; }
+.g-place__browse li button:active { transform: scale(.985); background: rgba(138, 77, 255, .22); border-color: rgba(214, 170, 255, .6); }
+.g-place__browse li button > span:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.g-place__browse li strong { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-place__browse li small { font-size: 11.5px; color: rgba(255, 255, 255, .52); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-place__browse li em { flex: none; font-style: normal; font-size: 11.5px; font-weight: 800; padding: 4px 9px; border-radius: 999px; color: #b8f5d8; background: rgba(16, 185, 129, .16); border: 1px solid rgba(52, 211, 153, .35); }
+.g-place__ico { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; color: #e5d3ff; background: linear-gradient(145deg, rgba(184, 120, 255, .34), rgba(240, 141, 154, .16)); box-shadow: 0 0 0 1px rgba(200, 160, 255, .3) inset; }
+.g-place__skeleton { display: grid; gap: 6px; }
+.g-place__skeleton i { height: 62px; border-radius: 16px; background: linear-gradient(100deg, rgba(255, 255, 255, .04) 30%, rgba(184, 120, 255, .16) 50%, rgba(255, 255, 255, .04) 70%); background-size: 220% 100%; animation: g-place-shimmer 1.2s linear infinite; }
+@keyframes g-place-rise { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes g-place-shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.g-place__chips button { position: relative; transition: transform .15s ease, background .15s ease; }
+.g-place__chips button:hover, .g-place__chips button:focus-visible { background: rgba(138, 77, 255, .26); }
+@media (prefers-reduced-motion: reduce) { .g-gborder::after, .g-place__skeleton i, .g-place__browse li { animation: none !important; } }
