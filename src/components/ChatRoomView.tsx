@@ -1,4 +1,5 @@
 import { PeerIntentBanner } from './PeerIntentBanner';
+import { SharePlaceSheet } from './SharePlaceSheet';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
@@ -67,6 +68,7 @@ interface ChatRoomViewProps {
   onOpenScheduleMeeting?: (peerName: string) => void;
   /** Open the "I'm on my way" sheet for this chat. */
   onOpenJourney?: (roomId: string, peerName: string) => void;
+  userLocation?: { lat: number; lng: number } | null;
   journeyRoomId?: string | null;
   onMeetingAction?: (action: MeetupAction, meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
@@ -121,6 +123,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onStartCall,
   onOpenScheduleMeeting,
   onOpenJourney,
+  userLocation,
   journeyRoomId,
   onMeetingAction,
   onReturnToDiscovery,
@@ -167,6 +170,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
+  const [showSharePlace, setShowSharePlace] = useState(false);
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -387,6 +391,28 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     if (!changedRoom && previous.id && lastMessageId !== previous.id && nearBottomRef.current) hapticMessageDecrypted();
     previousTailRef.current = { room: activeRoomId, id: lastMessageId };
   }, [activeRoomId, lastMessageId, visibleCount]);
+
+  // Stay on the latest message while the chat settles. Messages decrypt, photos load and the view is shown after being
+  // hidden, all of which change the height after the first jump; follow them until the reader scrolls up themselves.
+  const hasRoom = Boolean(currentRoom);
+  useLayoutEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+    nearBottomRef.current = true;
+    const stick = () => { if (nearBottomRef.current && !scrollAnchorRef.current) feed.scrollTop = feed.scrollHeight; };
+    stick();
+    const mutations = typeof MutationObserver !== 'undefined' ? new MutationObserver(stick) : null;
+    mutations?.observe(feed, { childList: true, subtree: true, characterData: true });
+    const resize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(stick) : null;
+    resize?.observe(feed);
+    feed.addEventListener('load', stick, true);          // images and video finishing loading
+    const frame = setTimeout(stick, 16);
+    const settle = setTimeout(stick, 300);
+    return () => {
+      mutations?.disconnect(); resize?.disconnect(); feed.removeEventListener('load', stick, true);
+      clearTimeout(frame); clearTimeout(settle);
+    };
+  }, [activeRoomId, mobileView, hasRoom]);
 
   const handleSelectRoom = (roomId: string) => {
     hapticLight();
@@ -755,6 +781,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         <span className="text-[12px]">Audio call</span>
                       </button>
                     )}
+                    <button
+                      type="button"
+                      aria-label="Share a place"
+                      className="g-row !min-h-[42px] !rounded-xl"
+                      onClick={() => { setShowChatActions(false); setShowSharePlace(true); }}
+                    >
+                      <MapPin className="w-4 h-4 text-[#7be0a8]" />
+                      <span className="text-[12px]">Share a place</span>
+                    </button>
                     {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
                       <button
                         type="button"
@@ -1270,6 +1305,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {currentRoom && currentRoom.type === 'direct' && (
+        <SharePlaceSheet
+          isOpen={showSharePlace}
+          onClose={() => setShowSharePlace(false)}
+          peerName={currentRoom.peerName || currentRoom.name}
+          userLocation={userLocation ?? null}
+          onSend={(text) => onSendMessage(currentRoom.id, text, currentRoom.ephemeralTtlSeconds)}
+        />
       )}
     </div>
     </div>
