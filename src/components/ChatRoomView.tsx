@@ -39,6 +39,8 @@ import { preparePhotoAttachment } from '../services/supabaseService';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
 import { PhotoStudio } from './PhotoStudio';
 import { buildChatTimeline, roomActivityAt } from '../services/chatTimeline';
+import { usePeersLiveIntents, timeLeftLabel } from '../services/peerLiveIntents';
+import { intentDisplayLabel } from '../services/intentLabels';
 
 interface ChatRoomViewProps {
   rooms: SwarmRoom[];
@@ -319,6 +321,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     };
     return [...rooms].sort((a, b) => activity(b) - activity(a));
   }, [rooms, messages, gayzeEvents]);
+
+  // Who in my chats is live right now (display fields only; refreshed while the app is open).
+  const peerLive = usePeersLiveIntents(useMemo(() => rooms.map((r) => r.peerUserId || '').filter(Boolean), [rooms]));
+  const liveRooms = sortedRooms.filter((r) => r.type !== 'gathering' && r.peerUserId && peerLive.has(r.peerUserId));
   const feedRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
   const previousTailRef = useRef<{ room: string; id?: string }>({ room: '', id: undefined });
@@ -492,6 +498,29 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               <span>Conversations open automatically when interest is mutual on an intent.</span>
             </div>
           )}
+          {liveRooms.length > 0 && (
+            <section className="g-live-rail" aria-label="Live now">
+              <h3><i aria-hidden="true" />Live now<span>{liveRooms.length}</span></h3>
+              <div className="g-live-rail__track">
+                {liveRooms.map((room) => {
+                  const live = peerLive.get(room.peerUserId!)!;
+                  const url = room.peerAvatar && room.peerAvatar !== 'user'
+                    ? (avatarUrls[room.peerAvatar] || (room.peerAvatar.startsWith('http') ? room.peerAvatar : null))
+                    : null;
+                  return (
+                    <button key={room.id} type="button" className="g-live-chip" data-mode={live.mode} onClick={() => handleSelectRoom(room.id)}
+                      aria-label={`${room.name} is live: ${intentDisplayLabel(live.intent)}, ${timeLeftLabel(live.expiresAt)}`}>
+                      <span className="g-live-chip__ring" style={{ ['--h' as string]: avatarHue(room.name) }}>
+                        {url ? <img src={url} alt="" /> : <b>{room.name.charAt(0).toUpperCase()}</b>}
+                      </span>
+                      <strong>{room.name}</strong>
+                      <em>{intentDisplayLabel(live.intent)}</em>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
           {sortedRooms.map((room) => {
             const isSelected = room.id === currentRoom?.id;
             const isGathering = room.type === 'gathering';
@@ -500,6 +529,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               ? (avatarUrls[room.peerAvatar] || (room.peerAvatar.startsWith('http') ? room.peerAvatar : null))
               : null;
             const isOnline = Boolean(!isGathering && room.peerUserId && onlineUserIds?.has(room.peerUserId));
+            const liveNow = !isGathering && room.peerUserId ? peerLive.get(room.peerUserId) : undefined;
             const recently = !isOnline && !isGathering && Boolean(room.peerLastSeenAt && Date.now() - room.peerLastSeenAt < 15 * 60 * 1000);
 
             return (
@@ -509,6 +539,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 onClick={() => handleSelectRoom(room.id)}
                 className="g-chatrow"
                 data-active={isSelected}
+                data-live={liveNow ? liveNow.mode : undefined}
               >
                 <span
                   {...(isGathering ? {} : peekTapProps(openPeek, room.peerUserId, { name: room.peerName || room.name, photoUrl: room.peerAvatar && room.peerAvatar !== 'user' ? room.peerAvatar : undefined }))}
@@ -530,6 +561,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     <strong>{room.name}</strong>
                     <time>{formatListTime(room.lastTimestamp)}</time>
                   </span>
+                  {liveNow && (
+                    <span className="g-chatrow__live" data-mode={liveNow.mode}>
+                      <i aria-hidden="true" />{intentDisplayLabel(liveNow.intent)}<small>{timeLeftLabel(liveNow.expiresAt)}</small>
+                    </span>
+                  )}
                   {isLocked ? (
                     <span className="g-chatrow__msg is-locked"><KeyRound className="w-3.5 h-3.5" aria-hidden="true" />Locked on this device</span>
                   ) : (

@@ -1945,6 +1945,12 @@ export default function App() {
     await refreshGatherings();
   };
 
+  // The profile screen tells us when the primary photo changes (upload, delete, set as main, URL refresh).
+  // Without this the header, Discover and every "you" avatar kept showing the old picture until a reload.
+  const handleOwnAvatarUpdated = useCallback((url: string | undefined) => {
+    setCurrentUser((prev) => (prev.avatarUrl === url ? prev : { ...prev, avatarUrl: url }));
+  }, []);
+
   const handleOpenGatheringChat = (gathering: Gathering) => {
     const existing = rooms.find((r) => r.id === 'room_' + gathering.id);
     if (existing) {
@@ -3508,6 +3514,7 @@ export default function App() {
               onDeleteAccount={handleDeleteAccount}
               deletingAccount={isDeletingAccount}
               onOpenQR={() => handleOpenQRModal()}
+              onAvatarUpdated={handleOwnAvatarUpdated}
               onOpenSafeHavens={() => setActiveTab('safe_havens')}
               onOpenDiscover={() => setActiveTab('dating')}
               onOpenProfileEdit={(section) => {
