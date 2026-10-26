@@ -32,7 +32,7 @@ export const JourneySheet: React.FC<JourneySheetProps> = ({ isOpen, onClose, pee
     if (!isOpen) return;
     if (arranged) { setText(arranged.venueName); setDest({ name: arranged.venueName, lat: arranged.lat, lng: arranged.lng, note: arranged.timeStr }); }
     else { setText(''); setDest(null); }
-  }, [isOpen, arranged?.venueName, arranged?.lat, arranged?.lng]);
+  }, [isOpen, arranged?.venueName, arranged?.lat, arranged?.lng, arranged?.timeStr, arranged?.confirmed]);
 
   useEffect(() => {
     if (!isOpen) return;
