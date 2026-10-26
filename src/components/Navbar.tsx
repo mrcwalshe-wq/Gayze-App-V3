@@ -52,10 +52,10 @@ const TABS: TabDef[] = [
  * installed PWA. The hues travel the full width of the bar and back (SMIL on the
  * gradient), and are skipped for people who prefer reduced motion.
  */
-const RISE = 15;        // how far the dome clears the bar
-const CENTER = 31;      // logo centre below the bar's top edge
-const RADIUS = 46;      // dome radius
-const HALF = Math.sqrt(RADIUS * RADIUS - CENTER * CENTER); // where the dome meets the line (~34px)
+const RISE = 18;        // how far the dome clears the bar
+const CENTER = 33;      // logo centre below the bar's top edge
+const RADIUS = 51;      // dome radius
+const HALF = Math.sqrt(RADIUS * RADIUS - CENTER * CENTER); // where the dome meets the line (~39px)
 
 const TabbarEdge: React.FC = () => {
   const ref = useRef<SVGSVGElement | null>(null);
