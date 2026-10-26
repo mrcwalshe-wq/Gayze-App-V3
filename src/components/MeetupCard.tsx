@@ -69,7 +69,7 @@ export const MeetupCard: React.FC<MeetupCardProps> = ({ meeting, isLatest, isPro
       {meeting.status === 'proposed' && !isProposer && (
         <div className="g-meet__actions">
           <button type="button" className="g-meet__btn g-meet__btn--primary" onClick={act('accept', true)}><Check className="w-4 h-4" aria-hidden="true" />Accept</button>
-          <button type="button" className="g-meet__btn" onClick={act('decline')}><X className="w-4 h-4" aria-hidden="true" />Can’t make it</button>
+          <button type="button" className="g-meet__btn" onClick={act('decline')}><X className="w-4 h-4" aria-hidden="true" />Decline</button>
           <p className="g-meet__hint">Accepting starts a safety check-in timer on this device.</p>
         </div>
       )}
@@ -77,7 +77,7 @@ export const MeetupCard: React.FC<MeetupCardProps> = ({ meeting, isLatest, isPro
       {meeting.status === 'proposed' && isProposer && (
         <div className="g-meet__actions">
           <p className="g-meet__hint">Waiting for {peerName} to answer.</p>
-          <button type="button" className="g-meet__btn" onClick={act('amend')}><Pencil className="w-4 h-4" aria-hidden="true" />Change plan</button>
+          <button type="button" className="g-meet__btn" onClick={act('amend')}><Pencil className="w-4 h-4" aria-hidden="true" />Change</button>
           <button type="button" className="g-meet__btn g-meet__btn--danger" onClick={() => { hapticLight(); setConfirmCancel(true); }}>Cancel</button>
         </div>
       )}
@@ -85,8 +85,9 @@ export const MeetupCard: React.FC<MeetupCardProps> = ({ meeting, isLatest, isPro
       {live && (
         <div className="g-meet__actions">
           <button type="button" className="g-meet__btn g-meet__btn--go g-meet__btn--wide" disabled={!hasPos || journeyActive} onClick={act('setoff', true)}>
-            <Navigation className="w-4 h-4" aria-hidden="true" />{journeyActive ? 'On your way…' : `Set off · keep ${peerName} posted`}
+            <Navigation className="w-4 h-4" aria-hidden="true" />{journeyActive ? 'On your way…' : 'Set off'}
           </button>
+          {!journeyActive && hasPos && <p className="g-meet__hint">Sends {peerName} four short updates as you travel (on your way, 10 min, 5 min, arrived) and points you there. Never your exact location.</p>}
           <button type="button" className="g-meet__btn" disabled={!hasPos || journeyActive} onClick={act('compass')}><Compass className="w-4 h-4" aria-hidden="true" />Compass</button>
           <button type="button" className="g-meet__btn" disabled={!hasPos} aria-expanded={routes} onClick={() => { hapticLight(); setRoutes((v) => !v); setConfirmCancel(false); }}><Route className="w-4 h-4" aria-hidden="true" />Plan route</button>
           {routes && dest && (

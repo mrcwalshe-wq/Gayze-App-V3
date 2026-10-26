@@ -2589,6 +2589,13 @@ export default function App() {
 
   handleSendMessageRef.current = (roomId, text, ttl) => handleSendMessage(roomId, text, ttl);
 
+  // If the other person cancels the meetup while you are on your way, stop the guide.
+  useEffect(() => {
+    if (!journey) return;
+    const cancelled = (messages[journey.roomId] || []).some((m) => m.meetingData?.status === 'cancelled' && m.timestamp > journey.startedAt);
+    if (cancelled) { stopJourney(); showToast('The meetup was cancelled. Your guide has stopped.'); }
+  }, [messages, journey?.roomId, journey?.startedAt]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   // Meeting Scheduling & Acceptance Handlers
   const handleOpenScheduleMeeting = (peerName: string) => {
     setAmendingMeeting(null);

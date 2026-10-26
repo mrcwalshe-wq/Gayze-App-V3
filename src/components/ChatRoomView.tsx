@@ -1,5 +1,6 @@
 import { PeerIntentBanner } from './PeerIntentBanner';
 import { SharePlaceSheet } from './SharePlaceSheet';
+import { MeetupCard, type MeetupAction } from './MeetupCard';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
