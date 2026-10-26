@@ -370,6 +370,28 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     previousTailRef.current = { room: activeRoomId, id: lastMessageId };
   }, [activeRoomId, lastMessageId, visibleCount]);
 
+  // Stay on the latest message while the chat settles. Messages decrypt, photos load and the view is shown after being
+  // hidden, all of which change the height after the first jump; follow them until the reader scrolls up themselves.
+  const hasRoom = Boolean(currentRoom);
+  useLayoutEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+    nearBottomRef.current = true;
+    const stick = () => { if (nearBottomRef.current && !scrollAnchorRef.current) feed.scrollTop = feed.scrollHeight; };
+    stick();
+    const mutations = typeof MutationObserver !== 'undefined' ? new MutationObserver(stick) : null;
+    mutations?.observe(feed, { childList: true, subtree: true, characterData: true });
+    const resize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(stick) : null;
+    resize?.observe(feed);
+    feed.addEventListener('load', stick, true);          // images and video finishing loading
+    const frame = setTimeout(stick, 16);
+    const settle = setTimeout(stick, 300);
+    return () => {
+      mutations?.disconnect(); resize?.disconnect(); feed.removeEventListener('load', stick, true);
+      clearTimeout(frame); clearTimeout(settle);
+    };
+  }, [activeRoomId, mobileView, hasRoom]);
+
   const handleSelectRoom = (roomId: string) => {
     hapticLight();
     onSelectRoom(roomId);
