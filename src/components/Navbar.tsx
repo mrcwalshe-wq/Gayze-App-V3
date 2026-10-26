@@ -52,10 +52,10 @@ const TABS: TabDef[] = [
  * installed PWA. The hues travel the full width of the bar and back (SMIL on the
  * gradient), and are skipped for people who prefer reduced motion.
  */
-const RISE = 16;        // how far the dome clears the bar
+const RISE = 15;        // how far the dome clears the bar
 const CENTER = 31;      // logo centre below the bar's top edge
-const RADIUS = 47;      // dome radius
-const HALF = Math.sqrt(RADIUS * RADIUS - CENTER * CENTER); // where the dome meets the line (~35px)
+const RADIUS = 46;      // dome radius
+const HALF = Math.sqrt(RADIUS * RADIUS - CENTER * CENTER); // where the dome meets the line (~34px)
 
 const TabbarEdge: React.FC = () => {
   const ref = useRef<SVGSVGElement | null>(null);
@@ -104,7 +104,7 @@ const TabbarEdge: React.FC = () => {
               <path d={d} fill="none" stroke={`url(#${uid}-fade)`} strokeWidth="2" strokeLinecap="round" />
             </mask>
           </defs>
-          <path d={`M${cx - HALF} ${y + 1} A${RADIUS} ${RADIUS} 0 0 1 ${cx + HALF} ${y + 1} Z`} fill="rgb(18 16 28)" fillOpacity=".97" />
+          <path d={`M${cx - HALF} ${y + 1} A${RADIUS} ${RADIUS} 0 0 1 ${cx + HALF} ${y + 1} Z`} fill="rgb(24 20 40)" fillOpacity=".97" />
           <rect x="0" y="0" width={width} height={RISE + 4} fill={`url(#${uid}-paint)`} mask={`url(#${uid}-mask)`} />
         </>
       )}
