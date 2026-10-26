@@ -671,7 +671,7 @@ export default function App() {
   const handleSendMessageRef = useRef<(roomId: string, text: string, ttl?: number) => Promise<void>>(async () => {});
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const [journeySheet, setJourneySheet] = useState<{ roomId: string; peerName: string } | null>(null);
-  const { journey, live: journeyLive, start: startJourney, stop: stopJourney } = useJourney(
+  const { journey, live: journeyLive, start: startJourney, stop: stopJourney, setShare: setJourneyShare } = useJourney(
     (roomId, text) => handleSendMessageRef.current(roomId, text, rooms.find((r) => r.id === roomId)?.ephemeralTtlSeconds),
   );
   const [scheduleMeetingPeerName, setScheduleMeetingPeerName] = useState<string>('Marcus');
@@ -3908,7 +3908,7 @@ export default function App() {
       />
       <DirectionsSheet isOpen={directionsOpen && Boolean(journey)} onClose={() => setDirectionsOpen(false)} venueName={journey?.venueName ?? ''} dest={journey?.dest ?? null} from={userLocation} />
       {journey && (
-        <JourneyBar venueName={journey.venueName} peerName={journey.peerName} share={journey.share} live={journeyLive} onStop={stopJourney} onDirections={() => setDirectionsOpen(true)} />
+        <JourneyBar venueName={journey.venueName} peerName={journey.peerName} share={journey.share} live={journeyLive} onStop={stopJourney} onDirections={() => setDirectionsOpen(true)} onToggleShare={setJourneyShare} />
       )}
 
       {/* Schedule Meeting & Safe Haven Date Modal */}

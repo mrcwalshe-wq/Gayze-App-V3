@@ -158,5 +158,15 @@ export function useJourney(send: (roomId: string, text: string) => Promise<void>
     return () => window.clearTimeout(t);
   }, [live.arrived, stop]);
 
-  return { journey, live, start, stop };
+  /** Pause or resume the automatic messages to the other person. The guide itself keeps running. */
+  const setShare = useCallback((share: boolean) => {
+    const j = journeyRef.current;
+    if (!j || j.share === share) return;
+    const next: Stored = { ...j, share };
+    journeyRef.current = next; save(next); setJourney(next);
+    pending.current = null; retryAt.current = 0;
+    setLive((l) => ({ ...l, sendError: false }));
+  }, []);
+
+  return { journey, live, start, stop, setShare };
 }
