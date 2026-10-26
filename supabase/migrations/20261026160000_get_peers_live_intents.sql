@@ -1,5 +1,5 @@
 -- Live intents of everyone the caller has a conversation with, in one call (the chat list shows who is live right now).
--- Same rules as get_peer_intent: display fields only, only live and unpaused, only for conversation partners,
+-- Same rules as get_peer_intent: display fields only, only live (started, not expired) and unpaused, only for conversation partners,
 -- never across a block in either direction, never the caller's own.
 create or replace function public.get_peers_live_intents(p_peer_ids uuid[])
 returns table (user_id uuid, mode text, intent text, starts_at timestamptz, expires_at timestamptz)
@@ -13,6 +13,7 @@ as $function$
     and i.user_id = any (p_peer_ids)
     and i.user_id <> (select auth.uid())
     and i.is_paused = false
+    and i.starts_at <= now()
     and i.expires_at > now()
     and exists (
       select 1
