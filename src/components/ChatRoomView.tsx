@@ -1,5 +1,7 @@
 import { PeerIntentBanner } from './PeerIntentBanner';
 import { SharePlaceSheet } from './SharePlaceSheet';
+import { MeetupCard, type MeetupAction } from './MeetupCard';
+import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
@@ -70,7 +72,7 @@ interface ChatRoomViewProps {
   onOpenJourney?: (roomId: string, peerName: string) => void;
   userLocation?: { lat: number; lng: number } | null;
   journeyRoomId?: string | null;
-  onAcceptMeeting?: (meeting: MeetingProposal) => void;
+  onMeetingAction?: (action: MeetupAction, meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
   onlineUserIds?: Set<string>;
   connectionState?: ChatConnectionState;
@@ -125,7 +127,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onOpenJourney,
   userLocation,
   journeyRoomId,
-  onAcceptMeeting,
+  onMeetingAction,
   onReturnToDiscovery,
   onlineUserIds,
   connectionState,
@@ -306,6 +308,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [historyWindow, setHistoryWindow] = useState({ roomId: activeRoomId, count: 100 });
   const visibleCount = historyWindow.roomId === activeRoomId ? historyWindow.count : 100;
   const visibleMessages = currentMessages.slice(-visibleCount);
+  // The latest state of every meetup in this chat, and who first proposed it. Cards for older messages collapse.
+  const meetups = useMemo(
+    () => latestMeetups(currentMessages, (m) => (currentUserId ? m.senderKey === currentUserId : m.senderKey === currentUser.publicKey)),
+    [currentMessages, currentUserId, currentUser.publicKey],
+  );
   const roomGayzes = useMemo(() => gayzeEvents.filter((event) => currentRoom?.type === 'direct' && (
     event.actorId === currentRoom.peerUserId
     || Boolean(currentRoom.memberIds?.includes(event.actorId) && currentRoom.memberIds?.includes(currentUserId ?? ''))
@@ -965,49 +972,23 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       <p className="whitespace-pre-wrap">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>
                     )}
 
-                    {/* Rich Meeting Proposal Card if present */}
-                    {msg.meetingData && (
-                      <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/15 text-left text-xs space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 font-medium text-white text-[12px]">
-                            <Calendar className="w-3.5 h-3.5 text-[#C9A24D]" />
-                            <span>Safe Meetup Invitation</span>
-                          </div>
-                          <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${msg.meetingData.status === 'accepted'
-                            ? 'bg-emerald-500/12 text-emerald-300 border border-emerald-500/25'
-                            : 'bg-[#C9A24D]/12 text-[#C9A24D] border border-[#C9A24D]/25'
-                            }`}>
-                            {msg.meetingData.status}
-                          </span>
-                        </div>
-
-                        <div className="space-y-0.5 text-zinc-200">
-                          <div className="font-medium flex items-center gap-1">
-                            <Coffee className="w-3.5 h-3.5 text-[#C9A24D]" />
-                            <span>{msg.meetingData.venueName}</span>
-                          </div>
-                          <div className="text-[11px] text-zinc-300 flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-zinc-400" />
-                            <span>{msg.meetingData.address}</span>
-                          </div>
-                          <div className="text-[11px] text-[#C9A24D] flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{msg.meetingData.timeStr}</span>
-                          </div>
-                        </div>
-
-                        {!isMe && msg.meetingData.status === 'proposed' && onAcceptMeeting && (
-                          <button
-                            type="button"
-                            onClick={() => onAcceptMeeting(msg.meetingData!)}
-                            className="g-btn g-btn--amber w-full mt-1.5 !min-h-[40px] !text-[12px]"
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>Accept & Start Local Check-in</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    {/* The meetup as a card with its controls; older messages about the same meetup collapse */}
+                    {msg.meetingData && currentRoom && (() => {
+                      const latest = meetups.get(msg.meetingData.id);
+                      const isLatest = !latest || latest.msgId === msg.id;
+                      const meeting = isLatest && latest ? latest.meeting : msg.meetingData;
+                      return (
+                        <MeetupCard
+                          meeting={meeting}
+                          isLatest={isLatest}
+                          isProposer={latest ? latest.proposedByMe : isMe}
+                          peerName={currentRoom.peerName || currentRoom.name}
+                          userLocation={userLocation ?? null}
+                          journeyActive={journeyRoomId === currentRoom.id}
+                          onAction={(action, m) => onMeetingAction?.(action, m)}
+                        />
+                      );
+                    })()}
 
                     <div className="g-bubble__meta">
                       {msg.sendState === 'failed' ? (
