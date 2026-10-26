@@ -91,12 +91,14 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
   }
 
   webrtcCallService.endCall = async (explicitState = 'ended') => {
-    const conversationId = activeCall.keys().next().value as string | undefined;
+    const conversationId = Array.from(activeCall.keys()).pop();
     const call = conversationId ? activeCall.get(conversationId) : undefined;
 
+    const wasRinging = webrtcCallService.getState() === 'calling' || webrtcCallService.getState() === 'ringing';
     await originalEndCall(explicitState);
 
-    if (explicitState === 'missed' && conversationId && call) {
+    // Unanswered however it ended: it timed out, the caller hung up while it rang, or it was declined.
+    if (wasRinging && (explicitState === 'missed' || explicitState === 'ended' || explicitState === 'declined') && conversationId && call) {
       await enqueueCallNotification({
         conversationId,
         targetUserId: call.targetUserId,

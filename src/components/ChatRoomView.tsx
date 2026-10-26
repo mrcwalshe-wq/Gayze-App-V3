@@ -1,6 +1,7 @@
 import { PeerIntentBanner } from './PeerIntentBanner';
 import { SharePlaceSheet } from './SharePlaceSheet';
 import { MeetupCard, type MeetupAction } from './MeetupCard';
+import { CallLineCard } from './CallLineCard';
 import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
@@ -313,6 +314,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     () => latestMeetups(currentMessages, (m) => (currentUserId ? m.senderKey === currentUserId : m.senderKey === currentUser.publicKey)),
     [currentMessages, currentUserId, currentUser.publicKey],
   );
+  const lastCallMsgId = useMemo(() => [...currentMessages].reverse().find((m) => m.callData)?.id, [currentMessages]);
   const roomGayzes = useMemo(() => gayzeEvents.filter((event) => currentRoom?.type === 'direct' && (
     event.actorId === currentRoom.peerUserId
     || Boolean(currentRoom.memberIds?.includes(event.actorId) && currentRoom.memberIds?.includes(currentUserId ?? ''))
@@ -946,7 +948,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
                   <div
                     className={`max-w-[88%] sm:max-w-md px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed transition-all ${
-                      isMe ? 'g-bubble--mine' : 'g-bubble--peer'
+                      msg.callData ? 'g-bubble--call' : isMe ? 'g-bubble--mine' : 'g-bubble--peer'
                     }`}
                   >
                     {/* Encrypted Photo Attachment if present */}
@@ -968,6 +970,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                           ? 'This message failed its integrity check and was not shown.'
                           : 'Can\'t decrypt this message on this device. Re-verify this device or open the chat on one that already has the key.'}</span>
                       </p>
+                    ) : msg.callData && !msg.deletedForEveryone && currentRoom ? (
+                      <CallLineCard
+                        call={msg.callData}
+                        isCaller={isMe}
+                        peerName={currentRoom.peerName || currentRoom.name}
+                        time={msg.timestamp}
+                        canRetry={currentRoom.type === 'direct' && Boolean(onStartCall) && msg.id === lastCallMsgId}
+                        onRetry={(type) => onStartCall?.(currentRoom.peerName || currentRoom.name, type, currentRoom.peerUserId, currentRoom.peerAvatar)}
+                      />
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>
                     )}
