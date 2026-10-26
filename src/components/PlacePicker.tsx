@@ -25,12 +25,15 @@ interface PlacePickerProps {
 }
 
 /** Type a venue and pick a real place near you. Typing freely still works if the search is unavailable. */
-export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, onPick, near, placeholder = 'Search for a place', id, className, required }) => {
+export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, onPick, near: userNear, placeholder = 'Search for a place', id, className, required }) => {
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [postcodeMode, setPostcodeMode] = useState(false);
+  // A postcode (or any area) entered here moves the search away from where the member is standing.
+  const [area, setArea] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const near: LatLng | null = area ?? userNear;
   const [focused, setFocused] = useState(false);
   const [browse, setBrowse] = useState<{ label: string; Icon: typeof Coffee } | null>(null);
   const browseAbort = useRef<AbortController | null>(null);
@@ -62,6 +65,8 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
     }, 350);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [value, near?.lat, near?.lng]);
+
+  const UK_POSTCODE = /^[A-Za-z]{1,2}\d[A-Za-z\d]?\s*\d[A-Za-z]{2}$/;
 
   useEffect(() => {
     const close = (e: PointerEvent) => { if (!boxRef.current?.contains(e.target as Node)) setOpen(false); };
@@ -100,6 +105,14 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
   const closeBrowse = () => { browseAbort.current?.abort(); setBrowse(null); setResults([]); setFailed(false); setLoading(false); };
 
   const choose = (p: PlaceResult) => {
+    if (postcodeMode || UK_POSTCODE.test(value.trim())) {
+      // A postcode is somewhere to search around, not the place itself.
+      const label = value.trim().toUpperCase() || p.name;
+      browseAbort.current?.abort();
+      setArea({ lat: p.lat, lng: p.lng, label }); setPostcodeMode(false); setBrowse(null);
+      setResults([]); setOpen(false); picked.current = null; onTextChange('');
+      return;
+    }
     setBrowse(null);
     picked.current = p.name.trim();
     onPick(p);
@@ -122,8 +135,12 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
         {loading ? <Loader2 className="w-4 h-4 g-place__spin" aria-hidden="true" />
           : value && <button type="button" className="g-place__clear" aria-label="Clear" onClick={() => { picked.current = null; onTextChange(''); setResults([]); }}><X className="w-3.5 h-3.5" /></button>}
       </div>
-      {focused && !browse && !value.trim() && (
-        <div className="g-place__chips" role="group" aria-label="Quick searches near you">
+      {area && (
+        <p className="g-place__area g-gborder"><MapPin className="w-3.5 h-3.5" aria-hidden="true" /><span>Showing places near <strong>{area.label}</strong></span>
+          <button type="button" onClick={() => { setArea(null); closeBrowse(); }}>{userNear ? 'Use my location' : 'Clear'}</button></p>
+      )}
+      {(focused || area) && !browse && !value.trim() && (
+        <div className="g-place__chips" role="group" aria-label="Quick searches">
           {PRESETS.map(({ label, query, Icon }) => (
             <button key={query} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => void browseNearby(label, query, Icon)}>
               <Icon className="w-3.5 h-3.5" aria-hidden="true" />{label}
@@ -135,9 +152,9 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({ value, onTextChange, o
         </div>
       )}
       {browse && (
-        <section className="g-place__browse g-gborder" aria-label={`Closest ${browse.label.toLowerCase()}s near you`}>
+        <section className="g-place__browse g-gborder" aria-label={`Closest ${browse.label.toLowerCase()}s`}>
           <header>
-            <span><b>Closest {browse.label.toLowerCase()}s</b><small>near you · from OpenStreetMap</small></span>
+            <span><b>Closest {browse.label.toLowerCase()}s</b><small>{area ? `near ${area.label}` : 'near you'} · from OpenStreetMap</small></span>
             <button type="button" className="g-place__clear" aria-label="Back to quick searches" onClick={closeBrowse}><X className="w-4 h-4" /></button>
           </header>
           {loading && <div className="g-place__skeleton" aria-hidden="true"><i /><i /><i /></div>}

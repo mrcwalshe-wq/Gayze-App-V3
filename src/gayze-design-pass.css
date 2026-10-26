@@ -1370,3 +1370,8 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-place__browse, .g-place__browse ul, .g-place__browse li { min-width: 0; box-sizing: border-box; }
 .g-place__browse li button { box-sizing: border-box; max-width: 100%; }
 .g-place__browse li button > span:nth-child(2) { overflow: hidden; }
+
+.g-place__area { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 9px 12px; border-radius: 14px; font-size: 12.5px; color: #efe6ff; background: rgba(138, 77, 255, .14); }
+.g-place__area span { flex: 1; min-width: 0; }
+.g-place__area svg { flex: none; color: #c4a9f7; }
+.g-place__area button { flex: none; font-size: 12px; font-weight: 700; color: #fff; padding: 5px 10px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 0; }
