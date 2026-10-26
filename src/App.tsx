@@ -24,7 +24,7 @@ import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
-import { decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
+import { callLineText, decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
 import { JourneyBar } from './components/JourneyBar';
 import { useJourney } from './services/useJourney';
 import { FullScreenCallModal, FullScreenAudioCallModal } from './components/FullScreenCallModal';
@@ -93,6 +93,7 @@ import {
   SwarmQRPayload,
   MeetingProposal,
   MeetingEvent,
+  CallLine,
   TopLevelIntentMode
 } from './types';
 import {
@@ -1145,6 +1146,7 @@ export default function App() {
         let plainText = '[Encrypted message]';
         let mediaUrl: string | undefined;
         let meetingData: MeetingProposal | undefined;
+        let callData: CallLine | undefined;
         let decryptedOk = false;
         let decryptFailure: EncryptedMessage['decryptFailure'];
         for (let attempt = 0; attempt < (delivery.notify ? 3 : 1) && row.nonce && !row.burned_at && (!row.expires_at || Date.parse(row.expires_at) > Date.now()) && !decryptedOk; attempt += 1) {
@@ -1152,7 +1154,7 @@ export default function App() {
             if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
             const decrypted = await messageProcessorRef.current.text(room, row, supabaseUserId);
             const decoded = decodePayload(decrypted, new Date(row.created_at).getTime());
-            plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting;
+            plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting; callData = decoded.call;
             decryptedOk = true;
           } catch (error) {
             if (error instanceof MessageDecryptError) decryptFailure = error.code === 'authentication_failed' ? 'tampered_or_wrong_key' : 'no_key';
@@ -1168,7 +1170,7 @@ export default function App() {
           id: row.id, roomId: row.conversation_id, senderKey: row.sender_id, senderName,
           timestamp: new Date(row.created_at).getTime(), cipherText: row.ciphertext,
           nonceHex: row.nonce || '', plainText, expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
-          isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined, meetingData,
+          isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined, meetingData, callData,
           decryptFailure: decryptedOk ? undefined : decryptFailure,
         };
 
@@ -2035,6 +2037,7 @@ export default function App() {
       let plainText = '[Encrypted message]';
       let mediaUrl: string | undefined = undefined;
       let meetingData: MeetingProposal | undefined;
+      let callData: CallLine | undefined;
       let decryptedOk = false;
       let decryptFailure: EncryptedMessage['decryptFailure'];
 
@@ -2047,7 +2050,7 @@ export default function App() {
           const decrypted = await messageProcessorRef.current.text(targetRoom, row, supabaseUserId);
           keyReady = true;
           const decoded = decodePayload(decrypted, new Date(row.created_at).getTime());
-          plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting;
+          plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting; callData = decoded.call;
           decryptedOk = true;
         } catch (error) {
           keyReady = false;
@@ -2080,6 +2083,7 @@ export default function App() {
         mediaUrl,
         mediaType: mediaUrl ? 'image' : undefined,
         meetingData,
+        callData,
         decryptFailure: decryptedOk ? undefined : decryptFailure,
       };
 
@@ -2237,6 +2241,7 @@ export default function App() {
     meetingData?: MeetingProposal,
     mediaUrl?: string,
     messageId?: string,
+    callData?: CallLine,
   ) => {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
@@ -2247,7 +2252,7 @@ export default function App() {
     let cipherHex: string;
     let nonceHex: string;
     let keyVersion = 1;
-    const textToEncrypt = encodePayload(plainText, mediaUrl, meetingData);
+    const textToEncrypt = encodePayload(plainText, mediaUrl, meetingData, callData);
 
     if (isSupabaseRoom) {
       const resolved = await messageProcessorRef.current.key(room, sendingUserId!);
@@ -2281,6 +2286,7 @@ export default function App() {
       plainText,
       ephemeralTtlSeconds: ephemeralTtlSeconds || room.ephemeralTtlSeconds,
       meetingData,
+      callData,
       mediaUrl,
       mediaType: mediaUrl ? 'image' : undefined,
     };
@@ -2588,6 +2594,36 @@ export default function App() {
   };
 
   handleSendMessageRef.current = (roomId, text, ttl) => handleSendMessage(roomId, text, ttl);
+
+  // A call nobody picked up leaves a line in the chat for both people, with a Try again button. Only the caller
+  // writes it (once per call), so a missed call is never duplicated.
+  const outgoingCallRef = useRef<{ roomId: string; callType: 'audio' | 'video'; id: string } | null>(null);
+  const callLineSenderRef = useRef<(roomId: string, line: CallLine) => void>(() => {});
+  callLineSenderRef.current = (roomId, line) => {
+    const room = rooms.find((r) => r.id === roomId);
+    void handleSendMessage(roomId, callLineText(line), room?.ephemeralTtlSeconds, undefined, undefined, undefined, line)
+      .catch(() => showToast('The missed call could not be added to the chat.'));
+  };
+  const callContextRef = useRef({ roomId: '', callType: 'audio' as 'audio' | 'video', incoming: false });
+  callContextRef.current = { roomId: activeRoomId, callType, incoming: isIncomingCallActive };
+  useEffect(() => {
+    let previous = webrtcCallService.getState();
+    return webrtcCallService.subscribeState((state) => {
+      const ctx = callContextRef.current;
+      if ((state === 'calling' || state === 'ringing') && !ctx.incoming && !outgoingCallRef.current) {
+        outgoingCallRef.current = { roomId: ctx.roomId, callType: ctx.callType, id: crypto.randomUUID() };
+      } else if (state === 'connecting' || state === 'connected') {
+        outgoingCallRef.current = null;
+      } else if ((state === 'missed' || state === 'declined' || (state === 'ended' && (previous === 'calling' || previous === 'ringing'))) && outgoingCallRef.current) {
+        const call = outgoingCallRef.current;
+        outgoingCallRef.current = null;
+        if (/^[0-9a-f-]{36}$/i.test(call.roomId)) callLineSenderRef.current(call.roomId, { id: call.id, callType: call.callType, outcome: state === 'declined' ? 'declined' : 'unanswered' });
+      } else if (state === 'idle' || state === 'failed') {
+        outgoingCallRef.current = null;
+      }
+      previous = state;
+    });
+  }, []);
 
   // If the other person cancels the meetup while you are on your way, stop the guide.
   useEffect(() => {
