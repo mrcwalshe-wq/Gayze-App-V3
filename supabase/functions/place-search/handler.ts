@@ -24,6 +24,17 @@ const RATE_WINDOW_MS = 30_000;
 const RATE_MAX = 25;
 const UPSTREAM = 'https://photon.komoot.io/api/';
 
+/** Quick categories: the OpenStreetMap tag to look for near the member. */
+const CATEGORIES: Record<string, string> = {
+  cafe: 'amenity:cafe',
+  bar: 'amenity:bar',
+  pub: 'amenity:pub',
+  restaurant: 'amenity:restaurant',
+  park: 'leisure:park',
+  station: 'railway:station',
+};
+const CATEGORY_RADIUS_KM: Record<string, number> = { park: 3, station: 6 };
+
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
@@ -76,8 +87,30 @@ export function createPlaceSearchHandler(deps: PlaceSearchDeps) {
     hits.set(userId, recent);
     if (hits.size > 5000) for (const [k, v] of hits) if (!v.some((x) => t - x < RATE_WINDOW_MS)) hits.delete(k);
 
-    let body: { q?: unknown; lat?: unknown; lng?: unknown };
+    let body: { q?: unknown; lat?: unknown; lng?: unknown; category?: unknown };
     try { body = await req.json(); } catch { return json(400, { error: 'bad_request' }); }
+    const category = typeof body.category === 'string' ? body.category : '';
+    if (category) {
+      const tag = CATEGORIES[category];
+      const cLat = typeof body.lat === 'number' ? body.lat : NaN, cLng = typeof body.lng === 'number' ? body.lng : NaN;
+      if (!tag || !Number.isFinite(cLat) || !Number.isFinite(cLng) || Math.abs(cLat) > 90 || Math.abs(cLng) > 180) return json(400, { error: 'bad_request' });
+      // The nearest places of that kind around the member. Their position is rounded to ~1 km before it leaves GAYZE.
+      const near = new URLSearchParams({
+        lat: String(round2(cLat)), lon: String(round2(cLng)), radius: String(CATEGORY_RADIUS_KM[category] ?? 2.5),
+        limit: '30', lang: 'en', osm_tag: tag,
+      });
+      try {
+        const res = await fetchImpl(`${upstream.replace(/\/api\/?$/, '')}/reverse?${near}`, {
+          headers: { 'User-Agent': 'GAYZE/1.0 (+https://gayze.co.uk)', Accept: 'application/json' },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) return json(502, { error: 'search_unavailable' });
+        return json(200, { results: normalizePhoton(await res.json()), attribution: '© OpenStreetMap contributors' });
+      } catch {
+        return json(502, { error: 'search_unavailable' });
+      }
+    }
+
     const q = clean(body.q, 80);
     if (q.length < 2) return json(400, { error: 'query_too_short' });
 

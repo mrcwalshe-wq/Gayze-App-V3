@@ -15,3 +15,14 @@ export async function searchPlaces(query: string, near: LatLng | null, signal?: 
   if (error || !Array.isArray(data?.results)) throw new Error('place search unavailable');
   return data.results as PlaceResult[];
 }
+
+/** The nearest named places of one kind (cafe, bar, pub, restaurant, park, station) around the member. */
+export async function nearbyPlaces(category: string, near: LatLng, signal?: AbortSignal): Promise<PlaceResult[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.functions.invoke('place-search', {
+    body: { category, lat: near.lat, lng: near.lng },
+    ...(signal ? { signal } : {}),
+  });
+  if (error || !Array.isArray(data?.results)) throw new Error('place search unavailable');
+  return data.results as PlaceResult[];
+}
