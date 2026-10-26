@@ -24,6 +24,7 @@ import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
+import { DirectionsSheet } from './components/DirectionsSheet';
 import { latestMeetups } from './services/meetupState';
 import { callLineText, decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
 import { JourneyBar } from './components/JourneyBar';
@@ -668,6 +669,7 @@ export default function App() {
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
   const [amendingMeeting, setAmendingMeeting] = useState<{ id: string; venueName: string; timeStr: string } | null>(null);
   const handleSendMessageRef = useRef<(roomId: string, text: string, ttl?: number) => Promise<void>>(async () => {});
+  const [directionsOpen, setDirectionsOpen] = useState(false);
   const [journeySheet, setJourneySheet] = useState<{ roomId: string; peerName: string } | null>(null);
   const { journey, live: journeyLive, start: startJourney, stop: stopJourney } = useJourney(
     (roomId, text) => handleSendMessageRef.current(roomId, text, rooms.find((r) => r.id === roomId)?.ephemeralTtlSeconds),
@@ -3904,8 +3906,9 @@ export default function App() {
         arranged={arrangedMeetup}
         onStart={(d) => { if (journeySheet) void startJourney({ roomId: journeySheet.roomId, peerName: journeySheet.peerName, venueName: d.venueName, dest: d.dest, share: d.share }); }}
       />
+      <DirectionsSheet isOpen={directionsOpen && Boolean(journey)} onClose={() => setDirectionsOpen(false)} venueName={journey?.venueName ?? ''} dest={journey?.dest ?? null} from={userLocation} />
       {journey && (
-        <JourneyBar venueName={journey.venueName} peerName={journey.peerName} share={journey.share} live={journeyLive} onStop={stopJourney} />
+        <JourneyBar venueName={journey.venueName} peerName={journey.peerName} share={journey.share} live={journeyLive} onStop={stopJourney} onDirections={() => setDirectionsOpen(true)} />
       )}
 
       {/* Schedule Meeting & Safe Haven Date Modal */}

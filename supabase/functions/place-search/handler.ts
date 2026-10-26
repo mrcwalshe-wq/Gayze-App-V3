@@ -8,6 +8,9 @@
  */
 export interface PlaceResult { id: string; name: string; address: string; area: string; kind: string; lat: number; lng: number }
 
+export interface RouteStep { text: string; distanceM: number }
+export interface RouteResult { distanceM: number; durationS: number; steps: RouteStep[] }
+
 export interface PlaceSearchDeps {
   authenticate: (token: string) => Promise<string | null>;
   fetchImpl?: typeof fetch;
@@ -33,12 +36,19 @@ const CATEGORIES: Record<string, string> = {
   park: 'leisure:park',
   station: 'railway:station',
 };
+/** Free OSM routing by FOSSGIS (OSRM). Public transport is not available here: the app opens the phone's maps app for that. */
+const ROUTERS: Record<string, string> = {
+  walk: 'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
+  drive: 'https://routing.openstreetmap.de/routed-car/route/v1/driving',
+  cycle: 'https://routing.openstreetmap.de/routed-bike/route/v1/bike',
+};
 const CATEGORY_RADIUS_KM: Record<string, number> = { park: 3, station: 6 };
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
 const clean = (v: unknown, max = 120) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) : '');
 
 export function normalizePhoton(data: unknown): PlaceResult[] {
@@ -66,6 +76,41 @@ export function normalizePhoton(data: unknown): PlaceResult[] {
   return out;
 }
 
+const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+const ORDINAL = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+
+/** One plain-English instruction from an OSRM step. */
+export function stepText(step: unknown): string {
+  const st = step as { name?: unknown; maneuver?: { type?: string; modifier?: string; bearing_after?: number; exit?: number } };
+  const m = st?.maneuver ?? {};
+  const road = clean(st?.name, 80);
+  const onto = road ? ` onto ${road}` : '';
+  const mod = (m.modifier ?? '').replace('slight ', 'slightly ');
+  switch (m.type) {
+    case 'depart': return `Head ${typeof m.bearing_after === 'number' ? COMPASS[Math.round(m.bearing_after / 45) % 8] : 'off'}${road ? ` on ${road}` : ''}`;
+    case 'arrive': return 'Arrive at your destination';
+    case 'turn': return mod === 'straight' ? `Continue straight${onto}` : `Turn ${mod || 'ahead'}${onto}`;
+    case 'end of road': return `At the end of the road turn ${mod || 'ahead'}${onto}`;
+    case 'fork': return `Keep ${mod.includes('left') ? 'left' : 'right'} at the fork${onto}`;
+    case 'merge': return `Merge${onto}`;
+    case 'on ramp': case 'off ramp': return `Take the ramp${onto}`;
+    case 'roundabout': case 'rotary': return `At the roundabout take the ${ORDINAL[m.exit ?? 0] || 'next'} exit${onto}`;
+    case 'roundabout turn': return `At the roundabout turn ${mod || 'ahead'}${onto}`;
+    default: return road ? `Continue on ${road}` : 'Continue';
+  }
+}
+
+export function normalizeRoute(data: unknown): RouteResult | null {
+  const route = (data as { routes?: { distance?: number; duration?: number; legs?: { steps?: unknown[] }[] }[] })?.routes?.[0];
+  if (!route || typeof route.distance !== 'number' || typeof route.duration !== 'number') return null;
+  const steps: RouteStep[] = [];
+  for (const leg of route.legs ?? []) for (const step of leg.steps ?? []) {
+    const d = (step as { distance?: number }).distance;
+    steps.push({ text: stepText(step), distanceM: Math.round(typeof d === 'number' && Number.isFinite(d) ? d : 0) });
+  }
+  return { distanceM: Math.round(route.distance), durationS: Math.round(route.duration), steps: steps.slice(0, 60) };
+}
+
 export function createPlaceSearchHandler(deps: PlaceSearchDeps) {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const now = deps.now ?? Date.now;
@@ -87,8 +132,28 @@ export function createPlaceSearchHandler(deps: PlaceSearchDeps) {
     hits.set(userId, recent);
     if (hits.size > 5000) for (const [k, v] of hits) if (!v.some((x) => t - x < RATE_WINDOW_MS)) hits.delete(k);
 
-    let body: { q?: unknown; lat?: unknown; lng?: unknown; category?: unknown };
+    let body: { q?: unknown; lat?: unknown; lng?: unknown; category?: unknown; route?: unknown };
     try { body = await req.json(); } catch { return json(400, { error: 'bad_request' }); }
+    if (body.route && typeof body.route === 'object') {
+      const r = body.route as { from?: { lat?: unknown; lng?: unknown }; to?: { lat?: unknown; lng?: unknown }; mode?: unknown };
+      const base = typeof r.mode === 'string' ? ROUTERS[r.mode] : undefined;
+      const ok = (v: unknown, lim: number) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= lim;
+      if (!base || !ok(r.from?.lat, 90) || !ok(r.from?.lng, 180) || !ok(r.to?.lat, 90) || !ok(r.to?.lng, 180)) return json(400, { error: 'bad_request' });
+      // The start is rounded to ~100 m before it leaves GAYZE; the destination is the venue itself.
+      const path = `${round3(r.from!.lng as number)},${round3(r.from!.lat as number)};${(r.to!.lng as number).toFixed(6)},${(r.to!.lat as number).toFixed(6)}`;
+      try {
+        const res = await fetchImpl(`${base}/${path}?steps=true&overview=false&alternatives=false`, {
+          headers: { 'User-Agent': 'GAYZE/1.0 (+https://gayze.co.uk)', Accept: 'application/json' },
+          signal: AbortSignal.timeout(7000),
+        });
+        if (!res.ok) return json(502, { error: 'search_unavailable' });
+        const route = normalizeRoute(await res.json());
+        return route ? json(200, { route, attribution: '© OpenStreetMap contributors' }) : json(404, { error: 'no_route' });
+      } catch {
+        return json(502, { error: 'search_unavailable' });
+      }
+    }
+
     const category = typeof body.category === 'string' ? body.category : '';
     if (category) {
       const tag = CATEGORIES[category];
