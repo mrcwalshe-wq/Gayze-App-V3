@@ -64,6 +64,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>GAYZE uses your camera for video calls and to scan QR codes.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>GAYZE uses your microphone for voice and video calls.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>GAYZE uses your location to show people and places near you.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>

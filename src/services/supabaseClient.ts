@@ -45,8 +45,15 @@ export function getAuthRedirectUrl(path: string = AUTH_REDIRECT_PATHS.home): str
     hostname === '[::1]';
   const isCloudflareWorkersHost = hostname.endsWith('.workers.dev');
 
+  // Inside the Capacitor app the origin is capacitor://localhost (iOS) or
+  // https://localhost (Android). Email links must open the real site instead.
+  const isNativeApp = Boolean(
+    (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
+      .Capacitor?.isNativePlatform?.(),
+  );
+
   const base =
-    !isLocalhost && isCloudflareWorkersHost
+    isNativeApp || (!isLocalhost && isCloudflareWorkersHost)
       ? 'https://gayze.co.uk'
       : origin;
 
