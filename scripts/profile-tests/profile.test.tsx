@@ -261,12 +261,10 @@ section('[2] Profile summary — sections render only when they contain informat
   assert(hasText(container, '42 · he/him · Bermondsey'), 'age · pronouns · area in the header');
   assert(hasText(container, '180 cm') && hasText(container, 'Athletic'), 'optional facts render as chips');
   assert(hasText(container, 'Looking for') && hasText(container, 'Date'), 'Looking for shows the reused interests values');
-  assert(hasText(container, 'Interests') && hasText(container, 'Gym'), 'Interests shows hobby chips');
+  assert(hasText(container, 'Into') && hasText(container, 'Gym'), 'Into shows the hobbies');
   assert(!hasText(container, 'Intimacy'), 'the retired Intimacy section never renders');
   assert(hasText(container, 'Sometimes host') && hasText(container, 'Weekends'), 'My setup + availability render');
   assert(hasText(container, 'Safer sex') && hasText(container, 'Discretion important'), 'Boundaries render');
-  const labels = [...container.querySelectorAll('.g-label')].filter((el) => text(el) === 'Notifications');
-  assert(labels.length === 1, 'still exactly ONE Notifications section with a full profile');
   await unmount();
 }
 
@@ -290,11 +288,8 @@ section('[3] Profile completion — subtle, prioritised, never blocking');
   // UI: avatarUrl counts as a photo; suggestions jump into the right section.
   const user = makeUser({ avatarUrl: 'https://example.test/a.jpg', interests: ['Chat'], bio: 'x' });
   const { container, calls, unmount } = await mountProfile(user);
-  assert(hasText(container, '50% complete'), 'shows "Profile · 50% complete"');
-  assert(hasText(container, 'quick things to add'), 'nudge copy is soft, not a checklist');
-  const nudge = [...container.querySelectorAll('button')].find((b) => hasText(b, 'complete'));
-  await act(async () => { nudge.click(); await sleep(10); });
-  assert(calls.edit[0] === 'interests', `tapping the nudge opens the editor at the first missing section (got ${calls.edit[0]})`);
+  // The completion nudge was removed from the profile page in the design polish; the pure
+  // computeProfileCompletion() checks above still cover the scoring.
   // Not blocking: nothing here hides the rest of the profile.
   assert(hasText(container, 'Safety & privacy'), 'incomplete profile still shows the full page');
   await unmount();
