@@ -286,35 +286,19 @@ section('[5a] MAP \u2014 an intent expiring mid-session drops off the map');
   await m.unmount();
 }
 
-section('[5b] MAP \u2014 Social / Spicy (intent mode) filtering works');
+section('[5b] MAP \u2014 Private mode is retired; legacy private intents show as social');
 {
   const social = makePulse({ id: 's1', peerName: 'Soc', intentMode: 'social', intent: 'Coffee' });
-  const priv = makePulse({ id: 'p1', peerName: 'Pri', intentMode: 'private', intent: 'Chill' });
-  const m = await mount({ pulses: [social, priv] });
+  const legacy = makePulse({ id: 'p1', peerName: 'Pri', intentMode: 'private', intent: 'Chill' });
+  const m = await mount({ pulses: [social, legacy] });
   const baselineMarkers = pulseMarkers(m.container).length;
-  assert(baselineMarkers === 2, `both intents visible with no mode filter (got ${baselineMarkers})`);
+  assert(baselineMarkers === 2, `both intents visible, including the legacy one (got ${baselineMarkers})`);
+  assert(!m.container.querySelector('.gm-pulse--private'), 'no marker uses the retired private styling');
 
   const filtersBtn = m.container.querySelector(SEL.openFilters);
   await click(filtersBtn);
   const privateBtn = Array.from(m.container.querySelectorAll('button')).find((b) => (b.textContent || '').trim() === 'Private');
-  assert(Boolean(privateBtn), 'the Private intent-mode filter exists');
-  if (privateBtn) {
-    await click(privateBtn);
-    const socialBtn = Array.from(m.container.querySelectorAll('button')).find((b) => (b.textContent || '').trim() === 'Social');
-    assert(Boolean(socialBtn), 'the Social intent-mode filter exists');
-    if (socialBtn) {
-      await click(socialBtn);
-      const afterSocial = pulseMarkers(m.container).length;
-      assert(afterSocial === 1, `Social mode shows only the social intent (got ${afterSocial})`);
-      assert(!m.container.querySelector('.gm-pulse--private'),
-        'Social mode hides the private ("spicy") intent marker');
-      await click(privateBtn);
-      const afterPrivate = pulseMarkers(m.container).length;
-      assert(afterPrivate === 1, `Private mode shows only the private intent (got ${afterPrivate})`);
-      assert(Boolean(m.container.querySelector('.gm-pulse--private')),
-        'Private mode renders the private intent with its private styling');
-    }
-  }
+  assert(!privateBtn, 'there is no Private intent-mode filter');
   await m.unmount();
 }
 
