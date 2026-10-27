@@ -41,6 +41,7 @@ import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { LiveActivationOverlay } from './components/LiveActivationOverlay';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { consumeAuthCallbackOnce } from './services/authCallback';
+import { initNativeAuthDeepLinks, isNativeApp } from './services/nativeAuth';
 import { describeAuthError, type AuthIssue } from './services/authMessages';
 const AdminConsole = React.lazy(() => import('./components/AdminConsole'));
 import { ProfileOnboarding } from './components/ProfileOnboarding';
@@ -262,6 +263,17 @@ export default function App() {
       analytics.logEvent('discovery_viewed', { surface: 'right_now' });
     }
   }, [activeTab]);
+
+  // Native app only: finish Google sign-in when the system browser returns via gayze://auth/callback.
+  useEffect(() => {
+    if (!supabase || !isNativeApp()) return;
+    let disposed = false;
+    let cleanup: () => void = () => {};
+    void initNativeAuthDeepLinks((result) => {
+      if (!result.ok) setAuthNotice(describeAuthError({ message: result.message }, 'oauth'));
+    }).then((stop) => { if (disposed) stop(); else cleanup = stop; });
+    return () => { disposed = true; cleanup(); };
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;

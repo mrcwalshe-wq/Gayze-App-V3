@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
+import { isNativeApp, startNativeGoogleSignIn } from '../services/nativeAuth';
 import { checkPassword, describeAuthError, isPlausibleEmail, type AuthContext, type AuthIssue } from '../services/authMessages';
 
 /** The multi-colour Google "G", as required by Google's sign-in branding guidelines. */
@@ -105,6 +106,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
     setBusy(true);
     setMessage(null);
     try {
+      if (isNativeApp()) {
+        // Opens Google in the system browser; the gayze:// return link finishes sign-in.
+        await startNativeGoogleSignIn();
+        setBusy(false);
+        return;
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.home) },
