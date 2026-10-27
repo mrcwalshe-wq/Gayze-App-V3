@@ -40,6 +40,8 @@ workflows:
     environment:
       node: latest
       xcode: latest
+      vars:
+        APP_STORE_APPLE_ID: 6827405145   # Apple ID of the app in App Store Connect (not a secret)
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gayze.app
