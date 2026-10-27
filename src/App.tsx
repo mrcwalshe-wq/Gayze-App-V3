@@ -73,6 +73,7 @@ import { primeCallAudio } from './services/callAudioService';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
 import { blockUser, isBlockedBetween } from './services/blockService';
+import ReportSheet from './components/ReportSheet';
 import { FALLBACK_MAP_CENTER, MAX_TRAVEL_DISTANCE_KM, NEUTRAL_AREA_LABEL, clampTravelDistanceKm, resolveAreaLabel } from './config/mapDefaults';
 
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
@@ -655,6 +656,7 @@ export default function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ id: string; name: string; conversationId: string | null } | null>(null);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [profileEditSection, setProfileEditSection] = useState<EditSectionKey | null>(null);
   const [viewingPublicProfile, setViewingPublicProfile] = useState<{
@@ -2580,6 +2582,11 @@ export default function App() {
     }
   };
 
+  const handleReportPeer = (peerId: string, peerName: string, conversationId: string | null = null) => {
+    if (!IS_LIVE_BACKEND || !peerId || peerId === supabaseUserId) return;
+    setReportTarget({ id: peerId, name: peerName, conversationId });
+  };
+
   const handleDeleteChat = async (roomId: string) => {
     const account = supabaseUserIdRef.current;
     if (!account || !isConversationId(roomId)) throw new Error('This conversation is unavailable.');
@@ -3806,6 +3813,7 @@ export default function App() {
                     onUpdateRoomTtl={handleUpdateRoomTtl}
                     onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
                     onBlockPeer={IS_LIVE_BACKEND ? handleBlockPeer : undefined}
+                    onReportPeer={IS_LIVE_BACKEND ? handleReportPeer : undefined}
                     onDeleteMessage={IS_LIVE_BACKEND ? handleDeleteMessageForMe : undefined}
                     onUnsendMessage={IS_LIVE_BACKEND ? handleUnsendMessage : undefined}
                     onSetMessageExpiry={IS_LIVE_BACKEND ? handleSetMessageExpiry : undefined}
@@ -4058,6 +4066,7 @@ export default function App() {
               fallbackOnline={viewingPublicProfile.fallbackOnline}
               onClose={() => setViewingPublicProfile(null)}
               onBlock={IS_LIVE_BACKEND ? (id) => { void handleBlockPeer(id, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
+              onReport={IS_LIVE_BACKEND ? (id) => handleReportPeer(id, viewingPublicProfile.fallbackName || 'this user') : undefined}
               onMessage={peerRoom && !alreadyThere ? () => {
                 setViewingPublicProfile(null);
                 requestConversationOpen(peerRoom.id);
@@ -4067,6 +4076,16 @@ export default function App() {
           </Suspense>
         );
       })()}
+
+      {reportTarget && (
+        <ReportSheet
+          reportedId={reportTarget.id}
+          reportedName={reportTarget.name}
+          conversationId={reportTarget.conversationId}
+          onClose={() => setReportTarget(null)}
+          onSubmitted={() => { setReportTarget(null); setNotificationToast('Report sent. Thank you.'); }}
+        />
+      )}
 
       {/* Local Safety Check-in Timer Modal */}
       <SafetyTimerModal

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Ban, BadgeCheck, Check, ChevronDown, MapPin, MessageCircle, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Ban, BadgeCheck, Flag, Check, ChevronDown, MapPin, MessageCircle, ShieldCheck, Sparkles, X } from 'lucide-react';
 import type { IntimacyProfile } from '../types';
 import { loadIntimacyProfile, loadPublicProfileSummary, type PublicProfileSummary } from '../services/supabaseService';
 import { getProfilePhotoUrl, loadPeerPhotos, type PeerPhoto } from '../services/profilePhotoService';
@@ -20,6 +20,7 @@ export interface PublicProfileSheetProps {
   /** Omit when the viewer is already in a conversation with this person. */
   onMessage?: () => void;
   onBlock?: (userId: string) => void;
+  onReport?: (userId: string) => void;
 }
 
 /**
@@ -39,6 +40,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   onClose,
   onMessage,
   onBlock,
+  onReport,
 }) => {
   const [summary, setSummary] = useState<PublicProfileSummary | null>(null);
   const [mine, setMine] = useState<PublicProfileSummary | null>(null);
@@ -236,6 +238,12 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
                   </>
                 )}
               </>
+            )}
+
+            {userId && onReport && expanded && (
+              <button type="button" onClick={() => onReport(userId)} className="g-peek__block" aria-label={`Report ${name}`}>
+                <Flag className="w-4 h-4" /> Report {name}
+              </button>
             )}
 
             {userId && onBlock && expanded && (

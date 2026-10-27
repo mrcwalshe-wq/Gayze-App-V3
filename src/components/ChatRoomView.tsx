@@ -38,6 +38,7 @@ import {
   MoreHorizontal,
   Trash2,
   Ban,
+  Flag,
   Navigation,
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
@@ -84,6 +85,7 @@ interface ChatRoomViewProps {
   conversationKeyCanRekey?: boolean;
   onStartFreshSecureSession?: () => void;
   onBlockPeer?: (peerId: string, peerName: string) => void;
+  onReportPeer?: (peerId: string, peerName: string, conversationId: string) => void;
   /** Current GAYZE mode controls the live chat border hue. */
   activeIntentMode?: TopLevelIntentMode;
 }
@@ -138,6 +140,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   conversationKeyCanRekey = false,
   onStartFreshSecureSession,
   onBlockPeer,
+  onReportPeer,
   activeIntentMode,
 }) => {
   const openPeek = useProfilePeek();
@@ -822,6 +825,20 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
                       <span className="text-[12px]">Verify safety code</span>
                     </button>
+                    {currentRoom.type === 'direct' && currentRoom.peerUserId && onReportPeer && (
+                      <button
+                        type="button"
+                        aria-label="Report this user"
+                        className="g-row !min-h-[42px] !rounded-xl"
+                        onClick={() => {
+                          setShowChatActions(false);
+                          onReportPeer(currentRoom.peerUserId!, currentRoom.peerName || currentRoom.name, currentRoom.id);
+                        }}
+                      >
+                        <Flag className="w-4 h-4 text-red-400" />
+                        <span className="text-[12px] text-red-300">Report user</span>
+                      </button>
+                    )}
                     {currentRoom.type === 'direct' && currentRoom.peerUserId && onBlockPeer && (
                       <button
                         type="button"
