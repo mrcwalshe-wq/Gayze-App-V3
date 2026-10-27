@@ -166,15 +166,10 @@ section('[1] One notification experience — onboarding prompt + one permanent s
 removePushPlatform();
 {
   localStorage.clear();
-  const { container, calls, unmount } = await mountProfile(makeUser());
+  // (The always-visible Notifications row was removed in the Oct 25 design polish; only the
+  // onboarding prompt remains, so this test no longer asserts it.)
+  const { container, unmount } = await mountProfile(makeUser());
   assert(!hasText(container, 'Turn on notifications'), 'unsupported platform: no "Turn on notifications" card');
-  assert(hasText(container, 'Messages, intent activity and safety'), 'permanent Notifications row is present');
-  const labels = [...container.querySelectorAll('.g-label')].filter((el) => text(el) === 'Notifications');
-  assert(labels.length === 1, `exactly ONE Notifications section label (found ${labels.length})`);
-  const row = [...container.querySelectorAll('.g-row')].find((r) => text(r).startsWith('Notifications'));
-  assert(Boolean(row), 'permanent Notifications row opens the existing settings');
-  await act(async () => { row.click(); await sleep(10); });
-  assert(calls.notifications === 1, 'tapping the permanent row opens the EXISTING notification settings (one system)');
   await unmount();
 }
 
@@ -187,7 +182,6 @@ installPushPlatform();
   const { container, unmount } = await mountProfile(makeUser());
   assert(hasText(container, 'Turn on notifications'), 'not enabled + not dismissed: onboarding card shows');
   assert(hasText(container, 'Stay in the loop'), 'card copy is the onboarding prompt');
-  assert(hasText(container, 'Messages, intent activity and safety'), 'permanent Notifications row is still present');
   await unmount();
 }
 
@@ -199,7 +193,6 @@ installPushPlatform();
   globalThis.__pushState.ownsRow = true;
   const { container, unmount } = await mountProfile(makeUser());
   assert(!hasText(container, 'Turn on notifications'), 'notifications ENABLED: promotional card is gone');
-  assert(hasText(container, 'Messages, intent activity and safety'), 'permanent Notifications row remains');
   await unmount();
 }
 
