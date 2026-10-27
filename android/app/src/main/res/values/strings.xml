@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GAYZE</string>
+    <string name="title_activity_main">GAYZE</string>
+    <string name="package_name">com.gayze.app</string>
+    <string name="custom_url_scheme">com.gayze.app</string>
+</resources>
