@@ -52,6 +52,8 @@ workflows:
         script: keychain initialize
       - name: Fetch or create signing files
         script: |
+          if [ -z "$CERTIFICATE_PRIVATE_KEY_B64" ]; then echo "CERTIFICATE_PRIVATE_KEY_B64 is empty: add it in app settings > Environment variables, group 'signing'"; exit 1; fi
+          echo "Key variable length: ${#CERTIFICATE_PRIVATE_KEY_B64}"
           echo "$CERTIFICATE_PRIVATE_KEY_B64" | base64 --decode > /tmp/cert_key.pem
           app-store-connect fetch-signing-files "com.gayze.app" --type IOS_APP_STORE --create --certificate-key @file:/tmp/cert_key.pem
       - name: Add certificates to keychain
