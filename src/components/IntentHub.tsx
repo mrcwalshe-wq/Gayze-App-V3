@@ -170,15 +170,6 @@ export const IntentHub: React.FC<IntentHubProps> = ({
               </span>
               <span className="g-intent-hub__choice-arrow">→</span>
             </button>
-
-            <button type="button" className="g-intent-hub__choice is-private" onClick={() => { hapticLight(); onCreateIntent('private'); }}>
-              <span className="g-intent-hub__choice-icon"><EyeOff className="w-5 h-5" /></span>
-              <span className="g-intent-hub__choice-copy">
-                <strong>Private</strong>
-                <span>Intimate, host, travel, outdoors or car</span>
-              </span>
-              <span className="g-intent-hub__choice-arrow">→</span>
-            </button>
           </div>
         )}
 

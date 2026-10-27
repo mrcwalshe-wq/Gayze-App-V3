@@ -2020,7 +2020,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div>
                 <span className="g-label">Intent</span>
                 <div className="g-seg mt-2.5">
-                  {(['All', 'Social', 'Private'] as const).map((mode) => (
+                  {(['All', 'Social'] as const).map((mode) => (
                     <button
                       key={mode}
                       type="button"

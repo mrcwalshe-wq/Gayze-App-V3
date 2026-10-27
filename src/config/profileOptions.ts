@@ -19,7 +19,6 @@ export const LOOKING_FOR_OPTIONS = [
   'Friends',
   'Drinks',
   'Date',
-  'Hookup',
   'Regular connection',
   'Travel',
   'Outdoor',
@@ -34,6 +33,7 @@ export const LOOKING_FOR_OPTIONS = [
 export const LEGACY_LOOKING_FOR_OPTIONS = [
   'Meet',
   'Group',
+  'Hookup',
   'Hookup · Host',
   'Hookup · Travel',
   'Hookup · Outdoor',

@@ -136,6 +136,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   const safeHavensRef = useRef(safeHavens);
   safeHavensRef.current = safeHavens;
   const isEditing = Boolean(existingIntent);
+  const allowPrivateMode = existingIntent?.mode === 'private';
   const isPrivateMode = mode === 'private';
 
   useEffect(() => {
@@ -160,7 +161,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
         if (match) setSelectedHaven(match);
       }
     } else {
-      setMode(initialMode);
+      // New intents are always social. Private is kept only so older private intents can still be edited.
+      setMode('social');
       setIntent(null);
       setDescription('');
       setWhen(defaultWhen);
@@ -305,7 +307,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             {/* STEP 1 — mode */}
             <div className="pt-1 pb-3">
               <span className="g-label">What are you up for?</span>
-              <div className="grid grid-cols-2 gap-2.5 mt-2.5">
+              <div className={`grid ${allowPrivateMode ? 'grid-cols-2' : 'grid-cols-1'} gap-2.5 mt-2.5`}>
                 <button
                   type="button"
                   className="g-opt"
@@ -324,6 +326,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   )}
                 </button>
 
+                {allowPrivateMode && (
                 <button
                   type="button"
                   className="g-opt"
@@ -341,6 +344,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     </span>
                   )}
                 </button>
+                )}
               </div>
             </div>
 
