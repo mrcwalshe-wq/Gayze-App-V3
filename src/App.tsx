@@ -135,9 +135,7 @@ import {
   endActiveIntent,
   subscribeToRightNow,
   submitInterest,
-  saveIntimacyProfile,
   updateProfileDetails,
-  loadIntimacyProfile,
   loadProfileDetails,
   loadIncomingInterests,
   type IncomingInterest,
@@ -976,7 +974,7 @@ export default function App() {
         setCurrentUser(identityUser);
 
         // Load the persisted profile first, then merge the additive profile
-        // details and intimacy fields. Each optional layer fails soft so a
+        // details. Each optional layer fails soft so a
         // missing migration/schema never prevents the authenticated shell.
         try {
           const profileRow = await ensureSupabaseProfile(user.id, identityUser, identity.publicKeyJwkString);
@@ -1005,7 +1003,7 @@ export default function App() {
           console.warn('[GAYZE] Profile bootstrap failed:', error);
         }
 
-        // "About you" details and intimacy are additive and may depend on
+        // "About you" details are additive and may depend on
         // migrations being present. Keep them independent and fail soft.
         try {
           const savedDetails = await loadProfileDetails(user.id);
@@ -1024,16 +1022,6 @@ export default function App() {
           }
         } catch (error) {
           console.warn('[GAYZE] Profile details load skipped:', error);
-        }
-
-        try {
-          const savedIntimacy = await loadIntimacyProfile(user.id);
-          if (isStale()) return;
-          if (savedIntimacy) {
-            setCurrentUser((prev) => ({ ...prev, intimacy: savedIntimacy }));
-          }
-        } catch (error) {
-          console.warn('[GAYZE] Intimacy profile load skipped:', error);
         }
 
         await refreshDiscoveryRef.current();
@@ -2802,7 +2790,6 @@ export default function App() {
 
   const handleSaveProfileEdit = async (payload: ProfileSavePayload): Promise<boolean> => {
     // Persist locally first so profile editing remains useful offline.
-    const intimacy: import('./types').IntimacyProfile = payload.intimacy;
     setCurrentUser((prev) => ({
       ...prev,
       displayName: payload.displayName,
@@ -2818,12 +2805,13 @@ export default function App() {
       boundaries: payload.boundaries,
       mySetup: payload.mySetup,
       availability: payload.availability,
-      intimacy,
     }));
 
     try {
+      // Drop any intimacy block cached by an older version of the app.
+      const { intimacy: _retiredIntimacy, ...cachedUser } = currentUserRef.current as UserProfile & { intimacy?: unknown };
       localStorage.setItem('gayze_user', JSON.stringify({
-        ...currentUserRef.current,
+        ...cachedUser,
         displayName: payload.displayName,
         handle: payload.handle,
         bio: payload.bio,
@@ -2837,7 +2825,6 @@ export default function App() {
         boundaries: payload.boundaries,
         mySetup: payload.mySetup,
         availability: payload.availability,
-        intimacy,
       }));
     } catch {
       // Local persistence is best-effort.
@@ -2874,9 +2861,7 @@ export default function App() {
       availability: payload.availability,
     });
 
-    const intimacySaved = await saveIntimacyProfile(supabaseUserId, intimacy);
-
-    if (!detailsSaved || !intimacySaved) {
+    if (!detailsSaved) {
       showToast('Profile saved — some new details could not sync yet');
       return true;
     }

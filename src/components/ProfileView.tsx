@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import {
   type EditSectionKey,
-  INTIMACY_VISIBILITY_OPTIONS,
   computeProfileCompletion,
 } from '../config/profileOptions';
 import { UserActiveIntent, UserProfile } from '../types';
@@ -368,29 +367,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     hasPhoto: photos.length > 0 || Boolean(currentUser.avatarUrl),
     lookingForCount: currentUser.interests.length,
     interestCount: currentUser.hobbies?.length ?? 0,
-    hasIntimacy: Boolean(
-      currentUser.intimacy?.role
-      || (currentUser.intimacy?.preferences.length ?? 0) > 0
-      || (currentUser.intimacy?.experience && currentUser.intimacy.experience !== 'Not specified'),
-    ),
     setupCount: currentUser.mySetup?.length ?? 0,
     hasBio: Boolean(currentUser.bio && currentUser.bio.trim()),
   });
-  const intimacyVisibilityLabel = currentUser.intimacy
-    ? INTIMACY_VISIBILITY_OPTIONS.find((option) => option.value === currentUser.intimacy?.visibility)?.label
-    : undefined;
   const factTags = [
     currentUser.pronouns,
     currentUser.heightCm ? `${currentUser.heightCm} cm` : undefined,
     currentUser.bodyType,
   ].filter((value): value is string => Boolean(value));
-  const hasIntimacySection = Boolean(
-    currentUser.intimacy && (
-      currentUser.intimacy.role
-      || currentUser.intimacy.preferences.length > 0
-      || (currentUser.intimacy.experience && currentUser.intimacy.experience !== 'Not specified')
-    ),
-  );
 
   const emptySlotsCount = Math.max(0, MAX_PHOTOS - photos.length);
 
@@ -673,7 +657,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {(() => {
         const lookingFor = currentUser.interests ?? [];
         const interests = currentUser.hobbies ?? [];
-        const intimacy = currentUser.intimacy;
         const setup = currentUser.mySetup ?? [];
         const availability = currentUser.availability ?? [];
         const boundaries = currentUser.boundaries ?? [];
@@ -688,12 +671,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (values.length === 2) return values.join(' and ');
           return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`;
         };
-
-        const intimacyItems = [
-          intimacy?.role,
-          ...(intimacy?.preferences ?? []),
-          intimacy?.experience && intimacy.experience !== 'Not specified' ? intimacy.experience : undefined,
-        ].filter(Boolean) as string[];
 
         return (
           <section className="g-panel g-gayze-menu-frame overflow-hidden mb-5">
@@ -751,15 +728,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
                 )}
 
-                {intimacyItems.length > 0 && (
-                  <div>
-                    <span className="g-label">Intimacy</span>
-                    <p className="text-[13px] leading-relaxed text-zinc-200 mt-1">
-                      {joinList(intimacyItems)}.
-                    </p>
-                  </div>
-                )}
-
                 {(setup.length > 0 || availability.length > 0) && (
                   <div>
                     <span className="g-label">Setup</span>
@@ -785,7 +753,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 identity.length === 0 &&
                 lookingFor.length === 0 &&
                 interests.length === 0 &&
-                intimacyItems.length === 0 &&
                 setup.length === 0 &&
                 availability.length === 0 &&
                 boundaries.length === 0 && (

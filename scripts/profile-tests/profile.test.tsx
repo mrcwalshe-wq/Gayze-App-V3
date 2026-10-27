@@ -38,10 +38,6 @@ globalThis.fetch = async (input) => {
       ? jsonResponse([{ id: 1 }])
       : jsonResponse([]);
   }
-  if (url.includes('/rest/v1/rpc/get_profile_intimacy')) {
-    // The SERVER decides visibility: empty = not visible to this caller.
-    return jsonResponse(globalThis.__peerIntimacyRows ?? []);
-  }
   if (url.includes('/rest/v1/profiles')) {
     const row = { display_name: 'Sam', age: 31, neighborhood: 'Peckham', bio: 'Peer bio', interests: ['Drinks', 'Travel'] };
     const details = {
@@ -100,7 +96,7 @@ const { act } = await import('react');
 
 const { ProfileView } = await import('../../src/components/ProfileView.tsx');
 const { ProfileEditSheet } = await import('../../src/components/ProfileEditSheet.tsx');
-const { computeProfileCompletion, DEFAULT_INTIMACY_VISIBILITY } = await import('../../src/config/profileOptions.ts');
+const { computeProfileCompletion } = await import('../../src/config/profileOptions.ts');
 
 let failures = 0;
 function assert(cond, msg) {
@@ -264,7 +260,7 @@ section('[2] Profile summary — sections render only when they contain informat
 {
   const empty = makeUser();
   const { container, unmount } = await mountProfile(empty);
-  for (const label of ['Looking for', 'Interests', 'Intimacy', 'My setup', 'Boundaries']) {
+  for (const label of ['Looking for', 'Interests', 'My setup', 'Boundaries']) {
     const found = [...container.querySelectorAll('.g-label')].some((el) => text(el) === label);
     assert(!found, `empty user: "${label}" section hidden`);
   }
@@ -278,17 +274,11 @@ section('[2] Profile summary — sections render only when they contain informat
     pronouns: 'he/him',
     heightCm: 180,
     bodyType: 'Athletic',
-    interests: ['Date', 'Hookup'],
+    interests: ['Date', 'Drinks'],
     hobbies: ['Gym', 'Travel'],
     mySetup: ['Sometimes host'],
     availability: ['Weekends'],
     boundaries: ['Safer sex', 'Discretion important'],
-    intimacy: {
-      role: 'Versatile',
-      preferences: ['Kissing', 'Massage'],
-      experience: 'Exploring',
-      visibility: 'connections',
-    },
   });
   const { container, unmount } = await mountProfile(full);
   assert(hasText(container, '“Short bio line.”'), 'bio renders as the About you quote');
@@ -296,23 +286,11 @@ section('[2] Profile summary — sections render only when they contain informat
   assert(hasText(container, '180 cm') && hasText(container, 'Athletic'), 'optional facts render as chips');
   assert(hasText(container, 'Looking for') && hasText(container, 'Date'), 'Looking for shows the reused interests values');
   assert(hasText(container, 'Interests') && hasText(container, 'Gym'), 'Interests shows hobby chips');
-  assert(hasText(container, 'Intimacy') && hasText(container, 'Versatile'), 'Intimacy renders when set');
-  assert(hasText(container, 'Connections only'), 'intimacy visibility badge is shown');
+  assert(!hasText(container, 'Intimacy'), 'the retired Intimacy section never renders');
   assert(hasText(container, 'Sometimes host') && hasText(container, 'Weekends'), 'My setup + availability render');
   assert(hasText(container, 'Safer sex') && hasText(container, 'Discretion important'), 'Boundaries render');
   const labels = [...container.querySelectorAll('.g-label')].filter((el) => text(el) === 'Notifications');
   assert(labels.length === 1, 'still exactly ONE Notifications section with a full profile');
-  await unmount();
-}
-
-{
-  // Privacy-preserving: a PRIVATE intimacy section is still visible to its owner.
-  const priv = makeUser({
-    intimacy: { role: 'Top', preferences: [], experience: undefined, visibility: 'private' },
-  });
-  const { container, unmount } = await mountProfile(priv);
-  assert(hasText(container, 'Intimacy') && hasText(container, 'Top'), 'owner always sees their own Intimacy section');
-  assert(hasText(container, 'Private'), 'visibility badge shows the Private setting');
   await unmount();
 }
 
@@ -321,14 +299,14 @@ section('[3] Profile completion — subtle, prioritised, never blocking');
 // ---------------------------------------------------------------------------
 
 {
-  const c0 = computeProfileCompletion({ hasPhoto: true, lookingForCount: 1, interestCount: 1, hasIntimacy: true, setupCount: 1, hasBio: true });
-  assert(c0.percent === 100 && c0.missing.length === 0, 'all six priorities -> 100%, nothing missing');
+  const c0 = computeProfileCompletion({ hasPhoto: true, lookingForCount: 1, interestCount: 1, setupCount: 1, hasBio: true });
+  assert(c0.percent === 100 && c0.missing.length === 0, 'all five priorities -> 100%, nothing missing');
 
-  const c1 = computeProfileCompletion({ hasPhoto: true, lookingForCount: 2, interestCount: 0, hasIntimacy: false, setupCount: 0, hasBio: true });
-  assert(c1.percent === 50, `photo+lookingFor+bio -> 50% (got ${c1.percent}%)`);
-  assert(c1.missing.map((m) => m.key).join(',') === 'interests,intimacy,setup', 'missing items follow the material-first priority order');
+  const c1 = computeProfileCompletion({ hasPhoto: true, lookingForCount: 2, interestCount: 0, setupCount: 0, hasBio: true });
+  assert(c1.percent === 60, `photo+lookingFor+bio -> 60% (got ${c1.percent}%)`);
+  assert(c1.missing.map((m) => m.key).join(',') === 'interests,setup', 'missing items follow the material-first priority order');
 
-  const c2 = computeProfileCompletion({ hasPhoto: false, lookingForCount: 0, interestCount: 0, hasIntimacy: false, setupCount: 0, hasBio: false });
+  const c2 = computeProfileCompletion({ hasPhoto: false, lookingForCount: 0, interestCount: 0, setupCount: 0, hasBio: false });
   assert(c2.percent === 0 && c2.missing[0].key === 'photo', 'photo is the first priority when nothing is set');
 }
 
@@ -350,7 +328,6 @@ section('[3] Profile completion — subtle, prioritised, never blocking');
   const completeUser = makeUser({
     avatarUrl: 'https://example.test/a.jpg', interests: ['Chat'], hobbies: ['Gym'],
     mySetup: ['Can host'], bio: 'x',
-    intimacy: { role: 'Top', preferences: [], experience: undefined, visibility: 'connections' },
   });
   const { container, unmount } = await mountProfile(completeUser);
   assert(!hasText(container, 'complete'), 'a complete profile shows no nudge at all');
@@ -389,19 +366,14 @@ function mountEditor(user, extra = {}) {
 {
   const { container, saved, calls, render, unmount } = await mountEditor(makeUser());
   await render();
-  for (const label of ['Identity', "What I'm looking for", 'Intimacy', 'Interests', 'My setup', 'Boundaries', 'Privacy']) {
+  for (const label of ['Identity', "What I'm looking for", 'Interests', 'My setup', 'Boundaries', 'Privacy']) {
     assert(hasText(container, label), `edit sheet has a "${label}" section`);
   }
+  assert(!hasText(container, 'Intimacy'), 'the retired Intimacy section is not offered');
   assert(!hasText(container, 'Date of birth') && container.querySelectorAll('textarea').length <= 1,
     'text entry is limited (bio textarea only in the default open section)');
 
-  // Intimacy is optional: nothing is required, visibility defaults to connections.
-  await act(async () => { sectionHeader(container, 'Intimacy')?.click(); await sleep(10); });
-  const connBtn = [...container.querySelectorAll('.g-seg__btn')].find((b) => text(b) === 'Connections only');
-  assert(Boolean(connBtn) && connBtn.getAttribute('data-active') === 'true',
-    `sensitive preferences default to the privacy-preserving option ("${DEFAULT_INTIMACY_VISIBILITY}")`);
-
-  // Open "What I'm looking for" and toggle chips; no role required to save.
+  // Open "What I'm looking for" and toggle chips; nothing else is required to save.
   await act(async () => { sectionHeader(container, "What I'm looking for")?.click(); await sleep(10); });
   await act(async () => { findButton(container, 'Chat')?.click(); await sleep(10); });
   await act(async () => { findButton(container, 'Date')?.click(); await sleep(10); });
@@ -409,8 +381,7 @@ function mountEditor(user, extra = {}) {
 
   assert(saved.length === 1, 'one grouped Save persists everything');
   assert(JSON.stringify(saved[0].lookingFor) === JSON.stringify(['Chat', 'Date']), 'looking-for chips persist in order');
-  assert(saved[0].intimacy.role === undefined, 'role is NOT required — saving without one works');
-  assert(saved[0].intimacy.visibility === 'connections', 'default intimacy visibility saved as connections');
+  assert(!('intimacy' in saved[0]), 'the save payload carries no intimacy data');
   assert(calls.closed === 1, 'sheet closes after a successful save');
   await unmount();
 }
@@ -470,7 +441,7 @@ function mountEditor(user, extra = {}) {
 }
 
 // ---------------------------------------------------------------------------
-section('[5] Profile viewed by another user — public tier + server-enforced intimacy');
+section('[5] Profile viewed by another user — public tier only');
 // ---------------------------------------------------------------------------
 
 const { PeerProfileSummary } = await import('../../src/components/PeerProfileSummary.tsx');
@@ -487,29 +458,12 @@ async function mountPeer() {
 }
 
 {
-  globalThis.__peerIntimacyRows = [{
-    intimacy_role: 'Top',
-    intimacy_prefs: ['Kissing'],
-    intimacy_experience: null,
-    intimacy_visibility: 'connections',
-  }];
   const { container, unmount } = await mountPeer();
   assert(hasText(container, 'they/them') && hasText(container, '175 cm'), 'peer About facts render');
   assert(hasText(container, 'Drinks') && hasText(container, 'Music'), 'peer Looking for + Interests render');
   assert(hasText(container, 'Can travel') && hasText(container, 'Weekends'), 'peer My setup + availability render');
   assert(hasText(container, 'No smoking'), 'peer Boundaries render');
-  assert(hasText(container, 'Top') && hasText(container, 'Kissing'),
-    'intimacy renders ONLY because the server said it is visible to this caller');
-  await unmount();
-}
-
-{
-  // Server withholds (private / unconnected): nothing sensitive can leak.
-  globalThis.__peerIntimacyRows = [];
-  const { container, unmount } = await mountPeer();
-  assert(!hasText(container, 'Top') && !hasText(container, 'Kissing') && !hasText(container, 'Intimacy'),
-    'no intimacy data renders when get_profile_intimacy returns nothing — no leak');
-  assert(hasText(container, 'Drinks'), 'public tier is unaffected');
+  assert(!hasText(container, 'Intimacy'), 'no Intimacy section is ever rendered for a peer');
   await unmount();
 }
 

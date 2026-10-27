@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Ban, BadgeCheck, Flag, Check, ChevronDown, MapPin, MessageCircle, ShieldCheck, Sparkles, X } from 'lucide-react';
-import type { IntimacyProfile } from '../types';
-import { loadIntimacyProfile, loadPublicProfileSummary, type PublicProfileSummary } from '../services/supabaseService';
+import { loadPublicProfileSummary, type PublicProfileSummary } from '../services/supabaseService';
 import { getProfilePhotoUrl, loadPeerPhotos, type PeerPhoto } from '../services/profilePhotoService';
 import { isLongBio, isUuid, pickHighlights, shortFacts } from '../services/profilePeek';
 
@@ -44,7 +43,6 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
 }) => {
   const [summary, setSummary] = useState<PublicProfileSummary | null>(null);
   const [mine, setMine] = useState<PublicProfileSummary | null>(null);
-  const [intimacy, setIntimacy] = useState<IntimacyProfile | null>(null);
   const [photos, setPhotos] = useState<PeerPhoto[]>([]);
   const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(userId));
@@ -58,14 +56,14 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    setSummary(null); setMine(null); setIntimacy(null); setPhotos([]); setFallbackUrl(null);
+    setSummary(null); setMine(null); setPhotos([]); setFallbackUrl(null);
     setExpanded(false); setBioOpen(false); setIndex(0); setLightbox(null);
     const valid = isUuid(userId);
     setLoading(valid); setPhotosLoading(valid);
     if (!valid) return;
 
-    void Promise.all([loadPublicProfileSummary(userId), loadIntimacyProfile(userId)])
-      .then(([nextSummary, nextIntimacy]) => { if (!cancelled) { setSummary(nextSummary); setIntimacy(nextIntimacy); } })
+    void loadPublicProfileSummary(userId)
+      .then((nextSummary) => { if (!cancelled) setSummary(nextSummary); })
       .finally(() => { if (!cancelled) setLoading(false); });
     void loadPeerPhotos(userId)
       .then((next) => { if (!cancelled) setPhotos(next); })
@@ -119,9 +117,8 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
       { label: 'Interests', values: rest(summary.hobbies), tone: 'amber' },
       { label: 'My setup', values: [...summary.mySetup, ...summary.availability], tone: 'quiet' },
       { label: 'Boundaries', values: summary.boundaries, tone: 'quiet' },
-      { label: 'Intimacy', values: intimacy ? [intimacy.role, ...intimacy.preferences, intimacy.experience].filter((v): v is string => Boolean(v)) : [], tone: 'purple' },
     ].filter((group) => group.values.length > 0);
-  }, [summary, chips, intimacy]);
+  }, [summary, chips]);
 
   const onTrackScroll = () => {
     const el = trackRef.current;

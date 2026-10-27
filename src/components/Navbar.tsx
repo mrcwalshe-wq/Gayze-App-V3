@@ -159,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const renderTabIcon = (tab: TabDef, mobile = false) => {
     if (tab.id !== 'dating') {
       const intentIcon = tab.id === 'right_now'
-        ? (activeIntentMode === 'private' ? <EyeOff /> : activeIntentMode === 'social' ? <UsersRound /> : <Radio />)
+        ? (activeIntentMode ? <UsersRound /> : <Radio />)
         : tab.icon;
       return (
         <span className={mobile ? '[&>svg]:w-5 [&>svg]:h-5 transition-transform duration-150' : '[&>svg]:w-[15px] [&>svg]:h-[15px]'}>
@@ -175,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="g-discover-action relative flex items-center justify-center transition-transform duration-200"
         >
           <img
-            src={activeIntentMode === 'private' ? "/brand/gayze-nav-private.svg?v=20261008-1" : activeIntentMode === 'social' ? "/brand/gayze-nav-social.svg?v=20261008-1" : "/brand/gayze-nav-v3.svg?v=20261008-8"}
+            src={activeIntentMode ? "/brand/gayze-nav-social.svg?v=20261008-1" : "/brand/gayze-nav-v3.svg?v=20261008-8"}
             alt=""
             className="g-discover-logo-image object-contain"
             draggable={false}

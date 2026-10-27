@@ -53,7 +53,6 @@ const formatDistance = (km?: number): string => {
   return km < 10 ? `~${km.toFixed(1)} km` : `~${Math.round(km)} km`;
 };
 
-type ModeFilter = 'All' | 'Social' | 'Private';
 
 type DiscoverRow =
   | {
@@ -62,7 +61,7 @@ type DiscoverRow =
       item: DatingProfile;
       name: string;
       age?: number;
-      mode: 'social' | 'private';
+      mode: 'social';
       intentLabel: string;
       description: string;
       area: string;
@@ -78,7 +77,7 @@ type DiscoverRow =
       item: Pulse;
       name: string;
       age?: number;
-      mode: 'social' | 'private';
+      mode: 'social';
       intentLabel: string;
       description: string;
       area: string;
@@ -108,7 +107,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   onOpenPublicProfile,
 }) => {
   const openPeek = useProfilePeek();
-  const [modeFilter, setModeFilter] = useState<ModeFilter>('All');
   const [selected, setSelected] = useState<DiscoverRow | null>(null);
   const [gazedNames, setGazedNames] = useState<Set<string>>(new Set());
 
@@ -128,9 +126,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
 
     profiles.forEach((profile) => {
       if (pulsePeerIds.has(profile.id)) return;
-      const mode: 'social' | 'private' =
-        profile.intentMode === 'private' || profile.lookingFor === 'casual' ? 'private' : 'social';
-      if (modeFilter !== 'All' && mode !== modeFilter.toLowerCase()) return;
+      // Private mode is retired: every stored intent is shown as social.
+      const mode = 'social' as const;
       const live = Boolean(profile.hasRightNowIntent && profile.intentExpiresAt && profile.intentExpiresAt > Date.now());
       collected.push({
         kind: 'profile',
@@ -153,9 +150,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
     pulses.forEach((pulse) => {
       if (pulse.peerId === 'peer_me') return;
       if (pulse.expiresAt <= nowTick) return;
-      const mode: 'social' | 'private' =
-        pulse.intentMode === 'private' || pulse.intent?.includes('Hookup') ? 'private' : 'social';
-      if (modeFilter !== 'All' && mode !== modeFilter.toLowerCase()) return;
+      const mode = 'social' as const;
       const live = pulse.expiresAt > nowTick;
       collected.push({
         kind: 'pulse',
@@ -188,7 +183,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         : Number.POSITIVE_INFINITY;
       return aDistance - bDistance;
     });
-  }, [profiles, pulses, modeFilter, userNeighborhood, nowTick]);
+  }, [profiles, pulses, userNeighborhood, nowTick]);
 
   const liveCount = rows.filter((r) => r.live).length;
 
@@ -228,7 +223,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           <button
             type="button"
             onClick={() => { hapticLight(); onOpenMap(); }}
-            className={`g-btn g-btn--quiet g-discover-map-button shrink-0 !min-h-[38px] !px-3.5 !rounded-xl !text-[12.5px] ${activeUserIntent?.mode === 'private' ? 'g-discover-map-button--private' : activeUserIntent?.mode === 'social' ? 'g-discover-map-button--social' : ''}`}
+            className={`g-btn g-btn--quiet g-discover-map-button shrink-0 !min-h-[38px] !px-3.5 !rounded-xl !text-[12.5px] ${activeUserIntent ? 'g-discover-map-button--social' : ''}`}
           >
             <MapIcon className="w-4 h-4" />
             Map
@@ -241,7 +236,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         <button
           type="button"
           onClick={() => { hapticLight(); onOpenSetIntent?.(); }}
-          className={`g-discover-signal-strip g-discover-signal-strip--${activeUserIntent.mode === 'private' ? 'private' : 'social'} mb-4 flex items-center gap-3 text-left cursor-pointer`}
+          className={`g-discover-signal-strip g-discover-signal-strip--social mb-4 flex items-center gap-3 text-left cursor-pointer`}
         >
           <span
             className={`g-live-dot shrink-0 ${activeUserIntent.isPaused ? 'g-live-dot--paused' : ''}`}
@@ -263,31 +258,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           </span>
         </button>
       )}
-
-      {/* Mode segmented control */}
-      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4">
-        {(['All', 'Social', 'Private'] as const).map((mode) => {
-          const isSelected = modeFilter === mode;
-          return (
-            <button
-              key={mode}
-              type="button"
-              className={`g-discover-mode-filter__button h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
-                isSelected
-                  ? mode === 'Private'
-                    ? 'bg-[#6F3CC3]/30 text-[#f0e8ff] border border-[#6F3CC3]/65 shadow-[0_2px_12px_rgba(111,60,195,0.25)]'
-                    : mode === 'Social'
-                      ? 'bg-[#C9A24D]/25 text-[#fbf0d3] border border-[#C9A24D]/60 shadow-[0_2px_12px_rgba(201,162,77,0.22)]'
-                      : 'bg-white/15 text-white border border-white/20 shadow-[0_2px_10px_rgba(255,255,255,0.06)]'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'
-              }`}
-              onClick={() => { hapticLight(); setModeFilter(mode); }}
-            >
-              {mode}
-            </button>
-          );
-        })}
-      </div>
 
       {/* Rows — one surface */}
       {rows.length === 0 ? (
@@ -319,9 +289,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               <div
                 {...peekTapProps(openPeek, row.kind === 'pulse' ? row.item.peerId : row.item.id, { name: row.name, age: row.age, area: row.area, intent: row.intentLabel, online: row.live, photoUrl: row.kind === 'profile' ? row.item.photoUrl : (row.item.peerAvatar && row.item.peerAvatar !== 'user' ? row.item.peerAvatar : undefined) })}
                 className={`w-12 h-12 rounded-[16px] overflow-hidden flex items-center justify-center shrink-0 text-[14px] font-semibold border ${
-                  row.mode === 'private'
-                    ? 'border-[#6F3CC3]/40 bg-[#161324] text-[#d8c3f8]'
-                    : 'border-[#C9A24D]/35 bg-[#1f1b13] text-[#f4dfae]'
+                  'border-[#C9A24D]/35 bg-[#1f1b13] text-[#f4dfae]'
                 } ${row.live ? 'ring-2 ring-[#6F3CC3]/50 shadow-[0_0_12px_rgba(111,60,195,0.25)]' : ''}`}
               >
                 {row.kind === 'profile' ? (
@@ -368,7 +336,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                 </div>
 
                 <div className="text-[12.5px] text-zinc-400 truncate mt-1 leading-snug">
-                  <span className={`font-semibold ${row.mode === 'private' ? 'text-[#c9b0f5]' : 'text-[#e7c98a]'}`}>
+                  <span className={`font-semibold text-[#e7c98a]`}>
                     {row.intentLabel}
                   </span>
                   {row.description && (
@@ -408,7 +376,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                 <div
                   {...peekTapProps(openPeek, selected.kind === 'pulse' ? selected.item.peerId : selected.item.id, { name: selected.name, age: selected.age, area: selected.area, intent: selected.intentLabel, online: selected.live, photoUrl: selected.kind === 'profile' ? selected.item.photoUrl : (selected.item.peerAvatar && selected.item.peerAvatar !== 'user' ? selected.item.peerAvatar : undefined) })}
                   className={`g-avatar w-12 h-12 text-[15px] ${
-                    selected.mode === 'private' ? 'g-avatar--ring-private' : 'g-avatar--ring-social'
+                    'g-avatar--ring-social'
                   }`}
                 >
                   {selected.kind === 'profile' ? (
@@ -430,7 +398,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <h2 className="text-[16px] font-extrabold text-white tracking-tight truncate">{selected.name}</h2>
-                    <span className={`g-chip ${selected.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
+                    <span className={`g-chip g-chip--social`}>
                       {selected.intentLabel}
                     </span>
                   </div>

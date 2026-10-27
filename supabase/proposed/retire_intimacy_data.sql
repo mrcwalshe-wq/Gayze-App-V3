@@ -1,0 +1,9 @@
+-- DRAFT: retire the Intimacy profile feature. Not applied. Review and back up first.
+-- The app no longer reads or writes profile_intimacy; this removes the stored data.
+-- create table if not exists public.profile_intimacy_backup as select * from public.profile_intimacy;
+-- delete from public.profile_intimacy;
+-- Optional, only after the app release no longer references it:
+-- drop function if exists public.get_profile_intimacy(uuid);
+-- drop table if exists public.profile_intimacy;
+-- Old private intents (mode = 'private') are left alone: the app now displays them as social
+-- and they expire naturally.

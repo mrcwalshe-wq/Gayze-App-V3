@@ -282,7 +282,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
   const [isNearbyOpen, setIsNearbyOpen] = useState<boolean>(false);
   const [activeCategory, setActiveCategory] = useState<'all' | 'people' | 'coffee' | 'drinks' | 'active' | 'havens'>('all');
-  const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social' | 'Private'>('All');
+  const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social'>('All');
   const [selectedSubIntent, setSelectedSubIntent] = useState<string | null>(null);
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
   const [maxDistanceKm, setMaxDistanceKmState] = useState<number>(MAX_TRAVEL_DISTANCE_KM);
@@ -629,8 +629,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     specificIntent?: string;
   }): boolean => {
     const { category, isPrivate, km, activityCategory, specificIntent } = input;
-    if (activeIntentMode === 'Social' && isPrivate) return false;
-    if (activeIntentMode === 'Private' && !isPrivate) return false;
+    if (isPrivate) return false;
     if (selectedSubIntent && specificIntent && specificIntent !== selectedSubIntent) return false;
     if (!withinDistance(km, maxDistanceKm)) return false;
     if (category === 'haven') return activeCategory === 'all' || activeCategory === 'havens';
@@ -646,14 +645,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (activeCategory === 'all' || activeCategory === 'people') {
       count += datingProfiles.filter((profile) => matchesFilters({
         category: 'profile',
-        isPrivate: profile.intentMode === 'private' || profile.lookingFor === 'casual',
+        isPrivate: false,
         km: distanceKmForProfile(profile),
       })).length;
     }
     if (activeCategory !== 'people' && activeCategory !== 'havens') {
       count += livePulses.filter((pulse) => matchesFilters({
         category: 'pulse',
-        isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+        isPrivate: false,
         km: distanceKmForPulse(pulse),
         activityCategory: pulse.activityCategory,
       })).length;
@@ -674,14 +673,14 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (activeCategory === 'all' || activeCategory === 'people') {
       count += datingProfiles.filter((profile) => matchesFilters({
         category: 'profile',
-        isPrivate: profile.intentMode === 'private' || profile.lookingFor === 'casual',
+        isPrivate: false,
         km: distanceKmForProfile(profile),
       })).length;
     }
     if (activeCategory !== 'havens') {
       count += livePulses.filter((pulse) => (activeCategory === 'people' ? false : matchesFilters({
         category: 'pulse',
-        isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+        isPrivate: false,
         km: distanceKmForPulse(pulse),
         activityCategory: pulse.activityCategory,
       }))).length;
@@ -707,7 +706,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const km = distanceKmForProfile(profile);
         if (!matchesFilters({
           category: 'profile',
-          isPrivate: profile.intentMode === 'private' || profile.lookingFor === 'casual',
+          isPrivate: false,
           km,
         })) return;
         collected.push({ item: { type: 'profile', item: profile }, km: km ?? Number.POSITIVE_INFINITY });
@@ -719,7 +718,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const km = distanceKmForPulse(pulse);
         if (!matchesFilters({
           category: 'pulse',
-          isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+          isPrivate: false,
           km,
           activityCategory: pulse.activityCategory,
         })) return;
@@ -752,13 +751,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     return expiresAt > nowTick;
   };
 
-  const isItemPrivate = (item: MapDiscoveryItem): boolean => {
-    if (item.type === 'haven') return false;
-    if (item.type === 'pulse') {
-      return item.item.intentMode === 'private' || Boolean(item.item.intent?.includes('Hookup'));
-    }
-    return item.item.intentMode === 'private' || item.item.lookingFor === 'casual';
-  };
+  // Private mode is retired: every stored intent, including legacy ones, is shown as social.
+  const isItemPrivate = (_item: MapDiscoveryItem): boolean => false;
 
   const isSelectedLive = selectedItem ? isItemLive(selectedItem) : false;
   const selectedItemIsPrivate = selectedItem ? isItemPrivate(selectedItem) : false;
@@ -1060,7 +1054,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         if (!Number.isFinite(pulse.lat) || !Number.isFinite(pulse.lng)) return;
         if (!matchesFilters({
           category: 'pulse',
-          isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+          isPrivate: false,
           km: distanceKmForPulse(pulse),
           activityCategory: pulse.activityCategory,
         })) return;
@@ -1114,7 +1108,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       const selfIcon = L.divIcon({
         className: 'custom-user-marker',
         html: isLive
-          ? `<div class="gm-self gm-self--${activeUserIntent?.mode === 'private' ? 'private' : 'social'}${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
+          ? `<div class="gm-self gm-self--social${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
               resolvedUserAvatarUrl
                 ? `<img class="gm-self__photo" src="${resolvedUserAvatarUrl.replace(/"/g, '&quot;')}" alt="" />`
                 : ''
@@ -1164,9 +1158,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if ((activeCategory === 'all' || activeCategory === 'people') && userLocation) {
       datingProfiles.forEach((profile, idx) => {
         if (typeof profile.approxDistanceKm === 'number' && profile.approxDistanceKm > maxDistanceKm) return;
-        const isPrivate = profile.intentMode === 'private' || profile.lookingFor === 'casual';
-        if (activeIntentMode === 'Social' && isPrivate) return;
-        if (activeIntentMode === 'Private' && !isPrivate) return;
+        const isPrivate = false;
         const coords: [number, number] = [
           userLocation.lat + ((idx % 3 - 1) * 0.0035),
           userLocation.lng + (((idx + 1) % 3 - 1) * 0.004),
@@ -1193,7 +1185,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (activeCategory !== 'havens' && activeCategory !== 'people') {
       livePulses.forEach((pulse) => {
         if (pulse.peerId === 'peer_me') return;
-        const isPrivate = pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup'));
+        const isPrivate = false;
         // Only real, published coordinates are ever mapped.
         const hasCoords = Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng);
         if (!hasCoords) return;
@@ -1287,15 +1279,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           {activeUserIntent ? (
             <button
               type="button"
-              className={`g-float g-intent-chip g-intent-chip--${activeUserIntent.mode === 'private' ? 'private' : 'social'} ${activeUserIntent.isPaused ? 'is-paused' : ''}`}
+              className={`g-float g-intent-chip g-intent-chip--social ${activeUserIntent.isPaused ? 'is-paused' : ''}`}
               onClick={() => {
                 hapticLight();
                 if (onOpenIntentHub) onOpenIntentHub(); else setIsUserIntentDrawerOpen(true);
               }}
-              aria-label={`${activeUserIntent.mode === 'private' ? 'Private' : 'Social'} intent ${intentDisplayLabel(activeUserIntent.intent)}, ${activeUserIntent.isPaused ? 'paused' : 'live'}, ${formatRemainingTime(remainingMinutes)} left. Open intent controls`}
+              aria-label={`Social intent ${intentDisplayLabel(activeUserIntent.intent)}, ${activeUserIntent.isPaused ? 'paused' : 'live'}, ${formatRemainingTime(remainingMinutes)} left. Open intent controls`}
             >
               <span className="g-intent-chip__dot" aria-hidden="true" />
-              <span className="g-intent-chip__mode">{activeUserIntent.mode === 'private' ? 'Private' : 'Social'}</span>
+              <span className="g-intent-chip__mode">Social</span>
               <span className="g-intent-chip__title">{intentDisplayLabel(activeUserIntent.intent)}</span>
               <span className="g-intent-chip__time">{activeUserIntent.isPaused ? 'Paused' : formatRemainingTime(remainingMinutes)}</span>
             </button>
@@ -1463,22 +1455,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     <span className="g-badge g-badge--verify">{selectedItem.item.safetyScore} safety</span>
                   ) : (
                     <span
-                      className={`g-chip ${
-                        (selectedItem.type === 'pulse'
-                          ? selectedItem.item.intentMode
-                          : selectedItem.item.intentMode) === 'private'
-                          ? 'g-chip--private'
-                          : 'g-chip--social'
-                      }`}
+                      className="g-chip g-chip--social"
                     >
                       {(selectedItem.type === 'pulse'
                         ? intentDisplayLabel(selectedItem.item.intent)
                         : intentDisplayLabel(selectedItem.item.intent)) ||
-                        ((selectedItem.type === 'pulse'
-                          ? selectedItem.item.intentMode
-                          : selectedItem.item.intentMode) === 'private'
-                          ? 'Private'
-                          : 'Social')}
+                        'Social'}
                     </span>
                   )}
                   {selectedItem.type === 'pulse' && selectedItem.item.expiresAt > 0 && (
@@ -2180,12 +2162,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       : item.type === 'pulse'
                         ? `${item.item.peerName}${item.item.peerAge ? ` · ${item.item.peerAge}` : ''}`
                         : `${item.item.name} · ${item.item.age}`;
-                  const isPrivate =
-                    item.type === 'pulse'
-                      ? item.item.intentMode === 'private' || item.item.intent?.includes('Hookup')
-                      : item.type === 'profile'
-                        ? item.item.intentMode === 'private'
-                        : false;
+                  const isPrivate = false;
                   const intentLabel =
                     item.type === 'haven'
                       ? 'Safe haven'
@@ -2319,8 +2296,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <div className="g-sheet__body space-y-4">
               <div className="p-4 rounded-[14px] bg-white/[0.03] border border-white/[0.07] space-y-2.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`g-chip ${activeUserIntent.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
-                    {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
+                  <span className="g-chip g-chip--social">
+                    Social
                   </span>
                   <span className="text-[15px] font-extrabold text-white tracking-tight">
                     {intentDisplayLabel(activeUserIntent.intent)}
@@ -2385,7 +2362,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
 
       {interestDraftPulse && (
         <div className="g-overlay g-overlay--above-nav flex items-end sm:items-center justify-center p-3" onClick={() => !interestComposerBusy && setInterestDraftPulse(null)}>
-          <div className={`g-interest-composer g-gayze-menu-frame w-full max-w-md overflow-hidden ${/social/i.test(interestDraftPulse.title || interestDraftPulse.intent || '') ? 'is-social' : 'is-private'}`} onClick={(e) => e.stopPropagation()}>
+          <div className={`g-interest-composer g-gayze-menu-frame w-full max-w-md overflow-hidden is-social`} onClick={(e) => e.stopPropagation()}>
             <div className="g-interest-composer__header px-5 py-4 flex items-center gap-3">
               <div className="relative w-12 h-12 shrink-0 rounded-2xl overflow-hidden border border-[#C9A24D]/45 bg-[#171922] shadow-[0_8px_20px_rgba(0,0,0,.35)]">
                 <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-white">{interestDraftPulse.peerName.slice(0,1).toUpperCase()}</span>

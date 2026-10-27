@@ -61,55 +61,6 @@ export const INTEREST_OPTIONS = [
 /** How many interest chips to show before the "+ Add interests" affordance. */
 export const INTERESTS_PREVIEW_COUNT = 8;
 
-/** Role / position — single-select, completely optional. */
-export const INTIMACY_ROLE_OPTIONS = [
-  'Top',
-  'Bottom',
-  'Versatile',
-  'Versatile top',
-  'Versatile bottom',
-  'Prefer not to say',
-] as const;
-
-/** Non-graphic intimacy preference categories — multi-select, optional. */
-export const INTIMACY_PREFERENCE_OPTIONS = [
-  'Kissing',
-  'Cuddling',
-  'Oral',
-  'Toys',
-  'Massage',
-  'Roleplay',
-  'Group',
-  'Public/social settings',
-  'Private settings',
-] as const;
-
-/** Experience / openness — single-select, optional. */
-export const INTIMACY_EXPERIENCE_OPTIONS = [
-  'Exploring',
-  'Open to new things',
-  'Prefer familiar',
-  'Not specified',
-] as const;
-
-export type IntimacyVisibility = 'everyone' | 'connections' | 'private';
-
-export const INTIMACY_VISIBILITY_OPTIONS: ReadonlyArray<{
-  value: IntimacyVisibility;
-  label: string;
-  hint: string;
-}> = [
-  { value: 'everyone', label: 'Everyone', hint: 'Anyone discovering you' },
-  { value: 'connections', label: 'Connections only', hint: 'After a mutual interest' },
-  { value: 'private', label: 'Private', hint: 'Only you' },
-];
-
-/**
- * Privacy-preserving default for sensitive intimacy preferences.
- * Never defaults to public: the user must opt in to wider visibility.
- */
-export const DEFAULT_INTIMACY_VISIBILITY: IntimacyVisibility = 'connections';
-
 /** Boundaries — multi-select, optional, compatibility-not-judgement copy. */
 export const BOUNDARY_OPTIONS = [
   'No drugs',
@@ -160,7 +111,6 @@ export const COMPLETION_PRIORITIES = [
   { key: 'photo', label: 'Profile photo', section: 'identity' },
   { key: 'lookingFor', label: "What you're looking for", section: 'lookingFor' },
   { key: 'interests', label: 'Interests', section: 'interests' },
-  { key: 'intimacy', label: 'Role or preferences', section: 'intimacy' },
   { key: 'setup', label: 'Hosting & travel', section: 'setup' },
   { key: 'bio', label: 'Short bio', section: 'identity' },
 ] as const;
@@ -168,7 +118,6 @@ export const COMPLETION_PRIORITIES = [
 export type EditSectionKey =
   | 'identity'
   | 'lookingFor'
-  | 'intimacy'
   | 'interests'
   | 'setup'
   | 'boundaries'
@@ -182,7 +131,6 @@ export function computeProfileCompletion(input: {
   hasPhoto: boolean;
   lookingForCount: number;
   interestCount: number;
-  hasIntimacy: boolean;
   setupCount: number;
   hasBio: boolean;
 }): { percent: number; missing: typeof COMPLETION_PRIORITIES[number][] } {
@@ -190,7 +138,6 @@ export function computeProfileCompletion(input: {
     photo: input.hasPhoto,
     lookingFor: input.lookingForCount > 0,
     interests: input.interestCount > 0,
-    intimacy: input.hasIntimacy,
     setup: input.setupCount > 0,
     bio: input.hasBio,
   };

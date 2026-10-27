@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
-import { Clock3, EyeOff, Pause, PencilLine, Play, Plus, Power, Radio, Sparkles, UsersRound, X } from 'lucide-react';
+import { Clock3, Pause, PencilLine, Play, Plus, Power, Radio, Sparkles, UsersRound, X } from 'lucide-react';
 import type { TopLevelIntentMode, UserActiveIntent } from '../types';
 import { hapticLight } from '../services/hapticService';
 import { intentDisplayLabel } from '../services/intentLabels';
@@ -54,7 +54,6 @@ export const IntentHub: React.FC<IntentHubProps> = ({
   if (!isOpen) return null;
 
   const hasActive = Boolean(activeIntent);
-  const isPrivate = activeIntent?.mode === 'private';
   const isPaused = Boolean(activeIntent?.isPaused);
   const total = activeIntent ? Math.max(1, activeIntent.expiresAt - activeIntent.activatedAt) : 1;
   const left = activeIntent ? Math.max(0, activeIntent.expiresAt - Date.now()) : 0;
@@ -72,14 +71,14 @@ export const IntentHub: React.FC<IntentHubProps> = ({
 
       {hasActive && activeIntent ? (
         <section
-          className={`g-live-card ${isPrivate ? 'is-private' : 'is-social'} ${isPaused ? 'is-paused' : ''}`}
+          className={`g-live-card is-social ${isPaused ? 'is-paused' : ''}`}
           style={navClearance != null ? { marginBottom: navClearance } : undefined}
           onClick={(event) => event.stopPropagation()}
         >
           <header className="g-live-card__head">
             <span className="g-live-card__mode">
               <i aria-hidden="true" />
-              {isPaused ? 'PAUSED' : isPrivate ? 'PRIVATE · LIVE' : 'SOCIAL · LIVE'}
+              {isPaused ? 'PAUSED' : 'SOCIAL · LIVE'}
             </span>
             <button type="button" className="g-live-card__close" onClick={onClose} aria-label="Close">
               <X className="w-4 h-4" />
@@ -88,7 +87,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
 
           <div className="g-live-card__body">
             <span className="g-live-card__icon" aria-hidden="true">
-              {isPrivate ? <EyeOff className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+              <Sparkles className="w-5 h-5" />
             </span>
             <div className="g-live-card__copy">
               <strong>{intentDisplayLabel(activeIntent.intent)}</strong>
@@ -147,13 +146,13 @@ export const IntentHub: React.FC<IntentHubProps> = ({
         </header>
 
         {hasActive ? (
-          <div className={`g-intent-hub__live ${isPrivate ? 'is-private' : 'is-social'}`}>
+          <div className={`g-intent-hub__live is-social`}>
             <div className="g-intent-hub__live-icon">
-              {isPrivate ? <EyeOff className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+              <Sparkles className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="g-intent-hub__live-top">
-                <span className="g-intent-hub__live-mode">{isPrivate ? 'PRIVATE' : 'SOCIAL'}</span>
+                <span className="g-intent-hub__live-mode">SOCIAL</span>
                 <span className="g-intent-hub__live-time"><Clock3 className="w-3 h-3" /> {formatRemaining(remainingMinutes)}</span>
               </div>
               <strong>{intentDisplayLabel(activeIntent?.intent)}</strong>

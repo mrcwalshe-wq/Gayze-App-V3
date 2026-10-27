@@ -324,7 +324,7 @@ export function intentRowToActiveIntent(row: IntentRow): UserActiveIntent {
   const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : activatedAt;
   return {
     remoteId: row.id,
-    mode: row.mode === 'private' ? 'private' : 'social',
+    mode: 'social', // Private mode is retired; legacy rows display as social.
     intent: (row.intent || 'Meet') as UserActiveIntent['intent'],
     description: row.description || '',
     when: intentWhenLabel(activatedAt),
@@ -1682,7 +1682,7 @@ export async function createStoryFromIntent(intent: UserActiveIntent, photoUrl?:
   const user = await ensureSupabaseSession();
   if (!user) return null;
 
-  const category = intent.mode === 'private' ? 'private' : 'social';
+  const category = 'social';
   const profile = await loadSupabaseProfile(user.id);
   const { data, error } = await supabase
     .from('stories')
@@ -1722,13 +1722,6 @@ export interface ProfileDetails {
   boundaries: string[];
   mySetup: string[];
   availability: string[];
-}
-
-export interface IntimacyProfile {
-  role?: string;
-  preferences: string[];
-  experience?: string;
-  visibility: 'everyone' | 'connections' | 'private';
 }
 
 export interface PublicProfileSummary {
@@ -1840,67 +1833,6 @@ export async function updateProfileDetails(
     return true;
   } catch (err: any) {
     console.warn('[GAYZE] Profile details update exception:', err?.message || err);
-    return false;
-  }
-}
-
-export async function loadIntimacyProfile(userId: string): Promise<IntimacyProfile | null> {
-  if (!supabase || !userId) return null;
-  try {
-    // This RPC is the deliberate read path for sensitive profile data. It
-    // applies intimacy_visibility server-side and never exposes the table via
-    // a normal client select.
-    const { data, error } = await supabase.rpc('get_profile_intimacy', {
-      p_user_id: userId,
-    });
-    if (error) {
-      console.warn('[GAYZE] Intimacy profile load unavailable:', error.message);
-      return null;
-    }
-
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row) return null;
-
-    return {
-      role: row.intimacy_role ?? undefined,
-      preferences: Array.isArray(row.intimacy_prefs) ? row.intimacy_prefs : [],
-      experience: row.intimacy_experience ?? undefined,
-      visibility: (row.intimacy_visibility === 'everyone' ||
-        row.intimacy_visibility === 'private' ||
-        row.intimacy_visibility === 'connections')
-        ? row.intimacy_visibility
-        : 'connections',
-    };
-  } catch (err: any) {
-    console.warn('[GAYZE] Intimacy profile load exception:', err?.message || err);
-    return null;
-  }
-}
-
-export async function saveIntimacyProfile(
-  userId: string,
-  intimacy: IntimacyProfile,
-): Promise<boolean> {
-  if (!supabase || !userId) return false;
-  try {
-    const { error } = await supabase
-      .from('profile_intimacy')
-      .upsert({
-        user_id: userId,
-        intimacy_role: intimacy.role || null,
-        intimacy_prefs: Array.isArray(intimacy.preferences) ? intimacy.preferences : [],
-        intimacy_experience: intimacy.experience || null,
-        intimacy_visibility: intimacy.visibility || 'connections',
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
-
-    if (error) {
-      console.warn('[GAYZE] Intimacy profile save unavailable:', error.message);
-      return false;
-    }
-    return true;
-  } catch (err: any) {
-    console.warn('[GAYZE] Intimacy profile save exception:', err?.message || err);
     return false;
   }
 }

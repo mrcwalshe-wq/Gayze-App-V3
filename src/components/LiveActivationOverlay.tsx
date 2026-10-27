@@ -37,8 +37,8 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ st
     return () => window.clearTimeout(t);
   }, [isLive]);
 
-  const tone = mode === 'private' ? 'private' : 'social';
-  const logo = tone === 'private' ? '/brand/gayze-nav-private.svg?v=20261008-1' : '/brand/gayze-nav-social.svg?v=20261008-1';
+  const tone = 'social';
+  const logo = '/brand/gayze-nav-social.svg?v=20261008-1';
 
   return (
     <div

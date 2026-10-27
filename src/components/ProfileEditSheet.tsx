@@ -5,7 +5,6 @@ import {
   Check,
   Camera,
   Sparkles,
-  Heart,
   Users,
   Compass,
   Shield,
@@ -13,16 +12,11 @@ import {
   Plus,
   User,
 } from 'lucide-react';
-import type { LocationPrivacy, UserProfile, IntimacyProfile } from '../types';
+import type { LocationPrivacy, UserProfile } from '../types';
 import {
   AVAILABILITY_OPTIONS,
   BODY_TYPE_OPTIONS,
   BOUNDARY_OPTIONS,
-  DEFAULT_INTIMACY_VISIBILITY,
-  INTIMACY_EXPERIENCE_OPTIONS,
-  INTIMACY_PREFERENCE_OPTIONS,
-  INTIMACY_ROLE_OPTIONS,
-  INTIMACY_VISIBILITY_OPTIONS,
   INTERESTS_PREVIEW_COUNT,
   INTEREST_OPTIONS,
   LOOKING_FOR_OPTIONS,
@@ -31,7 +25,6 @@ import {
   PRONOUN_OPTIONS,
   withLegacyValues,
   type EditSectionKey,
-  type IntimacyVisibility,
 } from '../config/profileOptions';
 import { hapticLight } from '../services/hapticService';
 
@@ -50,7 +43,6 @@ export interface ProfileSavePayload {
   boundaries: string[];
   mySetup: string[];
   availability: string[];
-  intimacy: IntimacyProfile;
 }
 
 interface ProfileEditSheetProps {
@@ -71,7 +63,6 @@ interface ProfileEditSheetProps {
 const SECTION_ORDER: Array<{ key: EditSectionKey; label: string; icon: React.ReactNode }> = [
   { key: 'identity', label: 'Identity', icon: <User className="w-3.5 h-3.5" /> },
   { key: 'lookingFor', label: "What I'm looking for", icon: <Sparkles className="w-3.5 h-3.5" /> },
-  { key: 'intimacy', label: 'Intimacy', icon: <Heart className="w-3.5 h-3.5" /> },
   { key: 'interests', label: 'Interests', icon: <Compass className="w-3.5 h-3.5" /> },
   { key: 'setup', label: 'My setup', icon: <Users className="w-3.5 h-3.5" /> },
   { key: 'boundaries', label: 'Boundaries', icon: <Shield className="w-3.5 h-3.5" /> },
@@ -164,14 +155,6 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
   const [mySetup, setMySetup] = useState(currentUser.mySetup || []);
   const [availability, setAvailability] = useState(currentUser.availability || []);
 
-  // --- Intimacy (optional, sensitive) ---
-  const [intimacyRole, setIntimacyRole] = useState<string | undefined>(currentUser.intimacy?.role);
-  const [intimacyPrefs, setIntimacyPrefs] = useState<string[]>(currentUser.intimacy?.preferences || []);
-  const [intimacyExperience, setIntimacyExperience] = useState<string | undefined>(currentUser.intimacy?.experience);
-  const [intimacyVisibility, setIntimacyVisibility] = useState<IntimacyVisibility>(
-    currentUser.intimacy?.visibility || DEFAULT_INTIMACY_VISIBILITY,
-  );
-
   // --- Privacy ---
   const [privacySetting, setPrivacySetting] = useState<LocationPrivacy>(currentUser.privacySetting);
 
@@ -195,11 +178,6 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
   const toggleIn = (list: string[], setList: (next: string[]) => void, value: string) => {
     markDirty();
     setList(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
-  };
-
-  const selectOne = (value: string, current: string | undefined, set: (next: string | undefined) => void) => {
-    markDirty();
-    set(current === value ? undefined : value);
   };
 
   const buildPayload = (): ProfileSavePayload | null => {
@@ -231,12 +209,6 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
       boundaries,
       mySetup,
       availability,
-      intimacy: {
-        role: intimacyRole,
-        preferences: intimacyPrefs,
-        experience: intimacyExperience,
-        visibility: intimacyVisibility,
-      },
     };
   };
 
@@ -404,84 +376,10 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
             </div>
           </SectionCard>
 
-          {/* ----------------------------- Intimacy ----------------------------- */}
-          <SectionCard
-            label="Intimacy"
-            icon={SECTION_ORDER[2].icon}
-            open={openSection === 'intimacy'}
-            onToggle={() => setOpenSection(openSection === 'intimacy' ? null : 'intimacy')}
-            preview={previewText(intimacyPrefs, intimacyRole)}
-          >
-            <p className="text-[11.5px] text-zinc-500">Entirely optional. Skip everything if you'd rather.</p>
-
-            <div>
-              <span className="g-label">Role / position</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {INTIMACY_ROLE_OPTIONS.map((option) => (
-                  <Chip
-                    key={option}
-                    label={option}
-                    selected={intimacyRole === option}
-                    onClick={() => selectOne(option, intimacyRole, setIntimacyRole)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="g-label">Preferences</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {INTIMACY_PREFERENCE_OPTIONS.map((option) => (
-                  <Chip
-                    key={option}
-                    label={option}
-                    selected={intimacyPrefs.includes(option)}
-                    onClick={() => toggleIn(intimacyPrefs, setIntimacyPrefs, option)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="g-label">Experience / openness</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {INTIMACY_EXPERIENCE_OPTIONS.map((option) => (
-                  <Chip
-                    key={option}
-                    label={option}
-                    selected={intimacyExperience === option}
-                    onClick={() => selectOne(option, intimacyExperience, setIntimacyExperience)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="g-label">Who can see this section</span>
-              <div className="g-seg mt-2">
-                {INTIMACY_VISIBILITY_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className="g-seg__btn"
-                    data-active={intimacyVisibility === option.value}
-                    data-tone="purple"
-                    onClick={() => { markDirty(); setIntimacyVisibility(option.value); }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[10.5px] text-zinc-600 mt-1.5">
-                {INTIMACY_VISIBILITY_OPTIONS.find((option) => option.value === intimacyVisibility)?.hint}. Defaults to connections only — never public unless you choose it.
-              </p>
-            </div>
-          </SectionCard>
-
           {/* ----------------------------- Interests ----------------------------- */}
           <SectionCard
             label="Interests"
-            icon={SECTION_ORDER[3].icon}
+            icon={SECTION_ORDER[2].icon}
             open={openSection === 'interests'}
             onToggle={() => setOpenSection(openSection === 'interests' ? null : 'interests')}
             preview={hobbies.join(' · ')}
@@ -527,7 +425,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
           {/* ------------------------------ My setup ------------------------------ */}
           <SectionCard
             label="My setup"
-            icon={SECTION_ORDER[4].icon}
+            icon={SECTION_ORDER[3].icon}
             open={openSection === 'setup'}
             onToggle={() => setOpenSection(openSection === 'setup' ? null : 'setup')}
             preview={previewText(mySetup, availability.length ? availability.join(' · ') : '')}
@@ -575,7 +473,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
           {/* ----------------------------- Boundaries ----------------------------- */}
           <SectionCard
             label="Boundaries"
-            icon={SECTION_ORDER[5].icon}
+            icon={SECTION_ORDER[4].icon}
             open={openSection === 'boundaries'}
             onToggle={() => setOpenSection(openSection === 'boundaries' ? null : 'boundaries')}
             preview={boundaries.join(' · ')}
@@ -596,7 +494,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
           {/* ------------------------------ Privacy ------------------------------ */}
           <SectionCard
             label="Privacy"
-            icon={SECTION_ORDER[6].icon}
+            icon={SECTION_ORDER[5].icon}
             open={openSection === 'privacy'}
             onToggle={() => setOpenSection(openSection === 'privacy' ? null : 'privacy')}
             preview={PRIVACY_OPTIONS.find((option) => option.value === privacySetting)?.label || privacySetting}
@@ -624,7 +522,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
             <div>
               <span className="g-label">Sensitive sections</span>
               <p className="text-[11.5px] text-zinc-500 mt-1.5">
-                Intimacy defaults to “Connections only”. Public profile fields are name, age, pronouns, bio, area, lookings, interests, setup and boundaries.
+                Public profile fields are name, age, pronouns, bio, area, what you are looking for, interests, setup and boundaries.
               </p>
             </div>
             {onOpenIdentity && (

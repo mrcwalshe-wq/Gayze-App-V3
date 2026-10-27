@@ -23,7 +23,6 @@ export interface UserProfile {
   boundaries?: string[];
   mySetup?: string[];
   availability?: string[];
-  intimacy?: IntimacyProfile;
   /** Hide presence from other users while still allowing authenticated chat. */
   presenceIncognito?: boolean;
 }
@@ -341,12 +340,4 @@ export interface SafetyCheckin {
   startedAt: number;
   durationMinutes: number;
   notes: string;
-}
-
-
-export interface IntimacyProfile {
-  role?: string;
-  preferences: string[];
-  experience?: string;
-  visibility: 'everyone' | 'connections' | 'private';
 }

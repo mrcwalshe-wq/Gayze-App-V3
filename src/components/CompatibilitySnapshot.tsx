@@ -10,16 +10,12 @@ interface CompatibilitySnapshotProps {
   className?: string;
 }
 
-export const getProfileMode = (profile: DatingProfile): 'social' | 'private' => {
-  if (profile.intentMode) return profile.intentMode;
-  return profile.lookingFor === 'casual' ? 'private' : 'social';
-};
+// Private mode is retired: every profile is treated as social.
+export const getProfileMode = (_profile: DatingProfile): 'social' => 'social';
 
 export const getProfileIntent = (profile: DatingProfile): string => {
   if (profile.intent) return profile.intent;
   switch (profile.lookingFor) {
-    case 'casual':
-      return 'Hookup';
     case 'dates_coffee':
       return 'Drinks';
     case 'dating':
