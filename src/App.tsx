@@ -45,6 +45,8 @@ import { initNativeAuthDeepLinks, isNativeApp } from './services/nativeAuth';
 import { describeAuthError, type AuthIssue } from './services/authMessages';
 const AdminConsole = React.lazy(() => import('./components/AdminConsole'));
 import { ProfileOnboarding } from './components/ProfileOnboarding';
+import { AgeGate } from './components/AgeGate';
+import { AGE_VERIFICATION_ENABLED, getAgeVerificationStatus, type AgeVerificationStatus } from './services/ageVerification';
 import { InstallPrompt } from './components/InstallPrompt';
 import { NotificationsModal } from './components/NotificationsModal';
 import { PushEnableBanner } from './components/PushEnableBanner';
@@ -742,6 +744,8 @@ export default function App() {
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [showProfileOnboarding, setShowProfileOnboarding] = useState(false);
+  // null = not loaded yet (or age checks switched off); anything but 'verified' shows the age gate.
+  const [ageStatus, setAgeStatus] = useState<AgeVerificationStatus | null>(null);
   const [identityDevices, setIdentityDevices] = useState<import('./services/supabaseService').IdentityDevice[]>([]);
   const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState<string | null>(null);
 
@@ -910,6 +914,7 @@ export default function App() {
   // 1. Session, profile and device identity.
   useEffect(() => {
     setPresenceProfileUserId(null);
+    setAgeStatus(null);
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut) return;
     let disposed = false;
     const generation = authGenerationRef.current;
@@ -920,6 +925,11 @@ export default function App() {
         const user = await ensureSupabaseSession();
         if (!user || isStale()) return;
         setShowProfileOnboarding(user.user_metadata?.profile_complete !== true);
+        if (AGE_VERIFICATION_ENABLED) {
+          const ageResult = await getAgeVerificationStatus(user.id);
+          if (isStale()) return;
+          setAgeStatus(ageResult);
+        }
         if (supabaseUserIdRef.current !== user.id) { clearMessageWork(); messageAlertsRef.current.clear(); }
         const identity = await getOrCreateDeviceIdentity(user.id);
         if (isStale()) return;
@@ -3869,6 +3879,10 @@ export default function App() {
 
       {showProfileOnboarding && supabaseUserId && (
         <ProfileOnboarding currentUser={currentUser} onSave={handleSaveProfileOnboarding} />
+      )}
+
+      {AGE_VERIFICATION_ENABLED && supabaseUserId && ageStatus !== null && ageStatus !== 'verified' && (
+        <AgeGate initialStatus={ageStatus} onVerified={() => setAgeStatus('verified')} onSignOut={handleSignOut} />
       )}
 
       {incomingGayzeCelebration && (

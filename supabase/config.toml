@@ -19,3 +19,11 @@ verify_jwt = true
 [functions.place-search]
 # Members only. The handler verifies the token again with auth.getUser and rate-limits per member.
 verify_jwt = true
+
+[functions.age-verify-start]
+# Members only. The handler verifies the token again with auth.getUser.
+verify_jwt = true
+
+[functions.age-verify-check]
+# Members only. The handler verifies the token again with auth.getUser.
+verify_jwt = true
