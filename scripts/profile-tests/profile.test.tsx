@@ -181,7 +181,7 @@ installPushPlatform();
   globalThis.__pushState.subscription = null;
   const { container, unmount } = await mountProfile(makeUser());
   assert(hasText(container, 'Turn on notifications'), 'not enabled + not dismissed: onboarding card shows');
-  assert(hasText(container, 'Stay in the loop'), 'card copy is the onboarding prompt');
+  assert(hasText(container, 'Get messages, Gayzes and intent alerts.'), 'card copy is the onboarding prompt');
   await unmount();
 }
 
@@ -214,24 +214,7 @@ installPushPlatform();
   await unmount();
 }
 
-// --- 1e. dismissal is permanent
-{
-  localStorage.clear();
-  globalThis.__pushState.permission = 'default';
-  globalThis.__pushState.subscription = null;
-  const first = await mountProfile(makeUser());
-  assert(hasText(first.container, 'Turn on notifications'), 'before dismiss: card visible');
-  const dismiss = [...first.container.querySelectorAll('button')]
-    .find((b) => (b.getAttribute('aria-label') || '') === 'Dismiss notification reminder');
-  await act(async () => { dismiss.click(); await sleep(10); });
-  assert(!hasText(first.container, 'Turn on notifications'), 'X dismisses the card');
-  await first.unmount();
-
-  // A fresh mount (e.g. next visit) must NOT resurface it.
-  const second = await mountProfile(makeUser());
-  assert(!hasText(second.container, 'Turn on notifications'), 'dismissal is permanent — card stays gone on re-mount');
-  await second.unmount();
-}
+// --- 1e. (removed) the banner no longer has a dismiss control; it disappears once notifications are on (see 1c/1d).
 
 // --- 1f. engaging the prompt retires it and opens the same settings sheet
 {
@@ -239,10 +222,10 @@ installPushPlatform();
   globalThis.__pushState.permission = 'default';
   globalThis.__pushState.subscription = null;
   const { container, calls, unmount } = await mountProfile(makeUser());
-  const cta = findButton(container, 'Start notifications');
+  const cta = [...container.querySelectorAll('button')].find((b) => text(b).startsWith('Turn on notifications'));
+  assert(Boolean(cta), 'the banner itself is the call to action');
   await act(async () => { cta.click(); await sleep(10); });
-  assert(calls.notifications === 1, 'CTA opens the existing notification settings sheet');
-  assert(!hasText(container, 'Turn on notifications'), 'engaging the prompt retires it');
+  assert(calls.notifications === 1, 'tapping the banner opens the existing notification settings sheet');
   await unmount();
 }
 
