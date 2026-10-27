@@ -265,13 +265,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       )}
 
       {/* Mode segmented control */}
-      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4">
+      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4" role="group" aria-label="Filter by intent mode">
         {(['All', 'Social', 'Private'] as const).map((mode) => {
           const isSelected = modeFilter === mode;
           return (
             <button
               key={mode}
               type="button"
+              aria-pressed={isSelected}
               className={`g-discover-mode-filter__button h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
                 isSelected
                   ? mode === 'Private'
