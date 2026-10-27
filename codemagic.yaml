@@ -1,0 +1,68 @@
+# Cloud builds for the GAYZE native apps (Capacitor). No Mac needed.
+# One-time setup is in docs/NATIVE_APP_RELEASE.md. Both workflows are started by hand
+# from the Codemagic dashboard ("Start new build"), so they only use build minutes when you ask.
+
+definitions:
+  web_build: &web_build
+    name: Build web app
+    script: |
+      npm ci
+      npm run build
+
+workflows:
+  android-release:
+    name: Android release (AAB)
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      node: latest
+      java: 21
+      android_signing:
+        - gayze_keystore        # keystore uploaded in Codemagic > Team settings > Code signing identities
+    scripts:
+      - *web_build
+      - name: Sync Capacitor
+        script: npx cap sync android
+      - name: Build signed bundle
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
+
+  ios-release:
+    name: iOS release (TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: GAYZE_ASC   # App Store Connect API key added in Codemagic > Team integrations
+    environment:
+      node: latest
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.gayze.app
+    scripts:
+      - *web_build
+      - name: Sync Capacitor
+        script: npx cap sync ios
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Set build number from TestFlight
+        script: |
+          cd ios/App
+          agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID") + 1))
+      - name: Build signed IPA
+        script: |
+          xcode-project build-ipa \
+            --project "ios/App/App.xcodeproj" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
