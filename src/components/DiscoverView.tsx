@@ -93,7 +93,7 @@ type DiscoverRow =
  * Discover — intent-first browsing. One column, sorted by what people actually
  * want to do (live intents first), never a photo grid.
  */
-export const DiscoverView: React.FC<DiscoverViewProps> = ({
+export const DiscoverView: React.FC<DiscoverViewProps> = React.memo(({
   profiles,
   pulses,
   userNeighborhood,
@@ -534,4 +534,4 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       )}
     </div>
   );
-};
+});
