@@ -42,13 +42,16 @@ workflows:
       xcode: latest
       vars:
         APP_STORE_APPLE_ID: 6827405145   # Apple ID of the app in App Store Connect (not a secret)
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.gayze.app
     scripts:
       - *web_build
       - name: Sync Capacitor
         script: npx cap sync ios
+      - name: Set up keychain
+        script: keychain initialize
+      - name: Fetch or create signing files
+        script: app-store-connect fetch-signing-files "com.gayze.app" --type IOS_APP_STORE --create
+      - name: Add certificates to keychain
+        script: keychain add-certificates
       - name: Set up code signing
         script: xcode-project use-profiles
       - name: Set build number from TestFlight
