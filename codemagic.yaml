@@ -40,6 +40,8 @@ workflows:
     environment:
       node: latest
       xcode: latest
+      groups:
+        - signing   # holds CERTIFICATE_PRIVATE_KEY (secure), added in Codemagic > app > Environment variables
       vars:
         APP_STORE_APPLE_ID: 6827405145   # Apple ID of the app in App Store Connect (not a secret)
     scripts:
@@ -49,7 +51,7 @@ workflows:
       - name: Set up keychain
         script: keychain initialize
       - name: Fetch or create signing files
-        script: app-store-connect fetch-signing-files "com.gayze.app" --type IOS_APP_STORE --create
+        script: app-store-connect fetch-signing-files "com.gayze.app" --type IOS_APP_STORE --create --certificate-key @env:CERTIFICATE_PRIVATE_KEY
       - name: Add certificates to keychain
         script: keychain add-certificates
       - name: Set up code signing
