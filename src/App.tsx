@@ -2571,7 +2571,15 @@ export default function App() {
       await blockUser(peerId);
       const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
       setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
-      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+      setMessages((previous) => {
+        // Optimize dictionary state update by avoiding Object.fromEntries(Object.entries(...).filter(...))
+        // which creates unnecessary intermediate arrays and increases GC pressure.
+        const nextMessages = { ...previous };
+        for (const roomId of blockedRoomIds) {
+          delete nextMessages[roomId];
+        }
+        return nextMessages;
+      });
       setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
       setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
       setNotificationToast(`${peerName} blocked`);
