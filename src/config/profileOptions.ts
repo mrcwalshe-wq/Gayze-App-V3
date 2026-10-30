@@ -58,6 +58,16 @@ export const INTEREST_OPTIONS = [
   'Dogs',
 ] as const;
 
+/** Interests grouped for the picker. Values are stored as-is in profiles.hobbies, so Discover can match them. */
+export const INTEREST_CATEGORIES: { key: string; label: string; items: readonly string[] }[] = [
+  { key: 'sports', label: 'Sports', items: ['Football', 'Tennis', 'Running', 'Cycling', 'Gym', 'Swimming', 'Hiking', 'Rugby', 'Yoga', 'Climbing'] },
+  { key: 'social', label: 'Social', items: ['Coffee', 'Food', 'Nights out', 'Meeting new people', 'Conversation', 'Social gatherings', 'Board games', 'Quiz nights'] },
+  { key: 'hobbies', label: 'Hobbies', items: ['Gaming', 'Photography', 'Music', 'Film', 'Reading', 'Cooking', 'Technology', 'Art', 'Fashion', 'Dogs'] },
+  { key: 'outdoors', label: 'Outdoors', items: ['Walking', 'Beaches', 'Exploring', 'Travel', 'Camping', 'Gardening'] },
+  { key: 'events', label: 'Events', items: ['Local events', 'Concerts', 'Sporting events', 'Exhibitions', 'Community gatherings', 'Festivals', 'Theatre'] },
+];
+export const ALL_INTERESTS: readonly string[] = Array.from(new Set([...INTEREST_CATEGORIES.flatMap((c) => c.items), ...INTEREST_OPTIONS]));
+
 /** How many interest chips to show before the "+ Add interests" affordance. */
 export const INTERESTS_PREVIEW_COUNT = 8;
 

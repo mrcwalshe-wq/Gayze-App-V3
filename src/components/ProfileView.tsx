@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Radio,
   Shield,
+  Eye,
   EyeOff,
   QrCode,
   KeyRound,
@@ -51,6 +52,7 @@ interface ProfileViewProps {
   isSafetyTimerActive: boolean;
   onOpenMask: () => void;
   onOpenIdentity: () => void;
+  onOpenPrivacy?: () => void;
   /** Releases push, clears the session and returns to the signed-out state. */
   onSignOut?: () => void | Promise<void>;
   signingOut?: boolean;
@@ -96,6 +98,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   isSafetyTimerActive,
   onOpenMask,
   onOpenIdentity,
+  onOpenPrivacy,
   onSignOut,
   signingOut = false,
   onOpenQR,
@@ -354,6 +357,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     { key: 'havens', icon: <ShieldCheck className="w-4 h-4" />, label: 'Safe Havens', onClick: onOpenSafeHavens, tone: 'emerald' },
     { key: 'qr', icon: <QrCode className="w-4 h-4" />, label: 'QR verification', meta: `${currentUser.verifiedPeersCount} verified`, onClick: onOpenQR, tone: 'amber' },
     { key: 'mask', icon: <EyeOff className="w-4 h-4" />, label: 'Discreet mask', meta: 'Instant camouflage', onClick: onOpenMask },
+    ...(onOpenPrivacy ? [{ key: 'privacy', icon: <Eye className="w-4 h-4" />, label: 'Privacy & visibility', meta: 'Online status, who can message you', onClick: onOpenPrivacy, tone: 'purple' as const }] : []),
     { key: 'identity', icon: <KeyRound className="w-4 h-4" />, label: 'Identity & devices', meta: privacyLabel[currentUser.privacySetting] || currentUser.privacySetting, onClick: onOpenIdentity },
   ];
 
