@@ -987,20 +987,29 @@ export default function App() {
           if (isStale()) return;
           if (savedProfile) {
             setPresenceProfileUserId(user.id);
-            setCurrentUser((prev) => ({
-              ...prev,
-              // Bootstrap already reads our own complete profile row. Honour
-              // a deployed incognito flag without assuming a new DB column or
-              // letting an unknown/failed profile read publish presence.
-              presenceIncognito: !profileRow || profileRow.presence_incognito === true,
-              ...Object.fromEntries(
-                Object.entries(savedProfile).filter(([, value]) => value !== undefined),
-              ),
-              // The device identity key is what peers need for E2EE; only this
-              // bootstrap may set it, and it is never overwritten from a fingerprint.
-              publicKey: identity.fingerprint,
-              shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
-            }));
+            setCurrentUser((prev) => {
+              // ⚡ Bolt: Avoid Object.entries().filter().map() chain to prevent intermediate array allocations.
+              // Shallow clone and targeted delete is significantly faster and reduces GC pressure.
+              const cleanProfile = { ...savedProfile };
+              for (const key in cleanProfile) {
+                if (cleanProfile[key as keyof typeof cleanProfile] === undefined) {
+                  delete cleanProfile[key as keyof typeof cleanProfile];
+                }
+              }
+
+              return {
+                ...prev,
+                // Bootstrap already reads our own complete profile row. Honour
+                // a deployed incognito flag without assuming a new DB column or
+                // letting an unknown/failed profile read publish presence.
+                presenceIncognito: !profileRow || profileRow.presence_incognito === true,
+                ...cleanProfile,
+                // The device identity key is what peers need for E2EE; only this
+                // bootstrap may set it, and it is never overwritten from a fingerprint.
+                publicKey: identity.fingerprint,
+                shortKey: `pk_${identity.fingerprint.slice(3, 11)}...${identity.fingerprint.slice(-4)}`,
+              };
+            });
           }
         } catch (error) {
           console.warn('[GAYZE] Profile bootstrap failed:', error);
@@ -2572,7 +2581,15 @@ export default function App() {
       await blockUser(peerId);
       const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
       setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
-      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+      setMessages((previous) => {
+        // ⚡ Bolt: Avoid Object.entries().filter().map() chain.
+        // O(1) shallow copy and O(K) delete avoids O(N) intermediate array allocations across all chat rooms.
+        const next = { ...previous };
+        for (const roomId of blockedRoomIds) {
+          delete next[roomId];
+        }
+        return next;
+      });
       setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
       setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
       setNotificationToast(`${peerName} blocked`);
