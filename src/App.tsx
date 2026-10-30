@@ -19,6 +19,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 
 import { Navbar } from './components/Navbar';
 import { IntentHub } from './components/IntentHub';
 import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
+import { ConceptHoldingPage } from './components/ConceptHoldingPage';
 import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
 import { IdentityModal } from './components/IdentityModal';
@@ -3481,6 +3482,11 @@ export default function App() {
   // If Discreet Mask is triggered, render pure camouflage
   if (isMaskActive) {
     return <DiscreetMaskView onExitMask={() => setIsMaskActive(false)} />;
+  }
+
+  if (isSupabaseConfigured && authReady && !isAuthenticated && typeof window !== 'undefined'
+    && window.location.pathname !== '/login' && !isAuthPath(window.location.pathname)) {
+    return <ConceptHoldingPage />;
   }
 
   if (isSupabaseConfigured && (!authReady || !isAuthenticated)) {
