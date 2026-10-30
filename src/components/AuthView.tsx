@@ -470,18 +470,6 @@ export const AuthView: React.FC<AuthViewProps> = ({
             </p>
           )}
 
-          {(mode === 'signin' || mode === 'signup') && (
-            <div className="mt-5 flex items-center justify-center gap-1 text-xs text-zinc-500">
-              <span>{mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}</span>
-              <button
-                type="button"
-                onClick={() => goMode(mode === 'signin' ? 'signup' : 'signin')}
-                className="text-[#c9a24d] hover:text-white font-semibold"
-              >
-                {mode === 'signin' ? 'Create one' : 'Sign in'}
-              </button>
-            </div>
-          )}
 
           <div className="mt-5 flex flex-wrap justify-center gap-x-3 gap-y-2 text-xs text-zinc-500"><a href="/privacy.html" className="underline underline-offset-4 decoration-white/20 hover:text-[#c9a24d]">Privacy</a><a href="/terms.html" className="underline underline-offset-4 decoration-white/20 hover:text-[#c9a24d]">Terms</a><a href="/community-guidelines.html" className="underline underline-offset-4 decoration-white/20 hover:text-[#c9a24d]">Community Guidelines</a><a href="/safety.html" className="underline underline-offset-4 decoration-white/20 hover:text-[#c9a24d]">Safety</a><a href="/legal.html" className="underline underline-offset-4 decoration-white/20 hover:text-[#c9a24d]">All policies</a></div>
 
