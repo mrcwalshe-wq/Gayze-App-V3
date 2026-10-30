@@ -475,8 +475,9 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 )}
 
                 <div>
-                  <span className="g-label">In your words</span>
+                  <label htmlFor="intent-description" className="g-label">In your words</label>
                   <input
+                    id="intent-description"
                     type="text"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}

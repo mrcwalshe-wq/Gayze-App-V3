@@ -310,6 +310,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                 onChange={(e) => { markDirty(); setDisplayName(e.target.value); }}
                 placeholder="Display name"
                 autoComplete="name"
+                aria-label="Display name"
                 className="w-full h-11 rounded-xl bg-[#090a0f] border border-white/10 px-3.5 text-sm text-white outline-none focus:border-[#6F3CC3]/70"
               />
               <div className="flex gap-2.5">
@@ -318,6 +319,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                   onChange={(e) => { markDirty(); setHandle(e.target.value.replace(/\s/g, '').toLowerCase()); }}
                   placeholder="Handle"
                   autoComplete="username"
+                  aria-label="Handle"
                   className="w-full h-11 rounded-xl bg-[#090a0f] border border-white/10 px-3.5 text-sm text-white outline-none focus:border-[#6F3CC3]/70"
                 />
                 <input
@@ -325,6 +327,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                   onChange={(e) => { markDirty(); setAge(e.target.value.replace(/\D/g, '').slice(0, 3)); }}
                   inputMode="numeric"
                   placeholder="Age"
+                  aria-label="Age"
                   className="w-24 h-11 rounded-xl bg-[#090a0f] border border-white/10 px-3.5 text-sm text-white outline-none focus:border-[#6F3CC3]/70"
                 />
               </div>
@@ -339,6 +342,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                     value={pronouns && !(PRONOUN_OPTIONS as readonly string[]).includes(pronouns) ? pronouns : ''}
                     onChange={(e) => { markDirty(); setPronouns(e.target.value.slice(0, 24)); }}
                     placeholder="or type your own"
+                    aria-label="Custom pronouns"
                     className="h-[42px] w-36 rounded-full bg-[#090a0f] border border-white/10 px-3.5 text-[12.5px] text-white outline-none focus:border-[#6F3CC3]/70"
                   />
                 </div>
@@ -362,6 +366,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                     onChange={(e) => { markDirty(); setHeightCm(e.target.value.replace(/\D/g, '').slice(0, 3)); }}
                     inputMode="numeric"
                     placeholder="cm"
+                    aria-label="Height in cm"
                     className="w-full h-11 mt-2 rounded-xl bg-[#090a0f] border border-white/10 px-3.5 text-sm text-white outline-none focus:border-[#6F3CC3]/70"
                   />
                 </div>
@@ -516,6 +521,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                 onChange={(e) => setCustomInterest(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomInterest(); } }}
                 placeholder="Custom interest"
+                aria-label="Custom interest"
                 className="h-[40px] w-40 rounded-xl bg-[#090a0f] border border-white/10 px-3.5 text-[12.5px] text-white outline-none focus:border-[#6F3CC3]/70"
               />
               <button type="button" className="g-btn g-btn--quiet !min-h-[40px] !px-3" onClick={addCustomInterest} aria-label="Add custom interest">

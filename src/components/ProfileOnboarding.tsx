@@ -44,10 +44,10 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
           <p className="mt-1.5 text-sm text-zinc-400">Set your identity and discovery preferences before you start appearing in live discovery.</p>
         </div>
         <form onSubmit={submit} className="space-y-4">
-          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" autoComplete="name" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
-          <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/\s/g, '').toLowerCase())} placeholder="Username / handle" autoComplete="username" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
+          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" autoComplete="name" aria-label="Display name" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
+          <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/\s/g, '').toLowerCase())} placeholder="Username / handle" autoComplete="username" aria-label="Username / handle" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
           <div className="grid grid-cols-2 gap-3">
-            <input value={age} onChange={(e) => setAge(e.target.value.replace(/\D/g, '').slice(0, 3))} inputMode="numeric" placeholder="Age (18+)" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
+            <input value={age} onChange={(e) => setAge(e.target.value.replace(/\D/g, '').slice(0, 3))} inputMode="numeric" placeholder="Age (18+)" aria-label="Age" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
             <select value={privacySetting} onChange={(e) => setPrivacySetting(e.target.value as LocationPrivacy)} className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none">
               <option value="fuzzy_500m">Approx. 500m</option><option value="neighborhood">Neighborhood</option><option value="ghost">Ghost mode</option>
             </select>
