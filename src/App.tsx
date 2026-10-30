@@ -15,7 +15,7 @@ import { ChatHistoryOwnership } from './services/chatHistoryOwnership';
 import { MessageAlerts } from './services/messageAlerts';
 
 
-import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
 import { IntentHub } from './components/IntentHub';
 import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
@@ -26,6 +26,8 @@ import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
+import { PrivacySheet } from './components/PrivacySheet';
+import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
 import { latestMeetups } from './services/meetupState';
 import { callLineText, decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
 import { JourneyBar } from './components/JourneyBar';
@@ -685,6 +687,8 @@ export default function App() {
   const [amendingMeeting, setAmendingMeeting] = useState<{ id: string; venueName: string; timeStr: string } | null>(null);
   const handleSendMessageRef = useRef<(roomId: string, text: string, ttl?: number) => Promise<void>>(async () => {});
   const [directionsOpen, setDirectionsOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [serverPresenceById, setServerPresenceById] = useState<Map<string, ServerPresence>>(new Map());
   const [journeySheet, setJourneySheet] = useState<{ roomId: string; peerName: string } | null>(null);
   const { journey, live: journeyLive, start: startJourney, stop: stopJourney, setShare: setJourneyShare } = useJourney(
     (roomId, text) => handleSendMessageRef.current(roomId, text, rooms.find((r) => r.id === roomId)?.ephemeralTtlSeconds),
@@ -1246,6 +1250,42 @@ export default function App() {
 
     return unsubSignaling;
   }, [supabaseUserId, isAuthenticated, isSigningOut]);
+
+  // Presence the server decides: a heartbeat while the app is open, and a poll of the people in your chats.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    return startPresenceHeartbeat();
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+
+  const presencePeerKey = useMemo(
+    () => Array.from(new Set(rooms.filter((r) => r.type === 'direct' && r.peerUserId).map((r) => r.peerUserId as string))).sort().join(','),
+    [rooms],
+  );
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !presencePeerKey) { setServerPresenceById(new Map()); return; }
+    const ids = presencePeerKey.split(',');
+    let live = true;
+    const poll = () => {
+      if (document.visibilityState !== 'visible') return;
+      void fetchPresence(ids).then((rows) => { if (live && rows.length) setServerPresenceById(new Map(rows.map((r) => [r.userId, r]))); });
+    };
+    poll();
+    const timer = window.setInterval(poll, 30_000);
+    document.addEventListener('visibilitychange', poll);
+    return () => { live = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', poll); };
+  }, [presencePeerKey, isAuthenticated, isSigningOut]);
+
+  // The server wins where it has an answer: someone who hides their status never shows as online or with a last-seen time.
+  const effectiveOnlineIds = useMemo(() => {
+    const out = new Set(onlineUserIds);
+    serverPresenceById.forEach((p, id) => { if (p.status === 'online') out.add(id); else out.delete(id); });
+    return out;
+  }, [onlineUserIds, serverPresenceById]);
+  const roomsWithPresence = useMemo(() => rooms.map((r) => {
+    const p = r.peerUserId ? serverPresenceById.get(r.peerUserId) : undefined;
+    if (!p) return r;
+    return { ...r, peerLastSeenAt: p.status === 'hidden' || !p.lastSeenAt ? undefined : Date.parse(p.lastSeenAt) };
+  }), [rooms, serverPresenceById]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
@@ -3613,6 +3653,7 @@ export default function App() {
               isSafetyTimerActive={checkinState.isActive}
               onOpenMask={() => setIsMaskActive(true)}
               onOpenIdentity={() => setIsIdentityOpen(true)}
+              onOpenPrivacy={() => setIsPrivacyOpen(true)}
               onSignOut={handleSignOut}
               signingOut={isSigningOut}
               onDeleteAccount={handleDeleteAccount}
@@ -3804,7 +3845,7 @@ export default function App() {
                       )}
                     <div className="min-h-0 flex-1">
                     <ChatRoomView
-                    rooms={rooms}
+                    rooms={roomsWithPresence}
                     gayzeEvents={(notificationInbox?.rows ?? [])
                       .filter((notice) => notice.category === 'gaze' && (!notice.event_key?.startsWith('interest:') || notice.event_key.endsWith(':received')) && notice.actor_id)
                       .map((notice) => ({ id: notice.id, actorId: notice.actor_id!, createdAt: notice.created_at }))}
@@ -3836,7 +3877,7 @@ export default function App() {
                     journeyRoomId={journey?.roomId ?? null}
                     onMeetingAction={handleMeetingAction}
                     onReturnToDiscovery={() => setActiveTab('right_now')}
-                    onlineUserIds={onlineUserIds}
+                    onlineUserIds={effectiveOnlineIds}
                     connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
                     conversationKeyUnavailable={
                       Boolean(activeRoomId)
@@ -3932,6 +3973,7 @@ export default function App() {
         arranged={arrangedMeetup}
         onStart={(d) => { if (journeySheet) void startJourney({ roomId: journeySheet.roomId, peerName: journeySheet.peerName, venueName: d.venueName, dest: d.dest, share: d.share }); }}
       />
+      <PrivacySheet isOpen={isPrivacyOpen} onClose={() => setIsPrivacyOpen(false)} userId={supabaseUserId} />
       <DirectionsSheet isOpen={directionsOpen && Boolean(journey)} onClose={() => setDirectionsOpen(false)} venueName={journey?.venueName ?? ''} dest={journey?.dest ?? null} from={userLocation} />
       {journey && (
         <JourneyBar venueName={journey.venueName} peerName={journey.peerName} share={journey.share} live={journeyLive} onStop={stopJourney} onDirections={() => setDirectionsOpen(true)} onToggleShare={setJourneyShare} />

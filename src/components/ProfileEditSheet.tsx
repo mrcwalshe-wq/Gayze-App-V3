@@ -25,6 +25,8 @@ import {
   INTIMACY_VISIBILITY_OPTIONS,
   INTERESTS_PREVIEW_COUNT,
   INTEREST_OPTIONS,
+  INTEREST_CATEGORIES,
+  ALL_INTERESTS,
   LOOKING_FOR_OPTIONS,
   LEGACY_LOOKING_FOR_OPTIONS,
   MY_SETUP_OPTIONS,
@@ -159,6 +161,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
 
   // --- Chips ---
   const [lookingFor, setLookingFor] = useState<string[]>(currentUser.interests || []);
+  const [interestQuery, setInterestQuery] = useState('');
   const [hobbies, setHobbies] = useState<string[]>(currentUser.hobbies || []);
   const [boundaries, setBoundaries] = useState<string[]>(currentUser.boundaries || []);
   const [mySetup, setMySetup] = useState(currentUser.mySetup || []);
@@ -486,31 +489,47 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
             onToggle={() => setOpenSection(openSection === 'interests' ? null : 'interests')}
             preview={hobbies.join(' · ')}
           >
-            <div className="flex flex-wrap gap-2">
-              {(showAllInterests ? INTEREST_OPTIONS : INTEREST_OPTIONS.slice(0, INTERESTS_PREVIEW_COUNT)).map((option) => (
-                <Chip
-                  key={option}
-                  label={option}
-                  selected={hobbies.includes(option)}
-                  onClick={() => toggleInterest(option)}
-                />
-              ))}
-              {hobbies
-                .filter((value) => !(INTEREST_OPTIONS as readonly string[]).includes(value))
-                .map((value) => (
-                  <Chip key={value} label={value} selected onClick={() => toggleInterest(value)} />
-                ))}
+            <div className="relative">
+              <input
+                value={interestQuery}
+                onChange={(e) => setInterestQuery(e.target.value)}
+                placeholder="Search interests"
+                aria-label="Search interests"
+                className="h-[42px] w-full rounded-xl bg-[#090a0f] border border-white/10 px-3.5 text-[13px] text-white outline-none focus:border-[#6F3CC3]/70"
+              />
             </div>
+            {interestQuery.trim() ? (
+              <div className="flex flex-wrap gap-2">
+                {ALL_INTERESTS.filter((o) => o.toLowerCase().includes(interestQuery.trim().toLowerCase())).map((option) => (
+                  <Chip key={option} label={option} selected={hobbies.includes(option)} onClick={() => toggleInterest(option)} />
+                ))}
+                {!ALL_INTERESTS.some((o) => o.toLowerCase() === interestQuery.trim().toLowerCase()) && (
+                  <Chip label={`Add “${interestQuery.trim()}”`} selected={false} onClick={() => { const v = interestQuery.trim().slice(0, 30); if (v && !hobbies.includes(v)) setHobbies([...hobbies, v]); setInterestQuery(''); }} />
+                )}
+              </div>
+            ) : (
+              INTEREST_CATEGORIES.map((cat) => (
+                <div key={cat.key} className="space-y-2">
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-zinc-500">{cat.label}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {cat.items.map((option) => (
+                      <Chip key={option} label={option} selected={hobbies.includes(option)} onClick={() => toggleInterest(option)} />
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+            {hobbies.filter((value) => !ALL_INTERESTS.includes(value)).length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-zinc-500">Yours</p>
+                <div className="flex flex-wrap gap-2">
+                  {hobbies.filter((value) => !ALL_INTERESTS.includes(value)).map((value) => (
+                    <Chip key={value} label={value} selected onClick={() => toggleInterest(value)} />
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-2">
-              {!showAllInterests && (
-                <button
-                  type="button"
-                  className="g-btn g-btn--quiet !min-h-[40px]"
-                  onClick={() => setShowAllInterests(true)}
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add interests
-                </button>
-              )}
               <input
                 value={customInterest}
                 onChange={(e) => setCustomInterest(e.target.value)}
