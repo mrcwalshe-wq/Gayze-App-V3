@@ -9,7 +9,7 @@ Nothing here was inferred from the brief: every row below was read from the code
 | Area | State | Evidence |
 |---|---|---|
 | Stack | React 19 + Vite + Tailwind v4 + TS SPA, Supabase (Auth, Postgres, Realtime, Storage, Edge Functions), PostGIS, Capacitor shells, Cloudflare Worker (static assets) | `package.json`, `wrangler.toml` |
-| Size | `App.tsx` 4,178 lines; `RightNowView.tsx` 2,481; 56 migrations; 6 Edge Functions (`admin-api`, `delete-account`, `place-search`, `send-push`, `webrtc-ice-servers`, `delete-account`) | repo |
+| Size | `App.tsx` 4,178 lines; `RightNowView.tsx` 2,481; 56 migrations; 5 Edge Functions (`admin-api`, `delete-account`, `place-search`, `send-push`, `webrtc-ice-servers`) | repo |
 | Navigation | 6 tabs in one `activeTab` state: `right_now` (map of live intents), `dating` (Discover), `later` (gatherings), `swarms` (Messages), `safe_havens`, `profile` | `App.tsx` ~3580-3860 |
 | Intents | Core of discovery. `intents` table 190 rows, modes `social`/`private`, time-limited, `discover_right_now` RPC, map, edge glow, hub, sheets, notifications (`intent_expiring`) | `RightNowView`, `SetIntentSheet`, `IntentHub`, migrations |
 | Gaze / interest | "Send GAYZE" request -> accept -> conversation. `gazes` 35, `interests` 19, 24 h send cooldown | `submit_interest`, `accept_interest` |
