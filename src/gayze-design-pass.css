@@ -1411,3 +1411,46 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-priv__row > div { flex: 1; min-width: 0; }
 .g-priv__row strong { display: block; font-size: 14px; color: #fff; }
 .g-priv__row p { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: rgba(255, 255, 255, .55); }
+
+/* ---- Discover (interest based) ------------------------------------------------ */
+.g-disc { max-width: 640px; margin: 0 auto; padding-bottom: 24px; }
+.g-disc__head h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: #fff; }
+.g-disc__head p { margin: 4px 0 14px; font-size: 13.5px; color: rgba(255, 255, 255, .55); }
+.g-disc__search { position: relative; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 14px; height: 48px; border-radius: 16px; background: #12131b; border: 1px solid rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .5); }
+.g-disc__search:focus-within { border-color: rgba(111, 60, 195, .8); }
+.g-disc__search input { flex: 1; min-width: 0; height: 100%; background: none; border: 0; outline: 0; color: #fff; font-size: 14.5px; }
+.g-disc__filter { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; border: 0; background: rgba(255, 255, 255, .06); color: #cbb7ef; }
+.g-disc__filter.is-on { background: rgba(111, 60, 195, .35); color: #fff; }
+.g-disc__filter b { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; font-size: 10px; line-height: 16px; background: #6F3CC3; color: #fff; }
+.g-disc__filters { margin-top: 10px; padding: 12px; border-radius: 18px; background: #12131b; border: 1px solid rgba(255, 255, 255, .08); display: grid; gap: 12px; }
+.g-disc__tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.g-disc__tabs button { flex: none; padding: 7px 13px; border-radius: 999px; border: 0; font-size: 12.5px; font-weight: 700; color: rgba(255, 255, 255, .6); background: rgba(255, 255, 255, .05); }
+.g-disc__tabs button.is-on { color: #fff; background: #6F3CC3; }
+.g-disc__chips, .g-disc__active, .g-disc__radius { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.g-disc__chips button, .g-disc__radius button, .g-disc__active button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 650; color: #e7dcfb; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); }
+.g-disc__chips button.is-on, .g-disc__radius button.is-on, .g-disc__active button { color: #fff; background: rgba(111, 60, 195, .4); border-color: rgba(170, 132, 245, .7); }
+.g-disc__radius span { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: rgba(255, 255, 255, .5); margin-right: 4px; }
+.g-disc__active { margin-top: 10px; }
+.g-disc__nudge { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin-top: 12px; padding: 14px 16px; text-align: left; border-radius: 16px; color: #fff; background: rgba(201, 162, 77, .1); border: 1px solid rgba(201, 162, 77, .35); }
+.g-disc__nudge strong { display: block; font-size: 14px; } .g-disc__nudge small { display: block; margin-top: 2px; font-size: 12px; color: rgba(255, 255, 255, .6); }
+.g-disc__list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.g-disc__card { padding: 14px; border-radius: 20px; background: #12131b; border: 1px solid rgba(255, 255, 255, .08); display: grid; gap: 12px; }
+.g-disc__main { display: flex; gap: 14px; text-align: left; background: none; border: 0; padding: 0; color: inherit; width: 100%; }
+.g-disc__avatar { position: relative; flex: none; display: grid; place-items: center; width: 58px; height: 58px; border-radius: 18px; overflow: hidden; font-size: 22px; font-weight: 800; color: #cbb7ef; background: linear-gradient(145deg, #2a1d4d, #171326); border: 1px solid rgba(255, 255, 255, .1); }
+.g-disc__avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.g-disc__dot { position: absolute; right: 4px; bottom: 4px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid #12131b; z-index: 2; }
+.g-disc__dot--online { background: #34d399; } .g-disc__dot--away { background: #C9A24D; }
+.g-disc__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.g-disc__body strong { font-size: 16px; color: #fff; } .g-disc__body strong em { font-style: normal; color: rgba(255, 255, 255, .6); font-weight: 600; }
+.g-disc__body small { font-size: 12px; color: rgba(255, 255, 255, .5); }
+.g-disc__bio { font-size: 13px; line-height: 1.4; color: rgba(255, 255, 255, .78); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.g-disc__tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.g-disc__tags i { font-style: normal; padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 650; color: rgba(255, 255, 255, .6); background: rgba(255, 255, 255, .05); }
+.g-disc__tags i.is-shared { color: #fff; background: rgba(111, 60, 195, .45); border: 1px solid rgba(170, 132, 245, .6); }
+.g-disc__cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; border-radius: 14px; border: 0; font-size: 14px; font-weight: 700; color: #fff; background: #6F3CC3; }
+.g-disc__locked { text-align: center; font-size: 12.5px; color: rgba(255, 255, 255, .45); padding: 12px 0; }
+.g-disc__more { display: block; margin: 14px auto 0; }
+.g-disc__empty { margin-top: 28px; padding: 28px 18px; text-align: center; border-radius: 20px; border: 1px dashed rgba(255, 255, 255, .15); color: rgba(255, 255, 255, .65); }
+.g-disc__empty h2 { margin: 0 0 6px; font-size: 17px; color: #fff; } .g-disc__empty p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.5; }
+.g-disc__skeleton { display: grid; gap: 10px; margin-top: 14px; }
+.g-disc__skeleton i { height: 130px; border-radius: 20px; background: linear-gradient(100deg, rgba(255, 255, 255, .04) 30%, rgba(184, 120, 255, .12) 50%, rgba(255, 255, 255, .04) 70%); background-size: 220% 100%; animation: g-place-shimmer 1.2s linear infinite; }

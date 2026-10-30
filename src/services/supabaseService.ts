@@ -562,7 +562,7 @@ export async function submitInterest(
         mutual: false,
         conversation_id: null,
         interest_id: null,
-        errorCode: error.message === 'GAYZE_COOLDOWN' ? 'GAYZE_COOLDOWN' : error.code,
+        errorCode: error.message === 'GAYZE_COOLDOWN' || error.message === 'CONTACT_RESTRICTED' ? error.message : error.code,
         retryAfterSeconds,
       };
     }

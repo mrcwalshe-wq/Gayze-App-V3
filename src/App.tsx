@@ -27,6 +27,7 @@ import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
+import { InterestDiscover } from './components/InterestDiscover';
 import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
 import { latestMeetups } from './services/meetupState';
 import { callLineText, decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
@@ -3618,28 +3619,17 @@ export default function App() {
       >
         <Suspense fallback={<div className="flex h-full min-h-[40vh] items-center justify-center text-xs text-zinc-400">Loading view…</div>}>
           {activeTab === 'dating' && (
-            <DiscoverView
-              // In live mode every row is a real active intent (the pulses carry
-              // identity, intent, area, distance and availability). Demo photo
-              // profiles are only used when Supabase is not configured.
-              profiles={isSupabaseConfigured && isAuthenticated ? [] : datingProfiles}
-              pulses={isSupabaseConfigured && isAuthenticated ? supabaseRightNowPulses : pulses}
-              safeHavens={safeHavens}
-              userNeighborhood={currentUser.neighborhood}
-              activeUserIntent={activeUserIntent}
-              currentUser={currentUser}
-              onOpenDirectChat={handleOpenDirectChatFromPulse}
-              onOpenDirectChatWithProfile={handleOpenDirectChatWithProfile}
-              onGazeAtPeer={handleGazeAtPeer}
-              onOpenScheduleMeeting={handleOpenScheduleMeeting}
-              onOpenQRWithPeer={(profile) => handleOpenQRModal(profile)}
-              onOpenSetIntent={handleOpenIntentSheet}
-              onOpenMap={() => setActiveTab('right_now')}
-              onOpenProfileEdit={(section) => {
-                setIsProfileEditOpen(true);
-                setProfileEditSection(section ? section as EditSectionKey : null);
+            <InterestDiscover
+              myInterests={currentUser.hobbies ?? []}
+              onEditInterests={() => { setIsProfileEditOpen(true); setProfileEditSection('interests' as EditSectionKey); }}
+              onOpenProfile={(userId, name) => openPublicProfile(userId, { name })}
+              onOpenChat={(userId) => {
+                const room = rooms.find((r) => r.type === 'direct' && r.peerUserId === userId);
+                if (!room) return false;
+                requestConversationOpen(room.id);
+                return true;
               }}
-              onOpenPublicProfile={openPublicProfile}
+              showToast={showToast}
             />
           )}
 
