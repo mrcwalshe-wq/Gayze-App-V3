@@ -58,7 +58,11 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
         </div>
 
         {/* Filter Pills with horizontal scroll on mobile */}
-        <div className="gayze-premium-control flex items-center gap-1 p-1 rounded-xl border overflow-x-auto no-scrollbar self-start sm:self-auto max-w-full">
+        <div
+          className="gayze-premium-control flex items-center gap-1 p-1 rounded-xl border overflow-x-auto no-scrollbar self-start sm:self-auto max-w-full"
+          role="group"
+          aria-label="Filter Safe Havens"
+        >
           {[
             { id: 'all', label: 'All Havens' },
             { id: 'cafe', label: 'Cafes' },
@@ -76,6 +80,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                 ? 'bg-[#1c1f2b] text-white font-semibold border border-white/10 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
                 }`}
+              aria-pressed={filterType === item.id}
             >
               {item.label}
             </button>
