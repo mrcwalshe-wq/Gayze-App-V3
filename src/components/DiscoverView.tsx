@@ -265,7 +265,11 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       )}
 
       {/* Mode segmented control */}
-      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4">
+      <div
+        className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4"
+        role="group"
+        aria-label="Filter Discover Mode"
+      >
         {(['All', 'Social', 'Private'] as const).map((mode) => {
           const isSelected = modeFilter === mode;
           return (
@@ -282,6 +286,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'
               }`}
               onClick={() => { hapticLight(); setModeFilter(mode); }}
+              aria-pressed={isSelected}
             >
               {mode}
             </button>
