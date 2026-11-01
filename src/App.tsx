@@ -1259,7 +1259,18 @@ export default function App() {
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
   const presencePeerKey = useMemo(
-    () => Array.from(new Set(rooms.filter((r) => r.type === 'direct' && r.peerUserId).map((r) => r.peerUserId as string))).sort().join(','),
+    () => {
+      // ⚡ Bolt Performance Optimization:
+      // Avoid chained .filter().map() inside useMemo to prevent unnecessary intermediate array
+      // allocations and reduce GC pressure. We build the Set directly in a loop.
+      const peerIds = new Set<string>();
+      for (const r of rooms) {
+        if (r.type === 'direct' && r.peerUserId) {
+          peerIds.add(r.peerUserId as string);
+        }
+      }
+      return Array.from(peerIds).sort().join(',');
+    },
     [rooms],
   );
   useEffect(() => {
@@ -2611,9 +2622,29 @@ export default function App() {
     if (!window.confirm(`Block ${peerName}? They will no longer be able to send you Gayzes or messages, and their discovery signals will be hidden from you.`)) return;
     try {
       await blockUser(peerId);
-      const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
+
+      // ⚡ Bolt Performance Optimization:
+      // Avoid chained .filter().map() to reduce intermediate allocations.
+      const blockedRoomIds = new Set<string>();
+      for (const room of rooms) {
+        if (room.peerUserId === peerId) {
+          blockedRoomIds.add(room.id);
+        }
+      }
+
       setRooms((previous) => previous.filter((room) => room.peerUserId !== peerId));
-      setMessages((previous) => Object.fromEntries(Object.entries(previous).filter(([roomId]) => !blockedRoomIds.has(roomId))));
+
+      // ⚡ Bolt Performance Optimization:
+      // Avoid Object.fromEntries(Object.entries(...).filter(...)) for dictionary state updates.
+      // Shallow copy and use explicit delete to preserve references for unaffected keys.
+      setMessages((previous) => {
+        const next = { ...previous };
+        for (const roomId of blockedRoomIds) {
+          delete next[roomId];
+        }
+        return next;
+      });
+
       setActiveRoomId((previous) => blockedRoomIds.has(previous) ? '' : previous);
       setViewingPublicProfile((previous) => previous?.userId === peerId ? null : previous);
       setNotificationToast(`${peerName} blocked`);
