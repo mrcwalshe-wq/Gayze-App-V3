@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, MessageCircle, Radar, Clock, Vibrate, X } from 'lucide-react';
 import { readCallLog } from '../services/webrtcService';
@@ -31,6 +31,15 @@ export const PrivacySheet: React.FC<PrivacySheetProps> = ({ isOpen, onClose, use
     return () => { live = false; };
   }, [isOpen, userId]);
 
+  // Hidden way into the owner console: tap the small "Privacy" label seven times within five seconds. Nothing is shown or
+  // requested for anyone else, and /admin itself still answers "Page not found" to everyone but the owner.
+  const taps = useRef<number[]>([]);
+  const secretTap = () => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((t) => now - t < 5000), now];
+    if (taps.current.length >= 7) { taps.current = []; window.location.assign('/admin'); }
+  };
+
   if (!isOpen) return null;
   const update = async (patch: Partial<PrivacySettings>) => {
     if (!userId) return;
@@ -45,7 +54,7 @@ export const PrivacySheet: React.FC<PrivacySheetProps> = ({ isOpen, onClose, use
         <span className="g-plan__grip" aria-hidden="true" />
         <header className="g-plan__head">
           <span className="g-plan__badge"><Eye className="w-5 h-5" /></span>
-          <div className="g-plan__title"><small>Privacy</small><h3>Who sees what</h3></div>
+          <div className="g-plan__title"><small onClick={secretTap}>Privacy</small><h3>Who sees what</h3></div>
           <button type="button" className="g-plan__close" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></button>
         </header>
         <div className="g-plan__body">
