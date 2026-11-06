@@ -318,7 +318,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             >
               <div
                 {...peekTapProps(openPeek, row.kind === 'pulse' ? row.item.peerId : row.item.id, { name: row.name, age: row.age, area: row.area, intent: row.intentLabel, online: row.live, photoUrl: row.kind === 'profile' ? row.item.photoUrl : (row.item.peerAvatar && row.item.peerAvatar !== 'user' ? row.item.peerAvatar : undefined) })}
-                className={`w-12 h-12 rounded-[16px] overflow-hidden flex items-center justify-center shrink-0 text-[14px] font-semibold border ${
+                className={`w-12 h-12 rounded-[8px] overflow-hidden flex items-center justify-center shrink-0 text-[14px] font-semibold border ${
                   row.mode === 'private'
                     ? 'border-[#6F3CC3]/40 bg-[#161324] text-[#d8c3f8]'
                     : 'border-[#C9A24D]/35 bg-[#1f1b13] text-[#f4dfae]'
@@ -356,12 +356,12 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                     )}
                   </div>
                   {row.live ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold tracking-wide bg-[#6F3CC3]/20 border border-[#6F3CC3]/45 text-[#d8c3f8] shrink-0">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold tracking-wide bg-[#6F3CC3]/20 border border-[#6F3CC3]/45 text-[#d8c3f8] shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#a879f1] animate-pulse" />
                       LIVE
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.04] text-zinc-400 border border-white/[0.06] shrink-0">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/[0.04] text-zinc-400 border border-white/[0.06] shrink-0">
                       Later
                     </span>
                   )}

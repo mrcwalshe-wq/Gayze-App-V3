@@ -12,7 +12,7 @@ export const ConceptHoldingPage: React.FC = () => (
     <div className="relative z-10 flex w-full max-w-xl flex-col items-center text-center">
       <div className="flex items-center gap-2">
         <span className="text-[1.65rem] font-semibold tracking-[0.28em]">GAYZE<span className="text-[#C9A24D]">.</span></span>
-        <span className="rounded-full border border-[#6F3CC3]/60 px-2.5 py-1 font-mono text-[9px] tracking-[0.2em] text-[#c6a8f1]">ALPHA</span>
+        <span className="rounded-md border border-[#6F3CC3]/60 px-2.5 py-1 font-mono text-[9px] tracking-[0.2em] text-[#c6a8f1]">ALPHA</span>
       </div>
 
       <div className="mt-24 flex flex-col items-center">
@@ -28,7 +28,7 @@ export const ConceptHoldingPage: React.FC = () => (
 
       <a
         href="/login"
-        className="mt-20 inline-flex min-h-12 items-center justify-center gap-3 rounded-full border border-white/15 bg-white/[0.035] px-6 text-[10px] font-medium uppercase tracking-[0.2em] text-white/75 transition hover:border-[#C9A24D]/60 hover:bg-white/[0.07] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A24D] focus-visible:ring-offset-4 focus-visible:ring-offset-[#09070f]"
+        className="mt-20 inline-flex min-h-12 items-center justify-center gap-3 rounded-md border border-white/15 bg-white/[0.035] px-6 text-[10px] font-medium uppercase tracking-[0.2em] text-white/75 transition hover:border-[#C9A24D]/60 hover:bg-white/[0.07] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A24D] focus-visible:ring-offset-4 focus-visible:ring-offset-[#09070f]"
       >
         <Lock size={13} strokeWidth={1.6} />
         Private access

@@ -30,11 +30,11 @@ export const IntentMode: React.FC<IntentModeProps> = ({
       {/* Timing switch. Live intent is purple because it is present tense and on
           the map; "Later" stays quiet obsidian because nothing is happening yet.
           44px+ touch targets for thumbs. */}
-      <div className="relative w-full max-w-md mx-auto bg-[#0a0b11]/90 border border-white/[0.07] rounded-[14px] p-1">
+      <div className="relative w-full max-w-md mx-auto bg-[#0a0b11]/90 border border-white/[0.07] rounded-[8px] p-1">
         {/* Sliding indicator plate — inset highlight instead of a glow. */}
         <div
           aria-hidden="true"
-          className="absolute top-1 bottom-1 rounded-[11px] transition-all duration-300 ease-out pointer-events-none"
+          className="absolute top-1 bottom-1 rounded-[6px] transition-all duration-300 ease-out pointer-events-none"
           style={{
             width: 'calc(50% - 4px)',
             left: isRightNow ? '4px' : 'calc(50%)',
@@ -56,7 +56,7 @@ export const IntentMode: React.FC<IntentModeProps> = ({
           <button
             type="button"
             onClick={() => handleModeSwitch('right_now')}
-            className={`h-11 sm:h-12 rounded-[11px] flex items-center justify-center gap-2 transition-colors duration-300 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-[#6F3CC3] ${
+            className={`h-11 sm:h-12 rounded-[6px] flex items-center justify-center gap-2 transition-colors duration-300 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-[#6F3CC3] ${
               isRightNow
                 ? 'text-white'
                 : 'text-zinc-400 hover:text-zinc-200'
@@ -77,7 +77,7 @@ export const IntentMode: React.FC<IntentModeProps> = ({
           <button
             type="button"
             onClick={() => handleModeSwitch('later')}
-            className={`h-11 sm:h-12 rounded-[11px] flex items-center justify-center gap-2 transition-colors duration-300 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-white/20 ${
+            className={`h-11 sm:h-12 rounded-[6px] flex items-center justify-center gap-2 transition-colors duration-300 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-white/20 ${
               !isRightNow
                 ? 'text-white'
                 : 'text-zinc-400 hover:text-zinc-200'

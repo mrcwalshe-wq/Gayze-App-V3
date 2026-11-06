@@ -186,7 +186,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
     return (
       <span className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#6F3CC3] via-[#8B5CF6] to-[#C9A24D] p-[1px] shadow-[0_0_12px_rgba(111,60,195,0.25)]">
-        <span className="g-discover-logo flex h-full w-full items-center justify-center rounded-[11px] bg-[#10121a] p-0">
+        <span className="g-discover-logo flex h-full w-full items-center justify-center rounded-[6px] bg-[#10121a] p-0">
           <GayzeLogo size={20} showWordmark={false} className="!w-auto" />
         </span>
       </span>
@@ -224,7 +224,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <EyeOff className="w-3.5 h-3.5" />
               <span className="hidden lg:inline">Mask</span>
             </button>
-            <button onClick={() => onTabChange('profile')} aria-label="Open profile" title="Profile" className="w-9 h-9 rounded-[12px] bg-[#16182a] border border-white/10 hover:border-[#6F3CC3]/60 flex items-center justify-center text-zinc-200 transition-colors cursor-pointer">
+            <button onClick={() => onTabChange('profile')} aria-label="Open profile" title="Profile" className="w-9 h-9 rounded-[6px] bg-[#16182a] border border-white/10 hover:border-[#6F3CC3]/60 flex items-center justify-center text-zinc-200 transition-colors cursor-pointer">
               <UserRound className="w-4 h-4 text-[#b796f0]" />
             </button>
           </div>

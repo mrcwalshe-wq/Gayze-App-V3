@@ -37,7 +37,7 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
 
   return (
     <div className="fixed inset-0 z-[120] bg-[#090a0f]/95 backdrop-blur-xl overflow-y-auto px-4 py-8">
-      <div className="mx-auto w-full max-w-lg g-panel !rounded-[26px] p-5 sm:p-7">
+      <div className="mx-auto w-full max-w-lg g-panel !rounded-[12px] p-5 sm:p-7">
         <div className="mb-6">
           <div className="text-[10px] uppercase tracking-[0.18em] text-[#C9A24D] font-semibold">Welcome to GAYZE</div>
           <h1 className="mt-2 text-2xl font-semibold">Build your profile</h1>
@@ -60,7 +60,7 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
             <div className="mt-3 flex flex-wrap gap-2">
               {PREFERENCES.map((preference) => {
                 const selected = preferences.includes(preference); const privatePreference = preference.startsWith('Hookup');
-                return <button key={preference} type="button" onClick={() => togglePreference(preference)} className={`px-3 py-2 rounded-full border text-xs transition-all ${selected ? privatePreference ? 'border-[#6F3CC3]/80 bg-[#6F3CC3]/20 text-white shadow-[0_0_16px_rgba(111,60,195,0.16)]' : 'border-[#C9A24D]/80 bg-[#C9A24D]/15 text-white shadow-[0_0_16px_rgba(201,162,77,0.14)]' : 'border-white/10 bg-white/[0.03] text-zinc-400'}`}>{selected && <Check className="inline w-3 h-3 mr-1" />}{intentDisplayLabel(preference)}</button>;
+                return <button key={preference} type="button" onClick={() => togglePreference(preference)} className={`px-3 py-2 rounded-md border text-xs transition-all ${selected ? privatePreference ? 'border-[#6F3CC3]/80 bg-[#6F3CC3]/20 text-white shadow-[0_0_16px_rgba(111,60,195,0.16)]' : 'border-[#C9A24D]/80 bg-[#C9A24D]/15 text-white shadow-[0_0_16px_rgba(201,162,77,0.14)]' : 'border-white/10 bg-white/[0.03] text-zinc-400'}`}>{selected && <Check className="inline w-3 h-3 mr-1" />}{intentDisplayLabel(preference)}</button>;
               })}
             </div>
           </div>

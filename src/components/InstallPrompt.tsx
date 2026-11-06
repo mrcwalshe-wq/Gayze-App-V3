@@ -66,12 +66,12 @@ export const InstallPrompt: React.FC = () => {
 
   return (
     <div
-      className="g-float fixed left-3 right-3 z-50 rounded-[16px] px-3.5 py-3 bottom-[calc(var(--g-tabbar-h,3.5rem)+env(safe-area-inset-bottom,0px)+12px)] md:left-auto md:right-6 md:bottom-6 md:w-[360px]"
+      className="g-float fixed left-3 right-3 z-50 rounded-[8px] px-3.5 py-3 bottom-[calc(var(--g-tabbar-h,3.5rem)+env(safe-area-inset-bottom,0px)+12px)] md:left-auto md:right-6 md:bottom-6 md:w-[360px]"
       role="dialog"
       aria-label="Install Gayze"
     >
       <div className="flex items-start gap-3">
-        <span className="flex items-center justify-center w-9 h-9 rounded-[11px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 shrink-0">
+        <span className="flex items-center justify-center w-9 h-9 rounded-[6px] border border-[#6F3CC3]/40 bg-[#6F3CC3]/15 shrink-0">
           <img src="/icons/gayze-192.png" alt="" width={22} height={22} className="rounded-[6px]" />
         </span>
 

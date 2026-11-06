@@ -35,7 +35,7 @@
   position: absolute;
   left: 12%; right: 12%; top: 1px;
   height: 1px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: linear-gradient(90deg, transparent, var(--intent-accent-2), var(--intent-accent), transparent);
   opacity: .9;
 }

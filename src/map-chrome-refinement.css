@@ -9,7 +9,7 @@
     padding: 7px 10px !important;
     gap: 0 !important;
     border: 1px solid transparent !important;
-    border-radius: 15px !important;
+    border-radius: 8px !important;
     background:
       linear-gradient(155deg, rgba(12, 12, 20, .94), rgba(17, 13, 25, .91)) padding-box,
       linear-gradient(112deg, rgba(154, 101, 239, .82), rgba(111, 60, 195, .58) 48%, rgba(201, 162, 77, .52)) border-box !important;
@@ -55,7 +55,7 @@
   .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__live-pill {
     min-height: 17px !important;
     padding: 2px 6px !important;
-    border-radius: 999px !important;
+    border-radius: 6px !important;
     font-size: 8px !important;
     letter-spacing: .07em !important;
     background: rgba(111, 60, 195, .12) !important;
@@ -118,7 +118,7 @@
     padding: 0 12px !important;
     gap: 8px !important;
     border: 1px solid transparent !important;
-    border-radius: 999px !important;
+    border-radius: 6px !important;
     background:
       linear-gradient(145deg, rgba(13, 13, 21, .94), rgba(18, 14, 27, .94)) padding-box,
       linear-gradient(110deg, rgba(154, 101, 239, .76), rgba(111, 60, 195, .52) 58%, rgba(201, 162, 77, .45)) border-box !important;

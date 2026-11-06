@@ -1258,7 +1258,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     <div className="g-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none">
       {/* Subtle Map Tile Failure Fallback State */}
       {mapTilesUnavailable && (
-        <div className="absolute top-16 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm mx-auto g-panel p-3.5 !rounded-[18px] pointer-events-auto">
+        <div className="absolute top-16 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm mx-auto g-panel p-3.5 !rounded-[10px] pointer-events-auto">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-zinc-200 text-xs font-semibold">
               <Compass className="w-4 h-4 text-[#C9A24D] shrink-0" />
@@ -1431,7 +1431,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               {selectedItem.type === 'profile' ? (
                 <div
                   {...peekTapProps(openPeek, selectedItem.item.id, { name: selectedItem.item.name, age: selectedItem.item.age, area: selectedItem.item.neighborhood, photoUrl: selectedItem.item.photoUrl })}
-                  className="relative w-11 h-11 rounded-[14px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
+                  className="relative w-11 h-11 rounded-[8px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
                   <span className="absolute inset-0 flex items-center justify-center text-sm text-white" aria-hidden="true">{selectedItem.item.name.charAt(0)}</span>
                   <img
                     src={selectedItem.item.photoUrl}
@@ -1446,7 +1446,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   )}
                 </div>
               ) : selectedItem.type === 'haven' ? (
-                <div className="w-11 h-11 rounded-[14px] bg-[#0f1f1a] border border-emerald-500/50 text-emerald-400 flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-[8px] bg-[#0f1f1a] border border-emerald-500/50 text-emerald-400 flex items-center justify-center shrink-0">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
               ) : (
@@ -1682,7 +1682,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                       />
                     </div>
                   ) : selectedItem.type === 'haven' ? (
-                    <div className="g-avatar w-14 h-14 !rounded-[16px] !bg-[#0f1f1a] !border-[#34d399]/45 text-emerald-400">
+                    <div className="g-avatar w-14 h-14 !rounded-[8px] !bg-[#0f1f1a] !border-[#34d399]/45 text-emerald-400">
                       <ShieldCheck className="w-6 h-6" />
                     </div>
                   ) : (
@@ -2065,7 +2065,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               </div>
 
               {/* Privacy radius */}
-              <div className="flex items-center justify-between gap-3 py-3 px-3.5 rounded-[14px] bg-white/[0.03] border border-white/[0.07]">
+              <div className="flex items-center justify-between gap-3 py-3 px-3.5 rounded-[8px] bg-white/[0.03] border border-white/[0.07]">
                 <div className="min-w-0">
                   <span className="text-[13px] font-bold text-white block">Approximate radius</span>
                   <span className="text-[11px] text-zinc-500 block">
@@ -2318,7 +2318,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </div>
 
             <div className="g-sheet__body space-y-4">
-              <div className="p-4 rounded-[14px] bg-white/[0.03] border border-white/[0.07] space-y-2.5">
+              <div className="p-4 rounded-[8px] bg-white/[0.03] border border-white/[0.07] space-y-2.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`g-chip ${activeUserIntent.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
                     {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
@@ -2426,7 +2426,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {mutualMatchPulse && (
         <div className="g-overlay flex items-center justify-center p-4" onClick={() => setMutualMatchPulse(null)}>
           <div
-            className="w-full max-w-sm p-5 g-panel !rounded-[20px] space-y-4"
+            className="w-full max-w-sm p-5 g-panel !rounded-[10px] space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -2449,7 +2449,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               </button>
             </div>
 
-            <div className="flex items-center gap-2 text-[11.5px] text-zinc-500 px-3 py-2 rounded-[10px] bg-white/[0.03] border border-white/[0.06]">
+            <div className="flex items-center gap-2 text-[11.5px] text-zinc-500 px-3 py-2 rounded-[6px] bg-white/[0.03] border border-white/[0.06]">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>Approximate locations only · messages are encrypted on your device</span>
             </div>

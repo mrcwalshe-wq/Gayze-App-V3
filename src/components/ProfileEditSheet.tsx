@@ -98,7 +98,7 @@ const Chip: React.FC<{
     type="button"
     onClick={onClick}
     aria-pressed={ariaPressed ?? selected}
-    className={`inline-flex items-center gap-1.5 min-h-[42px] px-3.5 rounded-full border text-[12.5px] font-semibold transition-all -webkit-tap-highlight-color-transparent ${
+    className={`inline-flex items-center gap-1.5 min-h-[42px] px-3.5 rounded-md border text-[12.5px] font-semibold transition-all -webkit-tap-highlight-color-transparent ${
       selected
         ? tone === 'amber'
           ? 'border-[#C9A24D]/80 bg-[#C9A24D]/15 text-white shadow-[0_0_16px_rgba(201,162,77,0.14)]'
@@ -127,7 +127,7 @@ const SectionCard: React.FC<{
       onClick={() => { hapticLight(); onToggle(); }}
       aria-expanded={open}
     >
-      <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40">
+      <span className="flex items-center justify-center w-8 h-8 rounded-[6px] border shrink-0 text-[#c9b0f5] bg-[#6F3CC3]/15 border-[#6F3CC3]/40">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
@@ -652,7 +652,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                 className="g-row !min-h-[48px] rounded-xl border border-white/10 bg-white/[0.02]"
                 onClick={() => { hapticLight(); onOpenIdentity(); }}
               >
-                <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 text-[#e7c98a] bg-[#C9A24D]/15 border-[#C9A24D]/40">
+                <span className="flex items-center justify-center w-8 h-8 rounded-[6px] border shrink-0 text-[#e7c98a] bg-[#C9A24D]/15 border-[#C9A24D]/40">
                   <KeyRound className="w-4 h-4" />
                 </span>
                 <span className="min-w-0 flex-1">
