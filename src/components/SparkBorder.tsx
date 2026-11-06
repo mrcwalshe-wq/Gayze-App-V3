@@ -30,6 +30,7 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const mix = (a: number[], b: number[], k: number) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 
 const emitters = new Set<Emitter>();
+let clipHost: HTMLElement | null = null;
 const parts: P[] = [];
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
@@ -107,8 +108,7 @@ function frame(t: number) {
   c2d.clearRect(0, 0, window.innerWidth, window.innerHeight);
   // Inside a sheet, sparks never draw over its title bar or its action footer: they stay in the body between them.
   c2d.save();
-  const host = emitters.values().next().value?.host;
-  const sheet = host?.closest('.g-sheet') as HTMLElement | null;
+  const sheet = (emitters.values().next().value?.host ?? clipHost)?.closest('.g-sheet') as HTMLElement | null;
   if (sheet) {
     const top = sheet.querySelector('.g-sheet__head')?.getBoundingClientRect().bottom ?? 0;
     const bottom = sheet.querySelector('.g-sheet__foot')?.getBoundingClientRect().top ?? window.innerHeight;
@@ -198,24 +198,23 @@ const startLoop = () => {
   raf = requestAnimationFrame(frame);
 };
 
+/** A burst of sparks thrown from the whole border of `host`, in the signal's colour. No continuous sparkler: sparks fall and burn out. */
+export function sparkBurst(host: HTMLElement, tone: Tone, count = 52) {
+  if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const e: Emitter = { host, tone, head: 0, carry: 0, w: 40, h: 40, r: 16, ox: 0, oy: 0 };
+  measureEmitter(e, true);
+  clipHost = host;
+  startLoop();
+  for (let i = 0; i < count; i++) emit(e, Math.random(), rand(90, 280), 0.9, i % 4 === 0);
+}
+
 export const SparkBorder: React.FC<{ tone: Tone }> = ({ tone }) => {
   const anchor = useRef<HTMLSpanElement>(null);
 
+  // Selecting strikes it once; nothing keeps burning afterwards.
   useEffect(() => {
     const host = anchor.current?.parentElement;
-    if (!host) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-
-    const emitter: Emitter = { host, tone, head: Math.random(), carry: 0, w: 40, h: 40, r: 16, ox: 0, oy: 0 };
-    measureEmitter(emitter, true);
-    emitters.add(emitter);
-    startLoop();
-
-    // Strike: the whole border throws sparks at once.
-    for (let i = 0; i < 46; i++) emit(emitter, Math.random(), rand(90, 260), 0.9, i % 4 === 0);
-
-    // Removing the emitter stops new sparks only; those already in the air keep falling.
-    return () => { emitters.delete(emitter); };
+    if (host) sparkBurst(host, tone);
   }, [tone]);
 
   return <span ref={anchor} hidden aria-hidden="true" />;
