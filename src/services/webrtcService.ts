@@ -216,6 +216,7 @@ export class WebRTCCallService {
    * again after 28 s, and at 50 s it fails with a clear message instead of leaving both people waiting.
    */
   private handledRequests = new Set<string>();
+  private localMediaPromise: Promise<MediaStream> | null = null;
   private connectWatchdog: ReturnType<typeof setTimeout>[] = [];
   private armConnectWatchdog() {
     this.clearConnectWatchdog();
@@ -413,7 +414,17 @@ export class WebRTCCallService {
     try {
       // Get the microphone/camera now, while the caller's tap is fresh. Nothing is sent anywhere until the other person
       // answers and the connection is negotiated; asking only when they answer is what dropped calls on phones.
-      await Promise.all([this.acquireLocalMedia(params.callType, generation), this.loadIceServers()]);
+      // The ring goes out straight away; the permission prompt can stay open meanwhile. Waiting for it here used to hold the
+      // ring back (so the other phone rang late) until the caller tapped Allow. The tracks are attached when they arrive.
+      const media = this.acquireLocalMedia(params.callType, generation);
+      this.localMediaPromise = media;
+      media.catch((err) => {
+        if (generation !== this.callGeneration) return;
+        callLog(`microphone/camera unavailable: ${err?.name || ''} ${err?.message || err}`);
+        this.setState('failed', this.parseMediaError(err));
+        this.cleanup();
+      });
+      await this.loadIceServers();
       if (generation !== this.callGeneration) return;
 
       // Set up the signalling channel without local media tracks.
@@ -638,11 +649,17 @@ export class WebRTCCallService {
             if (!current() || this.pc !== pc) return;
             const signal = envelope.payload;
             if (!signal || signal.conversationId !== conversationId || signal.callerId === currentUserId) return;
-            if (signal.callId && this.activeCallId && signal.callId !== this.activeCallId) return;
+            if (signal.callId && this.activeCallId && signal.callId !== this.activeCallId) {
+              if (signal.type !== 'ice-candidates' && signal.type !== 'ice-candidate') callLog(`dropped ${signal.type}: it belongs to a different call`);
+              return;
+            }
             // Ignore other peers/stale packets. This is defence in depth, not a
             // replacement for server-side Realtime channel authorization.
-            if (signal.callerId !== this.activeTargetUserId && signal.callerId !== 'self') return;
-            callLog(`got ${signal.type}`);
+            if (signal.callerId !== this.activeTargetUserId && signal.callerId !== 'self') {
+              if (signal.type !== 'ice-candidates' && signal.type !== 'ice-candidate') callLog(`dropped ${signal.type}: it came from someone other than the other person in this call`);
+              return;
+            }
+            if (signal.type !== 'ice-candidates' && signal.type !== 'ice-candidate') callLog(`got ${signal.type}`);
             signalTail = signalTail.then(async () => {
               if (current() && this.pc === pc) await this.handleCallSignal(pc, signal);
             }).catch((err) => { callLog(`signal ${signal.type} failed: ${err?.name || ''} ${err?.message || err}`); if (current() && this.pc === pc) this.scheduleRestart(); });
@@ -682,7 +699,7 @@ export class WebRTCCallService {
           // being rung. Acquire media only after their explicit acceptance.
           if (!this.localStream) {
             const generation = this.callGeneration;
-            await this.acquireLocalMedia(this.currentCallType, generation);
+            await (this.localMediaPromise ?? this.acquireLocalMedia(this.currentCallType, generation));
             if (this.pc !== pc || generation !== this.callGeneration) return;
           }
 
@@ -1028,6 +1045,7 @@ export class WebRTCCallService {
     this.restartTimer = null;
     this.restartAttempts = 0;
     this.offering = false;
+    this.localMediaPromise = null;
     this.callRecovery?.stop();
     this.callRecovery = null;
     this.callChannel = null;
