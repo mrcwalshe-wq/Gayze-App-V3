@@ -129,6 +129,9 @@ export interface MeetingProposal {
 /** The call that went unanswered. The sender sees "Unanswered", the person who was called sees "Missed". */
 export interface CallLine { id: string; callType: 'audio' | 'video'; outcome: 'unanswered' | 'declined' }
 
+/** A short voice message or video note, carried inside the encrypted message as a data URL. */
+export interface VoiceNote { kind: 'audio' | 'video'; mime: string; data: string; seconds: number }
+
 export interface EncryptedMessage {
   id: string;
   roomId: string;
@@ -146,6 +149,8 @@ export interface EncryptedMessage {
   meetingData?: MeetingProposal;
   /** An unanswered call, shown as a card with a Try again button. */
   callData?: CallLine;
+  /** A voice message or video note. */
+  noteData?: VoiceNote;
   mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'audio';
   scheduledFor?: number;

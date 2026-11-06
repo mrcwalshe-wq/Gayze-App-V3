@@ -105,6 +105,7 @@ import {
   MeetingProposal,
   MeetingEvent,
   CallLine,
+  VoiceNote,
   TopLevelIntentMode
 } from './types';
 import {
@@ -1173,6 +1174,7 @@ export default function App() {
         let mediaUrl: string | undefined;
         let meetingData: MeetingProposal | undefined;
         let callData: CallLine | undefined;
+        let noteData: VoiceNote | undefined;
         let decryptedOk = false;
         let decryptFailure: EncryptedMessage['decryptFailure'];
         for (let attempt = 0; attempt < (delivery.notify ? 3 : 1) && row.nonce && !row.burned_at && (!row.expires_at || Date.parse(row.expires_at) > Date.now()) && !decryptedOk; attempt += 1) {
@@ -1180,7 +1182,7 @@ export default function App() {
             if (disposed || !delivery.current() || processingGeneration !== messageProcessorRef.current.generation) return false;
             const decrypted = await messageProcessorRef.current.text(room, row, supabaseUserId);
             const decoded = decodePayload(decrypted, new Date(row.created_at).getTime());
-            plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting; callData = decoded.call;
+            plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting; callData = decoded.call; noteData = decoded.note;
             decryptedOk = true;
           } catch (error) {
             if (error instanceof MessageDecryptError) decryptFailure = error.code === 'authentication_failed' ? 'tampered_or_wrong_key' : 'no_key';
@@ -1196,9 +1198,9 @@ export default function App() {
           id: row.id, roomId: row.conversation_id, senderKey: row.sender_id, senderName,
           timestamp: new Date(row.created_at).getTime(), cipherText: row.ciphertext,
           nonceHex: row.nonce || '', plainText, expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
-          isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined, meetingData, callData,
+          isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined, meetingData, callData, noteData,
           decryptFailure: decryptedOk ? undefined : decryptFailure,
-          ...(row.unsent_at ? { deletedForEveryone: true, plainText: 'Message unsent', mediaUrl: undefined, mediaType: undefined, meetingData: undefined, callData: undefined, decryptFailure: undefined } : {}),
+          ...(row.unsent_at ? { deletedForEveryone: true, plainText: 'Message unsent', mediaUrl: undefined, mediaType: undefined, meetingData: undefined, callData: undefined, noteData: undefined, decryptFailure: undefined } : {}),
         };
 
         queueMessage(message);
@@ -2175,6 +2177,7 @@ export default function App() {
       let mediaUrl: string | undefined = undefined;
       let meetingData: MeetingProposal | undefined;
       let callData: CallLine | undefined;
+      let noteData: VoiceNote | undefined;
       let decryptedOk = false;
       let decryptFailure: EncryptedMessage['decryptFailure'];
 
@@ -2187,7 +2190,7 @@ export default function App() {
           const decrypted = await messageProcessorRef.current.text(targetRoom, row, supabaseUserId);
           keyReady = true;
           const decoded = decodePayload(decrypted, new Date(row.created_at).getTime());
-          plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting; callData = decoded.call;
+          plainText = decoded.text; mediaUrl = decoded.mediaUrl; meetingData = decoded.meeting; callData = decoded.call; noteData = decoded.note;
           decryptedOk = true;
         } catch (error) {
           keyReady = false;
@@ -2221,8 +2224,9 @@ export default function App() {
         mediaType: mediaUrl ? 'image' : undefined,
         meetingData,
         callData,
+        noteData,
         decryptFailure: decryptedOk ? undefined : decryptFailure,
-        ...(row.unsent_at ? { deletedForEveryone: true, plainText: 'Message unsent', mediaUrl: undefined, mediaType: undefined, meetingData: undefined, callData: undefined, decryptFailure: undefined } : {}),
+        ...(row.unsent_at ? { deletedForEveryone: true, plainText: 'Message unsent', mediaUrl: undefined, mediaType: undefined, meetingData: undefined, callData: undefined, noteData: undefined, decryptFailure: undefined } : {}),
       };
 
       if (!decryptedOk && !message.isBurned && row.nonce) historyHadFailure = true;
@@ -2380,6 +2384,7 @@ export default function App() {
     mediaUrl?: string,
     messageId?: string,
     callData?: CallLine,
+    noteData?: VoiceNote,
   ) => {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
@@ -2390,7 +2395,7 @@ export default function App() {
     let cipherHex: string;
     let nonceHex: string;
     let keyVersion = 1;
-    const textToEncrypt = encodePayload(plainText, mediaUrl, meetingData, callData);
+    const textToEncrypt = encodePayload(plainText, mediaUrl, meetingData, callData, noteData);
 
     if (isSupabaseRoom) {
       const resolved = await messageProcessorRef.current.key(room, sendingUserId!);
@@ -2425,6 +2430,7 @@ export default function App() {
       ephemeralTtlSeconds: ephemeralTtlSeconds || room.ephemeralTtlSeconds,
       meetingData,
       callData,
+      noteData,
       mediaUrl,
       mediaType: mediaUrl ? 'image' : undefined,
     };
@@ -3944,6 +3950,7 @@ export default function App() {
                     currentUser={currentUser}
                     currentUserId={supabaseUserId}
                     onSendMessage={handleSendMessage}
+                    onSendNote={(roomId, note) => handleSendMessage(roomId, note.kind === 'video' ? 'Video note' : 'Voice message', undefined, undefined, undefined, undefined, undefined, note)}
                     onUpdateRoomTtl={handleUpdateRoomTtl}
                     onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
                     onBlockPeer={IS_LIVE_BACKEND ? handleBlockPeer : undefined}

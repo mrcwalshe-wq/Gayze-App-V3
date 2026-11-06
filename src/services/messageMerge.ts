@@ -22,7 +22,8 @@ export function mergeMessages(existing: EncryptedMessage[], incomingRows: Encryp
       decryptFailure: burned ? undefined : keepsOldPlaintext ? old!.decryptFailure : incoming.decryptFailure,
       isBurned: burned,
       mediaUrl: burned || unsent ? undefined : incoming.mediaUrl ?? (sameCipher ? old?.mediaUrl : undefined),
-      ...(unsent ? { deletedForEveryone: true, meetingData: undefined, callData: undefined, mediaType: undefined, decryptFailure: undefined } : {}),
+      noteData: burned || unsent ? undefined : incoming.noteData ?? (sameCipher ? old?.noteData : undefined),
+      ...(unsent ? { deletedForEveryone: true, meetingData: undefined, callData: undefined, noteData: undefined, mediaType: undefined, decryptFailure: undefined } : {}),
     };
     if (!old || Object.keys(message).some((key) => old[key as keyof EncryptedMessage] !== message[key as keyof EncryptedMessage])) {
       byId.set(incoming.id, message);
