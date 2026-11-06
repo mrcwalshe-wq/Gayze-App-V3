@@ -829,7 +829,7 @@ export class WebRTCCallService {
    * depend on every separate candidate message arriving. If gathering is slow, send what there is and let the rest follow.
    */
   private async gatheringDone(pc: RTCPeerConnection, ms = 1200): Promise<void> {
-    if (pc.iceGatheringState === 'complete') return;
+    if (pc.iceGatheringState === 'complete' || typeof pc.addEventListener !== 'function') return;
     await new Promise<void>((resolve) => {
       const done = () => { clearTimeout(timer); pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
       const onChange = () => { if (pc.iceGatheringState === 'complete') done(); };
