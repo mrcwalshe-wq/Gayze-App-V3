@@ -38,6 +38,7 @@ export interface CallSignalPayload {
     | 'offer'
     | 'answer'
     | 'ice-candidate'
+    | 'ice-candidates'
     | 'ice-restart-request';
   conversationId: string;
   callerId: string;
@@ -46,6 +47,8 @@ export interface CallSignalPayload {
   callType?: CallType;
   sdp?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidateInit;
+  /** Several candidates in one message, so a burst cannot trip the realtime message-rate limit. */
+  candidates?: RTCIceCandidateInit[];
   timestamp: number;
   callId?: string;
 }
@@ -547,17 +550,23 @@ export class WebRTCCallService {
       this.notifyStreams();
     };
 
-    // Handle ICE candidates
+    // Handle ICE candidates. They are sent in small batches: one message per candidate (a dozen or more per side, all at once)
+    // can hit the realtime message-rate limit and be dropped, which leaves the call stuck connecting.
+    let outbox: RTCIceCandidateInit[] = [];
+    let outboxTimer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      outboxTimer = null;
+      if (this.pc !== pc || outbox.length === 0) return;
+      const candidates = outbox; outbox = [];
+      void this.broadcastSignal({ type: 'ice-candidates', conversationId, callerId: currentUserId, candidates, timestamp: Date.now() })
+        .catch(() => this.scheduleRestart());
+    };
     pc.onicecandidate = (event) => {
-      if (this.pc === pc && event.candidate) {
-        void this.broadcastSignal({
-          type: 'ice-candidate',
-          conversationId,
-          callerId: currentUserId,
-          candidate: event.candidate.toJSON(),
-          timestamp: Date.now(),
-        }).catch(() => this.scheduleRestart());
-      }
+      if (this.pc !== pc) return;
+      if (event.candidate) {
+        outbox.push(event.candidate.toJSON());
+        if (!outboxTimer) outboxTimer = setTimeout(flush, 200);
+      } else if (outboxTimer) { clearTimeout(outboxTimer); flush(); }
     };
 
     pc.onconnectionstatechange = () => {
@@ -677,13 +686,21 @@ export class WebRTCCallService {
           const answer = await pc.createAnswer();
           if (this.pc !== pc) return;
           await pc.setLocalDescription(answer);
-          await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: answer, timestamp: Date.now() });
+          await this.gatheringDone(pc);
+          if (this.pc !== pc) return;
+          await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, answer), timestamp: Date.now() });
         }
         break;
       case 'answer':
         if (this.caller && signal.sdp && pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(signal.sdp);
           await this.flushCandidates(pc);
+        }
+        break;
+      case 'ice-candidates':
+        for (const candidate of (signal.candidates ?? []).slice(0, 64)) {
+          if (this.candidateMatches(pc, candidate)) await pc.addIceCandidate(candidate).catch(() => undefined);
+          else this.pendingIceCandidates = [...this.pendingIceCandidates, candidate].slice(-128);
         }
         break;
       case 'ice-candidate':
@@ -747,10 +764,32 @@ export class WebRTCCallService {
       const offer = await pc.createOffer({ iceRestart: restart });
       if (this.pc !== pc) return;
       await pc.setLocalDescription(offer);
-      await this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: offer, timestamp: Date.now() });
+      await this.gatheringDone(pc);
+      if (this.pc !== pc) return;
+      await this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, offer), timestamp: Date.now() });
       if (!restart) this.scheduleRestart(12_000); // lost initial SDP/answer also recovers
     } finally { if (this.pc === pc) this.offering = false; }
   }
+  /**
+   * Wait (briefly) for the phone to finish finding its network routes, so the offer or answer carries them all and does not
+   * depend on every separate candidate message arriving. If gathering is slow, send what there is and let the rest follow.
+   */
+  private async gatheringDone(pc: RTCPeerConnection, ms = 2500): Promise<void> {
+    if (pc.iceGatheringState === 'complete') return;
+    await new Promise<void>((resolve) => {
+      const done = () => { clearTimeout(timer); pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
+      const onChange = () => { if (pc.iceGatheringState === 'complete') done(); };
+      const timer = setTimeout(done, ms);
+      pc.addEventListener('icegatheringstatechange', onChange);
+    });
+  }
+
+  /** The local description as a plain {type, sdp} object, now including every candidate found so far. */
+  private plainDescription(pc: RTCPeerConnection, fallback: RTCSessionDescriptionInit): RTCSessionDescriptionInit {
+    const d = pc.localDescription;
+    return d ? { type: d.type, sdp: d.sdp } : fallback;
+  }
+
   private async broadcastSignal(signal: CallSignalPayload): Promise<void> {
     if (!this.callChannel || this.callChannel.state !== 'joined') throw new Error('Call signalling reconnecting');
     const outgoingSignal = { ...signal, callId: signal.callId ?? this.activeCallId ?? undefined };
