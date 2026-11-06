@@ -87,10 +87,10 @@ export const Dialog: React.FC<{ title: string; onClose: () => void; children: Re
 
 /* ------------------------------------------------------------------ Dashboard */
 
-export const Stat: React.FC<{ label: string; value: number | null | undefined; hint?: string }> = ({ label, value, hint }) => {
+export const Stat: React.FC<{ label: string; value: number | null | undefined; hint?: string; hero?: boolean }> = ({ label, value, hint, hero }) => {
   const v = num(value);
   return (
-    <div className="ga-stat">
+    <div className={`ga-stat${hero ? ' ga-stat--hero' : ''}`}>
       <span className="ga-stat__label">{label}</span>
       <strong className={v === null ? 'is-na' : ''}>{v ?? 'Unavailable'}</strong>
       {hint && <small>{hint}</small>}

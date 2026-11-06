@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Loader2, LogOut, RefreshCw, Search, ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, FileText, Flag, LayoutDashboard, Loader2, LogOut, Megaphone, MailWarning, RefreshCw, ScrollText, Search, ShieldAlert, ShieldCheck, TrendingUp, UserX, Users, X, type LucideIcon } from 'lucide-react';
 import { getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import {
   AdminApiError, adminCall, type AccountDetail, type AccountRow, type AuditRow, type Metrics, type Page, type ReportRow,
@@ -11,13 +11,18 @@ import { Dialog, Empty, ErrorState, Pill, ReauthBar, Spinner, Stat, fmt, humanis
 import '../admin.css';
 
 type Tab = 'dashboard' | 'insights' | 'accounts' | 'broadcasts' | 'investor' | 'reports' | 'health' | 'audit';
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'dashboard', label: 'Dashboard' }, { id: 'insights', label: 'Insights' }, { id: 'accounts', label: 'Accounts' },
-  { id: 'broadcasts', label: 'Broadcasts' }, { id: 'investor', label: 'Report builder' }, { id: 'reports', label: 'Moderation' },
-  { id: 'health', label: 'Health' }, { id: 'audit', label: 'Audit log' },
+const TABS: { id: Tab; label: string; icon: LucideIcon; blurb: string }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, blurb: 'The state of GAYZE right now' },
+  { id: 'insights', label: 'Insights', icon: TrendingUp, blurb: 'Growth, activity and what people do' },
+  { id: 'accounts', label: 'Accounts', icon: Users, blurb: 'Find a member and take action' },
+  { id: 'broadcasts', label: 'Broadcasts', icon: Megaphone, blurb: 'Send a notice to members' },
+  { id: 'investor', label: 'Report builder', icon: FileText, blurb: 'Branded reports to share' },
+  { id: 'reports', label: 'Moderation', icon: Flag, blurb: 'Reports from members' },
+  { id: 'health', label: 'Health', icon: Activity, blurb: 'Pushes, jobs and configuration' },
+  { id: 'audit', label: 'Audit log', icon: ScrollText, blurb: 'Every admin action, append-only' },
 ];
 
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC<{ go: (tab: Tab) => void }> = ({ go }) => {
   const { loading, data, error, reload } = useAsync(() => adminCall<Metrics>('metrics'), []);
   if (loading && !data) return <Spinner label="Loading metrics" />;
   if (error || !data) return <ErrorState error={error} onRetry={reload} />;
@@ -26,9 +31,29 @@ const Dashboard: React.FC = () => {
   return (
     <div className="ga-stack">
       <p className="ga-note">Live from the production database · generated {fmt(m.generatedAt)} <button type="button" className="ga-link" onClick={reload}>Refresh</button></p>
+      {(() => {
+        const items: { key: string; icon: LucideIcon; n: number; label: string; tone: 'bad' | 'warn' | 'ok'; tab: Tab }[] = [
+          { key: 'rep', icon: Flag, n: m.moderation?.openReports ?? 0, label: 'open reports', tone: 'bad', tab: 'reports' },
+          { key: 'job', icon: Activity, n: m.jobs?.cronFailedLast24h ?? 0, label: 'failed jobs (24 h)', tone: 'warn', tab: 'health' },
+          { key: 'unv', icon: MailWarning, n: m.registrations?.unverified ?? 0, label: 'unverified emails', tone: 'warn', tab: 'accounts' },
+          { key: 'sus', icon: UserX, n: m.moderation?.suspended ?? 0, label: 'suspended accounts', tone: 'ok', tab: 'accounts' },
+        ];
+        return (
+          <section aria-labelledby="g-att" className="ga-attn">
+            <h2 id="g-att">Needs attention</h2>
+            <div className="ga-attn__row">
+              {items.map((it) => (
+                <button type="button" key={it.key} className={`ga-attn__card ga-attn__card--${it.n === 0 ? 'ok' : it.tone}`} onClick={() => go(it.tab)}>
+                  <it.icon aria-hidden="true" /><strong>{it.n.toLocaleString()}</strong><span>{it.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
       <section aria-labelledby="g-reg"><h2 id="g-reg">Registrations</h2>
         <div className="ga-grid">
-          <Stat label="Total accounts" value={m.registrations?.total} />
+          <Stat label="Total accounts" value={m.registrations?.total} hero />
           <Stat label="New · 24 hours" value={m.registrations?.last24h} />
           <Stat label="New · 7 days" value={m.registrations?.last7d} />
           <Stat label="New · 30 days" value={m.registrations?.last30d} />
@@ -37,14 +62,14 @@ const Dashboard: React.FC = () => {
       </section>
       <section aria-labelledby="g-act"><h2 id="g-act">Active users</h2>
         <div className="ga-grid">
-          <Stat label="Seen · 24 hours" value={m.active?.last24h} />
+          <Stat label="Seen · 24 hours" value={m.active?.last24h} hero />
           <Stat label="Seen · 7 days" value={m.active?.last7d} />
         </div>
         <p className="ga-note">“Active” means a profile whose last-seen time falls inside the window. Members who hide their online status, or who have not opened the app since presence tracking began, are undercounted.</p>
       </section>
       <section aria-labelledby="g-int"><h2 id="g-int">Intents</h2>
         <div className="ga-grid">
-          <Stat label="Live now" value={m.intents?.live} />
+          <Stat label="Live now" value={m.intents?.live} hero />
           <Stat label="Paused" value={m.intents?.paused} />
           <Stat label="Expired (all time)" value={m.intents?.expired} />
           <Stat label="Created · 24 hours" value={m.intents?.createdLast24h} />
@@ -53,7 +78,7 @@ const Dashboard: React.FC = () => {
       <section aria-labelledby="g-msg"><h2 id="g-msg">Messaging</h2>
         <div className="ga-grid">
           <Stat label="Conversations" value={m.messaging?.conversations} />
-          <Stat label="Messages · 24 hours" value={m.messaging?.messagesLast24h} />
+          <Stat label="Messages · 24 hours" value={m.messaging?.messagesLast24h} hero />
           <Stat label="Messages · 7 days" value={m.messaging?.messagesLast7d} />
         </div>
         <p className="ga-note">Counts only. Message content is end-to-end encrypted and is never shown here. Call volume is not recorded server-side, so it is not reported.</p>
@@ -251,6 +276,7 @@ const Accounts: React.FC = () => {
             {data.rows.map((a) => (
               <li key={a.id}>
                 <button type="button" className="ga-row" onClick={() => setOpen(a.id)}>
+                  <span className="ga-avatar" aria-hidden="true" data-suspended={a.status === 'suspended'}>{(a.displayName || a.email || '?').trim().slice(0, 1).toUpperCase()}</span>
                   <span className="ga-row__main"><b>{a.displayName || 'No display name'}</b><span className="ga-mono">{a.email ?? 'No email'}</span></span>
                   <span className="ga-row__meta">
                     <Pill tone={a.status === 'suspended' ? 'bad' : 'ok'}>{a.status}</Pill>
@@ -434,30 +460,39 @@ export const AdminConsole: React.FC = () => {
     return <main className="ga-root ga-center"><div className="ga-gate"><ErrorState error={gate.error} onRetry={gate.reload} /></div></main>;
   }
 
+  const current = TABS.find((t) => t.id === tab)!;
   return (
     <main className="ga-root">
-      <header className="ga-top">
-        <div className="ga-brand"><ShieldCheck aria-hidden="true" /><div><strong>GAYZE</strong><span>Owner console</span></div></div>
-        <div className="ga-top__actions">
-          <a className="ga-btn" href="/"><ArrowLeft aria-hidden="true" />App</a>
-          <button type="button" className="ga-btn" onClick={() => void supabase?.auth.signOut().then(() => { window.location.replace('/?signed_out=1'); })}><LogOut aria-hidden="true" />Sign out</button>
+      <div className="ga-shell">
+        <aside className="ga-side">
+          <div className="ga-brand"><ShieldCheck aria-hidden="true" /><div><strong>GAYZE</strong><span>Owner console</span></div></div>
+          <div className="ga-top__actions">
+            <a className="ga-btn" href="/"><ArrowLeft aria-hidden="true" /><span>App</span></a>
+            <button type="button" className="ga-btn" onClick={() => void supabase?.auth.signOut().then(() => { window.location.replace('/?signed_out=1'); })}><LogOut aria-hidden="true" /><span>Sign out</span></button>
+          </div>
+          <nav className="ga-tabs" aria-label="Admin sections">
+            {TABS.map((t) => (
+              <button key={t.id} type="button" className={tab === t.id ? 'is-on' : ''} aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)}>
+                <t.icon aria-hidden="true" /><span>{t.label}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+        <div className="ga-content">
+          <header className="ga-pagehead">
+            <span className="ga-pagehead__icon" aria-hidden="true"><current.icon /></span>
+            <div><h1 className="ga-title">{current.label}</h1><p>{current.blurb}</p></div>
+            <span className="ga-live" title="Connected to the production database"><i aria-hidden="true" />Live</span>
+          </header>
+          {tab === 'dashboard' && <Dashboard go={setTab} />}
+          {tab === 'insights' && <Insights />}
+          {tab === 'accounts' && <Accounts />}
+          {tab === 'broadcasts' && <Broadcasts />}
+          {tab === 'investor' && <ReportBuilder />}
+          {tab === 'reports' && <Reports />}
+          {tab === 'health' && <Health />}
+          {tab === 'audit' && <Audit />}
         </div>
-      </header>
-      <nav className="ga-tabs" aria-label="Admin sections">
-        {TABS.map((t) => (
-          <button key={t.id} type="button" className={tab === t.id ? 'is-on' : ''} aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)}>{t.label}</button>
-        ))}
-      </nav>
-      <div className="ga-content">
-        <h1 className="ga-title">{TABS.find((t) => t.id === tab)?.label}</h1>
-        {tab === 'dashboard' && <Dashboard />}
-        {tab === 'insights' && <Insights />}
-        {tab === 'accounts' && <Accounts />}
-        {tab === 'broadcasts' && <Broadcasts />}
-        {tab === 'investor' && <ReportBuilder />}
-        {tab === 'reports' && <Reports />}
-        {tab === 'health' && <Health />}
-        {tab === 'audit' && <Audit />}
       </div>
     </main>
   );
