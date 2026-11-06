@@ -1513,3 +1513,61 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-notemsg video { width: min(100%, 240px); aspect-ratio: 1; object-fit: cover; border-radius: 18px; background: #000; display: block; }
 .g-notemsg audio { width: min(100%, 250px); height: 40px; display: block; }
 .g-notemsg span { display: block; margin-top: 4px; font-size: 11px; opacity: .65; }
+
+/* =====================================================================================
+   Intent colour, everywhere. An active signal tints the whole app: PURPLE for anything
+   within a day (right now, 1 h, 2 h, tonight), GOLD for a signal planned for Later.
+   (data-intent-mode 'private' = purple, 'social' = gold; set from the signal's timing.)
+   ===================================================================================== */
+.g-shell { --tone: 150, 100, 235; --tone-hot: 205, 150, 255; --tone-deep: 46, 22, 98; }
+.g-shell[data-intent-mode='social'] { --tone: 214, 170, 80; --tone-hot: 255, 224, 151; --tone-deep: 84, 58, 14; }
+
+/* The GAYZE roundel and the logo in the bar */
+nav.g-tabbar .g-tab--discover[data-intent-mode='private'] { --gj: 150, 100, 235; --gj2: 214, 130, 255; }
+nav.g-tabbar .g-tab--discover[data-intent-mode='social'] { --gj: 214, 170, 80; --gj2: 255, 190, 110; }
+nav.g-tabbar .g-tab--discover[data-intent-mode='private'] .g-discover-logo-image,
+nav.g-tabbar .g-tab--discover[data-intent-mode='social'] .g-discover-logo-image { filter: drop-shadow(0 0 10px rgba(var(--gj), .95)) drop-shadow(0 0 26px rgba(var(--gj), .65)) !important; }
+@media (max-width: 767px) {
+  .g-tab--discover[data-intent-mode='private'] .g-discover-action { border-color: rgba(190, 140, 255, .95) !important; box-shadow: 0 0 0 2px rgba(150, 100, 235, .35), 0 0 26px rgba(150, 100, 235, .65), 0 0 54px rgba(150, 100, 235, .35), inset 0 1px 0 rgba(255, 255, 255, .12) !important; }
+  .g-tab--discover[data-intent-mode='social'] .g-discover-action { border-color: rgba(240, 200, 110, .95) !important; box-shadow: 0 0 0 2px rgba(214, 170, 80, .35), 0 0 26px rgba(214, 170, 80, .6), 0 0 54px rgba(214, 170, 80, .3), inset 0 1px 0 rgba(255, 255, 255, .12) !important; }
+}
+nav.g-tabbar:has(.g-tab--discover[data-intent-mode='private']) { --gl1: 120, 70, 220; --gl2: 160, 110, 250; --gl3: 214, 130, 255; --gl4: 130, 160, 255; }
+nav.g-tabbar:has(.g-tab--discover[data-intent-mode='social']) { --gl1: 214, 170, 80; --gl2: 240, 200, 110; --gl3: 255, 190, 110; --gl4: 255, 224, 151; }
+
+/* Chat: bubbles carry the colour with a real glow instead of flat purple */
+.g-shell div.g-bubble--mine {
+  background:
+    radial-gradient(130% 150% at 0% 0%, rgba(var(--tone-hot), .42), transparent 58%),
+    linear-gradient(150deg, rgba(var(--tone), .78) 0%, rgba(var(--tone-deep), .96) 62%, rgba(var(--tone-deep), 1) 100%);
+  box-shadow: 0 0 0 1px rgba(var(--tone-hot), .35), 0 0 22px rgba(var(--tone), .5), 0 10px 30px rgba(var(--tone-deep), .7), inset 0 1px 0 rgba(255, 255, 255, .22);
+}
+.g-shell div.g-bubble--mine::before { background: linear-gradient(145deg, rgba(var(--tone-hot), .95), rgba(var(--tone), .35) 45%, rgba(var(--tone-hot), .6)); }
+.g-shell div.g-bubble--peer { box-shadow: 0 8px 22px rgba(0, 0, 0, .4), 0 0 14px rgba(var(--tone), .16), 0 1px 0 rgba(255, 255, 255, .07) inset; }
+.g-shell div.g-bubble--peer::before { background: linear-gradient(160deg, rgba(var(--tone-hot), .38), rgba(var(--tone), .08) 45%, rgba(var(--tone), .2)); }
+.g-shell[data-intent-mode='private'] .g-chat-header, .g-shell[data-intent-mode='social'] .g-chat-header,
+.g-shell[data-intent-mode='private'] .gayze-chat-header, .g-shell[data-intent-mode='social'] .gayze-chat-header { box-shadow: 0 1px 0 rgba(var(--tone), .55), 0 12px 34px rgba(var(--tone), .22); }
+
+/* Signal composer: selections glow in the colour of when it happens */
+.g-iset .g-iseg[data-seg='when'] { --it-rgb: 150, 100, 235; }
+.g-iset--later { --it-rgb: 214, 170, 80; }
+.g-iset--later .g-itile, .g-iset--later .g-iseg:not([data-seg='when']) { --it-rgb: 214, 170, 80; }
+.g-itile[data-active='true'] { box-shadow: 0 0 0 1px rgba(var(--it-rgb), .55), 0 0 30px rgba(var(--it-rgb), .55), 0 0 60px rgba(var(--it-rgb), .25), inset 0 1px 0 rgba(255, 255, 255, .14); }
+.g-iseg__opt[data-active='true'] { box-shadow: 0 0 22px rgba(var(--it-rgb), .55), 0 0 2px rgba(var(--it-rgb), .9), inset 0 1px 0 rgba(255, 255, 255, .16); }
+.g-iset .g-label { color: rgb(var(--it-rgb)); }
+
+/* The room behind every screen is lit in the signal's colour (it was always part-gold) */
+.g-atmos[data-intent-mode='private']::before {
+  background:
+    radial-gradient(46% 36% at 18% 22%, rgba(140, 90, 235, .40), transparent 70%),
+    radial-gradient(40% 32% at 84% 16%, rgba(190, 120, 255, .26), transparent 70%),
+    radial-gradient(46% 36% at 72% 88%, rgba(120, 70, 220, .30), transparent 70%),
+    radial-gradient(40% 32% at 12% 84%, rgba(160, 100, 250, .30), transparent 70%);
+}
+.g-atmos[data-intent-mode='social']::before {
+  background:
+    radial-gradient(46% 36% at 18% 22%, rgba(214, 170, 80, .34), transparent 70%),
+    radial-gradient(40% 32% at 84% 16%, rgba(255, 200, 110, .22), transparent 70%),
+    radial-gradient(46% 36% at 72% 88%, rgba(201, 150, 60, .26), transparent 70%),
+    radial-gradient(40% 32% at 12% 84%, rgba(240, 190, 100, .24), transparent 70%);
+}
+.g-atmos[data-intent-mode='private'], .g-atmos[data-intent-mode='social'] { opacity: 1; }

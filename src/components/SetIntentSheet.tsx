@@ -284,7 +284,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       aria-labelledby="set-intent-title"
     >
       <div
-        className={`g-sheet g-sheet--above-nav g-iset ${mode ? `g-sheet--${mode}` : ""}`}
+        className={`g-sheet g-sheet--above-nav g-iset ${mode ? `g-sheet--${mode}` : ""} ${when === 'Later' ? 'g-iset--later' : 'g-iset--now'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="g-sheet__grip" />
@@ -331,7 +331,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   data-active={mode === 'social'}
                   onClick={() => handleSelectMode('social')}
                 >
-                  {mode === 'social' && <SparkBorder tone="social" />}
+                  {mode === 'social' && <SparkBorder tone={when === 'Later' ? 'social' : 'private'} />}
                   <span className="g-opt__orb" aria-hidden="true"><UsersRound className="w-[18px] h-[18px]" /></span>
                   <span className="g-opt__t">Social</span>
                   <span className="g-opt__d">Meet · Drinks · Dates · Groups</span>
@@ -380,7 +380,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                         data-active={intent === opt.value}
                         onClick={() => handleSelectIntent(opt.value)}
                       >
-                        {intent === opt.value && <SparkBorder tone={mode === 'social' ? 'social' : 'private'} />}
+                        {intent === opt.value && <SparkBorder tone={when === 'Later' ? 'social' : 'private'} />}
                         <span className="g-itile__icon" aria-hidden="true"><Icon className="w-[17px] h-[17px]" /></span>
                         <span className="g-itile__copy">
                           <span className="g-itile__t">{opt.label}</span>
@@ -398,7 +398,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
               <div className="g-reveal pt-3 border-t border-white/[0.07] space-y-4 pb-2">
                 <div>
                   <span className="g-label">When</span>
-                  <div className="g-iseg g-iseg--4 mt-2.5" data-tone={tone}>
+                  <div className="g-iseg g-iseg--4 mt-2.5" data-tone={tone} data-seg="when">
                     {WHEN_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}

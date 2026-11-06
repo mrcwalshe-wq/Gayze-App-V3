@@ -30,3 +30,12 @@ export function intentWhenLabel(startsAt: number, now = Date.now()): string {
 export function formatLaterAt(startsAt: number): string {
   return new Date(startsAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
+
+/**
+ * Which colour an active signal wears across the whole app: purple for anything within a day (right now, 1 h, 2 h, tonight)
+ * and gold for a signal planned for later. The existing styles call these "private" (purple) and "social" (gold).
+ */
+export function intentThemeMode(intent: { when: string } | null | undefined): 'private' | 'social' | null {
+  if (!intent) return null;
+  return intent.when === 'Later' ? 'social' : 'private';
+}

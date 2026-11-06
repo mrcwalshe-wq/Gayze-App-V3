@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { intentThemeMode } from './services/intentTiming';
 import { DeletedRoomTracker } from './services/deletedRooms';
 import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
 import type { ChatConnectionState } from './services/realtimeRecovery';
@@ -3678,6 +3679,7 @@ export default function App() {
       {/* Atmosphere: one obsidian room lit by violet, above which all chrome sits. */}
       <div
         className={`g-atmos${hasLiveAtmosphere ? ' g-atmos--live' : ''}`}
+        data-intent-mode={intentThemeMode(activeUserIntent) ?? 'none'}
         aria-hidden="true"
       />
 
@@ -3705,7 +3707,7 @@ export default function App() {
       {/* Shell: navigation + views, above the atmosphere layer */}
       <div
         className="g-shell flex flex-1 min-h-0 flex-col"
-        data-intent-mode={activeUserIntent?.mode ?? 'none'}
+        data-intent-mode={intentThemeMode(activeUserIntent) ?? 'none'}
         data-active-tab={activeTab}
       >
 
@@ -3808,7 +3810,7 @@ export default function App() {
               onOpenGatheringChat={handleOpenGatheringChat}
               onCreateGathering={handleCreateGathering}
               currentUser={currentUser}
-              activeIntentMode={activeUserIntent?.mode}
+              activeIntentMode={intentThemeMode(activeUserIntent) ?? undefined}
               currentUserId={supabaseUserId}
               userLocation={userLocation}
             />
@@ -3982,7 +3984,7 @@ export default function App() {
                     onRetrySecureChat={() => setSecureChatRetryNonce((value) => value + 1)}
                     conversationKeyCanRekey={conversationKeyState.roomId === activeRoomId && conversationKeyState.canRekey === true}
                     onStartFreshSecureSession={handleStartFreshSecureSession}
-                    activeIntentMode={activeUserIntent?.mode}
+                    activeIntentMode={intentThemeMode(activeUserIntent) ?? undefined}
                   />
                     </div>
                   </div>
@@ -4292,7 +4294,7 @@ export default function App() {
         onOpenQR={() => handleOpenQRModal()}
         reliabilityScore={currentUser.reliabilityScore}
         userNeighborhood={currentUser.neighborhood}
-        activeIntentMode={activeUserIntent?.mode ?? null}
+        activeIntentMode={intentThemeMode(activeUserIntent)}
       />
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
