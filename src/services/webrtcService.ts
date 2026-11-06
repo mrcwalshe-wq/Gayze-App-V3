@@ -632,9 +632,16 @@ export class WebRTCCallService {
     pc.onconnectionstatechange = () => {
       if (this.pc !== pc) return;
       if (pc.connectionState === 'connected') this.recovered();
-      else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+      else if (pc.connectionState === 'failed') {
         this.setState('connecting');
-        this.scheduleRestart(pc.connectionState === 'disconnected' ? 5000 : 500);
+        this.scheduleRestart(500);
+      } else if (pc.connectionState === 'disconnected') {
+        // Phones blip to "disconnected" for a second or two and recover by themselves. Only show "Securing the line" if it lasts.
+        callLog('connection disconnected (waiting to see if it recovers)');
+        const generation = this.callGeneration;
+        setTimeout(() => {
+          if (this.pc === pc && generation === this.callGeneration && pc.connectionState === 'disconnected') { this.setState('connecting'); this.scheduleRestart(1500); }
+        }, 3500);
       }
     };
     pc.oniceconnectionstatechange = () => {
@@ -690,7 +697,12 @@ export class WebRTCCallService {
           if (this.pc !== pc) return;
           clearTimeout(timeout);
           if (firstJoin) { firstJoin = false; resolve(); }
-          else if (pc.remoteDescription) this.scheduleRestart(250);
+          else if (pc.remoteDescription) {
+            // The signalling channel re-checks itself every 30 s and after any blip. That must never tear down a call that is
+            // working: restarting the connection every time made "Securing the line" appear on a perfectly good call.
+            const healthy = pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed';
+            if (!healthy) this.scheduleRestart(250);
+          }
           else if (!isCaller) {
             await this.broadcastSignal({ type: 'call-accept', conversationId, callerId: currentUserId, timestamp: Date.now() });
           }
@@ -976,31 +988,22 @@ export class WebRTCCallService {
 
     const nextMode = this.currentFacingMode === 'user' ? 'environment' : 'user';
     try {
+      // Same size hints as the first camera, so the picture the other person sees keeps its shape.
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: nextMode },
+        audio: false,
+        video: { facingMode: { ideal: nextMode }, width: { ideal: 1280, max: 1920 }, height: { ideal: 720, max: 1080 } },
       });
       const newVideoTrack = newStream.getVideoTracks()[0];
-      if (!newVideoTrack) return;
+      if (!newVideoTrack || !this.localStream) { newStream.getTracks().forEach((t) => t.stop()); return; }
       newVideoTrack.enabled = this.videoEnabled;
 
+      // Swap on the live connection first, then retire the old camera: the other person never sees a gap or a renegotiation.
+      const videoSender = this.pc?.getSenders().find((sender) => sender.track?.kind === 'video');
+      if (videoSender) await videoSender.replaceTrack(newVideoTrack);
       const oldTrack = this.localStream.getVideoTracks()[0];
-      if (oldTrack) {
-        oldTrack.stop();
-        this.localStream.removeTrack(oldTrack);
-      }
-
+      if (oldTrack) { this.localStream.removeTrack(oldTrack); oldTrack.stop(); }
       this.localStream.addTrack(newVideoTrack);
       this.currentFacingMode = nextMode;
-
-      // Replace track on peer connection
-      if (this.pc) {
-        const senders = this.pc.getSenders();
-        const videoSender = senders.find((s) => s.track?.kind === 'video');
-        if (videoSender) {
-          await videoSender.replaceTrack(newVideoTrack);
-        }
-      }
-
       this.notifyStreams();
     } catch (err) {
       console.warn('[GAYZE WebRTC] Camera flip not supported or denied', err);

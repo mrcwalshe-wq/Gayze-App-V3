@@ -22,6 +22,17 @@ import {
   callStatusLabel, formatCallDuration, isCallPending, useCallLevels,
 } from './callUi';
 
+/** Point a media element at a stream only when it changed. Re-assigning the same stream restarts the element (a flash, or a
+ * shrunken picture on phones) and happened on every camera flip. */
+function attachStream(el: HTMLMediaElement | null, stream: MediaStream | null, opts: { muted?: boolean; volume?: number } = {}) {
+  if (!el) return;
+  if (opts.muted !== undefined) el.muted = opts.muted;
+  if (opts.volume !== undefined) el.volume = opts.volume;
+  if (el.srcObject !== stream) el.srcObject = stream;
+  if (stream && el.paused) void el.play().catch(() => undefined);
+}
+const hasLiveVideo = (s: MediaStream | null) => !!s && s.getVideoTracks().some((t) => t.readyState === 'live');
+
 interface FullScreenCallModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -201,26 +212,10 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
     });
 
     const unsubStreams = webrtcCallService.subscribeStreams((local, remote) => {
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = local;
-        if (local) void localVideoRef.current.play().catch(() => undefined);
-      }
-      // Sound always plays through the <audio> element (the <video> stays muted), so a video call is never silent because
-      // a browser refused autoplay-with-sound on the video tag. The picture shows as soon as a remote video track exists.
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remote;
-        remoteVideoRef.current.muted = true;
-        if (remote) void remoteVideoRef.current.play().catch((error) => {
-          console.warn('[GAYZE Call] Remote video autoplay was blocked', error);
-        });
-      }
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = remote;
-        remoteAudioRef.current.volume = isSpeakerOnRef.current ? 1 : 0;
-        if (remote) void remoteAudioRef.current.play().catch((error) => {
-          console.warn('[GAYZE Call] Remote audio autoplay was blocked', error);
-        });
-      }
+      attachStream(localVideoRef.current, local);
+      // Sound always plays through the <audio> element; the <video> stays muted and only receives a stream that has a picture.
+      attachStream(remoteVideoRef.current, hasLiveVideo(remote) ? remote : null, { muted: true });
+      attachStream(remoteAudioRef.current, remote, { volume: isSpeakerOnRef.current ? 1 : 0 });
       setHasRemoteVideo(!!remote && remote.getVideoTracks().some((t) => t.readyState === 'live'));
     });
 
@@ -590,23 +585,11 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     });
 
     const unsubStreams = webrtcCallService.subscribeStreams((local, remote) => {
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = local && local.getVideoTracks().length ? local : null;
-        if (local) void localVideoRef.current.play().catch(() => undefined);
-      }
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remote;
-        remoteVideoRef.current.muted = true; // sound comes from the <audio> element
-        if (remote) void remoteVideoRef.current.play().catch(() => undefined);
-      }
+      attachStream(localVideoRef.current, local && local.getVideoTracks().length ? local : null);
+      // An audio call must stay audio-only: the picture element only receives a stream once it actually has video.
+      attachStream(remoteVideoRef.current, hasLiveVideo(remote) ? remote : null, { muted: true });
       setHasRemoteVideo(!!remote && remote.getVideoTracks().some((t) => t.readyState === 'live'));
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = remote;
-        remoteAudioRef.current.volume = isSpeakerOnRef.current ? 1 : 0;
-        if (remote) void remoteAudioRef.current.play().catch((error) => {
-          console.warn('[GAYZE Call] Remote audio autoplay was blocked', error);
-        });
-      }
+      attachStream(remoteAudioRef.current, remote, { volume: isSpeakerOnRef.current ? 1 : 0 });
     });
 
     return () => {
