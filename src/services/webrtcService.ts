@@ -167,6 +167,13 @@ export class WebRTCCallService {
 
   constructor() {
     if (typeof window !== 'undefined') {
+      // Whether the phone put the page to sleep or lost its connection during a call is the first thing to rule in or out.
+      const lifecycle = (what: string) => { if (this.state !== 'idle') callLog(what); };
+      document.addEventListener('visibilitychange', () => lifecycle(`page ${document.visibilityState}`));
+      window.addEventListener('online', () => lifecycle('network online'));
+      window.addEventListener('offline', () => lifecycle('network offline'));
+      document.addEventListener('freeze', () => lifecycle('page frozen by the phone'));
+      document.addEventListener('resume', () => lifecycle('page resumed'));
       window.addEventListener('pagehide', (event) => {
         if (!event.persisted) this.cleanup();
       });
@@ -676,6 +683,7 @@ export class WebRTCCallService {
         },
         status: (state) => {
           if (this.pc !== pc) return;
+          callLog(`call channel ${state}`);
           if (state === 'sign-in-required') { clearTimeout(timeout); reject(new Error('Sign in required for calling')); this.cleanup(); this.setState('failed', 'Sign in again to call.'); }
           else if (!firstJoin && state !== 'connected' && pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') this.setState('connecting');
         },
@@ -817,10 +825,10 @@ export class WebRTCCallService {
     } finally { if (this.pc === pc) this.offering = false; }
   }
   /**
-   * Wait (briefly) for the phone to finish finding its network routes, so the offer or answer carries them all and does not
+   * Wait (briefly, 1.2 s) for the phone to finish finding its network routes, so the offer or answer carries them all and does not
    * depend on every separate candidate message arriving. If gathering is slow, send what there is and let the rest follow.
    */
-  private async gatheringDone(pc: RTCPeerConnection, ms = 2500): Promise<void> {
+  private async gatheringDone(pc: RTCPeerConnection, ms = 1200): Promise<void> {
     if (pc.iceGatheringState === 'complete') return;
     await new Promise<void>((resolve) => {
       const done = () => { clearTimeout(timer); pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
@@ -963,6 +971,7 @@ export class WebRTCCallService {
    * End the call and cleanly stop all tracks and close connections
    */
   public async endCall(explicitState: CallState = 'ended'): Promise<void> {
+    callLog(`endCall requested here (${explicitState}) while ${this.state}`);
     const generation = this.callGeneration, callerId = this.localUserId;
     const conversationId = this.activeConversationId;
     const callId = this.activeCallId;
