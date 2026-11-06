@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import { IceCredentialCache } from './iceCredentials';
-import { RealtimeRecovery, requireRealtimeSession } from './realtimeRecovery';
+import { RealtimeRecovery, callRecoveryEnvironment, requireRealtimeSession } from './realtimeRecovery';
 import { analytics } from './analyticsService';
 import { saveCallRecord, markCallAsMissed } from './callHistoryService';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -647,7 +647,7 @@ export class WebRTCCallService {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Call signalling could not connect')), 25_000);
       this.callRecovery = new RealtimeRecovery({
-        client: supabase!, userId: currentUserId, topic: `gayze-call-${conversationId}`, syncWhileJoining: false,
+        client: supabase!, userId: currentUserId, topic: `gayze-call-${conversationId}`, syncWhileJoining: false, environment: callRecoveryEnvironment,
         channelOptions: { config: { private: true, broadcast: { self: false, ack: true } } },
         session: (signal) => requireRealtimeSession(supabase!, currentUserId, signal),
         build: (channel, current) => {
@@ -829,7 +829,7 @@ export class WebRTCCallService {
    * depend on every separate candidate message arriving. If gathering is slow, send what there is and let the rest follow.
    */
   private async gatheringDone(pc: RTCPeerConnection, ms = 1200): Promise<void> {
-    if (pc.iceGatheringState === 'complete') return;
+    if (pc.iceGatheringState === 'complete' || typeof pc.addEventListener !== 'function') return;
     await new Promise<void>((resolve) => {
       const done = () => { clearTimeout(timer); pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
       const onChange = () => { if (pc.iceGatheringState === 'complete') done(); };

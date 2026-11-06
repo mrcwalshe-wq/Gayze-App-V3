@@ -35,6 +35,21 @@ export const browserRecoveryEnvironment: RecoveryEnvironment = {
   },
 };
 
+/**
+ * For the channel a live call negotiates on. A call must not stop listening because the page was briefly hidden (the
+ * microphone permission sheet, a notification banner, an app switch), and must not leave and rejoin the channel on every
+ * visibility change: the few hundred milliseconds in between are enough to lose the offer. Only losing the network pauses it.
+ */
+export const callRecoveryEnvironment: RecoveryEnvironment = {
+  ...browserRecoveryEnvironment,
+  visible: () => true,
+  watch(fn) {
+    window.addEventListener('online', fn);
+    window.addEventListener('offline', fn);
+    return () => { window.removeEventListener('online', fn); window.removeEventListener('offline', fn); };
+  },
+};
+
 // Shared across mounts, not a second socket. A StrictMode remount must wait for
 // the previous owner of the same Supabase topic to finish leaving it.
 const transportRepairs = new WeakMap<SupabaseClient, { at: number; pending: Promise<void> }>();
