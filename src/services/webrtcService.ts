@@ -874,6 +874,16 @@ export class WebRTCCallService {
       if (this.pc !== pc) return;
       await this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, offer), timestamp: Date.now() });
       if (!restart && !renegotiation) this.scheduleRestart(12_000); // lost initial SDP/answer also recovers
+      // The other phone may not have been listening yet (it was still waking, or its signalling channel was mid-join), so the
+      // offer is delivered to nobody and the call sits on "Securing the line". Say it again, same offer, until an answer arrives.
+      if (!restart) {
+        const generation = this.callGeneration;
+        [2500, 6000, 10000].forEach((delay) => setTimeout(() => {
+          if (this.pc !== pc || generation !== this.callGeneration || pc.signalingState !== 'have-local-offer' || !pc.localDescription) return;
+          callLog('no answer yet: sending the offer again');
+          void this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, pc.localDescription), timestamp: Date.now() }).catch(() => undefined);
+        }, delay));
+      }
     } finally { if (this.pc === pc) this.offering = false; }
   }
   /**
