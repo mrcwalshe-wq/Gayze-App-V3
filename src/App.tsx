@@ -27,6 +27,7 @@ import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
+import { getRingingCall } from './services/callSessions';
 import { InterestDiscover } from './components/InterestDiscover';
 import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
 import { latestMeetups } from './services/meetupState';
@@ -1288,6 +1289,46 @@ export default function App() {
     return { ...r, peerLastSeenAt: p.status === 'hidden' || !p.lastSeenAt ? undefined : Date.parse(p.lastSeenAt) };
   }), [rooms, serverPresenceById]);
 
+  // A call that rang while this app was asleep is still there to answer: ask the server what is ringing whenever the app
+  // wakes, signs in, or a call notification arrives, and keep checking while it is shown so a hung-up call goes away.
+  const incomingCallRef = useRef<IncomingCall | null>(null);
+  incomingCallRef.current = incomingCall;
+  const recoveredCallIdRef = useRef<string | null>(null);
+  const checkRingingCall = useCallback(async () => {
+    const me = supabaseUserIdRef.current;
+    if (!me || document.visibilityState !== 'visible') return;
+    const busy = ['calling', 'ringing', 'connecting', 'connected'].includes(webrtcCallService.getState());
+    let call: IncomingCall | null = null;
+    try { call = await getRingingCall(); } catch { return; }
+    if (supabaseUserIdRef.current !== me) return;
+    if (!call) {
+      const shown = incomingCallRef.current;
+      if (shown && shown.callId && shown.callId === recoveredCallIdRef.current) { recoveredCallIdRef.current = null; setIncomingCall(null); }
+      return;
+    }
+    if (busy || incomingCallRef.current) return;
+    try { if (await isBlockedBetween(call.callerId)) return; } catch { return; }
+    recoveredCallIdRef.current = call.callId ?? null;
+    setIncomingCall((current) => current ?? call);
+  }, []);
+  const checkRingingCallRef = useRef(checkRingingCall);
+  checkRingingCallRef.current = checkRingingCall;
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    const run = () => { void checkRingingCallRef.current(); };
+    run();
+    document.addEventListener('visibilitychange', run);
+    window.addEventListener('focus', run);
+    window.addEventListener('gayze:call-push', run);
+    const timer = window.setInterval(() => { if (incomingCallRef.current && recoveredCallIdRef.current) run(); }, 3000);
+    return () => {
+      document.removeEventListener('visibilitychange', run);
+      window.removeEventListener('focus', run);
+      window.removeEventListener('gayze:call-push', run);
+      window.clearInterval(timer);
+    };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
     // Use enhanced presence system for both online status and last seen
@@ -1482,6 +1523,8 @@ export default function App() {
         if (payload?.messageId && /^[0-9a-f-]{36}$/i.test(payload.messageId) && payload.recipientId) {
           messageAlertsRef.current.acknowledged(payload.messageId, payload.recipientId, supabaseUserIdRef.current);
         }
+        const pushType = (data.payload as { type?: string } | undefined)?.type;
+        if (pushType === 'call') for (const delay of [300, 3000, 8000]) window.setTimeout(() => window.dispatchEvent(new Event('gayze:call-push')), delay);
         notificationRefreshRef.current(); return;
       }
       if (data.type === 'NOTIFICATION_CLICK' && data.url) {
