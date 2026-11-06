@@ -130,6 +130,13 @@ test('composer scheduling persists real future starts and expired activation age
   assert.equal(intentWhenLabel(morning - 7_200_000, morning), 'Now');
   assert.equal(intentWhenLabel(morning + 3_600_000, morning), 'Next 1 hour');
   assert.equal(intentWhenLabel(morning + 7_200_000, morning), 'Next 2 hours');
+  // Later: a picked date and time is kept, never earlier than now, and is labelled Later (the standard 19:00 stays Tonight).
+  const sat = new Date(2026, 9, 3, 20, 30).getTime();
+  assert.equal(intentStartsAt('Later', morning, sat), sat);
+  assert.equal(intentStartsAt('Later', morning, morning - 1000), morning);
+  assert.equal(intentStartsAt('Later', morning), morning);
+  assert.equal(intentWhenLabel(sat, morning), 'Later');
+  assert.equal(intentWhenLabel(new Date(2026, 9, 1, 19).getTime(), morning), 'Tonight');
 });
 
 test('in-flight invalidation cannot publish the replaced snapshot; stalled REST cannot stay current', async () => {

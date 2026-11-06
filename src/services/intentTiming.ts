@@ -2,7 +2,8 @@
  * Tonight means 19:00 device-local time, or now if tonight has already begun.
  * Expiry is calculated from the scheduled start, not from the publish click.
  */
-export function intentStartsAt(when: string, now = Date.now()): number {
+export function intentStartsAt(when: string, now = Date.now(), laterAt?: number): number {
+  if (when === 'Later') return typeof laterAt === 'number' && Number.isFinite(laterAt) ? Math.max(now, laterAt) : now;
   if (when === 'Next 1 hour') return now + 3_600_000;
   if (when === 'Next 2 hours') return now + 7_200_000;
   if (when === 'Tonight') {
@@ -19,5 +20,13 @@ export function intentWhenLabel(startsAt: number, now = Date.now()): string {
   if (remaining <= 0) return 'Now';
   if (remaining <= 3_600_000) return 'Next 1 hour';
   if (remaining <= 7_200_000) return 'Next 2 hours';
-  return 'Tonight';
+  // The standard "Tonight" start is 19:00 the same day; any other start more than two hours away is a date and time picked for later.
+  const start = new Date(startsAt), today = new Date(now);
+  const isTonight = start.getHours() === 19 && start.getMinutes() === 0 && start.toDateString() === today.toDateString();
+  return isTonight ? 'Tonight' : 'Later';
+}
+
+/** "Sat 8 Nov, 19:30" for a signal planned for later. */
+export function formatLaterAt(startsAt: number): string {
+  return new Date(startsAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
