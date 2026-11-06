@@ -1196,6 +1196,7 @@ export default function App() {
           nonceHex: row.nonce || '', plainText, expiresAt: row.expires_at ? Date.parse(row.expires_at) : undefined, ephemeralTtlSeconds: room.ephemeralTtlSeconds,
           isBurned: Boolean(row.burned_at || (row.expires_at && Date.parse(row.expires_at) <= Date.now())), mediaUrl, mediaType: mediaUrl ? 'image' : undefined, meetingData, callData,
           decryptFailure: decryptedOk ? undefined : decryptFailure,
+          ...(row.unsent_at ? { deletedForEveryone: true, plainText: 'Message unsent', mediaUrl: undefined, mediaType: undefined, meetingData: undefined, callData: undefined, decryptFailure: undefined } : {}),
         };
 
         queueMessage(message);
@@ -2149,6 +2150,7 @@ export default function App() {
       created_at: string;
       expires_at: string | null;
       burned_at: string | null;
+      unsent_at?: string | null;
     }, delivery: MessageDelivery) => {
       if (disposed || !delivery.current()) return;
       const processingGeneration = messageProcessorRef.current.generation;
@@ -2206,6 +2208,7 @@ export default function App() {
         meetingData,
         callData,
         decryptFailure: decryptedOk ? undefined : decryptFailure,
+        ...(row.unsent_at ? { deletedForEveryone: true, plainText: 'Message unsent', mediaUrl: undefined, mediaType: undefined, meetingData: undefined, callData: undefined, decryptFailure: undefined } : {}),
       };
 
       if (!decryptedOk && !message.isBurned && row.nonce) historyHadFailure = true;
@@ -2521,7 +2524,8 @@ export default function App() {
     });
   };
   const handleUnsendMessage = async (messageId: string) => {
-    await unsendMessage(messageId);
+    try { await unsendMessage(messageId); }
+    catch { showToast('This message could not be unsent. You can unsend your own messages within 48 hours.'); return; }
     setMessages((prev) => {
       for (const roomId in prev) {
         if (prev[roomId].some((m) => m.id === messageId)) {

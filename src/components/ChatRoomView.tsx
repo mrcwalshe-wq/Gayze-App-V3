@@ -2,6 +2,7 @@ import { PeerIntentBanner } from './PeerIntentBanner';
 import { SharePlaceSheet } from './SharePlaceSheet';
 import { MeetupCard, type MeetupAction } from './MeetupCard';
 import { CallLineCard } from './CallLineCard';
+import { presenceLabel } from '../services/presenceLabel';
 import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
@@ -574,7 +575,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               : null;
             const isOnline = Boolean(!isGathering && room.peerUserId && onlineUserIds?.has(room.peerUserId));
             const liveNow = !isGathering && room.peerUserId ? peerLive.get(room.peerUserId) : undefined;
-            const recently = !isOnline && !isGathering && Boolean(room.peerLastSeenAt && Date.now() - room.peerLastSeenAt < 15 * 60 * 1000);
+            const recently = !isOnline && !isGathering && presenceLabel(false, room.peerLastSeenAt).tone === 'recent';
 
             return (
               <button
@@ -696,29 +697,17 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 <div className="flex min-w-0 max-w-full items-center gap-1.5 text-[11px] leading-tight">
                   {currentRoom.type !== 'direct' ? (
                     <span className="text-zinc-400">Group conversation</span>
-                  ) : currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId) ? (
-                    <>
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 g-breathe" aria-hidden="true" />
-                      <span className="truncate font-medium text-emerald-400">Online now</span>
-                    </>
-                  ) : currentRoom.peerLastSeenAt && Date.now() - currentRoom.peerLastSeenAt >= 0 && Date.now() - currentRoom.peerLastSeenAt < 15 * 60 * 1000 ? (
-                    <>
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/80" aria-hidden="true" />
-                      <span className="truncate font-medium text-emerald-300">Recently online · {Math.max(1, Math.floor((Date.now() - currentRoom.peerLastSeenAt) / 60000))} min ago</span>
-                    </>
-                  ) : currentRoom.peerLastSeenAt ? (
-                    <>
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-500" aria-hidden="true" />
-                      <span className="truncate text-zinc-400">Offline · last seen {Math.floor(Math.max(0, Date.now() - currentRoom.peerLastSeenAt) / 60000) < 60
-                        ? `${Math.max(1, Math.floor((Date.now() - currentRoom.peerLastSeenAt) / 60000))} min ago`
-                        : new Date(currentRoom.peerLastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-500" aria-hidden="true" />
-                      <span className="truncate text-zinc-400">Offline</span>
-                    </>
-                  )}
+                  ) : (() => {
+                    const presence = presenceLabel(Boolean(currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId)), currentRoom.peerLastSeenAt);
+                    const dot = presence.tone === 'online' ? 'bg-emerald-400 g-breathe' : presence.tone === 'recent' ? 'bg-amber-400' : 'bg-zinc-500';
+                    const text = presence.tone === 'online' ? 'text-emerald-400 font-medium' : presence.tone === 'recent' ? 'text-amber-300 font-medium' : 'text-zinc-400';
+                    return (
+                      <>
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+                        <span className={`truncate ${text}`}>{presence.text}</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

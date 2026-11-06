@@ -12,14 +12,17 @@ export function mergeMessages(existing: EncryptedMessage[], incomingRows: Encryp
   for (const incoming of incomingRows) {
     const old = byId.get(incoming.id);
     const burned = Boolean(old?.isBurned || incoming.isBurned);
+    // An unsent message stays unsent: its text, photo and cards never come back from a stale snapshot.
+    const unsent = Boolean(old?.deletedForEveryone || incoming.deletedForEveryone);
     const sameCipher = old?.cipherText === incoming.cipherText && old?.nonceHex === incoming.nonceHex;
     const keepsOldPlaintext = incoming.plainText === '[Encrypted message]' && Boolean(old?.plainText) && sameCipher;
     const message = {
       ...old, ...incoming,
-      plainText: burned ? '' : keepsOldPlaintext ? old!.plainText : incoming.plainText,
+      plainText: burned ? '' : unsent ? 'Message unsent' : keepsOldPlaintext ? old!.plainText : incoming.plainText,
       decryptFailure: burned ? undefined : keepsOldPlaintext ? old!.decryptFailure : incoming.decryptFailure,
       isBurned: burned,
-      mediaUrl: burned ? undefined : incoming.mediaUrl ?? (sameCipher ? old?.mediaUrl : undefined),
+      mediaUrl: burned || unsent ? undefined : incoming.mediaUrl ?? (sameCipher ? old?.mediaUrl : undefined),
+      ...(unsent ? { deletedForEveryone: true, meetingData: undefined, callData: undefined, mediaType: undefined, decryptFailure: undefined } : {}),
     };
     if (!old || Object.keys(message).some((key) => old[key as keyof EncryptedMessage] !== message[key as keyof EncryptedMessage])) {
       byId.set(incoming.id, message);

@@ -798,11 +798,13 @@ export interface SupabaseMessageRow {
   created_at: string;
   expires_at: string | null;
   burned_at: string | null;
+  /** Set when the sender unsent it: the content is gone from the server. */
+  unsent_at?: string | null;
   /** Which conversation key version encrypted this row (absent on pre-versioning rows = 1). */
   key_version?: number | null;
 }
 
-export const MESSAGE_ROW_COLUMNS = 'id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at,key_version';
+export const MESSAGE_ROW_COLUMNS = 'id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at,unsent_at,key_version';
 
 export async function loadConversationMessages(conversationId: string): Promise<SupabaseMessageRow[]> {
   if (!supabase) return [];

@@ -171,7 +171,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
               </div>
               <div className="g-peek__meta">
                 {online !== undefined && (
-                  <span className={online ? 'is-online' : ''}><i />{online ? 'Online now' : 'Recently active'}</span>
+                  <span className={online ? 'is-online' : ''}><i />{online ? 'Online now' : 'Offline'}</span>
                 )}
                 {fallbackArea && <span><MapPin className="w-3.5 h-3.5" />{fallbackArea}</span>}
               </div>

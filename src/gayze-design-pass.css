@@ -1454,3 +1454,12 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-disc__empty h2 { margin: 0 0 6px; font-size: 17px; color: #fff; } .g-disc__empty p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.5; }
 .g-disc__skeleton { display: grid; gap: 10px; margin-top: 14px; }
 .g-disc__skeleton i { height: 130px; border-radius: 20px; background: linear-gradient(100deg, rgba(255, 255, 255, .04) 30%, rgba(184, 120, 255, .12) 50%, rgba(255, 255, 255, .04) 70%); background-size: 220% 100%; animation: g-place-shimmer 1.2s linear infinite; }
+
+/* Photo Studio: stay clear of the browser's bottom bar, and the new Look panel */
+.g-studio { overflow: hidden; }
+.g-studio__tray { padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); max-height: 48%; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.g-studio__tray input[type='range'] { touch-action: pan-x; }
+.g-studio__filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; touch-action: pan-x; }
+.g-studio__filters::-webkit-scrollbar { display: none; }
+.g-studio__filters button { flex: none; display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 15px; border-radius: 999px; font-size: 12.5px; font-weight: 700; color: rgba(255, 255, 255, .75); background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); }
+.g-studio__filters button[data-active='true'] { color: #fff; background: rgba(150, 100, 235, .3); border-color: rgba(150, 100, 235, .7); }

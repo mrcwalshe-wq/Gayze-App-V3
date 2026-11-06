@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Droplets, Eraser, Eye, FlipHorizontal2, Grid3x3, Maximize, RotateCcw, RotateCw, Undo2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, Droplets, Eraser, Eye, FlipHorizontal2, Grid3x3, Maximize, RotateCcw, RotateCw, Sparkles, Undo2, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface PhotoStudioProps {
   source: string;
@@ -12,7 +12,43 @@ type Effect = 'blur' | 'pixelate';
 type Tool = 'paint' | 'erase';
 /** A brush stroke in view space: x/y and size are fractions of the preview square. */
 interface Stroke { tool: Tool; effect: Effect; strength: number; size: number; points: Array<{ x: number; y: number }> }
-type Panel = 'privacy' | 'frame';
+type Panel = 'privacy' | 'look' | 'frame';
+
+/** Light, contrast, colour and warmth, each -100..100. Applied to the framed photo before anything is hidden. */
+interface Look { bright: number; contrast: number; sat: number; warm: number }
+const NO_LOOK: Look = { bright: 0, contrast: 0, sat: 0, warm: 0 };
+const FILTERS: { id: string; label: string; look: Look }[] = [
+  { id: 'original', label: 'Original', look: NO_LOOK },
+  { id: 'auto', label: 'Auto', look: { bright: 6, contrast: 14, sat: 16, warm: 0 } },
+  { id: 'vivid', label: 'Vivid', look: { bright: 0, contrast: 18, sat: 38, warm: 0 } },
+  { id: 'warm', label: 'Warm', look: { bright: 4, contrast: 6, sat: 10, warm: 34 } },
+  { id: 'cool', label: 'Cool', look: { bright: 0, contrast: 6, sat: 4, warm: -34 } },
+  { id: 'mono', label: 'Mono', look: { bright: 0, contrast: 14, sat: -100, warm: 0 } },
+  { id: 'fade', label: 'Fade', look: { bright: 10, contrast: -22, sat: -24, warm: 6 } },
+  { id: 'drama', label: 'Drama', look: { bright: -8, contrast: 38, sat: -8, warm: 0 } },
+];
+const isNoLook = (l: Look) => l.bright === 0 && l.contrast === 0 && l.sat === 0 && l.warm === 0;
+
+/** Plain pixel maths (no canvas filter, which iOS Safari does not support reliably). */
+function applyLook(ctx: CanvasRenderingContext2D, size: number, look: Look) {
+  if (isNoLook(look)) return;
+  const img = ctx.getImageData(0, 0, size, size);
+  const d = img.data;
+  const add = look.bright * 1.5;
+  const ct = look.contrast * 1.5;
+  const factor = (259 * (ct + 255)) / (255 * (259 - ct));
+  const sat = 1 + look.sat / 100;
+  const warm = look.warm * 0.4;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i] + add, g = d[i + 1] + add, b = d[i + 2] + add;
+    r = factor * (r - 128) + 128; g = factor * (g - 128) + 128; b = factor * (b - 128) + 128;
+    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+    r = gray + (r - gray) * sat; g = gray + (g - gray) * sat; b = gray + (b - gray) * sat;
+    r += warm; b -= warm;
+    d[i] = r < 0 ? 0 : r > 255 ? 255 : r; d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g; d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+  }
+  ctx.putImageData(img, 0, 0);
+}
 
 const OUTPUT_SIZE = 1200;
 
@@ -63,6 +99,13 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
   const [comparing, setComparing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [stageSize, setStageSize] = useState(320);
+  const [look, setLook] = useState<Look>(NO_LOOK);
+  const [filterId, setFilterId] = useState('original');
+  // The editor fills the part of the screen that is actually visible: browser toolbars on a phone cover the bottom of a
+  // plain `fixed` box, which is what used to trap the sliders under the address bar.
+  const [viewport, setViewport] = useState<{ top: number; height: number } | null>(null);
+  const baseCache = useRef<{ key: string; canvas: HTMLCanvasElement } | null>(null);
+  const fxCache = useRef<{ key: string; map: Map<string, HTMLCanvasElement | null> } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +124,16 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previous; };
+  }, []);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => setViewport({ top: vv.offsetTop, height: vv.height });
+    sync();
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    return () => { vv.removeEventListener('resize', sync); vv.removeEventListener('scroll', sync); };
   }, []);
 
   useLayoutEffect(() => {
@@ -120,16 +173,25 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     const sx = (image.naturalWidth - side) / 2 + clamped.x;
     const sy = (image.naturalHeight - side) / 2 + clamped.y;
 
-    // Base layer: crop + flip + rotate.
-    const base = makeCanvas(size);
-    const bctx = base.getContext('2d');
-    if (!bctx) return;
-    bctx.imageSmoothingEnabled = true;
-    bctx.imageSmoothingQuality = 'high';
-    bctx.translate(size / 2, size / 2);
-    bctx.rotate((rotation * Math.PI) / 180);
-    if (flip) bctx.scale(-1, 1);
-    bctx.drawImage(image, sx, sy, side, side, -size / 2, -size / 2, size, size);
+    // Base layer: crop + flip + rotate + look. Cached, because painting redraws on every finger move.
+    const baseKey = `${size}|${zoom}|${clamped.x.toFixed(1)}|${clamped.y.toFixed(1)}|${rotation}|${flip}|${look.bright},${look.contrast},${look.sat},${look.warm}`;
+    let base: HTMLCanvasElement;
+    if (baseCache.current?.key === baseKey) base = baseCache.current.canvas;
+    else {
+      base = makeCanvas(size);
+      const bctx = base.getContext('2d', { willReadFrequently: true });
+      if (!bctx) return;
+      bctx.imageSmoothingEnabled = true;
+      bctx.imageSmoothingQuality = 'high';
+      bctx.translate(size / 2, size / 2);
+      bctx.rotate((rotation * Math.PI) / 180);
+      if (flip) bctx.scale(-1, 1);
+      bctx.drawImage(image, sx, sy, side, side, -size / 2, -size / 2, size, size);
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
+      applyLook(bctx, size, look);
+      baseCache.current = { key: baseKey, canvas: base };
+      fxCache.current = { key: baseKey, map: new Map() };
+    }
 
     ctx.clearRect(0, 0, size, size);
     ctx.drawImage(base, 0, 0);
@@ -142,7 +204,7 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     const layer = makeCanvas(size);
     const lctx = layer.getContext('2d');
     if (!lctx) return;
-    const fxCache = new Map<string, HTMLCanvasElement | null>();
+    const effects = fxCache.current?.key === baseKey ? fxCache.current.map : new Map<string, HTMLCanvasElement | null>();
     for (const stroke of all) {
       if (stroke.tool === 'erase') {
         lctx.globalCompositeOperation = 'destination-out';
@@ -151,8 +213,8 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
         continue;
       }
       const key = `${stroke.effect}:${stroke.strength}`;
-      if (!fxCache.has(key)) fxCache.set(key, makeEffect(base, size, stroke.effect, stroke.strength));
-      const fx = fxCache.get(key);
+      if (!effects.has(key)) effects.set(key, makeEffect(base, size, stroke.effect, stroke.strength));
+      const fx = effects.get(key);
       if (!fx) continue;
       const patch = makeCanvas(size);
       const pctx = patch.getContext('2d');
@@ -233,7 +295,7 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     draw(canvas, Math.round(stageSize * dpr), !comparing);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, stageSize, zoom, pan, rotation, flip, comparing, strokes, liveStroke]);
+  }, [ready, stageSize, zoom, pan, rotation, flip, comparing, strokes, liveStroke, look]);
 
   const done = () => {
     const out = makeCanvas(OUTPUT_SIZE);
@@ -253,6 +315,8 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
     setPan({ x: 0, y: 0 });
     setRotation(0);
     setFlip(false);
+    setLook(NO_LOOK);
+    setFilterId('original');
   };
 
   const framePoint = (event: React.PointerEvent) => {
@@ -333,6 +397,7 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
       role="dialog"
       aria-modal="true"
       aria-label="Photo Studio"
+      style={viewport ? { top: viewport.top, bottom: 'auto', height: viewport.height } : undefined}
     >
       <header className="g-studio__head">
         <button type="button" onClick={onCancel} className="g-studio__icon" aria-label="Close photo studio">
@@ -379,6 +444,7 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
       <footer className="g-studio__tray">
         <div className="g-studio__tabs" role="tablist">
           <button type="button" role="tab" aria-selected={panel === 'privacy'} data-active={panel === 'privacy'} onClick={() => setPanel('privacy')}>Privacy</button>
+          <button type="button" role="tab" aria-selected={panel === 'look'} data-active={panel === 'look'} onClick={() => setPanel('look')}>Look</button>
           <button type="button" role="tab" aria-selected={panel === 'frame'} data-active={panel === 'frame'} onClick={() => setPanel('frame')}>Frame</button>
           <button
             type="button"
@@ -422,6 +488,24 @@ export const PhotoStudio: React.FC<PhotoStudioProps> = ({ source, onCancel, onDo
               <input aria-label="Brush size" type="range" min="1" max="10" step="1" value={brush} onChange={(e) => setBrush(Number(e.target.value))} />
               <b>{brush}</b>
             </label>
+          </div>
+        ) : panel === 'look' ? (
+          <div className="g-studio__panel">
+            <div className="g-studio__filters" role="group" aria-label="Filters">
+              {FILTERS.map((f) => (
+                <button key={f.id} type="button" data-active={filterId === f.id} onClick={() => { setFilterId(f.id); setLook(f.look); }}>
+                  {f.id === 'auto' ? <Sparkles className="w-3.5 h-3.5" /> : null}<span>{f.label}</span>
+                </button>
+              ))}
+            </div>
+            {([['bright', 'Light'], ['contrast', 'Contrast'], ['sat', 'Colour'], ['warm', 'Warmth']] as const).map(([key, label]) => (
+              <label key={key} className="g-studio__slider">
+                <span>{label}</span>
+                <input aria-label={label} type="range" min="-100" max="100" step="1" value={look[key]}
+                  onChange={(e) => { setFilterId('custom'); setLook((cur) => ({ ...cur, [key]: Number(e.target.value) })); }} />
+                <b>{look[key] > 0 ? `+${look[key]}` : look[key]}</b>
+              </label>
+            ))}
           </div>
         ) : (
           <div className="g-studio__panel">
