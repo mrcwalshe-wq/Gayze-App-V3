@@ -7,7 +7,7 @@ import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './servi
 import type { ChatConnectionState } from './services/realtimeRecovery';
 import type { MessageDelivery } from './services/chatSubscriptions';
 import { loadMemberNotices, markMemberNoticesRead, type MemberNotice } from './services/memberNotices';
-import { watchNotificationInbox, markNotificationRead, type NotificationInbox, type InboxNotification } from './services/notificationInbox';
+import { watchNotificationInbox, markNotificationRead, markAllNotificationsRead, type NotificationInbox, type InboxNotification } from './services/notificationInbox';
 import { mergeMessage, mergeMessages } from './services/messageMerge';
 import { ChatMessageProcessor, MessageBatcher, MessageDecryptError } from './services/chatMessageProcessing';
 import { beginChatTrace, clearChatTrace } from './services/chatTrace';
@@ -1625,6 +1625,18 @@ export default function App() {
       void markNotificationRead(id).then(() => notificationRefreshRef.current()).catch(() => {});
     }
   }, [isAuthenticated, supabaseUserId]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await Promise.all([
+        markAllNotificationsRead(),
+        memberNotices.some((n) => !n.read_at) ? markMemberNoticesRead() : Promise.resolve(),
+      ]);
+      notificationRefreshRef.current();
+      void refreshMemberNotices();
+      showToast('All notifications marked as read');
+    } catch { showToast('Could not mark notifications as read. Please try again.'); }
+  };
 
   const openInboxNotificationRef = useRef<(notice: InboxNotification) => Promise<void>>(async () => {});
   const notificationInboxRef = useRef<NotificationInbox | null>(null);
@@ -3811,6 +3823,8 @@ export default function App() {
                     notices={memberNotices}
                     onOpenNotice={openMemberNotice}
                     onOpenNotification={openInboxNotification}
+                    onMarkAllRead={handleMarkAllRead}
+                    unreadTotal={(notificationInbox?.unread ?? 0) + memberUnreadCount}
                     onOpenPublicProfile={openPublicProfile}
                     onInterestAccepted={async (conversationId) => {
                       setMessagesSubTab('chats');

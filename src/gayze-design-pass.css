@@ -1463,3 +1463,6 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-studio__filters::-webkit-scrollbar { display: none; }
 .g-studio__filters button { flex: none; display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 15px; border-radius: 999px; font-size: 12.5px; font-weight: 700; color: rgba(255, 255, 255, .75); background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); }
 .g-studio__filters button[data-active='true'] { color: #fff; background: rgba(150, 100, 235, .3); border-color: rgba(150, 100, 235, .7); }
+
+.g-notification-markall { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #e7dcfb; background: rgba(111, 60, 195, .22); border: 1px solid rgba(170, 132, 245, .45); }
+.g-notification-markall:disabled { opacity: .4; }
