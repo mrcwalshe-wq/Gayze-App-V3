@@ -75,6 +75,7 @@ import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_P
 import { getProfilePhotoUrl } from './services/profilePhotoService';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { primeCallAudio } from './services/callAudioService';
+import { hapticCallConnected, hapticCallEnded } from './services/hapticService';
 import { installCallSoundUnlock, playCallSound, stopCallSounds } from './services/callSounds';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
@@ -2761,6 +2762,8 @@ export default function App() {
       const ctx = callContextRef.current;
       // Sounds follow the call: ringback while calling, a chime when it connects (which also stops the ringing), a tone when it
       // ends, and a "not answered" tone when nobody picks up.
+      if (state === 'connected' && previous !== 'connected') hapticCallConnected();
+      else if (state === 'ended' || state === 'missed' || state === 'declined' || state === 'failed') hapticCallEnded();
       if ((state === 'calling' || state === 'ringing') && !ctx.incoming) playCallSound('outgoing');
       else if (state === 'connecting') stopCallSounds();
       else if (state === 'connected') { if (previous !== 'connected') playCallSound('connected'); }
@@ -3032,6 +3035,7 @@ export default function App() {
   const handleStartCall = async (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
     // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
     primeCallAudio();
+    webrtcCallService.prewarmMedia(type);   // inside the tap, so the browser lets it ask
     // Live calls must belong to a real mutual conversation. A synthetic room
     // cannot provide a valid signaling context and would leave the call UI stuck.
     if (IS_LIVE_BACKEND) {
@@ -3084,14 +3088,17 @@ export default function App() {
 
   const handleAcceptIncomingCall = async (call: IncomingCall) => {
     primeCallAudio();
+    webrtcCallService.prewarmMedia(call.callType);   // inside the tap, before any waiting
     if (call.callerId) {
       try {
         if (await isBlockedBetween(call.callerId)) {
+          webrtcCallService.discardPrewarmedMedia();
           setIncomingCall(null);
           showToast('This caller is blocked.');
           return;
         }
       } catch {
+        webrtcCallService.discardPrewarmedMedia();
         setIncomingCall(null);
         showToast('Could not verify block status. Call rejected.');
         return;

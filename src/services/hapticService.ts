@@ -42,7 +42,38 @@ export const triggerVibration = (pattern: number | number[]): boolean => {
       console.warn('Vibration API error:', e);
     }
   }
-  return false;
+  return iosTaps(pattern);
+};
+
+/**
+ * iPhones have no Vibration API. Safari 17.4+ does give a small tap whenever a switch-style checkbox is toggled, so a hidden
+ * one is toggled once for each "buzz" in the pattern. Safari only allows it while the person is touching the screen (inside a
+ * tap), so it works for button presses, not for events that arrive on their own such as an incoming call.
+ */
+let iosSwitch: HTMLLabelElement | null = null;
+const iosTaps = (pattern: number | number[]): boolean => {
+  if (typeof document === 'undefined' || !/iPhone|iPad|iPod/.test(navigator.userAgent)) return false;
+  try {
+    if (!iosSwitch) {
+      const label = document.createElement('label');
+      label.setAttribute('aria-hidden', 'true');
+      label.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.setAttribute('switch', '');
+      input.tabIndex = -1;
+      label.appendChild(input);
+      document.body.appendChild(label);
+      iosSwitch = label;
+    }
+    const steps = Array.isArray(pattern) ? pattern : [pattern];
+    let at = 0;
+    steps.forEach((ms, index) => {
+      if (index % 2 === 0) window.setTimeout(() => iosSwitch?.click(), at);
+      at += ms;
+    });
+    return true;
+  } catch { return false; }
 };
 
 /**
@@ -91,3 +122,12 @@ export const hapticSensitiveAction = (): void => {
 export const hapticLight = (): void => {
   triggerVibration([25]);
 };
+
+/** A call has connected: confident rising double pulse. */
+export const hapticCallConnected = (): void => { triggerVibration([40, 60, 120]); };
+
+/** A call has ended or was not answered. */
+export const hapticCallEnded = (): void => { triggerVibration([100, 50, 100]); };
+
+/** A message was sent. */
+export const hapticMessageSent = (): void => { triggerVibration([18]); };

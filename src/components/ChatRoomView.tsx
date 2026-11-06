@@ -10,7 +10,7 @@ import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace'
 import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode } from '../types';
-import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction } from '../services/hapticService';
+import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction, hapticMessageSent } from '../services/hapticService';
 import {
   Lock,
   ShieldCheck,
@@ -431,6 +431,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     e.preventDefault();
     if ((!inputText.trim() && !attachedMedia) || !currentRoom) return;
 
+    hapticMessageSent();
     const textToSend = inputText.trim() || (attachedMedia ? 'Shared a photo' : '');
     const mediaToSend = attachedMedia || undefined;
 
