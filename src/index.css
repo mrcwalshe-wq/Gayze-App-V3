@@ -3894,7 +3894,7 @@ button, input, select, textarea, [role="button"] {
 @media (max-width: 767px) {
   :root {
     --g-tabbar-h: 64px;
-    --g-chrome-gap: 22px;
+    --g-chrome-gap: 38px; /* clears the GAYZE roundel that rises above the tab bar */
   }
 
   /* The nav owns its own bottom safe-area; floating content must clear both. */

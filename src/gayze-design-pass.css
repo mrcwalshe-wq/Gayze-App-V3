@@ -1571,3 +1571,9 @@ nav.g-tabbar:has(.g-tab--discover[data-intent-mode='social']) { --gl1: 214, 170,
     radial-gradient(40% 32% at 12% 84%, rgba(240, 190, 100, .24), transparent 70%);
 }
 .g-atmos[data-intent-mode='private'], .g-atmos[data-intent-mode='social'] { opacity: 1; }
+
+/* Date and time field: never wider than its card (iOS gives date inputs an intrinsic width) */
+.g-later-pick__field { overflow: hidden; }
+.g-later-pick__field input[type='datetime-local'] { display: block; box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; -webkit-appearance: none; appearance: none; text-align: left; padding: 0 12px; }
+.g-later-pick__field input[type='datetime-local']::-webkit-date-and-time-value { text-align: left; min-width: 0; }
+.g-iset--later .g-label, .g-iset--later .g-later-pick__field label.g-label { color: rgb(214, 170, 80) !important; }

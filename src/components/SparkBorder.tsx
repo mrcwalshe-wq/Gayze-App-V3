@@ -105,6 +105,15 @@ function frame(t: number) {
   if (!canvas || !c2d) return;
   const dt = Math.min(0.04, (t - last) / 1000); last = t;
   c2d.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  // Inside a sheet, sparks never draw over its title bar or its action footer: they stay in the body between them.
+  c2d.save();
+  const host = emitters.values().next().value?.host;
+  const sheet = host?.closest('.g-sheet') as HTMLElement | null;
+  if (sheet) {
+    const top = sheet.querySelector('.g-sheet__head')?.getBoundingClientRect().bottom ?? 0;
+    const bottom = sheet.querySelector('.g-sheet__foot')?.getBoundingClientRect().top ?? window.innerHeight;
+    c2d.beginPath(); c2d.rect(0, Math.max(0, top), window.innerWidth, Math.max(0, bottom - top)); c2d.clip();
+  }
   c2d.globalCompositeOperation = 'lighter'; c2d.lineCap = 'round';
 
   // Each live sparkler: its head travels the outline and sheds sparks backwards and outwards.
@@ -167,6 +176,7 @@ function frame(t: number) {
   });
 
   c2d.globalCompositeOperation = 'source-over'; c2d.globalAlpha = 1;
+  c2d.restore();
 
   // Nothing burning and nothing falling: tidy up.
   if (emitters.size === 0 && parts.length === 0) { stopLoop(); return; }
