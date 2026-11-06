@@ -1,5 +1,6 @@
 import { webrtcCallService } from './webrtcService';
 import { enqueueCallNotification } from './callNotificationService';
+import { endCallSession, startCallSession } from './callSessions';
 
 let callAudioContext: AudioContext | null = null;
 
@@ -48,9 +49,12 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
       callType: params.callType,
     });
 
-    await originalStartCall(params);
+    // Recorded first, so the person called can answer even if their app wakes up after the live signal.
+    void startCallSession(callId, params.conversationId, params.targetUserId, params.callType);
+    await originalStartCall({ ...params, callId });
 
     const state = webrtcCallService.getState();
+    if (state !== 'calling' && state !== 'ringing') void endCallSession(callId, 'ended');
     if (state === 'calling' || state === 'ringing') {
       await enqueueCallNotification({
         conversationId: params.conversationId,
@@ -65,11 +69,13 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
   };
 
   webrtcCallService.acceptCall = async (params) => {
+    void endCallSession(params.callId, 'answered');
     await originalAcceptCall(params);
     await markCallNotificationReadByConversation(params.conversationId);
   };
 
   webrtcCallService.declineCall = async (params) => {
+    void endCallSession(params.callId, 'ended');
     await originalDeclineCall(params);
     await markCallNotificationReadByConversation(params.conversationId);
   };
@@ -95,6 +101,7 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
     const call = conversationId ? activeCall.get(conversationId) : undefined;
 
     const wasRinging = webrtcCallService.getState() === 'calling' || webrtcCallService.getState() === 'ringing';
+    if (call) void endCallSession(call.callId, 'ended');
     await originalEndCall(explicitState);
 
     // Unanswered however it ended: it timed out, the caller hung up while it rang, or it was declined.

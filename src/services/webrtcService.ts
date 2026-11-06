@@ -194,7 +194,29 @@ export class WebRTCCallService {
     return () => this.streamListeners.delete(listener);
   }
 
+  /**
+   * A call stuck in "connecting" used to hang for minutes. If it has not connected after 12 s the connection is renegotiated,
+   * again after 28 s, and at 50 s it fails with a clear message instead of leaving both people waiting.
+   */
+  private connectWatchdog: ReturnType<typeof setTimeout>[] = [];
+  private armConnectWatchdog() {
+    this.clearConnectWatchdog();
+    const generation = this.callGeneration;
+    const check = (action: () => void) => () => { if (generation === this.callGeneration && this.state === 'connecting') action(); };
+    this.connectWatchdog = [
+      setTimeout(check(() => this.scheduleRestart(0)), 12_000),
+      setTimeout(check(() => this.scheduleRestart(0)), 28_000),
+      setTimeout(check(() => {
+        this.cleanup();
+        this.setState('failed', 'The call could not connect. Check both connections and try again.');
+      }), 50_000),
+    ];
+  }
+  private clearConnectWatchdog() { this.connectWatchdog.forEach(clearTimeout); this.connectWatchdog = []; }
+
   private setState(newState: CallState, error: string | null = null) {
+    if (newState === 'connecting' && this.state !== 'connecting') this.armConnectWatchdog();
+    else if (newState !== 'connecting') this.clearConnectWatchdog();
     this.state = newState;
     this.errorMessage = error;
     for (const listener of this.stateListeners) {
@@ -227,7 +249,7 @@ export class WebRTCCallService {
         if (!current()) return;
         const signal = envelope.payload;
         if (!signal || signal.targetUserId && signal.targetUserId !== userId) return;
-        if (Date.now() - signal.timestamp > 45_000) return;
+        if (Date.now() - signal.timestamp > 75_000) return;
         if (signal.type === 'call-request') {
           // A user-topic broadcast is only a delivery hint. Verify that both
           // authenticated users belong to this real conversation before
@@ -343,10 +365,12 @@ export class WebRTCCallService {
     targetUserId: string;
     targetUserName: string;
     callType: CallType;
+    /** Lets the call be recorded on the server under the same id the signals carry. */
+    callId?: string;
   }): Promise<void> {
     this.cleanup();
     const generation = this.callGeneration;
-    this.activeCallId = this.createCallId();
+    this.activeCallId = params.callId || this.createCallId();
     this.setState('calling');
     this.currentCallType = params.callType;
     this.activeConversationId = params.conversationId;
@@ -395,12 +419,12 @@ export class WebRTCCallService {
       if (generation !== this.callGeneration) return;
       analytics.logEvent('call_started', { type: params.callType });
 
-      // 4. Auto-timeout if no answer within 35 seconds
+      // 4. Auto-timeout if no answer within 60 seconds (long enough for a sleeping phone to wake and answer)
       this.ringingTimeoutTimer = window.setTimeout(() => {
         if (this.state === 'calling' || this.state === 'ringing') {
           this.endCall('missed');
         }
-      }, 35000);
+      }, 60000);
     } catch (err: any) {
       if (generation !== this.callGeneration) return;
       console.error('[GAYZE WebRTC] startCall failed:', err);
@@ -434,12 +458,9 @@ export class WebRTCCallService {
     this.targetUserNameForHistory = params.userId;
 
     try {
-      // 1. Acquire local media
-      await this.acquireLocalMedia(params.callType, generation);
-      if (generation !== this.callGeneration) return;
-
-      // 2. Load short-lived TURN credentials before creating the peer connection
-      await this.loadIceServers();
+      // 1+2. Acquire local media and load short-lived TURN credentials together; both are needed before the peer
+      // connection exists, and doing them one after the other made answering slower than it had to be.
+      await Promise.all([this.acquireLocalMedia(params.callType, generation), this.loadIceServers()]);
       if (generation !== this.callGeneration) return;
 
       // 3. Join signaling channel
@@ -908,6 +929,7 @@ export class WebRTCCallService {
    */
   public cleanup() {
     ++this.callGeneration;
+    this.clearConnectWatchdog();
     this.transientSignals.forEach((cancel) => cancel());
     this.transientSignals.clear();
     this.iceCache.clear();
