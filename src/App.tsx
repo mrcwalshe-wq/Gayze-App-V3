@@ -1497,7 +1497,10 @@ export default function App() {
         setActiveTab(route.tab);
         if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
         if (route.conversationId) requestConversationOpen(route.conversationId);
-        replacePath(data.url);
+        // A tap with no chat in its address (a connection, a Gayze, an expiring intent) is resolved from the notification itself.
+        const notice = !route.conversationId && notificationId ? notificationInboxRef.current?.rows.find((row) => row.id === notificationId) : undefined;
+        if (notice && supabaseUserIdRef.current) void openInboxNotificationRef.current(notice);
+        else replacePath(data.url);
         event.ports[0]?.postMessage({ handled: true });
         return;
       }
@@ -1577,6 +1580,9 @@ export default function App() {
     }
   }, [isAuthenticated, supabaseUserId]);
 
+  const openInboxNotificationRef = useRef<(notice: InboxNotification) => Promise<void>>(async () => {});
+  const notificationInboxRef = useRef<NotificationInbox | null>(null);
+  notificationInboxRef.current = notificationInbox;
   const openInboxNotification = async (notice: InboxNotification) => {
     const account = supabaseUserIdRef.current, generation = authGenerationRef.current;
     try {
@@ -1601,6 +1607,7 @@ export default function App() {
             || Boolean(room.memberIds?.includes(actorId) && room.memberIds?.includes(account ?? ''))
           ))
         : undefined;
+      if (notice.category === 'intent_expiring') { setActiveTab('right_now'); replacePath('/right-now'); return; }
       const conversationId = route.conversationId || roomForActor?.id;
       if (conversationId) {
         requestConversationOpen(conversationId);
@@ -1613,6 +1620,8 @@ export default function App() {
       replacePath(notice.url);
     } catch { showToast('Could not update the notification. Please try again.'); }
   };
+
+  openInboxNotificationRef.current = openInboxNotification;
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase || !isAuthenticated || !supabaseUserId) return;
@@ -3527,6 +3536,8 @@ export default function App() {
 
   if (isSupabaseConfigured && authReady && !isAuthenticated && typeof window !== 'undefined'
     && window.location.pathname !== '/login' && !isAuthPath(window.location.pathname)) {
+    // Someone tapping a notification while signed out keeps their destination for after they sign in.
+    rememberNotificationPath(window.location.pathname + window.location.search);
     return <ConceptHoldingPage />;
   }
 
