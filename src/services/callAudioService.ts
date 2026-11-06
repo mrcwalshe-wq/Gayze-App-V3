@@ -2,30 +2,18 @@ import { webrtcCallService } from './webrtcService';
 import { enqueueCallNotification } from './callNotificationService';
 import { endCallSession, startCallSession } from './callSessions';
 
-let callAudioContext: AudioContext | null = null;
+import { unlockCallSounds } from './callSounds';
 
-const getCtor = () => window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+/**
+ * Call sounds no longer use Web Audio (see callSounds.ts). These names stay because the call screens call them; they now
+ * hand out no audio context, so nothing in a call can leave one open next to the microphone.
+ */
+export const getCallAudioContext = (): AudioContext | null => null;
 
-export const getCallAudioContext = (): AudioContext | null => {
-  if (typeof window === 'undefined') return null;
-  const Ctor = getCtor();
-  if (!Ctor) return null;
-  if (!callAudioContext || callAudioContext.state === 'closed') callAudioContext = new Ctor();
-  return callAudioContext;
-};
+/** Must be called directly from the user's call/accept tap so iOS/Safari lets the sounds play. */
+export const primeCallAudio = (): void => { unlockCallSounds(); };
 
-/** Must be called directly from the user's call/accept tap so iOS/Safari grants audio activation. */
-export const primeCallAudio = (): void => {
-  const ctx = getCallAudioContext();
-  if (!ctx) return;
-  void ctx.resume().catch(() => undefined);
-};
-
-export const closeCallAudio = (): void => {
-  const ctx = callAudioContext;
-  callAudioContext = null;
-  if (ctx) void ctx.close().catch(() => undefined);
-};
+export const closeCallAudio = (): void => undefined;
 
 // Bridge WebRTC call lifecycle events to the durable push-notification system.
 // This keeps provider/database notification details outside the WebRTC service.

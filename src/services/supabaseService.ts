@@ -1,5 +1,6 @@
 import { intentWhenLabel } from './intentTiming';
 import { supabase } from './supabaseClient';
+import { compressImageDataUrl } from './imageCompress';
 import { subscribeToRecoveredMessages, type MessageListener } from './chatSubscriptions';
 import { RealtimeRecovery, requireRealtimeSession, type ChatConnectionState } from './realtimeRecovery';
 import type { UserActiveIntent, Pulse, SafeHaven, UserProfile, LocationPrivacy } from '../types';
@@ -1637,12 +1638,13 @@ export async function preparePhotoAttachment(file: File): Promise<string> {
     throw new Error('Image size must be less than 5MB.');
   }
 
-  return new Promise((resolve, reject) => {
+  const original = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(new Error('Failed to read image file'));
     reader.readAsDataURL(file);
   });
+  return compressImageDataUrl(original);
 }
 
 

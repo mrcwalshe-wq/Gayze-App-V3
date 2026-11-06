@@ -183,8 +183,18 @@ export function subscribeToRecoveredMessages(
         ...(conversationId ? { filter: `conversation_id=eq.${conversationId}` } : {}),
       }, (payload) => {
         if (payload.eventType === 'DELETE') return; // RLS deletion payloads may omit the room.
+        // Realtime leaves the big columns out of a row over its size limit (a large photo). Fetch the whole row instead of
+        // dropping the message, so it still arrives live.
+        const incoming = payload.new as SupabaseMessageRow;
+        const whole = async (): Promise<SupabaseMessageRow> => {
+          if (incoming?.id && !incoming.ciphertext && !incoming.unsent_at) {
+            const { data } = await client.from('messages').select(MESSAGE_COLUMNS).eq('id', incoming.id).abortSignal(signal).maybeSingle();
+            if (data) return data as SupabaseMessageRow;
+          }
+          return incoming;
+        };
         // Live messages get their own lane: never wait behind a history page.
-        liveTail = liveTail.then(() => deliver(payload.new as SupabaseMessageRow, current, payload.eventType === 'INSERT', signal))
+        liveTail = liveTail.then(whole).then((row) => deliver(row, current, payload.eventType === 'INSERT', signal))
           .catch(() => { if (current()) entry.recovery.resync(); });
       }),
       reconcile: (signal, current, progress) => reconcileMessages(client, conversationId, signal, (row) => deliver(row, current, false, signal), progress, userId,

@@ -3,6 +3,7 @@ import { SharePlaceSheet } from './SharePlaceSheet';
 import { MeetupCard, type MeetupAction } from './MeetupCard';
 import { CallLineCard } from './CallLineCard';
 import { presenceLabel } from '../services/presenceLabel';
+import { compressImageDataUrl } from '../services/imageCompress';
 import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
@@ -1173,7 +1174,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         </div>
       )}
 
-      {photoStudioSource && <PhotoStudio source={photoStudioSource} onCancel={() => setPhotoStudioSource(null)} onDone={(edited) => { setAttachedMedia(edited); setPhotoStudioSource(null); }} />}
+      {photoStudioSource && <PhotoStudio source={photoStudioSource} onCancel={() => setPhotoStudioSource(null)} onDone={(edited) => { setPhotoStudioSource(null); void compressImageDataUrl(edited).then(setAttachedMedia, () => setAttachedMedia(edited)); }} />}
 
       {/* Fullscreen Photo Zoom Modal */}
       {zoomedMediaUrl && (
