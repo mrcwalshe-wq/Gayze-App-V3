@@ -44,6 +44,8 @@ export function useCallLevels<T extends HTMLElement>(active: boolean) {
 
   useEffect(() => {
     if (!active) return;
+    // iPhones: a Web Audio graph next to a live call can garble or silence the call audio, so the voice rings stay on their idle animation there.
+    if (typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))) return;
     const Ctor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
 

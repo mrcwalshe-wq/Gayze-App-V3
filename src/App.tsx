@@ -75,6 +75,7 @@ import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_P
 import { getProfilePhotoUrl } from './services/profilePhotoService';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { primeCallAudio } from './services/callAudioService';
+import { installCallSoundUnlock, playCallSound, stopCallSounds } from './services/callSounds';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
 import { blockUser, isBlockedBetween } from './services/blockService';
@@ -2746,12 +2747,27 @@ export default function App() {
     void handleSendMessage(roomId, callLineText(line), room?.ephemeralTtlSeconds, undefined, undefined, undefined, line)
       .catch(() => showToast('The missed call could not be added to the chat.'));
   };
+  useEffect(() => installCallSoundUnlock(), []);
+  // An incoming call rings until it is answered, declined or hung up.
+  useEffect(() => {
+    if (incomingCall) { playCallSound('incoming'); return () => { stopCallSounds(); }; }
+  }, [incomingCall]);
+  useEffect(() => () => stopCallSounds(), []);
   const callContextRef = useRef({ roomId: '', callType: 'audio' as 'audio' | 'video', incoming: false });
   callContextRef.current = { roomId: activeRoomId, callType, incoming: isIncomingCallActive };
   useEffect(() => {
     let previous = webrtcCallService.getState();
     return webrtcCallService.subscribeState((state) => {
       const ctx = callContextRef.current;
+      // Sounds follow the call: ringback while calling, a chime when it connects (which also stops the ringing), a tone when it
+      // ends, and a "not answered" tone when nobody picks up.
+      if ((state === 'calling' || state === 'ringing') && !ctx.incoming) playCallSound('outgoing');
+      else if (state === 'connecting') stopCallSounds();
+      else if (state === 'connected') { if (previous !== 'connected') playCallSound('connected'); }
+      else if (state === 'ended') { if (previous === 'connected' || previous === 'connecting') playCallSound('ended'); else stopCallSounds(); }
+      else if (state === 'missed' || state === 'declined') playCallSound('unanswered');
+      else if (state === 'failed') playCallSound('ended');
+      else if (state === 'idle') stopCallSounds();
       if ((state === 'calling' || state === 'ringing') && !ctx.incoming && !outgoingCallRef.current) {
         outgoingCallRef.current = { roomId: ctx.roomId, callType: ctx.callType, id: crypto.randomUUID() };
       } else if (state === 'connecting' || state === 'connected') {
