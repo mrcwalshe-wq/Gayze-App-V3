@@ -109,13 +109,11 @@ const validId = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9
 function notificationTarget(data) {
   // Gayze lock-screen notifications must deep-link to the existing chat too.
   // The push sender resolves the shared conversation before sending the payload.
-  if ((data.type === 'message' || data.type === 'connection' || data.type === 'gaze') && validId(data.conversationId)) {
-    const query = new URLSearchParams();
-    if (validId(data.notificationId)) query.set('notification', data.notificationId);
-    if (validId(data.recipientId)) query.set('recipient', data.recipientId);
-    const params = query.toString();
-    const suffix = params ? `?${params}` : '';
-    return `/messages/${data.conversationId}${suffix}`;
+  if ((data.type === 'message' || data.type === 'connection' || data.type === 'gaze' || data.type === 'call' || data.type === 'missed_call') && validId(data.conversationId)) {
+    // The recipient travels in the click message, not the URL, so the address stays short and stable.
+    return validId(data.notificationId)
+      ? `/messages/${data.conversationId}?notification=${data.notificationId}`
+      : `/messages/${data.conversationId}`;
   }
   return safePath(data.url, (DEFAULT_COPY[data.type] || DEFAULT_COPY.message).url);
 }
@@ -179,18 +177,47 @@ self.addEventListener('push', (event) => {
   event.waitUntil(work);
 });
 
+// Carry the notification's own id on a tap so the app can open exactly what it is about, whatever the stored URL says.
+function withNotificationId(path, id) {
+  if (!validId(id) || /[?&]notification=/.test(path)) return path;
+  const hashAt = path.indexOf('#');
+  const base = hashAt >= 0 ? path.slice(0, hashAt) : path, hash = hashAt >= 0 ? path.slice(hashAt) : '';
+  return `${base}${base.includes('?') ? '&' : '?'}notification=${id}${hash}`;
+}
+
+const CLICK_STEP_MS = 1500;
+const withTimeout = (promise, ms, fallback) => new Promise((resolve) => {
+  const timer = setTimeout(() => resolve(fallback), ms);
+  Promise.resolve(promise).then((v) => { clearTimeout(timer); resolve(v); }, () => { clearTimeout(timer); resolve(fallback); });
+});
+
+// A tap goes to the right place in the already-open app (no reload, session kept). If no app answers in time it falls back
+// to navigating that window, and finally to opening a new one. Every step is bounded so a dead window can never swallow the tap.
 self.addEventListener('notificationclick', (event) => {
   const data = event.notification?.data || {};
   event.notification.close();
-  const targetPath = notificationTarget(data);
+  const targetPath = withNotificationId(notificationTarget(data), data.notificationId);
   const targetUrl = new URL(targetPath, self.location.origin).href;
   event.waitUntil((async () => {
-    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true }).catch(() => []);
-    const sameOrigin = clients.filter((client) => { try { return new URL(client.url).origin === self.location.origin; } catch { return false; } });
-    const focused = sameOrigin.find((client) => client.focused) || sameOrigin[0];
-    if (focused) {
-      try { await focused.focus(); } catch {}
-      try { if (focused.navigate) { await focused.navigate(targetUrl); return; } } catch {}
+    const clients = await withTimeout(self.clients.matchAll({ type: 'window', includeUncontrolled: true }), CLICK_STEP_MS, []);
+    const sameOrigin = (clients || []).filter((client) => { try { return new URL(client.url).origin === self.location.origin; } catch { return false; } });
+    const app = sameOrigin.find((client) => client.focused) || sameOrigin[0];
+    if (app) {
+      const focused = await withTimeout((async () => { await app.focus(); return true; })(), CLICK_STEP_MS, false);
+      if (focused) {
+        const handled = await withTimeout(new Promise((resolve) => {
+          const channel = new MessageChannel();
+          channel.port1.onmessage = (e) => resolve(Boolean(e.data && e.data.handled));
+          try {
+            app.postMessage({ source: 'gayze-sw', type: 'NOTIFICATION_CLICK', url: targetPath, navigationExpiresAt: Date.now() + 60000, data: { recipientId: validId(data.recipientId) ? data.recipientId : null } }, [channel.port2]);
+          } catch { resolve(false); }
+        }), CLICK_STEP_MS, false);
+        if (handled) return;
+        if (app.navigate) {
+          const navigated = await withTimeout((async () => { await app.navigate(targetUrl); return true; })(), CLICK_STEP_MS, false);
+          if (navigated) return;
+        }
+      }
     }
     await self.clients.openWindow(targetUrl);
   })());
