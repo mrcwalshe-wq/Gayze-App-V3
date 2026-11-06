@@ -4,7 +4,10 @@ import { loadModule } from '../recovery-tests/load-module.mjs';
 import { user, peer, other, roomId, room, intentRow, environment, backend, flush } from './fixtures.mjs';
 const { parsePeerIntent, watchPeerIntent } = await loadModule('src/services/peerIntent.ts');
 const { findDirectRoom, resolveLiveDirectChat } = await loadModule('src/services/directChatRouting.ts');
-const { intentStartsAt, intentWhenLabel } = await loadModule('src/services/intentTiming.ts');
+const {
+  intentStartsAt, intentWhenLabel, toLocalInputValue, parseLocalInputValue, laterBounds,
+  defaultLaterAt, validateLaterAt, formatIntentStart, intentWhenDisplay, LATER_MIN_LEAD_MS, LATER_MAX_LEAD_MS,
+} = await loadModule('src/services/intentTiming.ts');
 
 function watcher() {
   const db = backend(), env = environment(), states = [];
@@ -130,6 +133,28 @@ test('composer scheduling persists real future starts and expired activation age
   assert.equal(intentWhenLabel(morning - 7_200_000, morning), 'Now');
   assert.equal(intentWhenLabel(morning + 3_600_000, morning), 'Next 1 hour');
   assert.equal(intentWhenLabel(morning + 7_200_000, morning), 'Next 2 hours');
+});
+
+test('Later schedules a chosen start, reads back as Later, and never falls back to now', () => {
+  const H = 3_600_000, now = new Date(2026, 10, 6, 11, 53).getTime();
+  const at = new Date(2026, 10, 7, 20, 30).getTime();
+  assert.equal(intentStartsAt('Later', now, at), at);
+  assert.throws(() => intentStartsAt('Later', now), /start date and time/);
+  assert.throws(() => intentStartsAt('Later', now, NaN), /start date and time/);
+  assert.equal(intentWhenLabel(at, now), 'Later');
+  assert.equal(intentWhenLabel(new Date(2026, 10, 7, 19).getTime(), now), 'Later'); // 19:00 tomorrow is not Tonight
+  assert.equal(intentWhenLabel(intentStartsAt('Tonight', now), now + 3 * H), 'Tonight'); // Tonight still reads back
+  assert.equal(parseLocalInputValue(toLocalInputValue(at)), at);
+  for (const bad of ['', '2026-02-31T10:00', 'nonsense']) assert(Number.isNaN(parseLocalInputValue(bad)), bad);
+  assert.match(validateLaterAt(now + 2 * H, now), /more than 2 hours/);
+  assert.equal(validateLaterAt(now + LATER_MIN_LEAD_MS, now), null);
+  assert.match(validateLaterAt(now + LATER_MAX_LEAD_MS + 60_000, now), /7 days/);
+  const { min, max } = laterBounds(now);
+  assert.equal(validateLaterAt(parseLocalInputValue(min), now), null); assert.equal(validateLaterAt(parseLocalInputValue(max), now), null);
+  assert.equal(validateLaterAt(defaultLaterAt(now), now), null);
+  assert.equal(formatIntentStart(defaultLaterAt(now), now), 'Today 15:00');
+  assert.equal(intentWhenDisplay({ when: 'Later', activatedAt: at }, now), 'Tomorrow 20:30');
+  assert.equal(intentWhenDisplay({ when: 'Tonight', activatedAt: at }, now), 'Tonight');
 });
 
 test('in-flight invalidation cannot publish the replaced snapshot; stalled REST cannot stay current', async () => {

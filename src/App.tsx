@@ -4,6 +4,7 @@
  */
 import { DeletedRoomTracker } from './services/deletedRooms';
 import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
+import { intentWhenDisplay } from './services/intentTiming';
 import type { ChatConnectionState } from './services/realtimeRecovery';
 import type { MessageDelivery } from './services/chatSubscriptions';
 import { loadMemberNotices, markMemberNoticesRead, type MemberNotice } from './services/memberNotices';
@@ -3169,7 +3170,7 @@ export default function App() {
       if (isFirstPublish && intent.when === 'Now') {
         setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
       }
-      showToast(`Status updated: ${intent.intent} (${intent.when})`);
+      showToast(`Status updated: ${intent.intent} (${intentWhenDisplay(intent)})`);
       return true;
     }
 

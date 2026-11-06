@@ -1,4 +1,12 @@
-import { intentStartsAt } from '../services/intentTiming';
+import {
+  intentStartsAt,
+  formatIntentStart,
+  toLocalInputValue,
+  parseLocalInputValue,
+  laterBounds,
+  defaultLaterAt,
+  validateLaterAt,
+} from '../services/intentTiming';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
@@ -70,11 +78,13 @@ const PRIVATE_OPTIONS: IntentOption<PrivateIntent>[] = [
   { value: 'Other', label: 'Other', hint: 'Say it in your words', icon: Sparkles },
 ];
 
-const WHEN_OPTIONS: { value: string; label: string }[] = [
-  { value: 'Now', label: 'Right now' },
-  { value: 'Next 1 hour', label: '1 hour' },
-  { value: 'Next 2 hours', label: '2 hours' },
-  { value: 'Tonight', label: 'Tonight' },
+// kind drives colour: happening soon is purple, a scheduled Later is amber.
+const WHEN_OPTIONS: { value: string; label: string; kind: 'live' | 'later' }[] = [
+  { value: 'Now', label: 'Now', kind: 'live' },
+  { value: 'Next 1 hour', label: '1 hour', kind: 'live' },
+  { value: 'Next 2 hours', label: '2 hours', kind: 'live' },
+  { value: 'Tonight', label: 'Tonight', kind: 'live' },
+  { value: 'Later', label: 'Later', kind: 'later' },
 ];
 
 const DURATION_OPTIONS = ['1 hr', '2 hrs', '4+ hrs'] as const;
@@ -120,6 +130,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   const [intent, setIntent] = useState<EncounterIntent | null>(null);
   const [description, setDescription] = useState('');
   const [when, setWhen] = useState<string>(defaultWhen);
+  const [laterAt, setLaterAt] = useState(''); // datetime-local value, device-local time
   const [duration, setDuration] = useState<'1 hr' | '2 hrs' | '4+ hrs'>('2 hrs');
   const [travelDistance, setTravelDistance] = useState('Within 2 km');
   const [canHost, setCanHost] = useState<'Can host' | 'Cannot host' | 'Depends'>('Can host');
@@ -151,6 +162,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       setIntent(existingIntent.intent);
       setDescription(existingIntent.description || '');
       setWhen(existingIntent.when || defaultWhen);
+      setLaterAt(existingIntent.when === 'Later' ? toLocalInputValue(existingIntent.activatedAt) : '');
       setDuration(existingIntent.duration === '1 hr' ? '1 hr' : existingIntent.duration === '4+ hrs' ? '4+ hrs' : '2 hrs');
       setTravelDistance(existingIntent.travelDistance || 'Within 2 km');
       setCanHost(existingIntent.canHost || 'Can host');
@@ -166,6 +178,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       setIntent(null);
       setDescription('');
       setWhen(defaultWhen);
+      setLaterAt('');
       setDuration('2 hrs');
       setTravelDistance('Within 2 km');
       setCanHost('Can host');
@@ -204,15 +217,36 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     }
   };
 
+  // Editing a Later signal without touching its time must not be blocked by the lead-time rule.
+  const laterUnchanged = when === 'Later' && existingIntent?.when === 'Later'
+    && laterAt === toLocalInputValue(existingIntent.activatedAt);
+
+  const handleSelectWhen = (value: string) => {
+    hapticLight();
+    setWhen(value);
+    setErrorMessage(null);
+    if (value === 'Later' && validateLaterAt(parseLocalInputValue(laterAt)) && !laterUnchanged) {
+      setLaterAt(toLocalInputValue(defaultLaterAt()));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mode || !intent || isSubmitting) return;
+
+    let laterTs: number | undefined;
+    if (when === 'Later') {
+      laterTs = parseLocalInputValue(laterAt);
+      const problem = laterUnchanged && Number.isFinite(laterTs) ? null : validateLaterAt(laterTs);
+      if (problem) { setErrorMessage(problem); return; }
+    }
+
     hapticSensitiveAction();
     setIsSubmitting(true);
     setErrorMessage(null);
 
     const durationMs = (duration === '1 hr' ? 1 : duration === '4+ hrs' ? 4 : 2) * 3600 * 1000;
-    const activatedAt = intentStartsAt(when);
+    const activatedAt = intentStartsAt(when, Date.now(), laterTs);
     const expiresAt = activatedAt + durationMs;
 
     const meetPlace = mode === 'social' && !useSafeHaven ? place : null;
@@ -302,7 +336,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden min-h-0">
+        <form noValidate onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="g-sheet__body">
             {/* STEP 1 — mode */}
             <div className="pt-1 pb-3">
@@ -382,20 +416,42 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
               <div className="g-reveal pt-3 border-t border-white/[0.07] space-y-4 pb-2">
                 <div>
                   <span className="g-label">When</span>
-                  <div className="g-iseg g-iseg--4 mt-2.5" data-tone={tone}>
+                  <div className="g-iseg g-iseg--5 mt-2.5" data-tone={tone}>
                     {WHEN_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         type="button"
                         className="g-iseg__opt"
+                        data-kind={opt.kind}
                         data-active={when === opt.value}
-                        onClick={() => { hapticLight(); setWhen(opt.value); }}
+                        aria-pressed={when === opt.value}
+                        onClick={() => handleSelectWhen(opt.value)}
                       >
                         {opt.label}
                       </button>
                     ))}
                   </div>
                   {when === 'Tonight' && <p className="mt-2 text-[11px] text-zinc-500">From 19:00 local time, or now if it is already later.</p>}
+                  {when === 'Later' && (
+                    <div className="g-reveal g-iset__later mt-2.5">
+                      <label htmlFor="intent-later-at" className="g-iset__later-label">Starts</label>
+                      <input
+                        id="intent-later-at"
+                        type="datetime-local"
+                        className="g-field g-iset__field g-iset__field--later"
+                        value={laterAt}
+                        min={laterUnchanged ? undefined : laterBounds().min}
+                        max={laterBounds().max}
+                        onChange={(e) => { setLaterAt(e.target.value); setErrorMessage(null); }}
+                      />
+                      <p className="mt-2 text-[11px] text-zinc-500">
+                        {Number.isFinite(parseLocalInputValue(laterAt))
+                          ? `${formatIntentStart(parseLocalInputValue(laterAt))} · `
+                          : ''}
+                        Choose a start between 2 hours and 7 days from now.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -574,7 +630,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
               </div>
               <div className="text-[10.5px] font-mono text-zinc-500 truncate">
                 {mode && intent
-                  ? `${mode === 'private' ? 'Private' : 'Social'} · ${when === 'Now' ? 'Right now' : when} · ${duration} · ${userNeighborhood}`
+                  ? `${mode === 'private' ? 'Private' : 'Social'} · ${when === 'Now' ? 'Right now' : when === 'Later' ? (Number.isFinite(parseLocalInputValue(laterAt)) ? formatIntentStart(parseLocalInputValue(laterAt)) : 'Later') : when} · ${duration} · ${userNeighborhood}`
                   : 'Two taps to go live'}
               </div>
             </div>

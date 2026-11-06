@@ -447,6 +447,8 @@ nav.g-tabbar .g-tab--discover .g-tab__label {
 
 .g-iseg { display: grid; gap: 4px; padding: 4px; border-radius: 16px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .06); --it-rgb: 214, 170, 80; }
 .g-iseg[data-tone='private'] { --it-rgb: 150, 100, 235; }
+.g-iseg--5 { grid-template-columns: repeat(5, 1fr); }
+.g-iseg--5 .g-iseg__opt { padding: 0 2px; }
 .g-iseg--4 { grid-template-columns: repeat(4, 1fr); }
 .g-iseg--3 { grid-template-columns: repeat(3, 1fr); }
 .g-iseg--2 { grid-template-columns: repeat(2, 1fr); }
@@ -460,6 +462,20 @@ nav.g-tabbar .g-tab--discover .g-tab__label {
   color: #fff; background: linear-gradient(180deg, rgba(var(--it-rgb), .34), rgba(var(--it-rgb), .16));
   border-color: rgba(var(--it-rgb), .6); box-shadow: 0 0 16px rgba(var(--it-rgb), .22), inset 0 1px 0 rgba(255, 255, 255, .12);
 }
+/* When: happening soon reads purple, a scheduled Later reads amber. The option owns its colour. */
+.g-iseg__opt[data-kind='live'] { --it-rgb: 150, 100, 235; }
+.g-iseg__opt[data-kind='later'] { --it-rgb: 214, 170, 80; }
+.g-iseg__opt[data-kind='later']:not([data-active='true']) { color: rgba(226, 190, 112, .78); }
+
+/* Later date and time picker: amber, matching the Later option */
+.g-iset__later {
+  padding: 12px; border-radius: 16px;
+  background: linear-gradient(135deg, rgba(214, 170, 80, .12), rgba(214, 170, 80, .04));
+  border: 1px solid rgba(214, 170, 80, .38);
+}
+.g-iset__later-label { display: block; margin-bottom: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgb(226, 190, 112); }
+.g-field.g-iset__field--later { color-scheme: dark; border-color: rgba(214, 170, 80, .3); font-variant-numeric: tabular-nums; }
+.g-field.g-iset__field--later:focus { border-color: rgba(214, 170, 80, .75); box-shadow: 0 0 0 3px rgba(214, 170, 80, .16); }
 
 .g-iset__field { height: 48px; border-radius: 14px; font-size: 14.5px; padding: 0 14px; }
 .g-iset__count { display: block; margin-top: 5px; text-align: right; font-size: 10px; letter-spacing: .04em; color: rgba(255, 255, 255, .3); font-variant-numeric: tabular-nums; }
