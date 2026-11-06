@@ -1544,6 +1544,8 @@ export default function App() {
         const notice = !route.conversationId && notificationId ? notificationInboxRef.current?.rows.find((row) => row.id === notificationId) : undefined;
         if (notice && supabaseUserIdRef.current) void openInboxNotificationRef.current(notice);
         else replacePath(data.url);
+        // Tapping a call notification: see whether that call is still ringing and offer to answer it.
+        for (const delay of [200, 2000]) window.setTimeout(() => window.dispatchEvent(new Event('gayze:call-push')), delay);
         event.ports[0]?.postMessage({ handled: true });
         return;
       }
