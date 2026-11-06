@@ -1126,9 +1126,9 @@ nav.g-tabbar {
     left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important;
     height: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px)) !important; min-height: 0 !important;
     padding: 0 6px env(safe-area-inset-bottom, 0px) !important; box-sizing: border-box !important;
-    border: 0 !important; border-top: 1px solid rgba(255, 255, 255, .09) !important; border-radius: 26px 26px 0 0 !important;
+    border: 0 !important; border-radius: 26px 26px 0 0 !important;
     background: linear-gradient(180deg, rgba(24, 20, 40, .97), rgb(9, 8, 15) 70%) !important;
-    box-shadow: 0 -10px 34px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .07) !important;
+    box-shadow: 0 -10px 34px rgba(0, 0, 0, .55) !important;
   }
   nav.g-tabbar.g-tabbar .g-tabbar__inner { height: var(--g-tabbar-h) !important; min-height: 0 !important; }
   nav.g-tabbar.g-tabbar { --gd-center: 33px; --gd-r: 51px; --gd-rise: 18px; }
@@ -1136,7 +1136,8 @@ nav.g-tabbar {
   nav.g-tabbar.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action { width: 68px !important; height: 68px !important; padding: 0 !important; }
   nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-action { position: relative !important; top: -27px; }
   nav.g-tabbar.g-tabbar .g-tab--discover .g-tab__label { position: relative; top: -11px; }
-  nav.g-tabbar .g-tabbar__edge { top: -18px; }
+  /* The line sits exactly on the bar's top edge (stroke centred on y = RISE + 1), and it is the only line there. */
+  nav.g-tabbar .g-tabbar__edge { top: -19px; }
 }
 @media (max-width: 767px) {
   nav.g-tabbar .g-tabbar__edge { z-index: 0; }

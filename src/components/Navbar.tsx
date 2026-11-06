@@ -104,7 +104,7 @@ const TabbarEdge: React.FC = () => {
               <path d={d} fill="none" stroke={`url(#${uid}-fade)`} strokeWidth="2" strokeLinecap="round" />
             </mask>
           </defs>
-          <path d={`M${cx - HALF} ${y + 1} A${RADIUS} ${RADIUS} 0 0 1 ${cx + HALF} ${y + 1} Z`} fill="rgb(24 20 40)" fillOpacity=".97" />
+          <path d={`M${cx - HALF} ${y} A${RADIUS} ${RADIUS} 0 0 1 ${cx + HALF} ${y} L${cx + HALF} ${y + 1} L${cx - HALF} ${y + 1} Z`} fill="rgb(24 20 40)" fillOpacity=".97" />
           <rect x="0" y="0" width={width} height={RISE + 4} fill={`url(#${uid}-paint)`} mask={`url(#${uid}-mask)`} />
         </>
       )}
