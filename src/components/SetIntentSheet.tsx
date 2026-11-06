@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
-import { SparkBorder } from './SparkBorder';
+import { SparkBorder, sparkBurst } from './SparkBorder';
 import { PlacePicker } from './PlacePicker';
 import {
   SafeHaven,
@@ -286,6 +286,11 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       <div
         className={`g-sheet g-sheet--above-nav g-iset ${mode ? `g-sheet--${mode}` : ""} ${when === 'Later' ? 'g-iset--later' : 'g-iset--now'}`}
         onClick={(e) => e.stopPropagation()}
+        onClickCapture={(e) => {
+          // Every button on this sheet throws a burst of sparks in the signal's colour (gold for Later, purple otherwise).
+          const el = (e.target as HTMLElement).closest('.g-iseg__opt, .g-later-pick, .g-iset__sug, .g-sheet__foot button') as HTMLElement | null;
+          if (el) sparkBurst(el, el.closest('.g-later-pick') || (when === 'Later' && !el.closest('[data-seg="when"]')) ? 'social' : 'private', 30);
+        }}
       >
         <div className="g-sheet__grip" />
 
