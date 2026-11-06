@@ -53,6 +53,20 @@ export interface CallSignalPayload {
   callId?: string;
 }
 
+const LOG_KEY = 'gayze_call_log';
+/** The last few dozen call events (states, signals, errors) kept on this device, so a failed call can be diagnosed. No SDP, keys or message content. */
+export function callLog(event: string): void {
+  try {
+    const raw = localStorage.getItem(LOG_KEY);
+    const entries: string[] = raw ? JSON.parse(raw) : [];
+    entries.push(`${new Date().toISOString().slice(11, 23)} ${event}`);
+    localStorage.setItem(LOG_KEY, JSON.stringify(entries.slice(-120)));
+  } catch { /* storage unavailable */ }
+}
+export function readCallLog(): string {
+  try { return (JSON.parse(localStorage.getItem(LOG_KEY) || '[]') as string[]).join('\n'); } catch { return ''; }
+}
+
 export function getIceServers(): RTCIceServer[] {
   // VITE_* is public build output. Overrides may contain STUN URLs only;
   // Cloudflare TURN credentials always come from the authenticated function.
@@ -201,6 +215,7 @@ export class WebRTCCallService {
    * A call stuck in "connecting" used to hang for minutes. If it has not connected after 12 s the connection is renegotiated,
    * again after 28 s, and at 50 s it fails with a clear message instead of leaving both people waiting.
    */
+  private handledRequests = new Set<string>();
   private connectWatchdog: ReturnType<typeof setTimeout>[] = [];
   private armConnectWatchdog() {
     this.clearConnectWatchdog();
@@ -218,6 +233,7 @@ export class WebRTCCallService {
   private clearConnectWatchdog() { this.connectWatchdog.forEach(clearTimeout); this.connectWatchdog = []; }
 
   private setState(newState: CallState, error: string | null = null) {
+    callLog(`state ${this.state} -> ${newState}${error ? ` (${error})` : ''}`);
     if (newState === 'connecting' && this.state !== 'connecting') this.armConnectWatchdog();
     else if (newState !== 'connecting') this.clearConnectWatchdog();
     this.state = newState;
@@ -266,7 +282,18 @@ export class WebRTCCallService {
               .in('user_id', [userId, signal.callerId]);
             if (!current() || error || new Set((members || []).map((member: { user_id: string }) => member.user_id)).size !== 2) return;
 
-            // If already in a call, notify caller that we're busy.
+            // The same ring can reach us twice (the live signal and the server's ringing record, or the signal sent on both
+            // channels). A repeat of a call we are already answering, or have already dealt with, is not a second call and
+            // must never be answered with "busy": that told the caller their own call was declined.
+            const callKey = signal.callId || `${signal.conversationId}:${signal.callerId}:${signal.timestamp}`;
+            const sameAsActive = Boolean(
+              (signal.callId && signal.callId === this.activeCallId)
+              || (signal.conversationId === this.activeConversationId && signal.callerId === this.activeTargetUserId));
+            if (sameAsActive || this.handledRequests.has(callKey)) { callLog('ignored a repeat of a call already handled'); return; }
+            this.handledRequests.add(callKey);
+            if (this.handledRequests.size > 40) this.handledRequests.delete(this.handledRequests.values().next().value as string);
+
+            // If already in a different call, notify caller that we're busy.
             if (this.state === 'calling' || this.state === 'ringing' || this.state === 'connecting' || this.state === 'connected') {
               void this.sendDirectSignal(signal.conversationId, {
                 type: 'call-decline',
@@ -430,6 +457,7 @@ export class WebRTCCallService {
     } catch (err: any) {
       if (generation !== this.callGeneration) return;
       console.error('[GAYZE WebRTC] startCall failed:', err);
+      callLog(`startCall failed: ${err?.name || ''} ${err?.message || err}`);
       const message = this.parseMediaError(err);
       this.setState('failed', message);
       this.cleanup();
@@ -483,6 +511,7 @@ export class WebRTCCallService {
     } catch (err: any) {
       if (generation !== this.callGeneration) return;
       console.error('[GAYZE WebRTC] acceptCall failed:', err);
+      callLog(`acceptCall failed: ${err?.name || ''} ${err?.message || err}`);
       const message = this.parseMediaError(err);
       this.setState('failed', message);
       this.cleanup();
@@ -613,9 +642,10 @@ export class WebRTCCallService {
             // Ignore other peers/stale packets. This is defence in depth, not a
             // replacement for server-side Realtime channel authorization.
             if (signal.callerId !== this.activeTargetUserId && signal.callerId !== 'self') return;
+            callLog(`got ${signal.type}`);
             signalTail = signalTail.then(async () => {
               if (current() && this.pc === pc) await this.handleCallSignal(pc, signal);
-            }).catch(() => { if (current() && this.pc === pc) this.scheduleRestart(); });
+            }).catch((err) => { callLog(`signal ${signal.type} failed: ${err?.name || ''} ${err?.message || err}`); if (current() && this.pc === pc) this.scheduleRestart(); });
           });
         },
         reconcile: async () => {
@@ -792,6 +822,7 @@ export class WebRTCCallService {
   private async broadcastSignal(signal: CallSignalPayload): Promise<void> {
     if (!this.callChannel || this.callChannel.state !== 'joined') throw new Error('Call signalling reconnecting');
     const outgoingSignal = { ...signal, callId: signal.callId ?? this.activeCallId ?? undefined };
+    if (signal.type !== 'ice-candidates' && signal.type !== 'ice-candidate') callLog(`send ${signal.type}`);
     const result = await this.callChannel.send({ type: 'broadcast', event: 'call-signal', payload: outgoingSignal }, { timeout: 5000 });
     if (result !== 'ok') throw new Error('Call signal was not acknowledged');
   }
