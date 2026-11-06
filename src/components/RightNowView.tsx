@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { formatLaterAt } from '../services/intentTiming';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { intentDisplayLabel } from '../services/intentLabels';
 import { supabase } from '../services/supabaseClient';
@@ -2329,7 +2330,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 <p className="text-[13px] text-zinc-300 leading-relaxed">{activeUserIntent.description}</p>
                 <div className="pt-1 flex items-center justify-between gap-3 text-[11px] font-mono text-zinc-500">
                   <span className="truncate">
-                    {activeUserIntent.when} · {activeUserIntent.duration} · {activeUserIntent.travelDistance}
+                    {activeUserIntent.when === 'Later' ? formatLaterAt(activeUserIntent.activatedAt) : activeUserIntent.when} · {activeUserIntent.duration} · {activeUserIntent.travelDistance}
                   </span>
                   <span className="text-[#C9A24D] shrink-0">±{PRIVACY_RADIUS_METERS} m</span>
                 </div>

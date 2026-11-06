@@ -1,4 +1,4 @@
-import { intentStartsAt } from '../services/intentTiming';
+import { intentStartsAt, formatLaterAt } from '../services/intentTiming';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
@@ -17,6 +17,7 @@ import {
   Car,
   Sparkles,
   ShieldCheck,
+  CalendarClock,
   type LucideIcon,
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
@@ -96,6 +97,11 @@ const QUICK_SUGGESTIONS: Record<string, string[]> = {
   Other: ['Discreet with clear boundaries', 'Open to a specific vibe', 'Respectful communication first'],
 };
 
+const pad = (n: number) => String(n).padStart(2, '0');
+const toLocalInput = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+/** Tomorrow at 19:00, a sensible starting point for "later". */
+const defaultLaterValue = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(19, 0, 0, 0); return toLocalInput(d.getTime()); };
+
 const optionLabel = (value: EncounterIntent): string => {
   const all = [...SOCIAL_OPTIONS, ...PRIVATE_OPTIONS];
   return all.find((o) => o.value === value)?.label ?? String(value);
@@ -120,6 +126,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   const [intent, setIntent] = useState<EncounterIntent | null>(null);
   const [description, setDescription] = useState('');
   const [when, setWhen] = useState<string>(defaultWhen);
+  // "Later": a date and time picked in the person's own timezone, as a datetime-local value (YYYY-MM-DDTHH:mm).
+  const [laterValue, setLaterValue] = useState<string>(() => defaultLaterValue());
   const [duration, setDuration] = useState<'1 hr' | '2 hrs' | '4+ hrs'>('2 hrs');
   const [travelDistance, setTravelDistance] = useState('Within 2 km');
   const [canHost, setCanHost] = useState<'Can host' | 'Cannot host' | 'Depends'>('Can host');
@@ -151,6 +159,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       setIntent(existingIntent.intent);
       setDescription(existingIntent.description || '');
       setWhen(existingIntent.when || defaultWhen);
+      setLaterValue(existingIntent.when === 'Later' ? toLocalInput(existingIntent.activatedAt) : defaultLaterValue());
       setDuration(existingIntent.duration === '1 hr' ? '1 hr' : existingIntent.duration === '4+ hrs' ? '4+ hrs' : '2 hrs');
       setTravelDistance(existingIntent.travelDistance || 'Within 2 km');
       setCanHost(existingIntent.canHost || 'Can host');
@@ -166,6 +175,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       setIntent(null);
       setDescription('');
       setWhen(defaultWhen);
+      setLaterValue(defaultLaterValue());
       setDuration('2 hrs');
       setTravelDistance('Within 2 km');
       setCanHost('Can host');
@@ -211,8 +221,14 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    const laterAt = when === 'Later' ? Date.parse(laterValue) : undefined;
+    if (when === 'Later' && (!Number.isFinite(laterAt) || (laterAt as number) < Date.now() + 5 * 60_000)) {
+      setErrorMessage('Pick a date and time at least 5 minutes from now.');
+      setIsSubmitting(false);
+      return;
+    }
     const durationMs = (duration === '1 hr' ? 1 : duration === '4+ hrs' ? 4 : 2) * 3600 * 1000;
-    const activatedAt = intentStartsAt(when);
+    const activatedAt = intentStartsAt(when, Date.now(), laterAt);
     const expiresAt = activatedAt + durationMs;
 
     const meetPlace = mode === 'social' && !useSafeHaven ? place : null;
@@ -396,6 +412,36 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     ))}
                   </div>
                   {when === 'Tonight' && <p className="mt-2 text-[11px] text-zinc-500">From 19:00 local time, or now if it is already later.</p>}
+
+                  {/* Planned for another time: gold, with a date and time */}
+                  <button
+                    type="button"
+                    className="g-later-pick"
+                    data-active={when === 'Later'}
+                    onClick={() => { hapticLight(); setWhen('Later'); }}
+                    aria-pressed={when === 'Later'}
+                  >
+                    <span className="g-later-pick__icon"><CalendarClock className="w-[18px] h-[18px]" /></span>
+                    <span className="g-later-pick__txt">
+                      <strong>Later</strong>
+                      <small>{when === 'Later' && Number.isFinite(Date.parse(laterValue)) ? formatLaterAt(Date.parse(laterValue)) : 'Pick a date and time'}</small>
+                    </span>
+                  </button>
+                  {when === 'Later' && (
+                    <div className="g-later-pick__field g-reveal">
+                      <label htmlFor="intent-later-at" className="g-label">Date and time</label>
+                      <input
+                        id="intent-later-at"
+                        type="datetime-local"
+                        className="g-field g-iset__field mt-2"
+                        value={laterValue}
+                        min={toLocalInput(Date.now() + 5 * 60_000)}
+                        max={toLocalInput(Date.now() + 30 * 86_400_000)}
+                        onChange={(e) => setLaterValue(e.target.value)}
+                      />
+                      <p className="mt-2 text-[11px] text-zinc-500">Your signal goes live then, not before. Up to 30 days ahead.</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -574,7 +620,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
               </div>
               <div className="text-[10.5px] font-mono text-zinc-500 truncate">
                 {mode && intent
-                  ? `${mode === 'private' ? 'Private' : 'Social'} · ${when === 'Now' ? 'Right now' : when} · ${duration} · ${userNeighborhood}`
+                  ? `${mode === 'private' ? 'Private' : 'Social'} · ${when === 'Now' ? 'Right now' : when === 'Later' && Number.isFinite(Date.parse(laterValue)) ? formatLaterAt(Date.parse(laterValue)) : when} · ${duration} · ${userNeighborhood}`
                   : 'Two taps to go live'}
               </div>
             </div>
