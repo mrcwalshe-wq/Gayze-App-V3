@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import { IceCredentialCache } from './iceCredentials';
-import { RealtimeRecovery, requireRealtimeSession } from './realtimeRecovery';
+import { RealtimeRecovery, callRecoveryEnvironment, requireRealtimeSession } from './realtimeRecovery';
 import { analytics } from './analyticsService';
 import { saveCallRecord, markCallAsMissed } from './callHistoryService';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -647,7 +647,7 @@ export class WebRTCCallService {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Call signalling could not connect')), 25_000);
       this.callRecovery = new RealtimeRecovery({
-        client: supabase!, userId: currentUserId, topic: `gayze-call-${conversationId}`, syncWhileJoining: false,
+        client: supabase!, userId: currentUserId, topic: `gayze-call-${conversationId}`, syncWhileJoining: false, environment: callRecoveryEnvironment,
         channelOptions: { config: { private: true, broadcast: { self: false, ack: true } } },
         session: (signal) => requireRealtimeSession(supabase!, currentUserId, signal),
         build: (channel, current) => {
