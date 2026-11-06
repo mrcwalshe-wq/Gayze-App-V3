@@ -6,6 +6,7 @@ import {
   Bell,
   BellOff,
   Check,
+  CheckCheck,
   Loader2,
   MessageCircle,
   Radio,
@@ -43,6 +44,9 @@ interface NotificationsModalProps {
   notices?: MemberNotice[];
   onOpenNotice?: (notice: MemberNotice) => void;
   onOpenNotification?: (notice: InboxNotification) => void;
+  /** Marks everything (notifications and Gayze messages) as read. */
+  onMarkAllRead?: () => void | Promise<void>;
+  unreadTotal?: number;
   onOpenPublicProfile?: (
     userId: string,
     fallback?: {
@@ -89,7 +93,7 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', notices = [], onOpenNotice, onOpenNotification, onOpenPublicProfile, onInterestAccepted, embedded = false }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', notices = [], onOpenNotice, onOpenNotification, onMarkAllRead, unreadTotal = 0, onOpenPublicProfile, onInterestAccepted, embedded = false }) => {
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -510,6 +514,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                     <h3>{inbox?.unread ? `${inbox.unread} unread` : 'Recent notifications'}</h3>
                   </div>
                   {inboxStatus !== 'connected' && <span className="text-[10px] text-zinc-500">Reconnecting…</span>}
+                  {onMarkAllRead && (
+                    <button type="button" className="g-notification-markall" disabled={unreadTotal === 0} onClick={() => void onMarkAllRead()}>
+                      <CheckCheck className="w-3.5 h-3.5" aria-hidden="true" />Mark all read
+                    </button>
+                  )}
                 </div>
                 {recentRows.length === 0 ? (
                   <p className="text-xs text-zinc-500 px-4 pb-4">Nothing here yet. GAYZE will surface messages, Gayzes and connections here.</p>

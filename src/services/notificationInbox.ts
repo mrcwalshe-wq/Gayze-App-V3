@@ -68,3 +68,11 @@ export async function markNotificationRead(id?: string, conversationId?: string)
   const { error } = await supabase.rpc('gayze_mark_notification_read', { p_id: id ?? null, p_conversation: conversationId ?? null });
   if (error) throw new Error('Could not mark the notification as read');
 }
+
+/** Marks every notification as read in one go. Returns how many were unread. */
+export async function markAllNotificationsRead(): Promise<number> {
+  if (!supabase) throw new Error('Notification inbox unavailable');
+  const { data, error } = await supabase.rpc('gayze_mark_all_notifications_read');
+  if (error) throw new Error('Could not mark notifications as read');
+  return typeof data === 'number' ? data : 0;
+}
