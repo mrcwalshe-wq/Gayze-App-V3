@@ -1,6 +1,6 @@
 # GAYZE owner console: administrator guide
 
-The console lives at **`/admin`**. It is owner-only. There is exactly one owner and no
+The console lives at **`/admin`**. It is owner-only. From the app, the hidden way in is: Profile → Privacy sheet → tap the small "Privacy" label seven times within five seconds. It just opens `/admin`; non-owners see "Page not found". There is exactly one owner and no
 API to create more administrators.
 
 ## How access is enforced
