@@ -15,7 +15,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { hapticSensitiveAction, triggerVibration } from '../services/hapticService';
-import { webrtcCallService, CallState, type IncomingCall } from '../services/webrtcService';
+import { webrtcCallService, CallState, type IncomingCall, type UpgradePhase } from '../services/webrtcService';
 import { getCallAudioContext, closeCallAudio } from '../services/callAudioService';
 import {
   CallAura, CallDockButton, CallOrb, CallSecureChip, CallVoiceBars, DraggablePip,
@@ -55,6 +55,8 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [showControls, setShowControls] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
+  const isSpeakerOnRef = useRef(true);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -203,20 +205,23 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
         localVideoRef.current.srcObject = local;
         if (local) void localVideoRef.current.play().catch(() => undefined);
       }
+      // Sound always plays through the <audio> element (the <video> stays muted), so a video call is never silent because
+      // a browser refused autoplay-with-sound on the video tag. The picture shows as soon as a remote video track exists.
       if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = initialCallType === 'video' ? remote : null;
-        remoteVideoRef.current.muted = initialCallType !== 'video';
-        if (remote && initialCallType === 'video') void remoteVideoRef.current.play().catch((error) => {
+        remoteVideoRef.current.srcObject = remote;
+        remoteVideoRef.current.muted = true;
+        if (remote) void remoteVideoRef.current.play().catch((error) => {
           console.warn('[GAYZE Call] Remote video autoplay was blocked', error);
         });
       }
       if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = initialCallType === 'audio' ? remote : null;
-        remoteAudioRef.current.volume = isSpeakerOn ? 1 : 0;
-        if (remote && initialCallType === 'audio') void remoteAudioRef.current.play().catch((error) => {
+        remoteAudioRef.current.srcObject = remote;
+        remoteAudioRef.current.volume = isSpeakerOnRef.current ? 1 : 0;
+        if (remote) void remoteAudioRef.current.play().catch((error) => {
           console.warn('[GAYZE Call] Remote audio autoplay was blocked', error);
         });
       }
+      setHasRemoteVideo(!!remote && remote.getVideoTracks().some((t) => t.readyState === 'live'));
     });
 
     return () => {
@@ -230,9 +235,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.volume = isSpeakerOn ? 1 : 0;
-    }
+    isSpeakerOnRef.current = isSpeakerOn;
     if (remoteAudioRef.current) {
       remoteAudioRef.current.volume = isSpeakerOn ? 1 : 0;
     }
@@ -315,7 +318,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
 
   // Render at document.body so app-shell stacking contexts cannot leave the
   // navigation bar above the full-screen call surface on iOS Safari.
-  const showRemote = callState === 'connected' && isVideoEnabled;
+  const showRemote = callState === 'connected' && hasRemoteVideo;
   const controlsVisible = !showRemote || showControls || isMinimized;
   const pending = isCallPending(callState);
 
@@ -439,6 +442,13 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [showControls, setShowControls] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [upgrade, setUpgrade] = useState<UpgradePhase>('idle');
+  const [videoOn, setVideoOn] = useState(false);          // the call has been switched to video
+  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
+  const [cameraOn, setCameraOn] = useState(true);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const isSpeakerOnRef = useRef(true);
 
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const terminalCloseTimerRef = useRef<number | null>(null);
@@ -545,6 +555,8 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     setIsMuted(false);
     setIsSpeakerOn(true);
     setShowControls(true);
+    setCameraOn(true);
+    setHasRemoteVideo(false);
   }, [isOpen, isIncoming]);
 
   // Subscribe to WebRTC Call Service state and media streams
@@ -572,10 +584,25 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
       }
     });
 
+    const unsubUpgrade = webrtcCallService.subscribeUpgrade((phase, type) => {
+      setUpgrade(phase);
+      setVideoOn(type === 'video' && (phase === 'active' || webrtcCallService.getLocalStream()?.getVideoTracks().length ? true : false));
+    });
+
     const unsubStreams = webrtcCallService.subscribeStreams((local, remote) => {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = local && local.getVideoTracks().length ? local : null;
+        if (local) void localVideoRef.current.play().catch(() => undefined);
+      }
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remote;
+        remoteVideoRef.current.muted = true; // sound comes from the <audio> element
+        if (remote) void remoteVideoRef.current.play().catch(() => undefined);
+      }
+      setHasRemoteVideo(!!remote && remote.getVideoTracks().some((t) => t.readyState === 'live'));
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = remote;
-        remoteAudioRef.current.volume = isSpeakerOn ? 1 : 0;
+        remoteAudioRef.current.volume = isSpeakerOnRef.current ? 1 : 0;
         if (remote) void remoteAudioRef.current.play().catch((error) => {
           console.warn('[GAYZE Call] Remote audio autoplay was blocked', error);
         });
@@ -584,6 +611,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
 
     return () => {
       unsubState();
+      unsubUpgrade();
       unsubStreams();
       if (terminalCloseTimerRef.current !== null) {
         window.clearTimeout(terminalCloseTimerRef.current);
@@ -593,6 +621,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
+    isSpeakerOnRef.current = isSpeakerOn;
     if (remoteAudioRef.current) {
       remoteAudioRef.current.volume = isSpeakerOn ? 1 : 0;
     }
@@ -639,6 +668,14 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     });
   }, [isOpen, isIncoming, conversationId, callerId, callerName, targetUserId, peerName]);
 
+  useEffect(() => {
+    if (videoOn && localVideoRef.current) {
+      localVideoRef.current.srcObject = webrtcCallService.getLocalStream();
+      void localVideoRef.current.play().catch(() => undefined);
+    }
+  }, [videoOn, isMinimized, callState]);
+  useEffect(() => { if (upgrade === 'incoming') setIsMinimized(false); }, [upgrade]);
+
   if (!isOpen) return null;
 
   const handleEndCall = () => {
@@ -665,17 +702,22 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   };
 
   const pending = isCallPending(callState);
+  const showVideo = videoOn && callState === 'connected' && !isMinimized;
+  const showRemote = showVideo && hasRemoteVideo;
+  const handleToggleCamera = () => setCameraOn(webrtcCallService.toggleVideo(!cameraOn));
 
   return createPortal(
     <div
       ref={levelRef}
       data-gayze-call-screen="true"
       data-state={callState}
-      className={`g-call g-call--audio ${isMinimized ? 'is-mini' : ''}`}
+      className={`g-call ${showVideo ? 'g-call--video' : 'g-call--audio'} ${isMinimized ? 'is-mini' : ''} ${showRemote ? 'has-remote' : ''}`}
       onClick={isMinimized ? handleToggleMinimize : undefined}
     >
       <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
       <CallAura />
+      <video ref={remoteVideoRef} autoPlay playsInline muted className={`g-call__remote ${showRemote ? 'is-on' : ''}`} />
+      <div className="g-call__scrim" aria-hidden="true" />
 
       <header className="g-call__top g-call__full">
         <CallSecureChip label={callState === 'connected' ? 'Encrypted · peer to peer' : 'End-to-end encrypted'} />
@@ -684,7 +726,32 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
         </button>
       </header>
 
-      <div className="g-call__center g-call__full">
+      {upgrade === 'incoming' && (
+        <div className="g-call__ask g-call__full" role="alertdialog" aria-label={`${peerName} wants to switch to video`}>
+          <strong>{peerName} wants to switch to video</strong>
+          <span>Your camera will turn on if you accept.</span>
+          <div>
+            <button type="button" onClick={(e) => { e.stopPropagation(); void webrtcCallService.answerVideoUpgrade(false); }}>Not now</button>
+            <button type="button" className="is-go" onClick={(e) => { e.stopPropagation(); void webrtcCallService.answerVideoUpgrade(true); }}>Switch to video</button>
+          </div>
+        </div>
+      )}
+      {(upgrade === 'requesting' || upgrade === 'declined' || upgrade === 'failed') && (
+        <div className="g-call__ask g-call__full" role="status">
+          <strong>{upgrade === 'requesting' ? `Asking ${peerName} to switch to video…` : upgrade === 'declined' ? `${peerName} stayed on audio` : 'Couldn’t switch to video'}</strong>
+          {upgrade === 'failed' && <span>Check that camera access is allowed for GAYZE.</span>}
+          {upgrade === 'requesting' && <div><button type="button" onClick={(e) => { e.stopPropagation(); webrtcCallService.cancelVideoUpgrade(); }}>Cancel</button></div>}
+        </div>
+      )}
+
+      {showVideo && (
+        <DraggablePip hidden={!cameraOn}>
+          <video ref={localVideoRef} autoPlay playsInline muted className="mirror" />
+        </DraggablePip>
+      )}
+      {!showVideo && <video ref={localVideoRef} autoPlay playsInline muted className="hidden" />}
+
+      {!showRemote && <div className="g-call__center g-call__full">
         <CallOrb name={peerName} avatar={peerAvatar} state={callState} />
         <h3 className="g-call__name">{peerName}</h3>
         <p className={`g-call__status ${pending ? 'is-pending' : ''}`}>
@@ -702,7 +769,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
             <span>{errorMessage}</span>
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="g-call__dock g-call__full">
         <div className="g-dock">
@@ -713,6 +780,23 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
             icon={isMuted ? <MicOff className="w-[22px] h-[22px]" /> : <Mic className="w-[22px] h-[22px]" />}
             onClick={handleToggleMute}
           />
+          {callState === 'connected' && !videoOn && (
+            <CallDockButton
+              label="Video"
+              ariaLabel="Switch to video call"
+              icon={<Video className="w-[22px] h-[22px]" />}
+              onClick={() => { hapticSensitiveAction(); webrtcCallService.requestVideoUpgrade(); }}
+            />
+          )}
+          {videoOn && (
+            <CallDockButton
+              label={cameraOn ? 'Camera' : 'Camera off'}
+              ariaLabel={cameraOn ? 'Turn camera off' : 'Turn camera on'}
+              off={!cameraOn}
+              icon={cameraOn ? <Video className="w-[22px] h-[22px]" /> : <VideoOff className="w-[22px] h-[22px]" />}
+              onClick={handleToggleCamera}
+            />
+          )}
           <CallDockButton
             label={isSpeakerOn ? 'Speaker' : 'Speaker off'}
             ariaLabel="Toggle speaker"

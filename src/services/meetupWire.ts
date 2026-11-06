@@ -1,21 +1,22 @@
-import type { CallLine, MeetingEvent, MeetingProposal } from '../types';
+import type { CallLine, MeetingEvent, MeetingProposal, VoiceNote } from '../types';
 
 /**
  * What goes inside the encrypted message body. Plain text stays plain text. A photo or a meetup update is JSON:
  * {"text", "mediaUrl", "meeting"}. `mediaUrl` is always present (null when empty) so app versions that predate meetups
  * still show the text and ignore the rest, instead of showing raw JSON.
  */
-export interface DecodedPayload { text: string; mediaUrl?: string; meeting?: MeetingProposal; call?: CallLine }
+export interface DecodedPayload { text: string; mediaUrl?: string; meeting?: MeetingProposal; call?: CallLine; note?: VoiceNote }
 
 const EVENT_STATUS: Record<MeetingEvent, MeetingProposal['status']> = {
   proposed: 'proposed', amended: 'proposed', accepted: 'accepted', declined: 'declined', cancelled: 'cancelled',
 };
 const EVENTS = Object.keys(EVENT_STATUS) as MeetingEvent[];
 
-export function encodePayload(text: string, mediaUrl?: string, meeting?: MeetingProposal, call?: CallLine): string {
-  if (!mediaUrl && !meeting && !call) return text;
+export function encodePayload(text: string, mediaUrl?: string, meeting?: MeetingProposal, call?: CallLine, note?: VoiceNote): string {
+  if (!mediaUrl && !meeting && !call && !note) return text;
   return JSON.stringify({
     text, mediaUrl: mediaUrl ?? null,
+    ...(note ? { note: { kind: note.kind, mime: note.mime, data: note.data, seconds: note.seconds } } : {}),
     ...(call ? { call: { id: call.id, callType: call.callType, outcome: call.outcome } } : {}),
     ...(meeting ? { meeting: {
       id: meeting.id, venueName: meeting.venueName, address: meeting.address, timeStr: meeting.timeStr,
@@ -53,17 +54,36 @@ export function sanitizeCall(raw: unknown): CallLine | undefined {
   return { id, callType: c.callType, outcome: c.outcome === 'declined' ? 'declined' : 'unanswered' };
 }
 
+export const MAX_NOTE_CHARS = 900_000;
+const NOTE_MIME = /^(audio\/(webm|mp4|ogg|aac|mpeg)|video\/(webm|mp4))$/;
+/** A peer's voice message or video note is untrusted input: only known media types, a bounded size and a real data URL are accepted. */
+export function sanitizeNote(raw: unknown): VoiceNote | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const n = raw as Record<string, unknown>;
+  if (n.kind !== 'audio' && n.kind !== 'video') return undefined;
+  if (typeof n.data !== 'string' || n.data.length > MAX_NOTE_CHARS) return undefined;
+  const m = /^data:([a-z0-9]+\/[a-z0-9]+)(?:;codecs=[a-z0-9.,]+)?;base64,[A-Za-z0-9+/=]+$/i.exec(n.data);
+  if (!m || !NOTE_MIME.test(m[1].toLowerCase()) || !m[1].toLowerCase().startsWith(n.kind + '/')) return undefined;
+  const seconds = typeof n.seconds === 'number' && Number.isFinite(n.seconds) ? Math.max(1, Math.min(120, Math.round(n.seconds))) : 1;
+  return { kind: n.kind, mime: m[1].toLowerCase(), data: n.data, seconds };
+}
+
+/** The line older app versions show for a voice message or video note. */
+export function noteLineText(note: VoiceNote): string {
+  return note.kind === 'video' ? 'Video note' : 'Voice message';
+}
+
 /** The line older app versions show for an unanswered call. */
 export function callLineText(call: CallLine): string {
   return `Unanswered ${call.callType} call`;
 }
 
 export function decodePayload(decrypted: string, at: number): DecodedPayload {
-  if (decrypted.startsWith('{"') && (decrypted.includes('"mediaUrl"') || decrypted.includes('"meeting"') || decrypted.includes('"call"'))) {
+  if (decrypted.startsWith('{"') && (decrypted.includes('"mediaUrl"') || decrypted.includes('"meeting"') || decrypted.includes('"call"') || decrypted.includes('"note"'))) {
     try {
       const parsed = JSON.parse(decrypted);
       if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
-        return { text: parsed.text, mediaUrl: typeof parsed.mediaUrl === 'string' && parsed.mediaUrl ? parsed.mediaUrl : undefined, meeting: sanitizeMeeting(parsed.meeting, at), call: sanitizeCall(parsed.call) };
+        return { text: parsed.text, mediaUrl: typeof parsed.mediaUrl === 'string' && parsed.mediaUrl ? parsed.mediaUrl : undefined, meeting: sanitizeMeeting(parsed.meeting, at), call: sanitizeCall(parsed.call), note: sanitizeNote(parsed.note) };
       }
     } catch { /* not ours: show as text */ }
   }
