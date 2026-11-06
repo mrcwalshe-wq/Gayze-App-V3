@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, MessageCircle, Radar, Clock, X } from 'lucide-react';
+import { Eye, MessageCircle, Radar, Clock, Vibrate, X } from 'lucide-react';
+import { areHapticsEnabled, hapticLight, setHapticsEnabled } from '../services/hapticService';
 import { DEFAULT_PRIVACY, loadPrivacySettings, savePrivacySettings, type PrivacySettings } from '../services/serverPresence';
 
 interface PrivacySheetProps { isOpen: boolean; onClose: () => void; userId: string | null }
@@ -18,6 +19,7 @@ export const PrivacySheet: React.FC<PrivacySheetProps> = ({ isOpen, onClose, use
   const [s, setS] = useState<PrivacySettings>(DEFAULT_PRIVACY);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [saveError, setSaveError] = useState(false);
+  const [haptics, setHaptics] = useState(areHapticsEnabled);
 
   useEffect(() => {
     if (!isOpen || !userId) return;
@@ -52,6 +54,8 @@ export const PrivacySheet: React.FC<PrivacySheetProps> = ({ isOpen, onClose, use
             <Row icon={<Clock className="w-4 h-4" />} title="Show when I was last here" body="Hide your last-seen time while still showing you're online." on={s.showLastSeen} onToggle={() => void update({ showLastSeen: !s.showLastSeen })} />
             <Row icon={<Eye className="w-4 h-4" />} title="Appear in Discover" body="Turn off to stop appearing to people you haven't spoken to." on={s.discoverable} onToggle={() => void update({ discoverable: !s.discoverable })} />
             <Row icon={<MessageCircle className="w-4 h-4" />} title="Only connections can message me" body="People you've never chatted with would need to connect first." on={s.whoCanMessage === 'connections'} onToggle={() => void update({ whoCanMessage: s.whoCanMessage === 'connections' ? 'everyone' : 'connections' })} />
+            <Row icon={<Vibrate className="w-4 h-4" />} title="Haptic feedback" body="Taps and buzzes for buttons, messages and calls. Saved on this device only." on={haptics}
+              onToggle={() => { const next = !haptics; setHaptics(next); setHapticsEnabled(next); if (next) hapticLight(); }} />
             {saveError && <p className="g-plan__note g-plan__note--warn">That change wasn't saved. Please try again.</p>}
           </>)}
         </div>

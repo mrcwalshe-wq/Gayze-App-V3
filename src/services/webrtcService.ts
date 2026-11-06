@@ -384,10 +384,9 @@ export class WebRTCCallService {
     this.targetUserNameForHistory = params.targetUserName;
 
     try {
-      // Do not request microphone/camera access while the recipient is still
-      // deciding whether to answer. Establish signalling first; local media is
-      // acquired only after an explicit call-accept signal arrives.
-      await this.loadIceServers();
+      // Get the microphone/camera now, while the caller's tap is fresh. Nothing is sent anywhere until the other person
+      // answers and the connection is negotiated; asking only when they answer is what dropped calls on phones.
+      await Promise.all([this.acquireLocalMedia(params.callType, generation), this.loadIceServers()]);
       if (generation !== this.callGeneration) return;
 
       // Set up the signalling channel without local media tracks.
@@ -800,28 +799,47 @@ export class WebRTCCallService {
   /**
    * Acquire camera and microphone media streams
    */
+  private mediaConstraints(callType: CallType): MediaStreamConstraints {
+    return {
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video:
+        callType === 'video'
+          ? { facingMode: this.currentFacingMode, width: { ideal: 1280, max: 1920 }, height: { ideal: 720, max: 1080 } }
+          : false,
+    };
+  }
+
+  /**
+   * Ask for the camera/microphone straight from the tap that starts or answers the call. Browsers (iPhones especially) only
+   * allow, or only remember, that permission when it is asked for inside a tap: asking later, after a network round trip or
+   * when the other person answers, is refused or never seen, and the call drops.
+   */
+  private prewarmed: { type: CallType; promise: Promise<MediaStream>; at: number } | null = null;
+  public prewarmMedia(callType: CallType): void {
+    if (this.prewarmed && this.prewarmed.type === callType && Date.now() - this.prewarmed.at < 60_000) return;
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    this.discardPrewarmedMedia();
+    const promise = navigator.mediaDevices.getUserMedia(this.mediaConstraints(callType));
+    const entry = { type: callType, promise, at: Date.now() };
+    this.prewarmed = entry;
+    promise.catch(() => { if (this.prewarmed === entry) this.prewarmed = null; });
+  }
+  public discardPrewarmedMedia(): void {
+    const old = this.prewarmed;
+    this.prewarmed = null;
+    void old?.promise.then((stream) => stream.getTracks().forEach((track) => track.stop()), () => undefined);
+  }
+
   private async acquireLocalMedia(callType: CallType, generation = this.callGeneration): Promise<MediaStream> {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error('Your browser or device does not support real-time audio/video calls.');
     }
 
-    const constraints: MediaStreamConstraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-      video:
-        callType === 'video'
-          ? {
-              facingMode: this.currentFacingMode,
-              width: { ideal: 1280, max: 1920 },
-              height: { ideal: 720, max: 1080 },
-            }
-          : false,
-    };
-
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const early = this.prewarmed && this.prewarmed.type === callType && Date.now() - this.prewarmed.at < 60_000 ? this.prewarmed : null;
+    this.prewarmed = null;
+    const stream = early
+      ? await early.promise.catch(() => navigator.mediaDevices.getUserMedia(this.mediaConstraints(callType)))
+      : await navigator.mediaDevices.getUserMedia(this.mediaConstraints(callType));
     if (generation !== this.callGeneration) { stream.getTracks().forEach((track) => track.stop()); throw new Error('Call ended'); }
     stream.getAudioTracks().forEach((track) => { track.enabled = this.audioEnabled; });
     stream.getVideoTracks().forEach((track) => { track.enabled = this.videoEnabled; });
