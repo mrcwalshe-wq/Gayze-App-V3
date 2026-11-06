@@ -169,7 +169,10 @@ export class WebRTCCallService {
     if (typeof window !== 'undefined') {
       // Whether the phone put the page to sleep or lost its connection during a call is the first thing to rule in or out.
       const lifecycle = (what: string) => { if (this.state !== 'idle') callLog(what); };
-      document.addEventListener('visibilitychange', () => lifecycle(`page ${document.visibilityState}`));
+      document.addEventListener('visibilitychange', () => lifecycle(`page ${document.visibilityState} (focus ${document.hasFocus()})`));
+      window.addEventListener('blur', () => lifecycle('window lost focus'));
+      window.addEventListener('focus', () => lifecycle('window got focus'));
+      window.addEventListener('pagehide', (e) => lifecycle(`pagehide persisted=${(e as PageTransitionEvent).persisted}`));
       window.addEventListener('online', () => lifecycle('network online'));
       window.addEventListener('offline', () => lifecycle('network offline'));
       document.addEventListener('freeze', () => lifecycle('page frozen by the phone'));
@@ -241,6 +244,12 @@ export class WebRTCCallService {
   private clearConnectWatchdog() { this.connectWatchdog.forEach(clearTimeout); this.connectWatchdog = []; }
 
   private setState(newState: CallState, error: string | null = null) {
+    if (this.state === 'idle' && newState !== 'idle') {
+      // Which phone and how the app is running (a Home Screen app and a browser tab behave very differently when a call starts).
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+      const standalone = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
+      callLog(`environment: ${/iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : 'desktop'} ${/CriOS/.test(ua) ? 'Chrome' : /FxiOS/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : 'other'} ${standalone ? 'Home Screen app' : 'browser tab'}`);
+    }
     callLog(`state ${this.state} -> ${newState}${error ? ` (${error})` : ''}`);
     if (newState === 'connecting' && this.state !== 'connecting') this.armConnectWatchdog();
     else if (newState !== 'connecting') this.clearConnectWatchdog();
