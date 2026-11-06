@@ -1,4 +1,13 @@
 import React from 'react';
+import { callLog, webrtcCallService } from '../services/webrtcService';
+
+/** A reload in the middle of a call ends it. Hold the reload until the call is over (the next navigation picks up the new version). */
+const callInProgress = () => { const s = webrtcCallService.getState(); return s !== 'idle' && s !== 'ended' && s !== 'failed' && s !== 'declined' && s !== 'missed'; };
+const reloadForNewVersion = (why: string) => {
+  if (callInProgress()) { callLog(`page reload skipped during a call (${why})`); return; }
+  callLog(`page reload: ${why}`);
+  window.location.reload();
+};
 
 interface State { failed: boolean }
 
@@ -11,8 +20,8 @@ export function installChunkReload() {
     event.preventDefault();
     try {
       const last = Number(sessionStorage.getItem(RELOAD_FLAG) || 0);
-      if (Date.now() - last > 30_000) { sessionStorage.setItem(RELOAD_FLAG, String(Date.now())); window.location.reload(); }
-    } catch { window.location.reload(); }
+      if (Date.now() - last > 30_000) { sessionStorage.setItem(RELOAD_FLAG, String(Date.now())); reloadForNewVersion('a script file was out of date'); }
+    } catch { reloadForNewVersion('a script file was out of date'); }
   });
 }
 
@@ -30,7 +39,7 @@ export class AppErrorBoundary extends React.Component<{ children: React.ReactNod
     if (/Loading chunk|dynamically imported module|Importing a module script failed|error loading dynamically/i.test(message)) {
       try {
         const last = Number(sessionStorage.getItem(RELOAD_FLAG) || 0);
-        if (Date.now() - last > 30_000) { sessionStorage.setItem(RELOAD_FLAG, String(Date.now())); window.location.reload(); }
+        if (Date.now() - last > 30_000) { sessionStorage.setItem(RELOAD_FLAG, String(Date.now())); reloadForNewVersion('an out-of-date script file broke the screen'); }
       } catch { /* storage unavailable */ }
     }
   }
