@@ -1,5 +1,5 @@
 import React from 'react';
-import { PhoneMissed, PhoneOff, RotateCcw, Video, Phone } from 'lucide-react';
+import { PhoneMissed, PhoneOff, RotateCcw, Video, Phone, Mic } from 'lucide-react';
 import type { CallLine } from '../types';
 import { hapticLight } from '../services/hapticService';
 
@@ -12,10 +12,12 @@ interface CallLineCardProps {
   /** Only the newest call in the chat offers a retry. */
   canRetry: boolean;
   onRetry: (callType: 'audio' | 'video') => void;
+  /** Offered to the caller of an unanswered call: record a voice message or video note instead. */
+  onLeaveNote?: (kind: 'audio' | 'video') => void;
 }
 
 /** "Unanswered call" for the person who rang, "Missed call" for the person who was rung, with a way back in. */
-export const CallLineCard: React.FC<CallLineCardProps> = ({ call, isCaller, peerName, time, canRetry, onRetry }) => {
+export const CallLineCard: React.FC<CallLineCardProps> = ({ call, isCaller, peerName, time, canRetry, onRetry, onLeaveNote }) => {
   const kind = call.callType === 'video' ? 'video' : 'voice';
   const declined = call.outcome === 'declined';
   const title = isCaller ? (declined ? 'Call declined' : 'Unanswered call') : 'Missed call';
@@ -34,6 +36,11 @@ export const CallLineCard: React.FC<CallLineCardProps> = ({ call, isCaller, peer
         <p className="g-calln__sub"><Kind className="w-3 h-3" aria-hidden="true" />{kind === 'video' ? 'Video' : 'Voice'} · {when}</p>
         <p className="g-calln__hint">{sub}</p>
       </div>
+      {canRetry && isCaller && !declined && onLeaveNote && (
+        <button type="button" className="g-calln__retry" onClick={() => { hapticLight(); onLeaveNote(call.callType); }}>
+          <Mic className="w-3.5 h-3.5" aria-hidden="true" />Leave a message
+        </button>
+      )}
       {canRetry && (
         <button type="button" className="g-calln__retry" onClick={() => { hapticLight(); onRetry(call.callType); }}>
           <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />{isCaller ? 'Try again' : 'Call back'}

@@ -17,6 +17,7 @@ export type CallState =
   | 'failed';
 
 export type CallType = 'audio' | 'video';
+export type UpgradePhase = 'idle' | 'requesting' | 'incoming' | 'active' | 'declined' | 'failed';
 
 export interface IncomingCall {
   conversationId: string;
@@ -39,7 +40,11 @@ export interface CallSignalPayload {
     | 'answer'
     | 'ice-candidate'
     | 'ice-candidates'
-    | 'ice-restart-request';
+    | 'ice-restart-request'
+    | 'video-request'
+    | 'video-accept'
+    | 'video-decline'
+    | 'renegotiate';
   conversationId: string;
   callerId: string;
   callerName?: string;
@@ -737,9 +742,35 @@ export class WebRTCCallService {
       case 'ice-restart-request':
         if (this.caller) this.scheduleRestart(250);
         break;
+      case 'renegotiate':
+        if (this.caller) await this.sendOffer(false, true);
+        break;
+      case 'video-request':
+        if (this.state !== 'connected' || this.currentCallType === 'video') break;
+        if (this.upgrade === 'requesting') { await this.answerVideoUpgrade(true).catch(() => undefined); break; } // both asked at once
+        this.setUpgrade('incoming');
+        break;
+      case 'video-accept':
+        if (this.upgrade !== 'requesting') break;
+        try {
+          await this.attachCamera(this.pendingCamera);
+          this.pendingCamera = null;
+          this.clearUpgradeTimer();
+          this.setUpgrade('active');
+          await this.renegotiate();
+        } catch (error) {
+          callLog(`video upgrade failed: ${(error as Error)?.name || ''} ${(error as Error)?.message || ''}`);
+          this.dropPendingCamera();
+          this.setUpgrade('failed');
+        }
+        break;
+      case 'video-decline':
+        if (this.upgrade === 'requesting') { this.dropPendingCamera(); this.clearUpgradeTimer(); this.setUpgrade('declined'); }
+        break;
       case 'offer':
         if (!this.caller && signal.sdp) {
-          this.setState('connecting');
+          if (this.state !== 'connected') this.setState('connecting'); // a video upgrade renegotiates a live call; it does not "reconnect"
+
           // Refresh our relay credentials too before answering an ICE restart.
           const servers = await this.loadIceServers();
           if (this.pc !== pc) return;
@@ -811,7 +842,7 @@ export class WebRTCCallService {
     } catch { /* Bounded retry below; no credentials/SDP logged. */ }
     if (pc === this.pc) this.scheduleRestart(12_000);
   }
-  private async sendOffer(restart: boolean) {
+  private async sendOffer(restart: boolean, renegotiation = false) {
     const pc = this.pc;
     const conversationId = this.activeConversationId;
     if (!pc || !conversationId || this.offering || !this.caller) return;
@@ -830,7 +861,7 @@ export class WebRTCCallService {
       await this.gatheringDone(pc);
       if (this.pc !== pc) return;
       await this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, offer), timestamp: Date.now() });
-      if (!restart) this.scheduleRestart(12_000); // lost initial SDP/answer also recovers
+      if (!restart && !renegotiation) this.scheduleRestart(12_000); // lost initial SDP/answer also recovers
     } finally { if (this.pc === pc) this.offering = false; }
   }
   /**
@@ -1118,7 +1149,93 @@ export class WebRTCCallService {
     }
 
     this.activeConversationId = null;
+    this.dropPendingCamera();
+    this.clearUpgradeTimer();
+    if (this.upgrade !== 'idle') { this.upgrade = 'idle'; for (const l of this.upgradeListeners) l('idle', this.currentCallType); }
     this.notifyStreams();
+  }
+
+  // ---- Switching an audio call to video ----
+  private upgrade: UpgradePhase = 'idle';
+  private upgradeListeners = new Set<(phase: UpgradePhase, callType: CallType) => void>();
+  private pendingCamera: Promise<MediaStream> | null = null;
+  private upgradeTimer: ReturnType<typeof setTimeout> | null = null;
+  public subscribeUpgrade(listener: (phase: UpgradePhase, callType: CallType) => void): () => void {
+    this.upgradeListeners.add(listener);
+    listener(this.upgrade, this.currentCallType);
+    return () => this.upgradeListeners.delete(listener);
+  }
+  private setUpgrade(phase: UpgradePhase) {
+    this.upgrade = phase;
+    callLog(`video upgrade: ${phase}`);
+    for (const listener of this.upgradeListeners) listener(phase, this.currentCallType);
+    if (phase === 'declined' || phase === 'failed') setTimeout(() => { if (this.upgrade === phase) this.setUpgrade('idle'); }, 4000);
+  }
+  private clearUpgradeTimer() { if (this.upgradeTimer) clearTimeout(this.upgradeTimer); this.upgradeTimer = null; }
+  private dropPendingCamera() {
+    const pending = this.pendingCamera; this.pendingCamera = null;
+    void pending?.then((stream) => stream.getTracks().forEach((track) => track.stop()), () => undefined);
+  }
+  private cameraConstraints(): MediaStreamConstraints {
+    return { audio: false, video: { facingMode: this.currentFacingMode, width: { ideal: 1280, max: 1920 }, height: { ideal: 720, max: 1080 } } };
+  }
+  /** Add the camera to the live call. The camera is requested straight from the tap, never later. */
+  private async attachCamera(pending: Promise<MediaStream> | null): Promise<void> {
+    const pc = this.pc;
+    if (!pc) throw new Error('No call');
+    if (this.localStream?.getVideoTracks().length) return;
+    const camera = await (pending ?? navigator.mediaDevices.getUserMedia(this.cameraConstraints()));
+    const track = camera.getVideoTracks()[0];
+    if (!track || this.pc !== pc) { camera.getTracks().forEach((t) => t.stop()); throw new Error('Call ended'); }
+    this.videoEnabled = true;
+    track.enabled = true;
+    if (!this.localStream) this.localStream = new MediaStream();
+    this.localStream.addTrack(track);
+    pc.addTrack(track, this.localStream);
+    this.currentCallType = 'video';
+    this.notifyStreams();
+  }
+  private async renegotiate() {
+    if (this.caller) await this.sendOffer(false, true);
+    else if (this.activeConversationId) await this.broadcastSignal({ type: 'renegotiate', conversationId: this.activeConversationId, callerId: this.localUserId, timestamp: Date.now() });
+  }
+  /** Ask the other person to switch to video. Call this from a tap: the camera permission is requested here. */
+  public requestVideoUpgrade(): void {
+    if (this.state !== 'connected' || this.currentCallType === 'video' || !this.activeConversationId) return;
+    if (this.upgrade === 'requesting' || this.upgrade === 'incoming') return;
+    if (!navigator.mediaDevices?.getUserMedia) { this.setUpgrade('failed'); return; }
+    this.dropPendingCamera();
+    this.pendingCamera = navigator.mediaDevices.getUserMedia(this.cameraConstraints());
+    this.pendingCamera.catch(() => { this.pendingCamera = null; if (this.upgrade === 'requesting') { this.clearUpgradeTimer(); this.setUpgrade('failed'); } });
+    this.setUpgrade('requesting');
+    this.clearUpgradeTimer();
+    this.upgradeTimer = setTimeout(() => { if (this.upgrade === 'requesting') { this.dropPendingCamera(); this.setUpgrade('declined'); } }, 30_000);
+    void this.broadcastSignal({ type: 'video-request', conversationId: this.activeConversationId, callerId: this.localUserId, timestamp: Date.now() })
+      .catch(() => { this.dropPendingCamera(); this.clearUpgradeTimer(); this.setUpgrade('failed'); });
+  }
+  public cancelVideoUpgrade(): void {
+    if (this.upgrade !== 'requesting') return;
+    this.dropPendingCamera(); this.clearUpgradeTimer(); this.setUpgrade('idle');
+  }
+  /** Answer the other person's request to switch to video (from a tap). */
+  public async answerVideoUpgrade(accept: boolean): Promise<void> {
+    const conversationId = this.activeConversationId;
+    if (!conversationId || (this.upgrade !== 'incoming' && this.upgrade !== 'requesting')) return;
+    if (!accept) {
+      this.setUpgrade('idle');
+      await this.broadcastSignal({ type: 'video-decline', conversationId, callerId: this.localUserId, timestamp: Date.now() }).catch(() => undefined);
+      return;
+    }
+    try {
+      const pending = this.pendingCamera; this.pendingCamera = null; this.clearUpgradeTimer();
+      await this.attachCamera(pending);
+      this.setUpgrade('active');
+      await this.broadcastSignal({ type: 'video-accept', conversationId, callerId: this.localUserId, timestamp: Date.now() });
+    } catch (error) {
+      callLog(`video upgrade failed: ${(error as Error)?.name || ''} ${(error as Error)?.message || ''}`);
+      this.setUpgrade('failed');
+      await this.broadcastSignal({ type: 'video-decline', conversationId, callerId: this.localUserId, timestamp: Date.now() }).catch(() => undefined);
+    }
   }
 
   private parseMediaError(err: any): string {

@@ -2,6 +2,7 @@ import { PeerIntentBanner } from './PeerIntentBanner';
 import { SharePlaceSheet } from './SharePlaceSheet';
 import { MeetupCard, type MeetupAction } from './MeetupCard';
 import { CallLineCard } from './CallLineCard';
+import { NoteRecorder } from './NoteRecorder';
 import { presenceLabel } from '../services/presenceLabel';
 import { compressImageDataUrl } from '../services/imageCompress';
 import { latestMeetups } from '../services/meetupState';
@@ -9,7 +10,7 @@ import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode } from '../types';
+import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode, VoiceNote } from '../types';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction, hapticMessageSent } from '../services/hapticService';
 import {
   Lock,
@@ -63,6 +64,8 @@ interface ChatRoomViewProps {
   /** Authenticated Supabase user id; live message sender_id values use this, not the device public-key fingerprint. */
   currentUserId?: string | null;
   onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string, messageId?: string) => Promise<void>;
+  /** Sends a recorded voice message or video note. */
+  onSendNote?: (roomId: string, note: VoiceNote) => Promise<void>;
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
   /** Removes only the current user's membership; resolves once the backend confirms. */
   onDeleteChat?: (roomId: string) => Promise<void>;
@@ -122,6 +125,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   currentUserId,
   onSendMessage,
   onUpdateRoomTtl,
+  onSendNote,
   onDeleteChat,
   onDeleteMessage,
   onUnsendMessage,
@@ -177,6 +181,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [photoStudioSource, setPhotoStudioSource] = useState<string | null>(null);
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
+  const [noteRecorder, setNoteRecorder] = useState<{ kind: 'audio' | 'video' } | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
   const [showSharePlace, setShowSharePlace] = useState(false);
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
@@ -992,7 +997,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         time={msg.timestamp}
                         canRetry={currentRoom.type === 'direct' && Boolean(onStartCall) && msg.id === lastCallMsgId}
                         onRetry={(type) => onStartCall?.(currentRoom.peerName || currentRoom.name, type, currentRoom.peerUserId, currentRoom.peerAvatar)}
+                        onLeaveNote={onSendNote ? (kind) => setNoteRecorder({ kind }) : undefined}
                       />
+                    ) : msg.noteData && !msg.deletedForEveryone ? (
+                      <div className="g-notemsg">
+                        {msg.noteData.kind === 'video'
+                          ? <video src={msg.noteData.data} controls playsInline preload="metadata" aria-label="Video note" />
+                          : <audio src={msg.noteData.data} controls preload="metadata" aria-label="Voice message" />}
+                        <span>{msg.noteData.kind === 'video' ? 'Video note' : 'Voice message'} · {msg.noteData.seconds}s</span>
+                      </div>
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>
                     )}
@@ -1327,6 +1340,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           peerName={currentRoom.peerName || currentRoom.name}
           userLocation={userLocation ?? null}
           onSend={(text) => onSendMessage(currentRoom.id, text, currentRoom.ephemeralTtlSeconds)}
+        />
+      )}
+      {currentRoom && currentRoom.type === 'direct' && onSendNote && (
+        <NoteRecorder
+          isOpen={noteRecorder !== null}
+          peerName={currentRoom.peerName || currentRoom.name}
+          initialKind={noteRecorder?.kind}
+          onClose={() => setNoteRecorder(null)}
+          onSend={(note) => onSendNote(currentRoom.id, note)}
         />
       )}
     </div>

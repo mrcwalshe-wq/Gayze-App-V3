@@ -1467,3 +1467,38 @@ div.g-bubble--call { background: none; border: 0; box-shadow: none; padding: 0; 
 .g-notification-markall { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #e7dcfb; background: rgba(111, 60, 195, .22); border: 1px solid rgba(170, 132, 245, .45); }
 .g-notification-markall:disabled { opacity: .4; }
 .g-priv__diag { display: block; width: 100%; margin-top: 14px; padding: 12px; border-radius: 14px; font-size: 13px; font-weight: 700; color: #e7dcfb; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12); }
+
+/* Asking to switch an audio call to video */
+.g-call__ask { position: absolute; z-index: 9; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 64px); display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 16px 18px; border-radius: 22px; background: rgba(20, 10, 30, .82); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 0 0 1px rgba(255, 255, 255, .14), 0 20px 50px rgba(0, 0, 0, .5); color: #fff; }
+.g-call__ask strong { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+.g-call__ask span { font-size: 13px; opacity: .75; }
+.g-call__ask > div { display: flex; gap: 10px; margin-top: 8px; }
+.g-call__ask button { min-height: 44px; padding: 0 18px; border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; font-weight: 700; font-size: 14px; }
+.g-call__ask button.is-go { background: linear-gradient(135deg, #b85cde, #7c3aed); }
+
+/* Voice message / video note recorder and playback */
+.g-note { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: flex-end; justify-content: center; background: rgba(6, 2, 12, .6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.g-note__sheet { width: min(100%, 460px); padding: 18px 18px calc(env(safe-area-inset-bottom) + 18px); border-radius: 28px 28px 0 0; background: #160c22; color: #fff; box-shadow: 0 -20px 60px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .1); display: flex; flex-direction: column; gap: 14px; }
+.g-note__head { display: flex; align-items: center; justify-content: space-between; }
+.g-note__head strong { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+.g-note__head span { font-size: 13px; opacity: .65; }
+.g-note__x { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .1); color: #fff; }
+.g-note__tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .08); }
+.g-note__tabs button { min-height: 42px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; color: rgba(255, 255, 255, .7); }
+.g-note__tabs button.is-on { background: linear-gradient(135deg, #b85cde, #7c3aed); color: #fff; }
+.g-note__rec { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0 4px; }
+.g-note__time { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; opacity: .85; }
+.g-note__btn { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #b85cde, #7c3aed); box-shadow: 0 10px 30px rgba(124, 58, 237, .5); }
+.g-note__btn.is-rec { background: #e11d48; box-shadow: 0 0 0 8px rgba(225, 29, 72, .25); animation: g-note-pulse 1.2s ease-in-out infinite; }
+@keyframes g-note-pulse { 50% { box-shadow: 0 0 0 14px rgba(225, 29, 72, .08); } }
+.g-note__hint { font-size: 12px; opacity: .6; }
+.g-note__live { width: 100%; max-height: 46vh; aspect-ratio: 1; object-fit: cover; border-radius: 22px; background: #000; transform: none; }
+.g-note__audio { width: 100%; }
+.g-note__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.g-note__actions button { min-height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; background: rgba(255, 255, 255, .12); color: #fff; }
+.g-note__actions button.is-go { background: linear-gradient(135deg, #b85cde, #7c3aed); }
+.g-note__actions button:disabled { opacity: .6; }
+.g-note__error { font-size: 13px; color: #fda4af; text-align: center; }
+.g-notemsg video { width: min(100%, 240px); aspect-ratio: 1; object-fit: cover; border-radius: 18px; background: #000; display: block; }
+.g-notemsg audio { width: min(100%, 250px); height: 40px; display: block; }
+.g-notemsg span { display: block; margin-top: 4px; font-size: 11px; opacity: .65; }
