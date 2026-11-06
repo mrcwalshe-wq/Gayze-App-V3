@@ -87,6 +87,14 @@ import { FALLBACK_MAP_CENTER, MAX_TRAVEL_DISTANCE_KM, NEUTRAL_AREA_LABEL, clampT
 const RightNowView = lazy(() => import('./components/RightNowView').then((module) => ({ default: module.RightNowView })));
 const LaterView = lazy(() => import('./components/LaterView').then((module) => ({ default: module.LaterView })));
 const SafeHavenView = lazy(() => import('./components/SafeHavenView').then((module) => ({ default: module.SafeHavenView })));
+// Fetch the screens in the background shortly after start. An installed app that stays open across a new release can no longer
+// download old script files, and finding that out in the middle of answering a call reloaded the page and ended the call.
+if (typeof window !== 'undefined') {
+  const warm = () => window.setTimeout(() => {
+    for (const load of [() => import('./components/ChatRoomView'), () => import('./components/RightNowView'), () => import('./components/LaterView'), () => import('./components/ProfileView'), () => import('./components/DiscoverView')]) void load().catch(() => undefined);
+  }, 3000);
+  if (document.readyState === 'complete') warm(); else window.addEventListener('load', warm, { once: true });
+}
 const ProfileEditSheet = lazy(() => import('./components/ProfileEditSheet').then((module) => ({ default: module.ProfileEditSheet })));
 const ChatRoomView = lazy(() => import('./components/ChatRoomView').then((module) => ({ default: module.ChatRoomView })));
 const DiscoverView = lazy(() => import('./components/DiscoverView').then((module) => ({ default: module.DiscoverView })));

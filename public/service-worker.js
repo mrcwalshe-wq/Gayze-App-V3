@@ -186,6 +186,9 @@ function withNotificationId(path, id) {
 }
 
 const CLICK_STEP_MS = 1500;
+// A phone waking the app can take a few seconds before it answers. Reloading a window that is merely slow kills a call being
+// answered at that moment, so the answer gets longer, and a visible window is never reloaded.
+const CLICK_ACK_MS = 6000;
 const withTimeout = (promise, ms, fallback) => new Promise((resolve) => {
   const timer = setTimeout(() => resolve(fallback), ms);
   Promise.resolve(promise).then((v) => { clearTimeout(timer); resolve(v); }, () => { clearTimeout(timer); resolve(fallback); });
@@ -211,8 +214,9 @@ self.addEventListener('notificationclick', (event) => {
           try {
             app.postMessage({ source: 'gayze-sw', type: 'NOTIFICATION_CLICK', url: targetPath, navigationExpiresAt: Date.now() + 60000, data: { recipientId: validId(data.recipientId) ? data.recipientId : null } }, [channel.port2]);
           } catch { resolve(false); }
-        }), CLICK_STEP_MS, false);
+        }), CLICK_ACK_MS, false);
         if (handled) return;
+        if (app.visibilityState === 'visible') return;
         if (app.navigate) {
           const navigated = await withTimeout((async () => { await app.navigate(targetUrl); return true; })(), CLICK_STEP_MS, false);
           if (navigated) return;
