@@ -98,7 +98,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs font-semibold text-emerald-300 bg-emerald-950/40 px-3 py-1.5 rounded-full border border-emerald-500/30">
+          <span className="text-xs font-semibold text-emerald-300 bg-emerald-950/40 px-3 py-1.5 rounded-md border border-emerald-500/30">
             {safeHavens.length} Verified Spots Nearby
           </span>
         </div>
@@ -131,7 +131,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
                 </div>
 
                 <div className="flex flex-col items-end">
-                  <div className="flex items-center gap-1 whitespace-nowrap text-xs text-emerald-300 bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-500/30 font-semibold tabular-nums">
+                  <div className="flex items-center gap-1 whitespace-nowrap text-xs text-emerald-300 bg-emerald-950/40 px-2.5 py-1 rounded-md border border-emerald-500/30 font-semibold tabular-nums">
                     <ShieldCheck className="w-3 h-3" aria-hidden="true" /><span>{haven.safetyScore}</span><span className="font-medium text-emerald-300/70">safety</span>
                   </div>
                   <span className="text-[11px] text-zinc-500 mt-1 tabular-nums">{userLocation ? `${formatDistance(haven.approxDistanceKm)} away` : `~${haven.approxDistanceKm} km away`}</span>

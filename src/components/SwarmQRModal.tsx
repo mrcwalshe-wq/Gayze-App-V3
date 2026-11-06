@@ -518,7 +518,7 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
                           className="w-full h-full object-cover"
                         />
                         {/* Target reticle */}
-                        <div className="absolute inset-8 border border-dashed border-[#C9A24D]/50 rounded-[14px] pointer-events-none" />
+                        <div className="absolute inset-8 border border-dashed border-[#C9A24D]/50 rounded-[8px] pointer-events-none" />
                         <button
                           onClick={stopCamera}
                           className="absolute bottom-2.5 px-3 py-1 text-[11px] font-medium bg-black/80 hover:bg-black text-white rounded-lg backdrop-blur-md border border-white/10 cursor-pointer"

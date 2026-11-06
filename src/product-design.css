@@ -4,8 +4,8 @@
    Loaded last so older polish layers cannot reintroduce visual noise.
 */
 :root {
-  --g-product-radius-md: 14px;
-  --g-product-radius-lg: 18px;
+  --g-product-radius-md: 6px;
+  --g-product-radius-lg: 8px;
   --g-product-surface: #101218;
   --g-product-surface-raised: #141720;
   --g-product-border: rgba(255,255,255,.085);
@@ -438,7 +438,7 @@ select:focus-visible {
   min-height: 54px;
   padding: 9px 11px;
   border: 1px solid rgba(201,162,77,.34);
-  border-radius: 14px;
+  border-radius: 8px;
   background: rgba(201,162,77,.055);
   box-shadow: none;
   transition: background-color 150ms ease, border-color 150ms ease;
@@ -454,7 +454,7 @@ select:focus-visible {
   width: 34px;
   height: 34px;
   flex: 0 0 34px;
-  border-radius: 10px;
+  border-radius: 6px;
   color: #e2c36b;
   background: rgba(201,162,77,.11);
   border: 1px solid rgba(201,162,77,.28);
@@ -483,7 +483,7 @@ select:focus-visible {
   padding: 9px 12px !important;
   margin: 0 !important;
   transform: translateX(-50%) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   background: rgba(12,14,21,.94) !important;
   border: 1px solid rgba(255,255,255,.10) !important;
   box-shadow: 0 10px 24px rgba(0,0,0,.32) !important;
@@ -508,7 +508,7 @@ select:focus-visible {
   min-height: 330px;
   padding: 42px 28px 30px;
   border: 1px solid var(--g-intent-accent-border);
-  border-radius: 22px;
+  border-radius: 10px;
   background:
     radial-gradient(circle at 50% 0%, var(--g-intent-accent-soft), transparent 48%),
     linear-gradient(180deg, rgba(18,17,29,.98) 0%, rgba(10,11,17,.98) 100%);
@@ -534,7 +534,7 @@ select:focus-visible {
   width: 64px;
   height: 64px;
   margin-bottom: 24px;
-  border-radius: 20px;
+  border-radius: 10px;
   background: var(--g-intent-accent-soft) !important;
   border: 1px solid var(--g-intent-accent-border) !important;
   box-shadow: 0 10px 28px var(--g-intent-accent-glow) !important;
@@ -574,7 +574,7 @@ select:focus-visible {
   .g-shell .g-discover-signal-strip {
     min-height: 66px;
     padding: 12px 14px;
-    border-radius: 18px;
+    border-radius: 10px;
     background:
       linear-gradient(180deg, rgba(18,19,27,.94), rgba(12,13,19,.96));
     box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 8px 24px rgba(0,0,0,.14);
@@ -614,7 +614,7 @@ select:focus-visible {
     min-width: 74px;
     text-align: center;
     padding: 8px 10px;
-    border-radius: 11px;
+    border-radius: 6px;
     background: rgba(255,255,255,.045);
     border-color: rgba(255,255,255,.09);
   }
@@ -623,12 +623,12 @@ select:focus-visible {
     min-height: 58px;
     padding: 4px;
     gap: 2px;
-    border-radius: 19px;
+    border-radius: 10px;
     background: rgba(9,10,15,.72);
   }
   .g-shell .g-discover-mode-filter__button {
     height: 48px !important;
-    border-radius: 15px !important;
+    border-radius: 8px !important;
     font-size: 13px !important;
   }
   .g-shell .g-discover-mode-filter__button[class*="bg-white\/15"] {
@@ -640,7 +640,7 @@ select:focus-visible {
     min-height: 40px !important;
     padding-left: 14px !important;
     padding-right: 14px !important;
-    border-radius: 15px !important;
+    border-radius: 8px !important;
   }
   .g-shell .g-discover-map-button--social svg {
     color: #e2c36b !important;
@@ -652,7 +652,7 @@ select:focus-visible {
   .g-shell .g-discover-empty {
     min-height: 445px;
     padding: 34px 28px 28px;
-    border-radius: 23px;
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -667,7 +667,7 @@ select:focus-visible {
     height: 72px;
     margin-top: 0;
     margin-bottom: 24px;
-    border-radius: 24px;
+    border-radius: 12px;
   }
   .g-shell .g-discover-empty h3 {
     margin-top: 0;
@@ -683,7 +683,7 @@ select:focus-visible {
   .g-shell .g-discover-empty .g-btn--primary {
     margin-top: 20px;
     min-height: 52px;
-    border-radius: 17px;
+    border-radius: 8px;
     font-size: 14px;
   }
 }
@@ -1340,7 +1340,7 @@ select:focus-visible {
   .g-shell .g-map-state.g-map-state--live.g-map-state--social {
     min-height: 0 !important;
     padding: 10px 10px 9px !important;
-    border-radius: 18px !important;
+    border-radius: 10px !important;
     background:
       radial-gradient(115% 170% at 7% 0%, rgba(201,162,77,.14), transparent 44%),
       linear-gradient(120deg, rgba(71,58,31,.96) 0%, rgba(34,31,26,.98) 35%, rgba(16,17,21,.99) 72%, rgba(11,12,16,.99) 100%) !important;
@@ -1364,7 +1364,7 @@ select:focus-visible {
     flex: 1 1 0 !important;
     min-width: 0 !important;
     min-height: 38px !important;
-    border-radius: 11px !important;
+    border-radius: 6px !important;
     font-size: 10.5px !important;
   }
 
@@ -1388,7 +1388,7 @@ select:focus-visible {
   .g-map-rail .g-icon-btn {
     width: 42px !important;
     height: 42px !important;
-    border-radius: 14px !important;
+    border-radius: 8px !important;
     color: rgba(239,234,247,.84) !important;
     background: rgba(10,11,16,.72) !important;
     border: 1px solid rgba(255,255,255,.09) !important;
@@ -1421,7 +1421,7 @@ select:focus-visible {
   /* The top filter control uses exactly the same glass geometry. */
   .g-shell > .g-float.g-icon-btn,
   .g-shell .g-icon-btn.shrink-0 {
-    border-radius: 14px !important;
+    border-radius: 8px !important;
   }
 
   /* Bottom nav: restore the GAYZE purple → amber hairline and remove
@@ -1567,7 +1567,7 @@ select:focus-visible {
   .g-messages-subtab {
     min-height: 38px;
     border: 1px solid rgba(255,255,255,.075);
-    border-radius: 12px;
+    border-radius: 6px;
     background: rgba(255,255,255,.025);
     color: rgba(255,255,255,.52);
     font-size: 12px;
@@ -1591,7 +1591,7 @@ select:focus-visible {
     height: 17px;
     margin-left: 5px;
     padding: 0 5px;
-    border-radius: 999px;
+    border-radius: 6px;
     background: rgba(201,162,77,.16);
     color: #e5c66e;
     font-size: 9px;
@@ -1727,7 +1727,7 @@ select:focus-visible {
   .g-messages-subtab {
     min-height: 38px;
     border: 1px solid rgba(255,255,255,.075);
-    border-radius: 12px;
+    border-radius: 6px;
     background: rgba(255,255,255,.025);
     color: rgba(255,255,255,.52);
     font-size: 12px;
@@ -1751,7 +1751,7 @@ select:focus-visible {
     height: 17px;
     margin-left: 5px;
     padding: 0 5px;
-    border-radius: 999px;
+    border-radius: 6px;
     background: rgba(201,162,77,.16);
     color: #e5c66e;
     font-size: 9px;
@@ -1807,7 +1807,7 @@ select:focus-visible {
   }
 
   .g-messages-notifications .g-notification-status {
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 13px 14px;
   }
 
@@ -1815,7 +1815,7 @@ select:focus-visible {
     width: 38px;
     height: 38px;
     flex-basis: 38px;
-    border-radius: 12px;
+    border-radius: 6px;
   }
 
   .g-messages-notifications .g-notification-status h3 {
@@ -1837,7 +1837,7 @@ select:focus-visible {
   }
 
   .g-messages-notifications .g-panel {
-    border-radius: 16px;
+    border-radius: 8px;
   }
 
   .g-messages-notifications .g-notification-row {
@@ -1934,7 +1934,7 @@ select:focus-visible {
     height: auto !important;
     padding: 6px 9px !important;
     gap: 4px !important;
-    border-radius: 17px !important;
+    border-radius: 8px !important;
   }
   .g-shell[data-active-tab='right_now'] .g-map-state--live.is-collapsed .g-map-state__summary {
     min-height: 0 !important;
@@ -1957,7 +1957,7 @@ select:focus-visible {
   .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed {
     min-height: 0 !important;
     padding: 8px 12px !important;
-    border-radius: 18px !important;
+    border-radius: 10px !important;
     background: linear-gradient(112deg, rgba(20,19,24,.97), rgba(12,13,18,.96)) !important;
     border-color: rgba(201,162,77,.42) !important;
     box-shadow: 0 8px 22px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.055) !important;
@@ -1992,7 +1992,7 @@ select:focus-visible {
   .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed .g-map-state__live-pill {
     min-height: 20px !important;
     padding: 2px 7px !important;
-    border-radius: 999px !important;
+    border-radius: 6px !important;
     font-size: 9px !important;
     line-height: 1 !important;
     letter-spacing: .08em !important;
@@ -2041,7 +2041,7 @@ select:focus-visible {
     max-width: 520px !important;
     margin: 0 14px calc(var(--g-tabbar-h) + env(safe-area-inset-bottom,0px) + 8px) !important;
     padding: 8px 10px !important;
-    border-radius: 17px !important;
+    border-radius: 8px !important;
     background: rgba(12,13,19,.96) !important;
     border: 1px solid rgba(170,132,245,.19) !important;
     box-shadow: 0 10px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05) !important;
@@ -2068,7 +2068,7 @@ select:focus-visible {
     width: 36px !important;
     height: 36px !important;
     flex: 0 0 36px !important;
-    border-radius: 12px !important;
+    border-radius: 6px !important;
     background: rgba(201,162,77,.10) !important;
   }
   .g-intent-hub__sheet--status .g-intent-hub__live > div.min-w-0 {
@@ -2112,7 +2112,7 @@ select:focus-visible {
   .g-intent-hub__sheet--status .g-intent-hub__manage {
     min-height: 34px !important;
     padding: 0 12px !important;
-    border-radius: 11px !important;
+    border-radius: 6px !important;
     font-size: 10px !important;
     font-weight: 750 !important;
     white-space: nowrap !important;
@@ -2195,7 +2195,7 @@ select:focus-visible {
   height: 72px;
   flex: 0 0 54px;
   border: 1px solid color-mix(in srgb, var(--live-tone) 68%, white 18%);
-  border-radius: 13px;
+  border-radius: 6px;
   color: #fff;
   background:
     radial-gradient(circle at 50% 0%, var(--live-tone-soft), transparent 65%),
@@ -2219,7 +2219,7 @@ select:focus-visible {
   right: 0;
   top: 50%;
   height: 2px;
-  border-radius: 99px;
+  border-radius: 6px;
   background: linear-gradient(90deg, transparent, var(--live-tone), #fff, var(--live-tone), transparent);
   background-size: 200% 100%;
   animation: g-live-bridge 700ms linear infinite;
@@ -2270,7 +2270,7 @@ select:focus-visible {
 
   .g-messages-notifications__panel .g-notification-status {
     padding: 14px;
-    border-radius: 16px;
+    border-radius: 8px;
   }
 
   .g-messages-notifications__panel .g-notification-section-head {

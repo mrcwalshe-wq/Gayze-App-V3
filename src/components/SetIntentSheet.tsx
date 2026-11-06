@@ -292,7 +292,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
         {/* Header */}
         <div className="g-sheet__head">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className={`flex items-center justify-center w-8 h-8 rounded-[11px] shrink-0 ${
+            <span className={`flex items-center justify-center w-8 h-8 rounded-[6px] shrink-0 ${
               isEditing
                 ? 'bg-[#6F3CC3]/18 border border-[#6F3CC3]/45 text-[#b796f0] shadow-[inset_0_1px_0_rgba(170,132,245,0.16)]'
                 : 'bg-white/[0.04] border border-white/[0.09] text-zinc-400'
@@ -549,7 +549,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 </div>
 
                 {safeHavens.length > 0 && (
-                  <div className="flex items-center justify-between gap-3 py-3 px-3.5 rounded-[14px] bg-white/[0.03] border border-white/[0.07]">
+                  <div className="flex items-center justify-between gap-3 py-3 px-3.5 rounded-[8px] bg-white/[0.03] border border-white/[0.07]">
                     <div className="min-w-0">
                       <span className="text-[13px] font-medium text-white block">Near a Safe Haven</span>
                       <span className="text-[11px] text-zinc-500 block truncate">

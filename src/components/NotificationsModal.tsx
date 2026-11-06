@@ -373,7 +373,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                   <React.Fragment key={category.key}>
                     {index === 0 ? <hr className="g-divider" /> : <hr className="g-divider" />}
                     <div className={`g-row ${prefs.pushEnabled ? '' : 'opacity-45'}`}>
-                      <span className="flex items-center justify-center w-8 h-8 rounded-[10px] border border-white/10 bg-white/[0.05] text-zinc-400 shrink-0">
+                      <span className="flex items-center justify-center w-8 h-8 rounded-[6px] border border-white/10 bg-white/[0.05] text-zinc-400 shrink-0">
                         {category.icon}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -439,9 +439,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                           {(interest.fromInterests?.length || interest.fromReliabilityScore || interest.fromVerifiedPeersCount) ? (
                             <div className="flex flex-wrap gap-1.5 mt-2">
                               {interest.fromInterests?.slice(0, 3).map((item) => (
-                                <span key={item} className="px-2 py-1 rounded-full bg-white/[0.04] border border-white/[0.07] text-[9.5px] text-zinc-400">{item}</span>
+                                <span key={item} className="px-2 py-1 rounded-md bg-white/[0.04] border border-white/[0.07] text-[9.5px] text-zinc-400">{item}</span>
                               ))}
-                              {interest.fromReliabilityScore ? <span className="px-2 py-1 rounded-full bg-emerald-500/[0.07] border border-emerald-500/20 text-[9.5px] text-emerald-300">Reliability {interest.fromReliabilityScore}</span> : null}
+                              {interest.fromReliabilityScore ? <span className="px-2 py-1 rounded-md bg-emerald-500/[0.07] border border-emerald-500/20 text-[9.5px] text-emerald-300">Reliability {interest.fromReliabilityScore}</span> : null}
                             </div>
                           ) : null}
                           <div className="text-[10.5px] text-zinc-500 mt-2">Intent interest · review their profile before deciding</div>

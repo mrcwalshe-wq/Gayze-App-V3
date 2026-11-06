@@ -283,7 +283,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           </p>
         </div>
 
-        <div className="g-panel p-5 sm:p-7 !rounded-[24px]">
+        <div className="g-panel p-5 sm:p-7 !rounded-[12px]">
           <div className="mb-6">
             <h2 className="text-lg font-semibold">{title}</h2>
             <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>

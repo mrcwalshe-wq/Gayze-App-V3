@@ -431,7 +431,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           onClick={() => {
             if (photos.length > 0) setViewerIndex(0);
           }}
-          className={`g-avatar g-avatar--private w-20 h-20 !rounded-[24px] text-[22px] overflow-hidden shrink-0 shadow-lg shadow-black/40 border border-white/10 ${
+          className={`g-avatar g-avatar--private w-20 h-20 !rounded-[12px] text-[22px] overflow-hidden shrink-0 shadow-lg shadow-black/40 border border-white/10 ${
             photos.length > 0 ? 'cursor-pointer hover:border-[#6F3CC3]/50 transition-colors' : ''
           }`}
           title={photos.length > 0 ? 'View full photo' : undefined}
@@ -526,7 +526,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             return (
               <div
                 key={photo.id}
-                className="relative aspect-square rounded-[18px] overflow-hidden bg-[#11131a] border border-white/10 group shadow-md"
+                className="relative aspect-square rounded-[10px] overflow-hidden bg-[#11131a] border border-white/10 group shadow-md"
               >
                 <button
                   type="button"
@@ -638,7 +638,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
           {/* Empty Slot Card / Add Photo trigger */}
           {photos.length < MAX_PHOTOS && (
-            <label className="relative aspect-square rounded-[18px] border border-dashed border-white/15 bg-white/[0.02] hover:bg-white/[0.04] transition-all flex flex-col items-center justify-center cursor-pointer text-center p-2 group">
+            <label className="relative aspect-square rounded-[10px] border border-dashed border-white/15 bg-white/[0.02] hover:bg-white/[0.04] transition-all flex flex-col items-center justify-center cursor-pointer text-center p-2 group">
               <div className="w-8 h-8 rounded-full bg-white/[0.05] border border-white/10 flex items-center justify-center mb-1 group-hover:border-[#6F3CC3]/60 group-hover:bg-[#6F3CC3]/10 transition-colors">
                 <Plus className="w-4 h-4 text-[#b796f0]" />
               </div>
@@ -659,7 +659,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {Array.from({ length: Math.max(0, emptySlotsCount - 1) }).map((_, i) => (
             <div
               key={`empty-${i}`}
-              className="g-photo-slot relative aspect-square rounded-[18px] border border-dashed border-white/[0.07] bg-white/[0.01]"
+              className="g-photo-slot relative aspect-square rounded-[10px] border border-dashed border-white/[0.07] bg-white/[0.01]"
               aria-hidden="true"
             />
           ))}
@@ -812,7 +812,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <React.Fragment key={row.key}>
             {index > 0 && <hr className="g-divider" />}
             <button type="button" className="g-row" onClick={() => { hapticLight(); row.onClick(); }}>
-              <span className={`flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 ${toneClass(row.tone)}`}>
+              <span className={`flex items-center justify-center w-8 h-8 rounded-[6px] border shrink-0 ${toneClass(row.tone)}`}>
                 {row.icon}
               </span>
               <span className="min-w-0 flex-1">
@@ -835,7 +835,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             if (opening) void refreshBlockedUsers();
           }}
         >
-          <span className={`flex items-center justify-center w-8 h-8 rounded-[10px] border shrink-0 ${toneClass('purple')}`}>
+          <span className={`flex items-center justify-center w-8 h-8 rounded-[6px] border shrink-0 ${toneClass('purple')}`}>
             <Ban className="w-4 h-4" />
           </span>
           <span className="min-w-0 flex-1">

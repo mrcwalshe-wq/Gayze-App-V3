@@ -3,7 +3,7 @@
   position: relative !important;
   isolation: isolate !important;
   overflow: hidden !important;
-  border-radius: 999px !important;
+  border-radius: 6px !important;
   border: 1px solid rgba(255,255,255,.16) !important;
   color: #fff !important;
   background:
@@ -35,7 +35,7 @@
   z-index: 1;
   left: 14%; right: 14%; top: 1px;
   height: 1px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,.72), transparent);
   opacity: .7;
   pointer-events: none;

@@ -462,7 +462,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
                 <div>
                   <label htmlFor="gathering-description" className="g-label">What to expect</label>
-                  <textarea id="gathering-description" rows={3} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="What should people bring or know?" className="g-field mt-2.5 resize-none !py-3 !rounded-[14px]" />
+                  <textarea id="gathering-description" rows={3} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="What should people bring or know?" className="g-field mt-2.5 resize-none !py-3 !rounded-[8px]" />
                 </div>
 
                 <p className="g-iset__privacy">

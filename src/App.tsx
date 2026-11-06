@@ -3701,7 +3701,7 @@ export default function App() {
 
       {/* Only where location matters (the map views), and the person can dismiss it. */}
       {locationError && dismissedLocationError !== locationError && (activeTab === 'right_now' || activeTab === 'dating') && (
-        <div className="g-location-error g-float fixed z-40 rounded-[14px] pl-3.5 pr-1.5 py-2 text-[11.5px] text-zinc-300 leading-snug flex items-start gap-2" role="status">
+        <div className="g-location-error g-float fixed z-40 rounded-[8px] pl-3.5 pr-1.5 py-2 text-[11.5px] text-zinc-300 leading-snug flex items-start gap-2" role="status">
           <span className="min-w-0 flex-1 pt-0.5">
             <span className="text-amber-300 font-semibold">Live location unavailable.</span>{' '}
             {locationError}
@@ -3893,7 +3893,7 @@ export default function App() {
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-white">You’ve been Gayzed</span>
-                              {!notice.read_at && <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>}
+                              {!notice.read_at && <span className="rounded-md border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>}
                             </span>
                             <span className="mt-1 block text-xs text-violet-100/75">A sparkly moment is waiting. Tap to open your conversation.</span>
                             <span className="mt-2 block text-[10px] text-zinc-400">{new Date(notice.created_at).toLocaleString()}</span>
@@ -3917,7 +3917,7 @@ export default function App() {
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-white">Someone sent you a Gayze</span>
-                              {!notice.read_at && <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>}
+                              {!notice.read_at && <span className="rounded-md border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>}
                             </span>
                             <span className="mt-1 block text-xs text-violet-100/75">View the request and choose whether to connect</span>
                             <span className="mt-2 block h-[2px] w-full overflow-hidden rounded-full bg-white/10"><span className="block h-full w-2/3 rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300" /></span>
@@ -3938,7 +3938,7 @@ export default function App() {
                               <span className="text-sm font-semibold text-white">
                                 {pendingIncomingInterests.length === 1 ? 'You have a received Gayze' : `You have ${pendingIncomingInterests.length} received Gayzes`}
                               </span>
-                              <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>
+                              <span className="rounded-md border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200">New</span>
                             </span>
                             <span className="mt-1 block text-xs text-violet-100/75">View the request and choose whether to connect</span>
                             <span className="mt-2 block h-[2px] w-full overflow-hidden rounded-full bg-white/10"><span className="block h-full w-2/3 rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300" /></span>

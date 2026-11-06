@@ -215,7 +215,7 @@ export const CompatibilitySnapshot: React.FC<CompatibilitySnapshotProps> = ({
 
     return (
       <div
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium ${
           hasIntentMatch
             ? 'bg-[#C9A24D]/12 border border-[#C9A24D]/25 text-[#C9A24D]'
             : 'bg-[#6F3CC3]/16 border border-[#6F3CC3]/30 text-[#c4a9f7]'
