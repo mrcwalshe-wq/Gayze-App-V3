@@ -1948,3 +1948,79 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-peek__message { background: radial-gradient(120% 140% at 50% -40%, rgba(205, 150, 255, .34), transparent 60%), linear-gradient(180deg, rgba(150, 100, 235, .34), rgba(46, 22, 98, .96)), #0d0a17 !important; box-shadow: 0 0 0 1px rgba(190, 150, 255, .6), 0 8px 22px rgba(150, 100, 235, .26), inset 0 1px 0 rgba(255, 255, 255, .2) !important; color: #fff !important; }
 
 .g-peek__intent em { margin-left: auto; font-style: normal; font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px; color: #d5b8ff; }
+
+/* ===================================================================================================
+   Plan a meetup: a lit glass sheet. A tone wash from the top, a safety ring instead of a number box,
+   a single glass rail for the time with a glowing active pill (purple within a day, gold for later),
+   and a receipt line above one confident send button.
+   =================================================================================================== */
+@property --plan-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.g-plan { background: radial-gradient(80% 50% at 50% 100%, rgba(120, 70, 220, .22), transparent 70%), rgba(3, 2, 9, .72); }
+.g-plan__sheet {
+  background: radial-gradient(90% 38% at 50% -6%, rgba(160, 110, 245, .42), transparent 72%), radial-gradient(60% 30% at 100% 40%, rgba(192, 91, 216, .10), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .02)), rgba(12, 9, 24, .8) !important;
+  border-radius: 22px 22px 0 0 !important;
+}
+.g-plan__sheet::before { content: ''; position: absolute; left: 14%; right: 14%; top: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(215, 185, 255, .9), transparent); pointer-events: none; }
+.g-plan__grip { width: 36px; height: 4px; background: rgba(255, 255, 255, .28); }
+.g-plan__head { padding: 14px 20px 12px; gap: 14px; }
+.g-plan__badge { width: 52px; height: 52px; font-size: 21px; box-shadow: 0 0 0 2px #0c0b15, 0 0 0 3px rgba(190, 150, 255, .85), 0 0 22px rgba(150, 100, 235, .55); }
+.g-plan__title small { font-size: 10.5px; letter-spacing: .22em; color: #d3bbff; }
+.g-plan__title h3 { font-size: 24px; letter-spacing: -.035em; }
+.g-plan__close { background: rgba(255, 255, 255, .09); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18); }
+.g-plan__body { padding: 6px 20px 12px; gap: 22px; }
+.g-plan__body h4 { margin-bottom: 11px; font-size: 10.5px; letter-spacing: .22em; color: rgba(255, 255, 255, .5); }
+.g-plan__body h4::after { content: ''; flex: 1; height: 1px; margin-left: 6px; background: linear-gradient(90deg, rgba(255, 255, 255, .14), transparent); }
+
+/* venue: the chosen place is a lit card with a travelling edge */
+.g-plan__venue { border-radius: 14px; padding: 10px 14px 10px 10px; background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .025)); border-color: rgba(255, 255, 255, .12); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14); }
+.g-plan__venue.is-on { position: relative; border-color: transparent; background: linear-gradient(180deg, rgba(150, 100, 235, .30), rgba(70, 36, 150, .16)); box-shadow: 0 10px 30px rgba(110, 60, 210, .3), inset 0 1px 0 rgba(255, 255, 255, .26); }
+.g-plan__venue.is-on::after { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: conic-gradient(from var(--plan-a), rgba(255, 255, 255, .08), rgba(205, 160, 255, .95), rgba(255, 255, 255, .08) 40%, rgba(255, 255, 255, .08)); animation: plan-spin 5s linear infinite;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+@keyframes plan-spin { to { --plan-a: 360deg; } }
+.g-plan__score { position: relative; width: 52px; height: 52px; border-radius: 50%; background: rgba(8, 6, 16, .55); box-shadow: none; }
+.g-plan__score svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.g-plan__ring-bg, .g-plan__ring { fill: none; stroke-width: 3.2; }
+.g-plan__ring-bg { stroke: rgba(255, 255, 255, .1); }
+.g-plan__ring { stroke: #6ee7b7; stroke-linecap: round; stroke-dasharray: var(--p, .9) 1; filter: drop-shadow(0 0 3px rgba(110, 231, 183, .7)); }
+.g-plan__score b { position: relative; font-size: 15px; margin-top: 4px; }
+.g-plan__score small { position: relative; margin-top: 1px; font-size: 7px; }
+.g-plan__tick { width: 24px; height: 24px; }
+.g-plan__venue.is-on .g-plan__tick { box-shadow: 0 0 14px rgba(180, 120, 240, .7); }
+.g-plan__note { margin-top: 12px; font-size: 12px; }
+.g-plan__else .g-field, .g-plan__else input { border-radius: 14px !important; min-height: 48px; background: rgba(255, 255, 255, .06) !important; border: 1px solid rgba(255, 255, 255, .12) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
+
+/* when: one glass rail, one glowing pill */
+.g-plan__times { --pt: 150, 100, 235; position: relative; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 4px; border-radius: 18px; background: rgba(8, 6, 16, .5); border: 1px solid rgba(255, 255, 255, .1); box-shadow: inset 0 1px 6px rgba(0, 0, 0, .35); }
+.g-plan__times[data-tone='gold'] { --pt: 232, 184, 78; }
+.g-plan__time { align-items: center; text-align: center; gap: 1px; padding: 11px 2px 10px; border-radius: 14px; background: transparent !important; border: 0 !important; box-shadow: none !important; color: rgba(255, 255, 255, .66); }
+.g-plan__time svg { width: 18px; height: 18px; margin-bottom: 5px; color: rgba(255, 255, 255, .55); }
+.g-plan__time strong { font-size: 13px; font-weight: 750; letter-spacing: -.01em; white-space: nowrap; }
+.g-plan__time small { font-size: 10.5px; white-space: nowrap; color: rgba(255, 255, 255, .42); }
+.g-plan__time[data-tone='gold'].is-on, .g-plan__time.is-on { color: #fff; background: linear-gradient(180deg, rgba(var(--pt), .55), rgba(var(--pt), .2)) !important; box-shadow: 0 6px 20px rgba(var(--pt), .38), inset 0 1px 0 rgba(255, 255, 255, .32) !important; }
+.g-plan__time[data-tone='gold'].is-on { background: linear-gradient(180deg, rgba(232, 184, 78, .5), rgba(150, 100, 20, .22)) !important; box-shadow: 0 6px 20px rgba(232, 184, 78, .32), inset 0 1px 0 rgba(255, 255, 255, .3) !important; }
+.g-plan__time.is-on svg, .g-plan__time.is-on small { color: #fff; }
+.g-plan__time.is-on small { opacity: .8; }
+
+/* timer */
+.g-plan__timer { border-radius: 16px; padding: 14px 14px 14px; background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02)); border-color: rgba(255, 255, 255, .11); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12); }
+.g-plan__timer.is-on { background: linear-gradient(180deg, rgba(16, 185, 129, .14), rgba(16, 185, 129, .04)); border-color: rgba(52, 211, 153, .35); }
+.g-plan__timer-icon { width: 40px; height: 40px; border-radius: 12px; }
+.g-plan__durations { gap: 0; padding: 3px; margin-top: 13px; border-radius: 12px; background: rgba(6, 5, 12, .5); border: 1px solid rgba(255, 255, 255, .08); }
+.g-plan__durations button { border: 0 !important; background: transparent !important; border-radius: 10px; min-height: 38px; color: rgba(255, 255, 255, .6); }
+.g-plan__durations button.is-on { color: #fff; background: linear-gradient(180deg, rgba(52, 211, 153, .5), rgba(16, 185, 129, .24)) !important; box-shadow: 0 4px 14px rgba(16, 185, 129, .3), inset 0 1px 0 rgba(255, 255, 255, .3); }
+
+/* footer: a receipt line over one clear action */
+.g-plan__foot { gap: 12px; padding-top: 12px; background: linear-gradient(180deg, rgba(8, 6, 16, .4), rgba(8, 6, 16, .85)); border-top-color: rgba(255, 255, 255, .09); }
+.g-plan__sum { display: flex !important; flex-wrap: wrap; justify-content: center; gap: 6px; white-space: normal !important; }
+.g-plan__sum span { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .85); background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-plan__sum svg { flex: none; color: #cdb0ff; }
+.g-plan__send { position: relative; overflow: hidden; min-height: 56px; border-radius: 16px; font-size: 16.5px; letter-spacing: -.01em;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 50%), linear-gradient(135deg, #5f2fc0, #8f55e6 55%, #c05bd8);
+  box-shadow: 0 14px 34px rgba(111, 60, 195, .55), inset 0 1px 0 rgba(255, 255, 255, .45), inset 0 -1px 0 rgba(0, 0, 0, .25); }
+.g-plan__send::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .35), transparent); animation: plan-shine 4.5s ease-in-out infinite; }
+@keyframes plan-shine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+@media (prefers-reduced-motion: reduce) { .g-plan__venue.is-on::after, .g-plan__send::after { animation: none; } }
+.g-plan__durations button { align-items: center !important; }
+.g-plan__durations button small { align-self: center; padding-top: 3px; }
