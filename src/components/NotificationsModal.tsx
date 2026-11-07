@@ -35,6 +35,19 @@ import {
   type PushEnvironment,
 } from '../services/pushService';
 
+/** "5 min ago", "3 h ago", "Yesterday", then the date: easier to scan than a full timestamp. */
+const timeAgo = (iso: string): string => {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '';
+  const mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  if (hours < 48) return 'Yesterday';
+  return new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' });
+};
+
 interface NotificationsModalProps {
   isOpen: boolean;
   currentUserId?: string | null;
@@ -499,7 +512,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13px] font-semibold text-white">{notice.title}</span>
                         <span className="block mt-0.5 text-[12px] leading-snug text-zinc-400">{notice.body}</span>
-                        <time className="block mt-1 text-[10.5px] text-zinc-600" dateTime={notice.created_at}>{new Date(notice.created_at).toLocaleString()}</time>
+                        <time className="block mt-1 text-[10.5px] text-zinc-600" dateTime={notice.created_at}>{timeAgo(notice.created_at)}</time>
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
                     </button>
@@ -529,7 +542,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                       <span className={`g-notification-row__dot ${notice.read_at ? 'is-read' : ''}`} />
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13px] font-semibold text-white truncate">{notificationLabel(notice)}</span>
-                        <time className="block mt-1 text-[10.5px] text-zinc-600" dateTime={notice.created_at}>{new Date(notice.created_at).toLocaleString()}</time>
+                        <time className="block mt-1 text-[10.5px] text-zinc-600" dateTime={notice.created_at}>{timeAgo(notice.created_at)}</time>
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
                     </button>
