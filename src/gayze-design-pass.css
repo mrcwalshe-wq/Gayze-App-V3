@@ -1879,3 +1879,22 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
   box-shadow: 0 0 0 1px rgba(150, 100, 235, .25), 0 10px 28px rgba(150, 100, 235, .22), inset 0 1px 0 rgba(255, 255, 255, .22) !important;
 }
 .g-intent-hub__choice.is-social .g-intent-hub__choice-icon { color: #e6d8ff !important; background: rgba(150, 100, 235, .25) !important; box-shadow: inset 0 0 0 1px rgba(190, 150, 255, .45) !important; }
+
+/* ===================================================================================================
+   Surfaces, everywhere: frosted glass. Panels, sheets and rows share one material: a faint white gradient,
+   a hairline edge, a lit top edge, and a soft blur of whatever sits behind (kept light for phone performance).
+   =================================================================================================== */
+.g-panel, .g-shell .g-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .065), rgba(255, 255, 255, .02)), rgba(14, 11, 26, .55) !important;
+  border: 1px solid rgba(255, 255, 255, .11) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .15) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
+}
+.g-panel--live, .g-panel.g-panel--live { border-color: rgba(var(--tone, 150, 100, 235), .5) !important; box-shadow: 0 10px 30px rgba(0, 0, 0, .34), 0 0 24px rgba(var(--tone, 150, 100, 235), .16), inset 0 1px 0 rgba(255, 255, 255, .2) !important; }
+.g-sheet:not(.g-iset), .g-plan__sheet {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .025)), rgba(14, 10, 28, .72) !important;
+  border: 1px solid rgba(255, 255, 255, .16) !important; border-bottom: 0 !important;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .26) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(1.7); backdrop-filter: blur(26px) saturate(1.7);
+}
+.g-row { -webkit-backdrop-filter: none; backdrop-filter: none; }
