@@ -78,8 +78,8 @@ export function createMapGrid(map: L.Map, opts: GridOptions) {
     const minor: L.LatLngExpression[][] = [], major: L.LatLngExpression[][] = [];
     for (let i = i0; i <= i1 + 1; i++) (i % 5 === 0 ? major : minor).push([fromMeters(i * size, j0 * size), fromMeters(i * size, (j1 + 1) * size)]);
     for (let j = j0; j <= j1 + 1; j++) (j % 5 === 0 ? major : minor).push([fromMeters(i0 * size, j * size), fromMeters((i1 + 1) * size, j * size)]);
-    L.polyline(minor, { pane: 'gayzeGrid', renderer, interactive: false, className: 'gz-line', weight: 0.8, color: '#b79cff', opacity: 0.26 }).addTo(group);
-    L.polyline(major, { pane: 'gayzeGrid', renderer, interactive: false, className: 'gz-line gz-line--major', weight: 1.4, color: '#d8c8ff', opacity: 0.5 }).addTo(group);
+    L.polyline(minor, { pane: 'gayzeGrid', renderer, interactive: false, className: 'gz-line', weight: 0.7, color: '#b79cff', opacity: 0.16 }).addTo(group);
+    L.polyline(major, { pane: 'gayzeGrid', renderer, interactive: false, className: 'gz-line gz-line--major', weight: 1, color: '#d8c8ff', opacity: 0.28 }).addTo(group);
 
     // Occupied cells.
     const counts = new Map<string, { i: number; j: number; n: number }>();
@@ -107,7 +107,7 @@ export function createMapGrid(map: L.Map, opts: GridOptions) {
         const el = (rect as unknown as { _path?: SVGPathElement })._path;
         if (el) { el.style.fill = `url(#${hot ? 'gz-hatch-hot' : 'gz-hatch'})`; el.style.animationDelay = `${Math.min(order * 70, 700)}ms`; }
       } else if (mine) {
-        L.rectangle(bounds, { pane: 'gayzeGrid', renderer, interactive: false, className: 'gz-cell gz-cell--empty', weight: 1.4, color: '#e6d8ff', opacity: 0.9, fill: false }).addTo(group);
+        L.rectangle(bounds, { pane: 'gayzeGrid', renderer, interactive: false, className: 'gz-cell gz-cell--empty', weight: 1.2, color: '#e6d8ff', opacity: 0.55, fill: true, fillColor: '#b79cff', fillOpacity: 0.07 }).addTo(group);
       }
       const centre = bounds.getCenter();
       const html = `<div class="gz-tag${mine ? ' gz-tag--me' : ''}" style="animation-delay:${Math.min(order * 70, 700) + 120}ms">${n > 0 ? `<b>${n}</b>` : ''}<span>${mine && n === 0 ? 'YOU' : ref}</span>${mine && n > 0 ? '<i>YOU</i>' : ''}</div>`;
@@ -119,18 +119,6 @@ export function createMapGrid(map: L.Map, opts: GridOptions) {
     counts.forEach((c, k) => place(k, c.i, c.j, c.n, k === selfKey, order++));
     if (self && !counts.has(selfKey)) { const [i, j] = selfKey.split(':').map(Number); place(selfKey, i, j, 0, true, order++); }
 
-    // Chart references at the screen edges.
-    const size2 = map.getSize();
-    for (let i = i0; i <= i1; i++) {
-      const p = map.latLngToContainerPoint(fromMeters((i + 0.5) * size, (j0 + 0.5) * size));
-      if (p.x < 18 || p.x > size2.x - 18) continue;
-      const s = document.createElement('span'); s.className = 'gz-col'; s.textContent = colLetters(i); s.style.left = `${p.x}px`; labels.appendChild(s);
-    }
-    for (let j = j0; j <= j1; j++) {
-      const p = map.latLngToContainerPoint(fromMeters((i0 + 0.5) * size, (j + 0.5) * size));
-      if (p.y < 70 || p.y > size2.y - 150) continue;
-      const s = document.createElement('span'); s.className = 'gz-row'; s.textContent = rowNumber(j); s.style.top = `${p.y}px`; labels.appendChild(s);
-    }
     labels.dataset.size = size >= 1000 ? `${size / 1000} km` : `${size} m`;
     map.getContainer().dispatchEvent(new CustomEvent('gz-grid', { detail: { size, occupied: counts.size } }));
   };
