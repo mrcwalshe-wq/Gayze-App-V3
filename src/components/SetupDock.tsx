@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, BellOff, ChevronRight, Loader2 } from 'lucide-react';
 import { InstallPrompt } from './InstallPrompt';
 import { usePushStatus } from '../hooks/usePushStatus';
@@ -23,6 +23,7 @@ interface SetupDockProps {
 export const SetupDock: React.FC<SetupDockProps> = ({ userId, enabled, suppressPill = false, onOpenProfile }) => {
   const push = usePushStatus(enabled ? userId : null);
   const [installVisible, setInstallVisible] = useState(false);
+  const dockRef = useRef<HTMLDivElement | null>(null);
   const onInstallVisible = useCallback((v: boolean) => setInstallVisible(v), []);
 
   // The install reminder already explains why notifications are unavailable on
@@ -32,6 +33,17 @@ export const SetupDock: React.FC<SetupDockProps> = ({ userId, enabled, suppressP
     || push.status === 'blocked'
     || (push.status === 'needs-install' && !installVisible)
   );
+
+  // Publish the dock's height so the map controls can sit above it instead of underneath it.
+  useEffect(() => {
+    const el = dockRef.current;
+    const root = document.documentElement;
+    const publish = () => { const h = el?.offsetHeight ?? 0; root.style.setProperty('--g-setup-h', h > 0 ? `${h + 8}px` : '0px'); };
+    publish();
+    const observer = typeof ResizeObserver !== 'undefined' && el ? new ResizeObserver(publish) : null;
+    if (el) observer?.observe(el);
+    return () => { observer?.disconnect(); root.style.setProperty('--g-setup-h', '0px'); };
+  }, []);
 
   const label = push.status === 'blocked'
     ? 'Notifications blocked'
@@ -49,6 +61,7 @@ export const SetupDock: React.FC<SetupDockProps> = ({ userId, enabled, suppressP
     <div
       className="fixed left-3 right-3 z-50 flex flex-col items-stretch gap-2 pointer-events-none bottom-[calc(var(--g-tabbar-h,3.5rem)+env(safe-area-inset-bottom,0px)+12px)] md:left-auto md:right-6 md:bottom-6 md:w-[360px]"
       data-testid="setup-dock"
+      ref={dockRef}
     >
       <div className="pointer-events-auto empty:hidden"><InstallPrompt onVisibleChange={onInstallVisible} /></div>
       {showPill && (

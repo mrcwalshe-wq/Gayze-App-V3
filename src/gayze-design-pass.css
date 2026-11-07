@@ -2198,3 +2198,36 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-shell[data-active-tab='right_now'] .mapmode { bottom: var(--hud-bottom) !important; padding: 3px; border-radius: var(--hud-r); height: var(--hud-h); align-items: stretch; background: var(--hud-glass) !important; border-color: rgba(255, 255, 255, .2) !important; }
 .g-shell[data-active-tab='right_now'] .mapmode button { min-height: 0; height: 100%; padding: 0 18px; border-radius: 11px; }
 .g-shell[data-active-tab='right_now'] .gz-legend { left: var(--hud-m) !important; right: var(--hud-m) !important; max-width: none !important; bottom: calc(var(--hud-bottom) + var(--hud-h) + var(--hud-gap)) !important; min-height: 0; }
+
+/* ===================================================================================================
+   MAP HUD, collisions: everything has its own lane.
+   Top lane:   [ signal chip ................ ] [ filter ]
+   Second lane (under the top row): status notice, ending before the rail so they never overlap.
+   Bottom:     setup pill (when shown) > attribution line > dock row (list, Map | People) > legend
+   =================================================================================================== */
+.g-shell[data-active-tab='right_now'] { --hud-bottom: calc(var(--g-tabbar-h, 68px) + env(safe-area-inset-bottom, 0px) + 20px + var(--g-setup-h, 0px)); }
+
+/* Status notice (e.g. "Location unavailable"): a glass line under the chip, stopping short of the rail */
+.g-shell[data-active-tab='right_now'] .g-toast--map-status {
+  position: absolute !important; top: calc(var(--hud-top) + var(--hud-h) + var(--hud-gap)) !important; bottom: auto !important; left: var(--hud-m) !important; right: calc(var(--hud-m) + var(--hud-h) + var(--hud-gap)) !important;
+  width: auto !important; max-width: none !important; transform: none !important; margin: 0 !important; min-height: var(--hud-h); padding: 0 8px 0 14px !important; display: flex !important; align-items: center; gap: 10px; border-radius: var(--hud-r) !important;
+  background: var(--hud-glass) !important; border: 1px solid rgba(255, 255, 255, .2) !important; box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .24) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.7) !important; backdrop-filter: blur(20px) saturate(1.7) !important; animation: hud-lane-in .3s cubic-bezier(.2, .9, .3, 1) both !important; z-index: 35 !important;
+}
+.g-shell[data-active-tab='right_now'] .g-toast--map-status > span:nth-child(2) { font-size: 13px; line-height: 1.25; min-width: 0; }
+.g-shell[data-active-tab='right_now'] .g-toast--map-status button { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; }
+@keyframes hud-lane-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* Empty-state chip: one clean line */
+.g-shell[data-active-tab='right_now'] .g-hud-top .g-map-state { display: flex !important; align-items: center; white-space: nowrap; overflow: hidden; }
+.g-shell[data-active-tab='right_now'] .g-hud-top .g-map-state__meta { margin-left: auto; opacity: .75; }
+
+/* Attribution: a quiet single line in the gap between the dock row and what is below it, right-aligned */
+.g-shell[data-active-tab='right_now'] .leaflet-bottom.leaflet-right { margin-bottom: calc(var(--hud-bottom) - 18px) !important; }
+.g-shell[data-active-tab='right_now'] .leaflet-bottom .leaflet-control-attribution { margin: 0 var(--hud-m) 0 0 !important; padding: 0 4px !important; font-size: 8.5px !important; line-height: 13px !important; border-radius: 4px !important; background: rgba(7, 8, 11, .45) !important; color: rgba(255, 255, 255, .5) !important; }
+
+/* The setup pill matches the rest of the controls */
+.g-setup-pill { min-height: 44px; border-radius: 14px !important; background: var(--hud-glass, linear-gradient(180deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .04)), rgba(14, 10, 28, .6)) !important; border: 1px solid rgba(255, 255, 255, .2) !important; box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .24) !important; -webkit-backdrop-filter: blur(20px) saturate(1.7); backdrop-filter: blur(20px) saturate(1.7); }
+
+/* Legend: two readable lines, never clipped */
+.g-shell[data-active-tab='right_now'] .gz-legend small { white-space: normal; }
