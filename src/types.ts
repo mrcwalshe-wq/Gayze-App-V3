@@ -79,6 +79,8 @@ export interface Gathering {
   lat: number | null;
   lng: number | null;
   capacity: number;
+  /** The gathering's group chat, for the host and accepted guests. */
+  conversationId?: string | null;
   rsvpCount: number;
   isAttending: boolean;
   /** The signed-in member's state: asked, accepted, turned down, or withdrawn. */
@@ -258,6 +260,8 @@ export interface IntentActivityPost {
 }
 
 export interface SwarmRoom {
+  /** Set when this chat is a gathering's group chat. */
+  gatheringId?: string;
   id: string;
   name: string;
   type: 'direct' | 'gathering';

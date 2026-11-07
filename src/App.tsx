@@ -1303,11 +1303,15 @@ export default function App() {
     serverPresenceById.forEach((p, id) => { if (p.status === 'online') out.add(id); else out.delete(id); });
     return out;
   }, [onlineUserIds, serverPresenceById]);
+  // A gathering's group chat is named after the gathering (and shows its date), so it is recognisable in the chat list.
+  const gatheringChatById = useMemo(() => new Map(gatherings.filter((g) => g.conversationId).map((g) => [g.conversationId as string, g])), [gatherings]);
   const roomsWithPresence = useMemo(() => rooms.map((r) => {
+    const gatheringChat = gatheringChatById.get(r.id);
+    if (gatheringChat) r = { ...r, name: gatheringChat.title, type: 'gathering' as const, gatheringId: gatheringChat.id };
     const p = r.peerUserId ? serverPresenceById.get(r.peerUserId) : undefined;
     if (!p) return r;
     return { ...r, peerLastSeenAt: p.status === 'hidden' || !p.lastSeenAt ? undefined : Date.parse(p.lastSeenAt) };
-  }), [rooms, serverPresenceById]);
+  }), [rooms, gatheringChatById, serverPresenceById]);
 
   // A call that rang while this app was asleep is still there to answer: ask the server what is ringing whenever the app
   // wakes, signs in, or a call notification arrives, and keep checking while it is shown so a hung-up call goes away.
@@ -2113,7 +2117,13 @@ export default function App() {
     setCurrentUser((prev) => (prev.avatarUrl === url ? prev : { ...prev, avatarUrl: url }));
   }, []);
 
-  const handleOpenGatheringChat = (gathering: Gathering) => {
+  const handleOpenGatheringChat = async (gathering: Gathering) => {
+    if (gathering.conversationId) {
+      // Just accepted? The chat may not be in the list yet: load it, then open it.
+      if (!rooms.some((r) => r.id === gathering.conversationId)) { try { await refreshConversationList(); } catch { /* open anyway */ } }
+      requestConversationOpen(gathering.conversationId);
+      return;
+    }
     const existing = rooms.find((r) => r.id === 'room_' + gathering.id);
     if (existing) {
       requestConversationOpen(existing.id);

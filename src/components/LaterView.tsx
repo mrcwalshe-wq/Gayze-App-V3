@@ -248,6 +248,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
       <div className="g-later__grid">
         {filteredGatherings.map((gathering) => {
           const isHost = gathering.hostName === 'You';
+          // Everyone the host has accepted, and the host, share one private group chat.
+          const chatReady = Boolean(gathering.conversationId) && (isHost || gathering.isAttending);
           const spotsLeft = Math.max(0, gathering.capacity - gathering.rsvpCount);
           const percentFull = Math.min(100, Math.round((gathering.rsvpCount / Math.max(1, gathering.capacity)) * 100));
           const art = artFor(gathering.category);
@@ -332,7 +334,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <p className="g-ev__pledge"><ShieldCheck className="w-3.5 h-3.5" /><span>{gathering.safetyGuidelines}</span></p>
               </div>
 
-              <div className={`g-ev__actions ${groupChatAvailable ? '' : 'is-single'}`}>
+              <div className={`g-ev__actions ${chatReady ? '' : 'is-single'}`}>
                 <button
                   type="button"
                   onClick={() => { hapticLight(); onToggleRsvp(gathering.id); }}
@@ -357,16 +359,16 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   )}
                 </button>
 
-                {groupChatAvailable && (
+                {chatReady && (
                   <button type="button" onClick={() => onOpenGatheringChat(gathering)} className="g-ev__room">
                     <Lock className="w-4 h-4" />
-                    <span>Group room</span>
+                    <span>Group chat</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 )}
               </div>
-              {!groupChatAvailable && gathering.isAttending && (
-                <p className="g-ev__soon"><Lock className="w-3 h-3" aria-hidden="true" />A private group room for everyone going is coming soon.</p>
+              {!chatReady && gathering.isAttending && !isHost && (
+                <p className="g-ev__soon"><Lock className="w-3 h-3" aria-hidden="true" />Your group chat opens here once it is set up.</p>
               )}
             </article>
           );
