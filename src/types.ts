@@ -85,6 +85,8 @@ export interface Gathering {
   isAttending: boolean;
   /** The signed-in member's state: asked, accepted, turned down, or withdrawn. */
   myStatus?: 'requested' | 'attending' | 'declined' | 'cancelled' | null;
+  /** The host cancelled this plan. It stays listed, stamped CANCELLED. */
+  cancelled?: boolean;
   /** Host only: people waiting for a decision. */
   pending?: { userId: string; name: string; requestedAt: string }[];
   /** Host and accepted guests only: who is going. */

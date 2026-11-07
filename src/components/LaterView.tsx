@@ -47,7 +47,9 @@ interface LaterViewProps {
   onToggleRsvp: (gatheringId: string) => void;
   /** Host only: accept or decline someone who asked to join. */
   onRespondToRequest?: (gatheringId: string, userId: string, accept: boolean) => void | Promise<void>;
-  /** Host only: close (remove) a plan they posted. */
+  /** Host only: cancel a plan (it stays listed, stamped CANCELLED). */
+  onCancelGathering?: (gatheringId: string) => void | Promise<void>;
+  /** Host only: remove a plan from the list for good (offered once it is cancelled). */
   onCloseGathering?: (gatheringId: string) => void | Promise<void>;
   onOpenProfile?: (userId: string, name: string) => void;
   onOpenGatheringChat: (gathering: Gathering) => void;
@@ -66,6 +68,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   gatherings,
   onToggleRsvp,
   onRespondToRequest,
+  onCancelGathering,
   onCloseGathering,
   onOpenProfile,
   onOpenGatheringChat,
@@ -266,9 +269,10 @@ export const LaterView: React.FC<LaterViewProps> = ({
           return (
             <article
               key={gathering.id}
-              className={`g-ev ${isNext ? 'is-next' : ''} ${gathering.isAttending ? 'is-going' : ''}`}
+              className={`g-ev ${isNext ? 'is-next' : ''} ${gathering.isAttending ? 'is-going' : ''} ${gathering.cancelled ? 'is-cancelled' : ''}`}
               style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}
             >
+              {gathering.cancelled && <span className="g-ev__stamp" role="img" aria-label="Cancelled">Cancelled</span>}
               <div className="g-ev__poster">
                 <ArtIcon className="g-ev__art" aria-hidden="true" />
                 <div className="g-ev__date" aria-label={when.toLocaleString()}>
@@ -322,7 +326,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                     ))}
                   </p>
                 )}
-                {isHost && (gathering.pending?.length ?? 0) > 0 && (
+                {isHost && !gathering.cancelled && (gathering.pending?.length ?? 0) > 0 && (
                   <div className="g-ev__requests" role="group" aria-label={`Requests to join ${gathering.title}`}>
                     <h4>Waiting for you · {gathering.pending!.length}</h4>
                     {gathering.pending!.map((r) => (
@@ -343,11 +347,13 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <button
                   type="button"
                   onClick={() => { hapticLight(); onToggleRsvp(gathering.id); }}
-                  disabled={isHost || gathering.myStatus === 'declined' || busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending && gathering.myStatus !== 'requested')}
+                  disabled={isHost || gathering.cancelled || gathering.myStatus === 'declined' || busyGatheringId === gathering.id || (spotsLeft === 0 && !gathering.isAttending && gathering.myStatus !== 'requested')}
                   className={`g-ev__rsvp ${gathering.isAttending || isHost ? 'is-going' : ''} ${gathering.myStatus === 'requested' ? 'is-requested' : ''}`}
                   aria-label={isHost ? `You're hosting ${gathering.title}.` : gathering.isAttending ? `You're going to ${gathering.title}. Tap to leave.` : gathering.myStatus === 'requested' ? `Request sent for ${gathering.title}. Tap to withdraw.` : undefined}
                 >
-                  {isHost ? (
+                  {gathering.cancelled ? (
+                    <span>Cancelled by the host</span>
+                  ) : isHost ? (
                     <><Check className="w-4 h-4" /><span>You're hosting</span><small>{(gathering.pending?.length ?? 0) > 0 ? `${gathering.pending!.length} waiting` : gathering.rsvpCount > 1 ? `${gathering.rsvpCount - 1} joining` : 'No guests yet'}</small></>
                   ) : busyGatheringId === gathering.id ? (
                     <span>Saving…</span>
@@ -372,17 +378,21 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   </button>
                 )}
               </div>
-              {isHost && onCloseGathering && (
-                closingId === gathering.id ? (
-                  <div className="g-ev__close g-ev__close--confirm" role="alertdialog" aria-label={`Close ${gathering.title}?`}>
-                    <p>Close this plan? It is removed for everyone{gathering.rsvpCount > 1 ? ` (${gathering.rsvpCount - 1} joining)` : ''}. Guests in the group chat are told. This cannot be undone.</p>
+              {isHost && (gathering.cancelled ? onCloseGathering : onCancelGathering) && (() => {
+                const remove = Boolean(gathering.cancelled);
+                const act = remove ? onCloseGathering! : onCancelGathering!;
+                return closingId === gathering.id ? (
+                  <div className="g-ev__close g-ev__close--confirm" role="alertdialog" aria-label={`${remove ? 'Remove' : 'Cancel'} ${gathering.title}?`}>
+                    <p>{remove
+                      ? 'Remove this cancelled plan from the list? This cannot be undone.'
+                      : `Cancel this plan? It stays on the list marked CANCELLED${gathering.rsvpCount > 1 ? `, and the ${gathering.rsvpCount - 1} joining are told in the group chat` : ''}. No one can join it after that.`}</p>
                     <button type="button" disabled={closeBusy} onClick={() => setClosingId(null)}>Keep it</button>
-                    <button type="button" className="is-danger" disabled={closeBusy} onClick={async () => { hapticLight(); setCloseBusy(true); try { await onCloseGathering(gathering.id); } finally { setCloseBusy(false); setClosingId(null); } }}>{closeBusy ? 'Closing…' : 'Close plan'}</button>
+                    <button type="button" className="is-danger" disabled={closeBusy} onClick={async () => { hapticLight(); setCloseBusy(true); try { await act(gathering.id); } finally { setCloseBusy(false); setClosingId(null); } }}>{closeBusy ? 'Working…' : remove ? 'Remove plan' : 'Cancel plan'}</button>
                   </div>
                 ) : (
-                  <button type="button" className="g-ev__close" onClick={() => { hapticLight(); setClosingId(gathering.id); }}>Close this plan</button>
-                )
-              )}
+                  <button type="button" className="g-ev__close" onClick={() => { hapticLight(); setClosingId(gathering.id); }}>{remove ? 'Remove from list' : 'Cancel this plan'}</button>
+                );
+              })()}
               {!chatReady && gathering.isAttending && !isHost && (
                 <p className="g-ev__soon"><Lock className="w-3 h-3" aria-hidden="true" />Your group chat opens here once it is set up.</p>
               )}

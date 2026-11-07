@@ -64,6 +64,7 @@ export interface SupabaseGatheringRow {
   capacity: number;
   tags: unknown;
   safety_guidelines: string;
+  cancelled_at?: string | null;
 }
 
 export async function loadGatherings(): Promise<import('../types').Gathering[]> {
@@ -72,7 +73,7 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
   if (!user) return [];
   const { data, error } = await supabase
     .from('gatherings')
-    .select('id,host_id,title,description,category,scheduled_at,location_name,address,neighborhood,is_safe_haven_venue,lat,lng,capacity,tags,safety_guidelines')
+    .select('id,host_id,title,description,category,scheduled_at,location_name,address,neighborhood,is_safe_haven_venue,lat,lng,capacity,tags,safety_guidelines,cancelled_at')
     .gte('scheduled_at', new Date().toISOString())
     .order('scheduled_at', { ascending: true });
   if (error) {
@@ -120,6 +121,7 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     attendees: overview.get(row.id)?.attendees ?? [],
     tags: Array.isArray(row.tags) ? row.tags as string[] : [],
     safetyGuidelines: row.safety_guidelines,
+    cancelled: Boolean(row.cancelled_at),
   }));
 }
 
@@ -156,11 +158,21 @@ export type GatheringStatus = 'requested' | 'attending' | 'declined' | 'cancelle
 export async function requestToJoinGathering(gatheringId: string): Promise<GatheringStatus | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc('request_to_join_gathering', { p_gathering_id: gatheringId });
-  if (error) { console.warn('[GAYZE] Join request failed:', error.message); throw new Error(/full/i.test(error.message) ? 'full' : /ended/i.test(error.message) ? 'ended' : 'failed'); }
+  if (error) { console.warn('[GAYZE] Join request failed:', error.message); throw new Error(/full/i.test(error.message) ? 'full' : /ended/i.test(error.message) ? 'ended' : /cancelled/i.test(error.message) ? 'cancelled' : 'failed'); }
   return data as GatheringStatus;
 }
 
-/** Host only: close a plan you posted. Guests lose the listing; the database only lets the host delete their own. */
+/** Host only: cancel a plan. It stays listed, stamped CANCELLED; new requests and reminders stop. */
+export async function cancelGathering(gatheringId: string): Promise<boolean> {
+  if (!supabase) return false;
+  const user = await ensureSupabaseSession();
+  if (!user) return false;
+  const { data, error } = await supabase.from('gatherings').update({ cancelled_at: new Date().toISOString() }).eq('id', gatheringId).eq('host_id', user.id).is('cancelled_at', null).select('id');
+  if (error) { console.warn('[GAYZE] Cancelling gathering failed:', error.message); return false; }
+  return (data ?? []).length > 0;
+}
+
+/** Host only: remove a plan you posted from the list for good. Guests lose the listing; the database only lets the host delete their own. */
 export async function closeGathering(gatheringId: string): Promise<boolean> {
   if (!supabase) return false;
   const user = await ensureSupabaseSession();
