@@ -36,15 +36,17 @@ export const CallLineCard: React.FC<CallLineCardProps> = ({ call, isCaller, peer
         <p className="g-calln__sub"><Kind className="w-3 h-3" aria-hidden="true" />{kind === 'video' ? 'Video' : 'Voice'} · {when}</p>
         <p className="g-calln__hint">{sub}</p>
       </div>
-      {canRetry && isCaller && !declined && onLeaveNote && (
-        <button type="button" className="g-calln__retry" onClick={() => { hapticLight(); onLeaveNote(call.callType); }}>
-          <Mic className="w-3.5 h-3.5" aria-hidden="true" />Leave a message
-        </button>
-      )}
       {canRetry && (
-        <button type="button" className="g-calln__retry" onClick={() => { hapticLight(); onRetry(call.callType); }}>
-          <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />{isCaller ? 'Try again' : 'Call back'}
-        </button>
+        <div className="g-calln__actions">
+          {isCaller && !declined && onLeaveNote && (
+            <button type="button" className="g-calln__retry g-calln__retry--lead" onClick={() => { hapticLight(); onLeaveNote(call.callType); }}>
+              <Mic className="w-3.5 h-3.5" aria-hidden="true" />Leave a message
+            </button>
+          )}
+          <button type="button" className="g-calln__retry g-calln__retry--quiet" onClick={() => { hapticLight(); onRetry(call.callType); }}>
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />{isCaller ? 'Try again' : 'Call back'}
+          </button>
+        </div>
       )}
     </article>
   );
