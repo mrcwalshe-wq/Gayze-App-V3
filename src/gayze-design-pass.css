@@ -1898,3 +1898,14 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
   -webkit-backdrop-filter: blur(26px) saturate(1.7); backdrop-filter: blur(26px) saturate(1.7);
 }
 .g-row { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* People grid: sits above the map's own controls so nothing overlaps its header; a proper empty state */
+.pg { z-index: 60 !important; padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important; }
+.mapmode { z-index: 61 !important; }
+.pg__empty { gap: 10px !important; max-width: 280px !important; }
+.pg__radar { position: relative; width: 96px; height: 96px; display: grid; place-items: center; color: rgb(var(--tone)); margin-bottom: 6px; }
+.pg__radar i { position: absolute; inset: 0; border: 1px solid rgba(var(--tone), .55); border-radius: 50%; animation: pg-ring 3s ease-out infinite; }
+.pg__radar i:nth-child(2) { animation-delay: 1s; } .pg__radar i:nth-child(3) { animation-delay: 2s; }
+@keyframes pg-ring { from { transform: scale(.35); opacity: .9; } to { transform: scale(1.15); opacity: 0; } }
+.pg__btn--wide { margin-top: 6px; padding: 0 22px; min-height: 44px; border-radius: 12px; }
+@media (prefers-reduced-motion: reduce) { .pg__radar i { animation: none; opacity: .4; } }
