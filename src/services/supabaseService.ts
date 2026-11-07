@@ -1230,6 +1230,8 @@ export interface MyConversations {
   summaries: ConversationSummary[];
   members: ConversationMemberRecord[];
   profiles: ConversationMemberProfile[];
+  /** Chats that belong to a gathering (host + accepted guests), by conversation id. */
+  gatheringChats?: Record<string, { gatheringId: string; title: string }>;
 }
 
 /**
@@ -1267,6 +1269,12 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
 
     const conversationIds = Array.from(new Set(rows.map((row) => row.conversation_id)));
     if (!conversationIds.length) return { summaries: [], members: [], profiles: [] };
+
+    // A gathering's chat has the host and accepted guests as members. With one guest it has only two members, which would
+    // look like a direct chat with that guest: so the backend says which conversations belong to gatherings.
+    const gatheringChats: Record<string, { gatheringId: string; title: string }> = {};
+    const gatherings = await supabase.rpc('get_my_gathering_chats');
+    if (!gatherings.error) for (const g of (gatherings.data ?? []) as Array<{ gathering_id: string; conversation_id: string; title: string }>) gatheringChats[g.conversation_id] = { gatheringId: g.gathering_id, title: g.title };
 
     // Ordering metadata only: a failure here leaves the list ordered by creation
     // time rather than hiding conversations.
@@ -1317,7 +1325,7 @@ export async function loadMyConversations(): Promise<MyConversations | null> {
       }
     }
 
-    return { summaries, members, profiles };
+    return { summaries, members, profiles, gatheringChats };
   } catch (err: any) {
     console.warn('[GAYZE] Conversation load exception:', err?.message || err);
     return null;
