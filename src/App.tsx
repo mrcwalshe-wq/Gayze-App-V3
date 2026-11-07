@@ -688,6 +688,7 @@ export default function App() {
     fallbackOnline?: boolean;
     fallbackDistance?: string;
     fallbackExpiresAt?: number;
+    fallbackLater?: boolean;
   } | null>(null);
   const [incomingGayzeCelebration, setIncomingGayzeCelebration] = useState<IncomingInterest | null>(null);
   const [pendingIncomingInterests, setPendingIncomingInterests] = useState<IncomingInterest[]>([]);
@@ -3694,6 +3695,7 @@ export default function App() {
       fallbackOnline: fallback?.online,
       fallbackDistance: fallback?.distance,
       fallbackExpiresAt: fallback?.expiresAt,
+      fallbackLater: fallback?.later,
     });
   };
 
@@ -4236,6 +4238,7 @@ export default function App() {
               fallbackOnline={viewingPublicProfile.fallbackOnline}
               fallbackDistance={viewingPublicProfile.fallbackDistance}
               fallbackExpiresAt={viewingPublicProfile.fallbackExpiresAt}
+              fallbackLater={viewingPublicProfile.fallbackLater}
               onClose={() => setViewingPublicProfile(null)}
               onBlock={IS_LIVE_BACKEND ? (id) => { void handleBlockPeer(id, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
               onReport={IS_LIVE_BACKEND ? (id) => handleReportPeer(id, viewingPublicProfile.fallbackName || 'this user') : undefined}

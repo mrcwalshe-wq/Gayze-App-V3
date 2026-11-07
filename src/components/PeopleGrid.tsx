@@ -54,11 +54,12 @@ export const PeopleGrid: React.FC<{ tiles: PeopleTile[]; onSelect: (key: string)
       ) : (
         <div className="pg__grid">
           {tiles.map((t, i) => (
-            <button key={t.key} type="button" className="pg-tile" style={{ animationDelay: `${Math.min(i * 45, 450)}ms` }} onClick={() => { hapticLight(); onSelect(t.key); }}>
+            <button key={t.key} type="button" className="pg-tile" data-tone={t.later ? 'gold' : 'purple'} style={{ animationDelay: `${Math.min(i * 45, 450)}ms`, ['--left' as string]: t.expiresAt ? Math.max(0.04, Math.min(1, (t.expiresAt - Date.now()) / 7200000)) : 1 }} onClick={() => { hapticLight(); onSelect(t.key); }}>
               <Photo tile={t} />
               <span className="pg-tile__shade" aria-hidden="true" />
               <span className="pg-tile__live">{left(t.expiresAt) ? <><i aria-hidden="true" />{left(t.expiresAt)}</> : <><i aria-hidden="true" />Live</>}</span>
               {t.verified && <span className="pg-tile__ver" aria-label="Verified"><ShieldCheck className="w-3.5 h-3.5" /></span>}
+              <span className="pg-tile__bar" aria-hidden="true"><i /></span>
               <span className="pg-tile__glass">
                 <strong>{t.name}{t.age ? <em>{t.age}</em> : null}</strong>
                 <span className="pg-tile__row"><span className="pg-tile__intent">{t.intent}</span><span className="pg-tile__dist">{t.distance}</span></span>

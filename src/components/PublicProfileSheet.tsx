@@ -19,6 +19,8 @@ export interface PublicProfileSheetProps {
   /** From the people grid / map: distance band and when their live signal ends. */
   fallbackDistance?: string;
   fallbackExpiresAt?: number;
+  /** The signal is for later (gold) rather than within a day (purple). */
+  fallbackLater?: boolean;
   onClose: () => void;
   /** Omit when the viewer is already in a conversation with this person. */
   onMessage?: () => void;
@@ -55,6 +57,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   fallbackOnline,
   fallbackDistance,
   fallbackExpiresAt,
+  fallbackLater,
   onClose,
   onMessage,
   onBlock,
@@ -153,6 +156,14 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
     ].filter((group) => group.values.length > 0);
   }, [summary, chips, intimacy]);
 
+  const goTo = (next: number) => {
+    const el = trackRef.current;
+    if (!el || gallery.length < 2) return;
+    const i = (next + gallery.length) % gallery.length;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+    setIndex(i);
+  };
+
   const onTrackScroll = () => {
     const el = trackRef.current;
     if (!el || !el.clientWidth) return;
@@ -188,13 +199,17 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
             <button type="button" onClick={onClose} className="g-peek__close" aria-label="Close profile"><X className="w-[18px] h-[18px]" /></button>
             {gallery.length > 1 && (
               <>
-                <div className="g-peek__dots" aria-hidden="true">
-                  {gallery.map((url, i) => <i key={url} data-on={i === index} />)}
+                <div className="g-peek__bars" aria-hidden="true">
+                  {gallery.map((url, i) => <i key={url} data-state={i < index ? 'done' : i === index ? 'on' : 'next'} />)}
                 </div>
-                <span className="g-peek__count">{index + 1}/{gallery.length}</span>
+                <button type="button" className="g-peek__zone g-peek__zone--prev" aria-label="Previous photo" onClick={() => goTo(index - 1)} />
+                <button type="button" className="g-peek__zone g-peek__zone--next" aria-label="Next photo" onClick={() => goTo(index + 1)} />
               </>
             )}
-            <div className="g-peek__id">
+            <div className="g-peek__id" data-tone={fallbackLater ? 'gold' : 'purple'}>
+              {intent && (
+                <span className="g-peek__signal"><i aria-hidden="true" /><b>{intent}</b>{minutesLeft > 0 && <em>{leftLabel} left</em>}</span>
+              )}
               <div className="g-peek__name">
                 <h2>{name}{age ? <span>{age}</span> : null}</h2>
                 {summary?.safetyVerified && <BadgeCheck className="w-5 h-5 text-emerald-300" aria-label="Safety verified" />}
@@ -209,10 +224,6 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
           </div>
 
           <div className="g-peek__body">
-            {intent && (
-              <div className="g-peek__intent"><Sparkles className="w-4 h-4" /><span>Right now</span><strong>{intent}</strong>{minutesLeft > 0 && <em>{leftLabel} left</em>}</div>
-            )}
-
             {(hasStats || fallbackDistance) && (
               <div className="pk-stats" aria-label="Profile at a glance">
                 {matchPct != null && <StatRing value={matchPct} label={`${matchPct}%`} caption="Match" />}
@@ -237,6 +248,13 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
                   </div>
                 )}
 
+                {summary && (summary.safetyVerified || (summary.verifiedPeersCount ?? 0) > 0) && (
+                  <div className="g-peek__badges">
+                    {summary.safetyVerified && <span><BadgeCheck className="w-4 h-4" />Safety verified</span>}
+                    {(summary.verifiedPeersCount ?? 0) > 0 && <span><ShieldCheck className="w-4 h-4" />{summary.verifiedPeersCount} verified {summary.verifiedPeersCount === 1 ? 'peer' : 'peers'}</span>}
+                  </div>
+                )}
+
                 {chips.length > 0 && (
                   <div>
                     {sharedCount > 0 && <p className="g-peek__common"><Check className="w-3.5 h-3.5" />{sharedCount} in common with you</p>}
@@ -251,10 +269,6 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
                 {facts.length > 0 && <p className="g-peek__facts">{facts.join(' · ')}</p>}
 
                 {!summary && <p className="g-peek__facts">Only the basics are visible right now.</p>}
-
-                {summary && (summary.verifiedPeersCount ?? 0) > 0 && (
-                  <p className="g-peek__trust"><ShieldCheck className="w-4 h-4" />{summary.verifiedPeersCount} verified {summary.verifiedPeersCount === 1 ? 'peer' : 'peers'}</p>
-                )}
 
                 {moreGroups.length > 0 && (
                   <>

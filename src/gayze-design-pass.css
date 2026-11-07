@@ -2024,3 +2024,44 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 @media (prefers-reduced-motion: reduce) { .g-plan__venue.is-on::after, .g-plan__send::after { animation: none; } }
 .g-plan__durations button { align-items: center !important; }
 .g-plan__durations button small { align-self: center; padding-top: 3px; }
+
+/* ===================================================================================================
+   Profile cards, second generation.
+   Peek: story bars with tap zones (left/right to step through photos), a live signal capsule over the photo, a body
+   sheet that rises over the picture, trust badges. Grid tile: tone-lit edge (purple within a day, gold for later)
+   and a thin time-left bar. Signals are coloured by the same rule as the rest of the app.
+   =================================================================================================== */
+.g-peek__id { --tn: 170, 120, 245; }
+.g-peek__id[data-tone='gold'] { --tn: 232, 184, 78; }
+.g-peek__bars { position: absolute; top: 12px; left: 16px; right: 64px; z-index: 3; display: flex; gap: 4px; pointer-events: none; }
+.g-peek__bars i { position: relative; flex: 1; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .26); box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+.g-peek__bars i::after { content: ''; position: absolute; inset: 0; background: #fff; transform-origin: left; transform: scaleX(0); transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
+.g-peek__bars i[data-state='done']::after, .g-peek__bars i[data-state='on']::after { transform: scaleX(1); }
+.g-peek__bars i[data-state='done']::after { opacity: .7; }
+.g-peek__zone { position: absolute; z-index: 2; top: 56px; bottom: 120px; width: 30%; padding: 0; border: 0; background: transparent; -webkit-tap-highlight-color: transparent; }
+.g-peek__zone--prev { left: 0; } .g-peek__zone--next { right: 0; }
+.g-peek__shade { background: linear-gradient(180deg, rgba(0, 0, 0, .5), transparent 20%, transparent 40%, rgba(11, 10, 17, .7) 78%, rgba(11, 10, 17, .98)); }
+.g-peek__id { bottom: 30px; }
+.g-peek__signal { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin-bottom: 10px; padding: 6px 13px 6px 11px; border-radius: 999px; font-size: 13px; color: #fff;
+  background: linear-gradient(180deg, rgba(var(--tn), .38), rgba(var(--tn), .16)); border: 1px solid rgba(var(--tn), .7); box-shadow: 0 6px 22px rgba(var(--tn), .35), inset 0 1px 0 rgba(255, 255, 255, .3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6); }
+.g-peek__signal i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: rgb(var(--tn)); box-shadow: 0 0 10px rgb(var(--tn)); animation: peer-intent-pulse 1.8s ease-in-out infinite; }
+.g-peek__signal b { font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-peek__signal em { flex: none; font-style: normal; font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px; opacity: .85; padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, .3); }
+.g-peek__body { position: relative; margin-top: -20px; border-radius: 22px 22px 0 0; padding-top: 18px; z-index: 2;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .02)), rgba(13, 10, 24, .86); box-shadow: 0 -10px 30px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .22);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); }
+.g-peek__badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.g-peek__badges span { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px 7px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 650; color: #b6f5d8; background: linear-gradient(180deg, rgba(16, 185, 129, .22), rgba(16, 185, 129, .08)); border: 1px solid rgba(52, 211, 153, .4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15); }
+.g-peek__chip.is-shared { box-shadow: 0 0 14px rgba(170, 120, 245, .35); }
+
+.pg-tile { --tn: 150, 100, 235; }
+.pg-tile[data-tone='gold'] { --tn: 232, 184, 78; }
+.pg-tile { border-color: rgba(var(--tn), .45); box-shadow: 0 14px 34px rgba(0, 0, 0, .5), 0 0 18px rgba(var(--tn), .16), inset 0 1px 0 rgba(255, 255, 255, .25); }
+.pg-tile__live i { background: rgb(var(--tn)); box-shadow: 0 0 8px rgb(var(--tn)); }
+.pg-tile__intent { color: rgb(var(--tn)); }
+.pg-tile__bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 2; background: rgba(255, 255, 255, .12); }
+.pg-tile__bar i { display: block; height: 100%; width: calc(var(--left, 1) * 100%); background: linear-gradient(90deg, rgba(var(--tn), .5), rgb(var(--tn))); box-shadow: 0 0 8px rgba(var(--tn), .8); }
+.g-peek__message { position: relative; overflow: hidden; border-radius: 16px !important; min-height: 54px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, 0) 52%), linear-gradient(135deg, #5f2fc0, #8f55e6 55%, #c05bd8) !important;
+  box-shadow: 0 14px 32px rgba(111, 60, 195, .5), inset 0 1px 0 rgba(255, 255, 255, .45), inset 0 -1px 0 rgba(0, 0, 0, .25) !important; }
