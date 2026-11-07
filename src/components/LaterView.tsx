@@ -375,7 +375,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
               {isHost && onCloseGathering && (
                 closingId === gathering.id ? (
                   <div className="g-ev__close g-ev__close--confirm" role="alertdialog" aria-label={`Close ${gathering.title}?`}>
-                    <p>Close this plan? It is removed for everyone{gathering.rsvpCount > 1 ? ` (${gathering.rsvpCount - 1} joining)` : ''}. This cannot be undone.</p>
+                    <p>Close this plan? It is removed for everyone{gathering.rsvpCount > 1 ? ` (${gathering.rsvpCount - 1} joining)` : ''}. Guests in the group chat are told. This cannot be undone.</p>
                     <button type="button" disabled={closeBusy} onClick={() => setClosingId(null)}>Keep it</button>
                     <button type="button" className="is-danger" disabled={closeBusy} onClick={async () => { hapticLight(); setCloseBusy(true); try { await onCloseGathering(gathering.id); } finally { setCloseBusy(false); setClosingId(null); } }}>{closeBusy ? 'Closing…' : 'Close plan'}</button>
                   </div>
