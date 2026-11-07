@@ -2122,3 +2122,19 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
   mix-blend-mode: normal; animation: ev-stamp .45s cubic-bezier(.2, 1.6, .4, 1) both; }
 @keyframes ev-stamp { from { transform: translate(-50%, -50%) rotate(-12deg) scale(1.9); opacity: 0; } to { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .g-ev__stamp { animation: none; } }
+
+/* ===== Map grid, calmer: no chart letters/numbers on the screen edges, no radar sweep, a soft YOU cell, and a legend that sits where it should ===== */
+.gz-grid-labels::after, .gz-col, .gz-row { display: none !important; }
+.gz-grid-sweep { display: none !important; }
+.gayze-leaflet-map .gz-line--major { filter: none; }
+.gayze-leaflet-map .gz-cell--empty { stroke-dasharray: none; filter: none; }
+.gayze-leaflet-map .gz-cell { filter: drop-shadow(0 0 4px rgba(160, 110, 245, .3)); }
+.gz-tag { border-radius: 999px; min-width: 0; padding: 4px 10px; flex-direction: row; gap: 6px; align-items: center; background: rgba(14, 10, 28, .6); border: 1px solid rgba(255, 255, 255, .3); box-shadow: 0 4px 14px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .22); -webkit-backdrop-filter: blur(12px) saturate(1.6); backdrop-filter: blur(12px) saturate(1.6); }
+.gz-tag b { font-family: inherit; font-size: 14px; letter-spacing: 0; }
+.gz-tag span { font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .85); }
+.gz-tag i { background: transparent; color: rgba(255, 255, 255, .85); padding: 0; margin: 0; font-family: inherit; font-weight: 700; letter-spacing: .08em; }
+.gz-tag--me { border-color: rgba(255, 255, 255, .6); box-shadow: 0 4px 14px rgba(0, 0, 0, .4), 0 0 14px rgba(190, 150, 255, .5), inset 0 1px 0 rgba(255, 255, 255, .3); }
+.gz-legend { border-radius: 16px; padding: 10px 14px 10px 10px; background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04)), rgba(14, 10, 28, .55); border: 1px solid rgba(255, 255, 255, .2); box-shadow: 0 8px 24px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .26); -webkit-backdrop-filter: blur(20px) saturate(1.7); backdrop-filter: blur(20px) saturate(1.7); animation: gz-legend-in .4s cubic-bezier(.2, .9, .3, 1) both; }
+.gz-legend__swatch { width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .5); box-shadow: none; }
+.gz-legend strong { font-family: inherit; font-size: 10.5px; letter-spacing: .14em; color: rgba(255, 255, 255, .9); }
+@keyframes gz-legend-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
