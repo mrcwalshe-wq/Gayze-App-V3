@@ -1909,3 +1909,12 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 @keyframes pg-ring { from { transform: scale(.35); opacity: .9; } to { transform: scale(1.15); opacity: 0; } }
 .pg__btn--wide { margin-top: 6px; padding: 0 22px; min-height: 44px; border-radius: 12px; }
 @media (prefers-reduced-motion: reduce) { .pg__radar i { animation: none; opacity: .4; } }
+
+/* ===== Snack: bottom lane. It never sits over a screen's title, tabs or header any more; it rises just above the tab bar,
+   over the quiet strip under the composer, and leaves after four seconds. ===== */
+.g-snack-wrap { top: auto !important; bottom: calc(var(--g-tabbar-h, 68px) + env(safe-area-inset-bottom, 0px) + 30px) !important; padding: 0 16px !important; z-index: 400; }
+.g-snack { min-height: 44px; padding: 6px 16px 6px 7px; gap: 10px; border-radius: 10px; max-width: min(380px, 100%); animation: sn-rise .45s cubic-bezier(.16, 1, .3, 1) both, sn-leave2 .3s ease-in 3.7s forwards; }
+.g-snack__orb { width: 30px; height: 30px; }
+.g-snack__text { font-size: 13.5px; }
+@keyframes sn-rise { from { transform: translateY(26px) scale(.94); opacity: 0; filter: blur(4px); } to { transform: none; opacity: 1; filter: none; } }
+@keyframes sn-leave2 { to { transform: translateY(14px) scale(.96); opacity: 0; } }
