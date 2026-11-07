@@ -180,8 +180,6 @@ import {
   loadMyConversations,
   leaveConversation,
   loadConversationPeerKey,
-  jitterLocation,
-  privacyRadiusMeters,
 } from './services/supabaseService';
 import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';
 import { deleteMessageForMe, unsendMessage, setMessageExpiry } from './services/messageLifecycleService';
@@ -257,11 +255,11 @@ export default function App() {
       locationPermissionStatusRef.current = 'granted';
       if (isSupabaseConfigured && currentUser.privacySetting !== 'ghost') {
         lastSyncedLocationRef.current = { lat: location.lat, lng: location.lng };
-        await updateProfileLocation(
-          jitterLocation({ lat: location.lat, lng: location.lng }, privacyRadiusMeters(currentUser.privacySetting)),
-        );
+        // The database snaps this to a coarse grid cell before storing it
+        // (location fog); the app does not add its own jitter.
+        await updateProfileLocation({ lat: location.lat, lng: location.lng });
         // Distances are measured by the discovery function from the stored
-        // (privacy-jittered) point; refresh immediately after permission.
+        // (grid-snapped) points; refresh immediately after permission.
         await refreshDiscoveryRef.current();
       }
     } catch (error) {
@@ -484,14 +482,12 @@ export default function App() {
             : Infinity;
           const syncDue = Date.now() - lastLocationSyncAtRef.current >= 8000;
           // Sync material movement (about 20m), not the previous ~90m threshold.
-          // Keep exact GPS on-device; only a privacy-jittered point is persisted.
+          // The database snaps every stored position to a grid cell; no precise point is persisted.
           if (!previous || (movedMeters >= 20 && syncDue)) {
             const nextLocation = { lat: location.lat, lng: location.lng };
             lastSyncedLocationRef.current = nextLocation;
             lastLocationSyncAtRef.current = Date.now();
-            void updateProfileLocation(
-              jitterLocation(nextLocation, privacyRadiusMeters(currentUser.privacySetting)),
-            ).then((saved) => {
+            void updateProfileLocation(nextLocation).then((saved) => {
               if (saved) {
                 // Re-query immediately after a location write so nearby intents
                 // don't wait for the 90-second background discovery poll.
