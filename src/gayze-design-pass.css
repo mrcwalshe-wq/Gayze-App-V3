@@ -2231,3 +2231,48 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 
 /* Legend: two readable lines, never clipped */
 .g-shell[data-active-tab='right_now'] .gz-legend small { white-space: normal; }
+
+/* ===================================================================================================
+   CRISP PASS. Small, square-ish radii everywhere (4 to 8 px; sheets 12 px). Circles stay only for avatars, dots,
+   the roundel and call controls. No pills, no capsules. The wash behind screens is a little calmer for social too.
+   =================================================================================================== */
+.g-shell[data-active-tab='right_now'] { --hud-r: 6px; }
+.g-shell[data-active-tab='right_now'] .mapmode button { border-radius: 4px; }
+.g-shell[data-active-tab='right_now'] .g-nearby-btn[aria-expanded] > span:not(.g-nearby-btn__chevron) { border-radius: 4px; min-width: 18px; height: 18px; }
+.g-intent-chip, .g-shell .g-intent-chip { border-radius: 6px; }
+.gz-tag { border-radius: 5px; }
+.gz-legend { border-radius: 8px !important; } .gz-legend__swatch { border-radius: 4px !important; }
+.g-setup-pill { border-radius: 6px !important; }
+.g-snack { border-radius: 8px; }
+
+/* plan sheet */
+.g-plan__sheet { border-radius: 12px 12px 0 0 !important; }
+.g-plan__venue { border-radius: 8px; } .g-plan__times { border-radius: 8px; } .g-plan__time { border-radius: 5px; }
+.g-plan__timer { border-radius: 8px; } .g-plan__timer-icon { border-radius: 6px; } .g-plan__durations { border-radius: 6px; } .g-plan__durations button { border-radius: 4px; }
+.g-plan__else .g-field, .g-plan__else input { border-radius: 8px !important; }
+.g-plan__sum span { border-radius: 5px; } .g-plan__send { border-radius: 8px; } .g-plan__score { border-radius: 50%; }
+.g-plan__switch { border-radius: 6px; } .g-plan__switch i { border-radius: 4px; }
+
+/* profile peek, People grid and Discover cards */
+.g-peek__body { border-radius: 12px 12px 0 0; }
+.g-peek__signal, .g-peek__badges span { border-radius: 6px; }
+.g-peek__plan, .g-peek__message { border-radius: 8px !important; }
+.g-peek__shared { border-radius: 8px; }
+.pk-stat { border-radius: 8px; }
+.pg-tile { border-radius: 10px; } .pg-tile__glass { border-radius: 6px; } .pg-tile__live, .pg-tile__ver { border-radius: 4px; }
+.dc__open { border-radius: 10px; } .dc__glass { border-radius: 6px; } .dc__live, .dc__later, .dc__profile { border-radius: 4px; }
+
+/* past meets and Later */
+.pm__score { border-radius: 8px; } .pm__tabs { border-radius: 8px; } .pm__tabs button { border-radius: 5px; }
+.pm__qrbox { border-radius: 10px; } .pm__cam { border-radius: 10px; } .pm__frame { border-radius: 8px; }
+.pm__btn { border-radius: 8px; } .pm__list li { border-radius: 8px; } .pm__lvl { border-radius: 4px; } .pm__confirm button { border-radius: 6px; }
+.g-ev__close { border-radius: 6px; } .g-ev__close--confirm button { border-radius: 6px; }
+
+/* the wash: social a little calmer, to sit level with purple */
+.g-atmos[data-intent-mode='social']::before {
+  background:
+    radial-gradient(46% 36% at 18% 22%, rgba(214, 170, 80, .26), transparent 70%),
+    radial-gradient(40% 32% at 84% 16%, rgba(255, 200, 110, .16), transparent 70%),
+    radial-gradient(46% 36% at 72% 88%, rgba(201, 150, 60, .19), transparent 70%),
+    radial-gradient(40% 32% at 12% 84%, rgba(240, 190, 100, .17), transparent 70%);
+}
