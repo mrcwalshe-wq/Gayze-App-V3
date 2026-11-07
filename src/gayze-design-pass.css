@@ -1745,3 +1745,4 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-chat-composer { padding-top: 4px !important; padding-bottom: 4px !important; }
 .g-chat-composer > label, .g-chat-composer > button { width: 34px !important; height: 34px !important; }
 .g-chat-composer .g-icon-btn--send { width: 36px !important; height: 36px !important; }
+.g-intent-chip--private { --chip-rgb: 160, 112, 245; }

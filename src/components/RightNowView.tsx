@@ -7,6 +7,7 @@ import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../ser
 import { loadOutgoingInterestStatuses } from '../services/supabaseService';
 import L from 'leaflet';
 import { createMapGrid } from './mapGrid';
+import { intentThemeMode } from '../services/intentTiming';
 import {
   Pulse,
   SafeHaven,
@@ -1153,7 +1154,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       const selfIcon = L.divIcon({
         className: 'custom-user-marker',
         html: isLive
-          ? `<div class="gm-self gm-self--${activeUserIntent?.mode === 'private' ? 'private' : 'social'}${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
+          ? `<div class="gm-self gm-self--${intentThemeMode(activeUserIntent) === 'social' ? 'social' : 'private'}${activeUserIntent?.isPaused ? ' gm-self--paused' : ''}">${
               resolvedUserAvatarUrl
                 ? `<img class="gm-self__photo" src="${resolvedUserAvatarUrl.replace(/"/g, '&quot;')}" alt="" />`
                 : ''
@@ -1251,7 +1252,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             color: isPrivate ? '#6F3CC3' : '#C9A24D',
             weight: 1,
             dashArray: '3, 4',
-            fillColor: isPrivate ? '#6F3CC3' : '#C9A24D',
+            fillColor: '#8b5cf6', // live now = purple (gold is for signals planned for Later)
             fillOpacity: 0.06,
           }).addTo(layerGroup);
         }
@@ -1259,7 +1260,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const selected = selectedItem?.type === 'pulse' && selectedItem.item.id === pulse.id;
         const icon = L.divIcon({
           className: 'custom-pulse-marker',
-          html: `<div class="gm-pulse ${isPrivate ? 'gm-pulse--private' : ''} ${selected ? 'gm-pulse--sel' : ''}">${
+          html: `<div class="gm-pulse gm-pulse--private ${selected ? 'gm-pulse--sel' : ''}">${
             pulse.peerAvatar && /^https?:\/\//i.test(pulse.peerAvatar)
               ? `<img class="gm-pulse__photo" src="${pulse.peerAvatar.replace(/"/g, '&quot;')}" alt="" />`
               : (pulse.peerName ? pulse.peerName.charAt(0) : 'P')
@@ -1327,7 +1328,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           {activeUserIntent ? (
             <button
               type="button"
-              className={`g-float g-intent-chip g-intent-chip--${activeUserIntent.mode === 'private' ? 'private' : 'social'} ${activeUserIntent.isPaused ? 'is-paused' : ''}`}
+              className={`g-float g-intent-chip g-intent-chip--${intentThemeMode(activeUserIntent) === 'social' ? 'social' : 'private'} ${activeUserIntent.isPaused ? 'is-paused' : ''}`}
               onClick={() => {
                 hapticLight();
                 if (onOpenIntentHub) onOpenIntentHub(); else setIsUserIntentDrawerOpen(true);
@@ -2378,7 +2379,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <div className="g-sheet__body space-y-4">
               <div className="p-4 rounded-[8px] bg-white/[0.03] border border-white/[0.07] space-y-2.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`g-chip ${activeUserIntent.mode === 'private' ? 'g-chip--private' : 'g-chip--social'}`}>
+                  <span className={`g-chip ${intentThemeMode(activeUserIntent) === 'social' ? 'g-chip--social' : 'g-chip--private'}`}>
                     {activeUserIntent.mode === 'private' ? 'Private' : 'Social'}
                   </span>
                   <span className="text-[15px] font-extrabold text-white tracking-tight">
