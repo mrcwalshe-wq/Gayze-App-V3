@@ -1617,13 +1617,26 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-btn--primary.g-btn--primary:active, .g-calln__retry:active { transform: translateY(1px) scale(.985); filter: brightness(.95); }
 .g-btn--primary.g-btn--primary::after { opacity: .55; }
 .g-btn--primary.g-btn--primary > *, .g-calln__retry > * { position: relative; z-index: 2; }
-/* Gold (a signal planned for Later): a polished gold face with dark type, not brown */
+
+/* ---- Refined action buttons ----------------------------------------------------------------
+   No solid slabs. A lead action is dark glass with a hairline rim and coloured type; the second
+   action is a quiet outline. Gold (Later) uses the same dark face with gold type and rim. */
 .g-shell[data-intent-mode='social'] .g-btn--primary.g-btn--primary,
-.g-shell[data-intent-mode='social'] .g-calln__retry {
-  color: #1a1206 !important; text-shadow: 0 1px 0 rgba(255, 255, 255, .38);
+.g-shell[data-intent-mode='social'] .g-calln__retry--lead {
+  color: rgb(255, 226, 150) !important; text-shadow: none;
   background:
-    radial-gradient(120% 120% at 50% -30%, rgba(255, 248, 220, .55), transparent 55%),
-    linear-gradient(180deg, #ecd28c 0%, #cfa951 50%, #a67c2e 100%) !important;
-  box-shadow: 0 0 0 1px rgba(60, 40, 8, .7), 0 8px 22px rgba(214, 170, 80, .32), inset 0 1px 0 rgba(255, 255, 255, .55), inset 0 -10px 16px rgba(110, 76, 14, .35) !important;
+    radial-gradient(130% 160% at 50% -60%, rgba(255, 214, 120, .22), transparent 60%),
+    linear-gradient(180deg, rgba(214, 170, 80, .10), rgba(214, 170, 80, .03)),
+    #120d05 !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6), 0 6px 18px rgba(214, 170, 80, .14), inset 0 1px 0 rgba(255, 232, 170, .16) !important;
 }
-.g-shell[data-intent-mode='social'] .g-btn--primary.g-btn--primary::before { background: linear-gradient(160deg, rgba(255, 244, 204, .95), rgba(214, 170, 80, .3) 45%, rgba(255, 232, 160, .6)); }
+.g-shell[data-intent-mode='social'] .g-btn--primary.g-btn--primary::before { background: linear-gradient(160deg, rgba(255, 224, 140, .85), rgba(214, 170, 80, .18) 45%, rgba(255, 214, 120, .5)); }
+.g-calln__actions { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 12px; }
+.g-calln__actions .g-calln__retry { grid-column: auto; margin-top: 0; flex: 1 1 0; min-width: 0; height: 38px; font-size: 13px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+.g-calln__retry--lead { flex-grow: 1.25 !important; }
+.g-calln__retry--quiet, .g-shell .g-calln__retry--quiet {
+  color: rgba(255, 255, 255, .82) !important; text-shadow: none;
+  background: transparent !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16) !important;
+}
+.g-calln__retry--quiet::before { display: none; }
+.g-calln__retry--quiet:hover { background: rgba(255, 255, 255, .05) !important; filter: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3) !important; }
