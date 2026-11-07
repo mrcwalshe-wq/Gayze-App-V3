@@ -754,11 +754,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const peopleTiles = useMemo<PeopleTile[]>(() => nearbyItems.flatMap((item): PeopleTile[] => {
     if (item.type === 'pulse') {
       const p = item.item;
-      return [{ key: p.id, userId: p.peerId, name: p.peerName, age: p.peerAge, photo: p.peerAvatar && p.peerAvatar !== 'user' ? p.peerAvatar : undefined, intent: intentDisplayLabel(p.intent) || 'Social', area: p.neighborhood, distance: formatDistanceKm(distanceKmForPulse(p)), expiresAt: p.expiresAt }];
+      return [{ key: p.id, userId: p.peerId, name: p.peerName, age: p.peerAge, photo: p.peerAvatar && p.peerAvatar !== 'user' ? p.peerAvatar : undefined, intent: intentDisplayLabel(p.intent) || 'Social', area: p.neighborhood, distance: formatDistanceKm(distanceKmForPulse(p)), expiresAt: p.expiresAt, later: /later/i.test(intentDisplayLabel(p.intent) || '') }];
     }
     if (item.type === 'profile') {
       const p = item.item;
-      return [{ key: p.id, userId: p.id, name: p.name, age: p.age, photo: p.photoUrl, intent: intentDisplayLabel(p.intent) || p.lookingForLabel || 'Social', area: p.neighborhood, distance: formatDistanceKm(distanceKmForProfile(p)), expiresAt: p.intentExpiresAt, verified: p.safetyVerified }];
+      return [{ key: p.id, userId: p.id, name: p.name, age: p.age, photo: p.photoUrl, intent: intentDisplayLabel(p.intent) || p.lookingForLabel || 'Social', area: p.neighborhood, distance: formatDistanceKm(distanceKmForProfile(p)), expiresAt: p.intentExpiresAt, verified: p.safetyVerified, later: /later/i.test(intentDisplayLabel(p.intent) || '') }];
     }
     return [];
   }), [nearbyItems]);
@@ -1419,7 +1419,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             // Tapping a card opens their profile in a glass sheet over the grid (stats, shared interests, photos).
             const tile = peopleTiles.find((t) => t.key === key);
             if (tile?.userId && openPeek) {
-              openPeek(tile.userId, { name: tile.name, age: tile.age, area: tile.area, photoUrl: tile.photo, intent: tile.intent, distance: tile.distance, expiresAt: tile.expiresAt });
+              openPeek(tile.userId, { name: tile.name, age: tile.age, area: tile.area, photoUrl: tile.photo, intent: tile.intent, distance: tile.distance, expiresAt: tile.expiresAt, later: tile.later });
               return;
             }
             const found = nearbyItems.find((it) => it.type !== 'haven' && it.item.id === key);

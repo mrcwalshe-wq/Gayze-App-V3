@@ -12,6 +12,7 @@ export interface PeekFallback {
   /** From the grid or map: how far away, and when their signal ends. */
   distance?: string;
   expiresAt?: number;
+  later?: boolean;
 }
 
 type OpenPeek = (userId: string | null | undefined, fallback?: PeekFallback) => void;
