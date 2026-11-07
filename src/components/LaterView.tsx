@@ -301,7 +301,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
                 <div className="g-ev__crowd">
                   <div className="g-ev__pile" aria-hidden="true">
-                    {Array.from({ length: pile }, (_, i) => <i key={i} style={{ ['--n' as string]: i }} />)}
+                    {Array.from({ length: pile }, (_, i) => <i key={i} style={{ ['--n' as string]: i }}>{(gathering.attendees?.[i]?.name || '').charAt(0).toUpperCase()}</i>)}
                     {gathering.rsvpCount > pile && <em>+{gathering.rsvpCount - pile}</em>}
                   </div>
                   <span className="g-ev__count"><Users className="w-3.5 h-3.5" />{gathering.rsvpCount} going{spotsLeft > 0 ? ` · ${spotsLeft} left` : ' · Full'}</span>
