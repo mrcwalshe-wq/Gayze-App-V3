@@ -2923,7 +2923,7 @@ export default function App() {
     await handleSendMessage(roomId, meetingEventText(event, meeting.venueName, meeting.timeStr), room?.ephemeralTtlSeconds, meeting);
   };
 
-  const handleMeetingAction = async (action: 'accept' | 'decline' | 'cancel' | 'amend' | 'setoff' | 'compass', meeting: MeetingProposal) => {
+  const handleMeetingAction = async (action: 'accept' | 'decline' | 'cancel' | 'amend' | 'setoff' | 'compass' | 'resetjourney', meeting: MeetingProposal) => {
     const roomId = activeRoomId;
     const room = rooms.find((r) => r.id === roomId);
     const peerName = room?.peerName || room?.name || 'them';
@@ -2951,6 +2951,10 @@ export default function App() {
         setScheduleMeetingPeerName(peerName);
         setAmendingMeeting({ id: meeting.id, venueName: meeting.venueName, timeStr: meeting.timeStr });
         setIsScheduleMeetingOpen(true);
+        break;
+      case 'resetjourney':
+        stopJourney();
+        showToast('Journey stopped. You can set off again.');
         break;
       case 'setoff':
       case 'compass':
