@@ -4242,6 +4242,10 @@ export default function App() {
               onClose={() => setViewingPublicProfile(null)}
               onBlock={IS_LIVE_BACKEND ? (id) => { void handleBlockPeer(id, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
               onReport={IS_LIVE_BACKEND ? (id) => handleReportPeer(id, viewingPublicProfile.fallbackName || 'this user') : undefined}
+              onPlan={peerRoom ? () => {
+                setViewingPublicProfile(null);
+                handleOpenScheduleMeeting(peerRoom.peerName || viewingPublicProfile.fallbackName || peerRoom.name);
+              } : undefined}
               onMessage={peerRoom && !alreadyThere ? () => {
                 setViewingPublicProfile(null);
                 requestConversationOpen(peerRoom.id);
