@@ -47,6 +47,8 @@ interface LaterViewProps {
   onToggleRsvp: (gatheringId: string) => void;
   /** Host only: accept or decline someone who asked to join. */
   onRespondToRequest?: (gatheringId: string, userId: string, accept: boolean) => void | Promise<void>;
+  /** Host only: close (remove) a plan they posted. */
+  onCloseGathering?: (gatheringId: string) => void | Promise<void>;
   onOpenProfile?: (userId: string, name: string) => void;
   onOpenGatheringChat: (gathering: Gathering) => void;
   onCreateGathering: (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => void;
@@ -64,6 +66,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   gatherings,
   onToggleRsvp,
   onRespondToRequest,
+  onCloseGathering,
   onOpenProfile,
   onOpenGatheringChat,
   onCreateGathering,
@@ -77,6 +80,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [timeFilter, setTimeFilter] = useState<'all' | 'tonight' | 'tomorrow' | 'weekend'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isHostModalOpen, setIsHostModalOpen] = useState<boolean>(false);
+  const [closingId, setClosingId] = useState<string | null>(null);
+  const [closeBusy, setCloseBusy] = useState(false);
 
   // Form states
   const [formTitle, setFormTitle] = useState('');
@@ -367,6 +372,17 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   </button>
                 )}
               </div>
+              {isHost && onCloseGathering && (
+                closingId === gathering.id ? (
+                  <div className="g-ev__close g-ev__close--confirm" role="alertdialog" aria-label={`Close ${gathering.title}?`}>
+                    <p>Close this plan? It is removed for everyone{gathering.rsvpCount > 1 ? ` (${gathering.rsvpCount - 1} joining)` : ''}. This cannot be undone.</p>
+                    <button type="button" disabled={closeBusy} onClick={() => setClosingId(null)}>Keep it</button>
+                    <button type="button" className="is-danger" disabled={closeBusy} onClick={async () => { hapticLight(); setCloseBusy(true); try { await onCloseGathering(gathering.id); } finally { setCloseBusy(false); setClosingId(null); } }}>{closeBusy ? 'Closing…' : 'Close plan'}</button>
+                  </div>
+                ) : (
+                  <button type="button" className="g-ev__close" onClick={() => { hapticLight(); setClosingId(gathering.id); }}>Close this plan</button>
+                )
+              )}
               {!chatReady && gathering.isAttending && !isHost && (
                 <p className="g-ev__soon"><Lock className="w-3 h-3" aria-hidden="true" />Your group chat opens here once it is set up.</p>
               )}

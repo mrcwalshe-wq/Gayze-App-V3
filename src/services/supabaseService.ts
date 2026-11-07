@@ -160,6 +160,16 @@ export async function requestToJoinGathering(gatheringId: string): Promise<Gathe
   return data as GatheringStatus;
 }
 
+/** Host only: close a plan you posted. Guests lose the listing; the database only lets the host delete their own. */
+export async function closeGathering(gatheringId: string): Promise<boolean> {
+  if (!supabase) return false;
+  const user = await ensureSupabaseSession();
+  if (!user) return false;
+  const { data, error } = await supabase.from('gatherings').delete().eq('id', gatheringId).eq('host_id', user.id).select('id');
+  if (error) { console.warn('[GAYZE] Closing gathering failed:', error.message); return false; }
+  return (data ?? []).length > 0;
+}
+
 /** Withdraw a request or leave. */
 export async function leaveGathering(gatheringId: string): Promise<GatheringStatus | null> {
   if (!supabase) return null;
