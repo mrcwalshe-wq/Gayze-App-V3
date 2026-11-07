@@ -829,6 +829,13 @@ export default function App() {
     historyOwnershipRef.current.clear();
   };
   useEffect(() => () => { clearMessageWork(); messageAlertsRef.current.clear(); }, []);
+  // Tell the service worker which account is signed in here, so a push meant for another account is never shown on this phone.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    void navigator.serviceWorker.ready.then((registration) => {
+      registration.active?.postMessage({ type: 'ACTIVE_USER', userId: supabaseUserId ?? null });
+    }).catch(() => undefined);
+  }, [supabaseUserId]);
   const presentIncomingMessage = (messageId: string, roomId: string, recipientId: string) => messageAlertsRef.current.present(messageId, roomId, {
     foreground: document.visibilityState === 'visible' && document.hasFocus(),
     viewingRoom: activeTabRef.current === 'swarms' ? visibleChatRoomRef.current : null,
