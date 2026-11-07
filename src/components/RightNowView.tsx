@@ -6,6 +6,7 @@ import { supabase } from '../services/supabaseClient';
 import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../services/profilePhotoService';
 import { loadOutgoingInterestStatuses } from '../services/supabaseService';
 import L from 'leaflet';
+import { createMapGrid } from './mapGrid';
 import {
   Pulse,
   SafeHaven,
@@ -119,6 +120,7 @@ import {
   Plus,
   Minus,
   Navigation,
+  LayoutGrid,
   Eye,
   Maximize2,
   Edit3,
@@ -286,6 +288,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social' | 'Private'>('All');
   const [selectedSubIntent, setSelectedSubIntent] = useState<string | null>(null);
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
+  // GRID view: the map as a chart of square cells; people show as a hatched, counted cell, never a spot.
+  const [gridMode, setGridMode] = useState<boolean>(() => { try { return localStorage.getItem('gayze_map_grid') === '1'; } catch { return false; } });
+  const [gridInfo, setGridInfo] = useState<{ size: number; occupied: number } | null>(null);
+  const gridRef = useRef<ReturnType<typeof createMapGrid> | null>(null);
+  const gridPointsRef = useRef<{ lat: number; lng: number }[]>([]);
+  const gridSelfRef = useRef<{ lat: number; lng: number } | null>(null);
   const [maxDistanceKm, setMaxDistanceKmState] = useState<number>(MAX_TRAVEL_DISTANCE_KM);
   /** Every write goes through the clamp, so 10 km / 25 km can never be set. */
   const setMaxDistanceKm = (value: number | ((prev: number) => number)) => {
@@ -1035,6 +1043,36 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     map.flyTo([userLocation.lat, userLocation.lng], LOCATED_MAP_ZOOM, { duration: 0.7 });
   }, [userLocation, isMapReady]);
 
+  // Who counts in a grid cell: the same live signals the map shows after filters, never your own.
+  gridPointsRef.current = livePulses
+    .filter((pulse) => pulse.peerId !== 'peer_me' && Number.isFinite(pulse.lat) && Number.isFinite(pulse.lng) && matchesFilters({
+      category: 'pulse',
+      isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
+      km: distanceKmForPulse(pulse),
+      activityCategory: pulse.activityCategory,
+    }))
+    .map((pulse) => ({ lat: pulse.lat, lng: pulse.lng }));
+  gridSelfRef.current = privacySetting !== 'ghost' && userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null;
+
+  useEffect(() => {
+    try { localStorage.setItem('gayze_map_grid', gridMode ? '1' : '0'); } catch { /* ignore */ }
+    if (!isMapReady || !gridMode) { setGridInfo(null); return; }
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const container = map.getContainer();
+    const onInfo = (e: Event) => setGridInfo((e as CustomEvent<{ size: number; occupied: number }>).detail);
+    container.addEventListener('gz-grid', onInfo);
+    const grid = createMapGrid(map, {
+      getPoints: () => gridPointsRef.current,
+      getSelf: () => gridSelfRef.current,
+      onCellTap: ({ bounds }) => { hapticLight(); map.fitBounds(bounds.pad(0.2), { maxZoom: 17, animate: true }); },
+    });
+    gridRef.current = grid;
+    return () => { container.removeEventListener('gz-grid', onInfo); grid.destroy(); gridRef.current = null; setGridInfo(null); };
+  }, [isMapReady, gridMode]);
+
+  useEffect(() => { gridRef.current?.refresh(); }, [livePulses, activeCategory, activeIntentMode, maxDistanceKm, userLocation, privacySetting]);
+
   // Update map layers on pulses, havens, profiles, or filter changes
   useEffect(() => {
     if (!isMapReady) return;
@@ -1052,7 +1090,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     //    blurred layer, so panning stays smooth on mobile. Concentrations merge
     //    into a single denser pool — the haze is a property of the area, not a
     //    ring around a person, and it never encodes anyone's exact position.
-    if (activeCategory !== 'people' && activeCategory !== 'havens') {
+    if (!gridMode && activeCategory !== 'people' && activeCategory !== 'havens') {
       const hazePoints: { lat: number; lng: number }[] = [];
       livePulses.forEach((pulse) => {
         // Your own signal is drawn from your live intent at your device
@@ -1099,7 +1137,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     if (privacySetting !== 'ghost' && userLocation) {
       const userJitterRadius = privacySetting === 'neighborhood' ? 800 : 500;
       const isLive = Boolean(activeUserIntent && !activeUserIntent.isPaused);
-      if (showJitterCircles) {
+      if (showJitterCircles && !gridMode) {
         // Your own privacy area, drawn in the brand's violet rather than a
         // generic blue so the whole map stays inside one palette.
         L.circle([userLocation.lat, userLocation.lng], {
@@ -1207,7 +1245,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         const lat = pulse.lat;
         const lng = pulse.lng;
         const jitter = typeof pulse.jitterMeters === 'number' && !isNaN(pulse.jitterMeters) ? pulse.jitterMeters : 300;
-        if (showJitterCircles) {
+        if (showJitterCircles && !gridMode) {
           L.circle([lat, lng], {
             radius: jitter,
             color: isPrivate ? '#6F3CC3' : '#C9A24D',
@@ -1245,6 +1283,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     activeCategory,
     activeIntentMode,
     showJitterCircles,
+    gridMode,
     maxDistanceKm,
     privacySetting,
     userNeighborhood,
@@ -1355,6 +1394,15 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         <div className="g-map-edge g-map-edge--top" aria-hidden="true" />
         <div className="g-map-edge g-map-edge--bottom" aria-hidden="true" />
       </div>
+      {gridMode && gridInfo && (
+        <div className="gz-legend" role="status">
+          <span className="gz-legend__swatch" aria-hidden="true" />
+          <div>
+            <strong>GRID · {gridInfo.size >= 1000 ? `${gridInfo.size / 1000} km` : `${gridInfo.size} m`} cells</strong>
+            <small>{gridInfo.occupied > 0 ? `${gridInfo.occupied} ${gridInfo.occupied === 1 ? 'cell has' : 'cells have'} people live. Their exact spot is never shown.` : 'No one live in view. Cells fill in as people go live.'}</small>
+          </div>
+        </div>
+      )}
       {/* Right micro-rail — locate · zoom only (privacy radius lives in filters) */}
       <div className="g-map-rail absolute top-[calc(env(safe-area-inset-top,0px)+66px)] right-3 z-30 pointer-events-auto">
         <button
@@ -1380,6 +1428,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           className="g-icon-btn"
         >
           <Plus className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => { hapticLight(); setGridMode((v) => !v); }}
+          title={gridMode ? 'Hide grid' : 'Show grid'}
+          aria-label={gridMode ? 'Hide map grid' : 'Show map grid'}
+          aria-pressed={gridMode}
+          className={`g-icon-btn g-gridbtn ${gridMode ? 'is-on' : ''}`}
+        >
+          <LayoutGrid className="w-4 h-4" />
         </button>
         <button
           type="button"
