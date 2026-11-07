@@ -44,7 +44,12 @@ export const PeopleGrid: React.FC<{ tiles: PeopleTile[]; onSelect: (key: string)
         <button type="button" className="pg__btn pg__btn--icon" onClick={() => { hapticLight(); onClose(); }} aria-label="Back to the map"><X className="w-4 h-4" /></button>
       </header>
       {tiles.length === 0 ? (
-        <div className="pg__empty"><Radio className="w-5 h-5" /><strong>No one live nearby</strong><span>People appear here as soon as they go live. Try widening your distance in Filter.</span></div>
+        <div className="pg__empty">
+          <div className="pg__radar" aria-hidden="true"><i /><i /><i /><Radio className="w-5 h-5" /></div>
+          <strong>No one live nearby</strong>
+          <span>People appear here the moment they go live. Widen your distance to see more.</span>
+          {onFilter && <button type="button" className="pg__btn pg__btn--wide" onClick={() => { hapticLight(); onFilter(); }}>Widen distance</button>}
+        </div>
       ) : (
         <div className="pg__grid">
           {tiles.map((t, i) => (
