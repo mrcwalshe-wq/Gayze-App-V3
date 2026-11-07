@@ -57,9 +57,8 @@ const activationInfo = (i: UserActiveIntent): { later: boolean; detail: string }
 
 const AdminConsole = React.lazy(() => import('./components/AdminConsole'));
 import { ProfileOnboarding } from './components/ProfileOnboarding';
-import { InstallPrompt } from './components/InstallPrompt';
+import { SetupDock } from './components/SetupDock';
 import { NotificationsModal } from './components/NotificationsModal';
-import { PushEnableBanner } from './components/PushEnableBanner';
 import { Snack } from './components/Snack';
 import {
   finishPendingPushRevoke,
@@ -3796,6 +3795,7 @@ export default function App() {
                 setIsProfileEditOpen(true);
                 setProfileEditSection(section ? section as EditSectionKey : null);
               }}
+              currentUserId={supabaseUserId}
               onOpenNotifications={() => {
                 setMessagesSubTab('notifications');
                 setActiveTab('swarms');
@@ -3855,7 +3855,6 @@ export default function App() {
 
           {activeTab === 'swarms' && (
             <div className="g-messages-hub">
-              {IS_LIVE_BACKEND && !(visibleChatRoomId && messagesSubTab === 'chats') && <PushEnableBanner userId={supabaseUserId} />}
               <div className="g-messages-subtabs" role="tablist" aria-label="Messages sections">
                 <button
                   type="button"
@@ -3894,6 +3893,7 @@ export default function App() {
                     onMarkAllRead={handleMarkAllRead}
                     unreadTotal={(notificationInbox?.unread ?? 0) + memberUnreadCount}
                     onOpenPublicProfile={openPublicProfile}
+                    onOpenProfile={() => setActiveTab('profile')}
                     onInterestAccepted={async (conversationId) => {
                       setMessagesSubTab('chats');
                       await refreshConversationListRef.current();
@@ -4289,8 +4289,13 @@ export default function App() {
         remainingSeconds={remainingSeconds}
       />
 
-      {/* iOS Home Screen install nudge (self-hiding, dismissal-aware) */}
-      <InstallPrompt />
+      {/* Device-setup nudges: iOS Home Screen reminder + persistent notifications pill */}
+      <SetupDock
+        userId={supabaseUserId}
+        enabled={IS_LIVE_BACKEND && isAuthenticated}
+        suppressPill={activeTab === 'profile' || (activeTab === 'swarms' && !!visibleChatRoomId)}
+        onOpenProfile={() => setActiveTab('profile')}
+      />
 
       {/* Cryptographic Swarm Identity & Privacy Modal */}
       <IdentityModal

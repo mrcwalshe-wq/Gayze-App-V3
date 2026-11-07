@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
+import { announcePushStatusChange } from '../hooks/usePushStatus';
 import { acceptIncomingInterest, declineIncomingInterest, loadIncomingInterests, type IncomingInterest } from '../services/supabaseService';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -29,7 +30,6 @@ import {
   loadNotificationPreferences,
   saveNotificationPreferences,
   sendTestNotification,
-  subscribeToPush,
   unsubscribeFromPush,
   type NotificationPreferences,
   type PushEnvironment,
@@ -49,6 +49,8 @@ const timeAgo = (iso: string): string => {
 };
 
 interface NotificationsModalProps {
+  /** The one place to turn notifications on is Profile; this takes the person there. */
+  onOpenProfile?: () => void;
   isOpen: boolean;
   currentUserId?: string | null;
   onClose: () => void;
@@ -106,7 +108,7 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', notices = [], onOpenNotice, onOpenNotification, onMarkAllRead, unreadTotal = 0, onOpenPublicProfile, onInterestAccepted, embedded = false }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', notices = [], onOpenNotice, onOpenNotification, onMarkAllRead, unreadTotal = 0, onOpenPublicProfile, onInterestAccepted, embedded = false, onOpenProfile }) => {
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -197,7 +199,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
       if (!isOpen || detail?.userId !== currentUserId) return;
       if (detail.state === 'needs-enable') {
         setSubscribed(false);
-        setFeedback({ text: 'This device needs notification registration renewed. Tap Enable notifications.', tone: 'info' });
+        setFeedback({ text: 'This device needs notification registration renewed. Turn notifications on again from Profile.', tone: 'info' });
       } else if (detail.state === 'ready') { void refresh(); }
       else if (detail.state === 'unavailable') setFeedback({ text: 'Notification registration could not be checked. Try again when connected.', tone: 'error' });
     };
@@ -207,32 +209,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
 
   if (!isOpen && !embedded) return null;
 
-  const handleEnable = async () => {
-    hapticSensitiveAction();
-    setBusy(true);
-    setFeedback(null);
-    const result = await subscribeToPush(currentUserId ?? undefined);
-    if (result.ok) {
-      setSubscribed(true);
-      const next = { ...prefs, pushEnabled: true };
-      setPrefs(next);
-      const saved = await saveNotificationPreferences(next, currentUserId ?? undefined);
-      setFeedback(saved
-        ? { text: 'Notifications are on for this device.', tone: 'ok' }
-        : { text: 'Device registered, but notification preferences could not be saved. Please retry.', tone: 'error' });
-    } else {
-      setFeedback({ text: result.reason ?? 'Enabling notifications failed.', tone: 'error' });
-    }
-    setEnv(getPushEnvironment());
-    setBusy(false);
-  };
-
   const handleDisable = async () => {
     hapticSensitiveAction();
     setBusy(true);
     const ok = await unsubscribeFromPush(currentUserId ?? undefined);
     if (ok) {
       setSubscribed(false);
+      announcePushStatusChange();
       setFeedback({ text: 'Notifications are off for this device.', tone: 'info' });
     } else {
       setFeedback({ text: 'Could not turn notifications off. Try again.', tone: 'error' });
@@ -331,25 +314,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                   </div>
                 </div>
 
-                {needsInstall && (
-                  <div className="g-notification-steps">
-                    <div><b>1</b><span>Tap Safari Share</span></div>
-                    <div><b>2</b><span>Choose “Add to Home Screen”</span></div>
-                    <div><b>3</b><span>Open GAYZE from the Home Screen</span></div>
-                  </div>
-                )}
-
-                {denied && (
-                  <div className="g-notification-device-note">
-                    <BellOff className="w-3.5 h-3.5 shrink-0" />
-                    <span>GAYZE can detect that permission is denied, but iOS must be changed in Settings.</span>
-                  </div>
-                )}
-
-                {!needsInstall && !denied && !subscribed && env?.canSubscribe && (
-                  <button type="button" className="g-btn g-btn--primary w-full mt-3" onClick={() => void handleEnable()} disabled={busy}>
-                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
-                    Enable notifications
+                {!subscribed && !unsupported && !notConfigured && onOpenProfile && (
+                  <button type="button" className="g-btn g-btn--primary w-full mt-3" onClick={() => { hapticLight(); onOpenProfile(); }}>
+                    <Bell className="w-4 h-4" />
+                    {needsInstall || denied ? 'See how in Profile' : 'Turn on in Profile'}
                   </button>
                 )}
 
