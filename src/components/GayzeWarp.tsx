@@ -6,12 +6,14 @@ import React, { useEffect, useRef } from 'react';
  * ring of Gayze-coloured sparks erupts and the field relaxes to a calm drift.
  * Renders nothing animated for reduced-motion users.
  */
-const HUES = ['#8b5cf6', '#b85cde', '#f08d9a', '#c9a24d', '#a78bfa', '#ffffff'];
+const PURPLE = ['#8b5cf6', '#a78bfa', '#c4a8ff', '#7c3aed', '#d9ccff', '#ffffff'];
+const GOLD = ['#C9A24D', '#E2C36B', '#F0C866', '#ffe2a0', '#b8872d', '#ffffff'];
 
 interface Star { x: number; y: number; z: number; pz: number; c: string }
 interface Spark { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; c: string }
 
-export const GayzeWarp: React.FC<{ burst: boolean }> = ({ burst }) => {
+export const GayzeWarp: React.FC<{ burst: boolean; tone?: 'private' | 'social' }> = ({ burst, tone = 'private' }) => {
+  const HUES = tone === 'social' ? GOLD : PURPLE;
   const ref = useRef<HTMLCanvasElement>(null);
   const burstRef = useRef(false);
   const burstAt = useRef<number | null>(null);

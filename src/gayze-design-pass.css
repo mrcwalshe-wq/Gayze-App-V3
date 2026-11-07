@@ -1640,3 +1640,38 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 }
 .g-calln__retry--quiet::before { display: none; }
 .g-calln__retry--quiet:hover { background: rgba(255, 255, 255, .05) !important; filter: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3) !important; }
+
+/* ===== Go-live celebration: colour follows the signal (purple within a day, gold for Later) ===== */
+.g-golive--private { --gl-a: 160, 112, 245; --gl-b: 111, 60, 195; --gl-hot: 226, 210, 255; }
+.g-golive--social { --gl-a: 226, 180, 84; --gl-b: 201, 162, 77; --gl-hot: 255, 236, 176; }
+.g-golive__aurora {
+  background:
+    radial-gradient(40% 34% at 50% 38%, rgba(var(--gl-a), .42), transparent 70%),
+    radial-gradient(34% 28% at 18% 82%, rgba(var(--gl-b), .26), transparent 70%),
+    radial-gradient(34% 28% at 86% 18%, rgba(var(--gl-b), .2), transparent 70%);
+}
+.g-golive__ring { display: none; }
+.g-golive__shock, .g-golive__shock--b, .g-golive__shock--c { border-color: rgba(var(--gl-a), .85); }
+.g-golive__title { background: none; -webkit-text-fill-color: #fff; color: #fff; text-shadow: 0 0 28px rgba(var(--gl-a), .7), 0 2px 0 rgba(0, 0, 0, .4); }
+.g-golive__eyebrow { color: rgb(var(--gl-a)); }
+.g-golive__mark { width: 200px; height: 200px; }
+.g-golive__lock { position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); z-index: 2; overflow: visible; pointer-events: none; transform: rotate(-90deg); }
+.g-golive__lock-track { fill: none; stroke: rgba(var(--gl-a), .16); stroke-width: 1; }
+.g-golive__lock-draw { fill: none; stroke: rgb(var(--gl-a)); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; filter: drop-shadow(0 0 8px rgba(var(--gl-a), .9)); animation: gl-lock 1.25s .25s cubic-bezier(.65, 0, .2, 1) forwards; }
+@keyframes gl-lock { to { stroke-dashoffset: 0; } }
+.g-golive__tick { stroke: rgba(var(--gl-hot), .75); stroke-width: 1.4; stroke-linecap: round; opacity: 0; animation: gl-tick .5s ease-out forwards, gl-spin 22s linear 1s infinite; transform-origin: 100px 100px; }
+@keyframes gl-tick { from { opacity: 0; } to { opacity: .8; } }
+@keyframes gl-spin { to { transform: rotate(360deg); } }
+.g-golive__blip { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px; border-radius: 50%; z-index: 4; background: rgb(var(--gl-hot)); box-shadow: 0 0 14px rgb(var(--gl-a)); transform: translate(var(--x), var(--y)) scale(0); opacity: 0; animation: gl-blip .5s cubic-bezier(.2, 1.6, .4, 1) forwards; }
+.g-golive__blip::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid rgb(var(--gl-a)); animation: gl-blip-ping 2.2s ease-out infinite; }
+@keyframes gl-blip { to { transform: translate(var(--x), var(--y)) scale(1); opacity: 1; } }
+@keyframes gl-blip-ping { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(3.2); opacity: 0; } }
+.g-golive__ch { display: inline-block; opacity: 0; transform: translateY(16px); filter: blur(6px); animation: gl-ch .5s cubic-bezier(.16, 1, .3, 1) forwards; }
+@keyframes gl-ch { to { opacity: 1; transform: none; filter: none; } }
+.g-golive.is-live .g-golive__title { animation: none; }
+.g-golive__intent { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 6px; background: rgba(var(--gl-a), .12); border: 1px solid rgba(var(--gl-a), .5); box-shadow: 0 0 22px rgba(var(--gl-a), .22); }
+.g-golive__intent b { font-size: 13px; font-weight: 700; color: #fff; }
+.g-golive__intent i { font-style: normal; font-size: 12px; font-weight: 600; color: rgb(var(--gl-hot)); padding-left: 10px; border-left: 1px solid rgba(var(--gl-a), .5); }
+.g-golive__time { display: block; width: 120px; height: 2px; margin-top: 14px; border-radius: 1px; background: rgb(var(--gl-a)); transform-origin: left; animation: gl-time linear forwards; opacity: .7; }
+@keyframes gl-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .g-golive__lock-draw { animation: none; stroke-dashoffset: 0; } .g-golive__tick, .g-golive__blip, .g-golive__ch { animation: none; opacity: 1; transform: translate(var(--x, 0), var(--y, 0)); filter: none; } .g-golive__blip { transform: translate(var(--x), var(--y)); } .g-golive__time { animation: none; } }

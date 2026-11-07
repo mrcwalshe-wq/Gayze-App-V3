@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { intentThemeMode } from './services/intentTiming';
+import { intentThemeMode, formatLaterAt } from './services/intentTiming';
 import { DeletedRoomTracker } from './services/deletedRooms';
 import { findDirectRoom, resolveLiveDirectChat, isConversationId } from './services/directChatRouting';
 import type { ChatConnectionState } from './services/realtimeRecovery';
@@ -49,6 +49,12 @@ import { AuthView, type AuthMode } from './components/AuthView';
 import { consumeAuthCallbackOnce } from './services/authCallback';
 import { initNativeAuthDeepLinks, isNativeApp } from './services/nativeAuth';
 import { describeAuthError, type AuthIssue } from './services/authMessages';
+/** How the go-live celebration describes a signal: its colour (gold for Later) and when it starts. */
+const activationInfo = (i: UserActiveIntent): { later: boolean; detail: string } => {
+  const when: string = i.when;
+  return { later: when === 'Later', detail: when === 'Later' ? formatLaterAt(i.activatedAt) : when === 'Now' ? 'Right now' : when };
+};
+
 const AdminConsole = React.lazy(() => import('./components/AdminConsole'));
 import { ProfileOnboarding } from './components/ProfileOnboarding';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -732,7 +738,7 @@ export default function App() {
   const [isIntentHubOpen, setIsIntentHubOpen] = useState(false);
   const [intentHubMode, setIntentHubMode] = useState<TopLevelIntentMode | null>(null);
   const [intentBusy, setIntentBusy] = useState(false);
-  const [liveActivation, setLiveActivation] = useState<{ stage: 'connecting' | 'live'; mode: TopLevelIntentMode; intent: string } | null>(null);
+  const [liveActivation, setLiveActivation] = useState<{ stage: 'connecting' | 'live'; mode: TopLevelIntentMode; intent: string; later: boolean; detail: string } | null>(null);
   const [secureChatRetryNonce, setSecureChatRetryNonce] = useState(0);
   const [conversationKeyState, setConversationKeyState] = useState<{
     roomId: string;
@@ -3275,7 +3281,7 @@ export default function App() {
       setActiveUserIntent(intent);
       setIsSetIntentOpen(false);
       if (isFirstPublish && intent.when === 'Now') {
-        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
+        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent), ...activationInfo(intent) });
       }
       showToast(`Status updated: ${intent.intent} (${intent.when})`);
       return true;
@@ -3287,7 +3293,7 @@ export default function App() {
     }
 
     if (isFirstPublish && intent.when === 'Now') {
-      setLiveActivation({ stage: 'connecting', mode: intent.mode, intent: String(intent.intent) });
+      setLiveActivation({ stage: 'connecting', mode: intent.mode, intent: String(intent.intent), ...activationInfo(intent) });
     }
 
     setIntentBusy(true);
@@ -3314,7 +3320,7 @@ export default function App() {
       setActiveUserIntent(confirmedIntent);
       setIsSetIntentOpen(false);
       if (isFirstPublish && intent.when === 'Now') {
-        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent) });
+        setLiveActivation({ stage: 'live', mode: intent.mode, intent: String(intent.intent), ...activationInfo(intent) });
       }
       await refreshDiscoveryRef.current();
       analytics.logEvent('intent_published', {
@@ -4174,6 +4180,8 @@ export default function App() {
           stage={liveActivation.stage}
           mode={liveActivation.mode}
           intent={liveActivation.intent}
+          later={liveActivation.later}
+          detail={liveActivation.detail}
           onComplete={() => setLiveActivation(null)}
         />
       )}
