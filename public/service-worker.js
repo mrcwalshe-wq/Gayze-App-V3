@@ -114,6 +114,7 @@ const DEFAULT_COPY = {
   intent_expiring: { title: 'Your intent is ending soon', body: 'Your active intent expires shortly.', url: '/profile' },
   connection: { title: 'New connection', body: 'You have a new Gayze connection.', url: '/messages' },
   safety: { title: 'Safety alert', body: 'A Gayze safety event needs your attention.', url: '/profile' },
+  gathering_reminder: { title: 'Plan reminder', body: 'A plan you are going to is coming up.', url: '/later' },
   test: { title: 'Gayze Test', body: 'Push notification test', url: '/notifications' },
 };
 function safePath(rawUrl, fallback) {
