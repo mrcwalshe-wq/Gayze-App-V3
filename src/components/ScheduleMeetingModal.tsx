@@ -110,7 +110,10 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
                 const on = !custom && haven.id === selected.id;
                 return (
                   <button key={haven.id} type="button" role="radio" aria-checked={on} className={`g-plan__venue ${on ? 'is-on' : ''}`} onClick={() => { hapticLight(); setCustom(null); setSearch(''); setSelectedId(haven.id); }}>
-                    <span className="g-plan__score" aria-label={`Safety score ${haven.safetyScore}`}><b>{haven.safetyScore}</b><small>safety</small></span>
+                    <span className="g-plan__score" aria-label={`Safety score ${haven.safetyScore}`} style={{ ['--p' as string]: Math.max(0, Math.min(1, haven.safetyScore / 10)) }}>
+                      <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" className="g-plan__ring-bg" /><circle cx="24" cy="24" r="20" className="g-plan__ring" pathLength={1} /></svg>
+                      <b>{haven.safetyScore}</b><small>safety</small>
+                    </span>
                     <span className="g-plan__venue-main">
                       <strong>{haven.name}</strong>
                       <span>{haven.neighborhood}{haven.approxDistanceKm ? ` · ${userLocation ? formatDistance(haven.approxDistanceKm) : `${haven.approxDistanceKm} km`}` : ''}</span>
@@ -134,9 +137,9 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
 
           <section aria-labelledby="plan-when">
             <h4 id="plan-when"><CalendarClock className="w-3.5 h-3.5" aria-hidden="true" />When</h4>
-            <div className="g-plan__times" role="radiogroup" aria-label="Proposed timing">
+            <div className="g-plan__times" role="radiogroup" aria-label="Proposed timing" data-tone={timeOption.startsWith('Tomorrow') ? 'gold' : 'purple'}>
               {TIMES.map(({ label, short, hint, Icon }) => (
-                <button key={label} type="button" role="radio" aria-checked={timeOption === label} className={`g-plan__time ${timeOption === label ? 'is-on' : ''}`} onClick={() => { hapticLight(); setTimeOption(label); }}>
+                <button key={label} type="button" role="radio" aria-checked={timeOption === label} data-tone={short === 'Tomorrow' ? 'gold' : 'purple'} className={`g-plan__time ${timeOption === label ? 'is-on' : ''}`} onClick={() => { hapticLight(); setTimeOption(label); }}>
                   <Icon className="w-4 h-4" aria-hidden="true" />
                   <strong>{short}</strong>
                   <small>{hint}</small>
@@ -165,7 +168,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
         </div>
 
         <footer className="g-plan__foot">
-          <p><strong>{venueLabel}</strong> · {timeOption}</p>
+          <p className="g-plan__sum"><span><MapPin className="w-3 h-3" aria-hidden="true" />{venueLabel}</span><span><Clock className="w-3 h-3" aria-hidden="true" />{timeOption}</span>{startLocalCheckin && <span><Timer className="w-3 h-3" aria-hidden="true" />{durationMinutes} min</span>}</p>
           <button type="submit" className="g-plan__send"><span>{amend ? 'Send update' : 'Send proposal'}</span><ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
         </footer>
       </form>
