@@ -9,6 +9,9 @@ export interface PeekFallback {
   photoUrl?: string;
   intent?: string;
   online?: boolean;
+  /** From the grid or map: how far away, and when their signal ends. */
+  distance?: string;
+  expiresAt?: number;
 }
 
 type OpenPeek = (userId: string | null | undefined, fallback?: PeekFallback) => void;

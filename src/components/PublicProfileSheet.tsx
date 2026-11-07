@@ -16,6 +16,9 @@ export interface PublicProfileSheetProps {
   fallbackArea?: string;
   fallbackIntent?: string;
   fallbackOnline?: boolean;
+  /** From the people grid / map: distance band and when their live signal ends. */
+  fallbackDistance?: string;
+  fallbackExpiresAt?: number;
   onClose: () => void;
   /** Omit when the viewer is already in a conversation with this person. */
   onMessage?: () => void;
@@ -28,6 +31,19 @@ export interface PublicProfileSheetProps {
  * they are: name, age, presence, current intent, a line of bio and the few things you
  * have most in common. One tap on "Full profile" opens the rest.
  */
+/** A thin ring that fills to `value` (0-100) when it appears. */
+const StatRing: React.FC<{ value: number; label: string; caption: string; tone?: 'violet' | 'green' | 'gold' }> = ({ value, label, caption, tone = 'violet' }) => {
+  const [shown, setShown] = useState(0);
+  useEffect(() => { const t = window.setTimeout(() => setShown(Math.max(0, Math.min(100, value))), 80); return () => window.clearTimeout(t); }, [value]);
+  return (
+    <div className={`pk-stat pk-stat--${tone}`}>
+      <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" className="pk-ring-track" /><circle cx="24" cy="24" r="20" className="pk-ring" pathLength={100} style={{ strokeDasharray: `${shown} 100` }} /></svg>
+      <b>{label}</b>
+      <small>{caption}</small>
+    </div>
+  );
+};
+
 export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   userId,
   viewerId,
@@ -37,6 +53,8 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   fallbackArea,
   fallbackIntent,
   fallbackOnline,
+  fallbackDistance,
+  fallbackExpiresAt,
   onClose,
   onMessage,
   onBlock,
@@ -107,6 +125,18 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
     ),
     [summary, mine],
   );
+  // "Match": how much of what they list you share. Shown only when both profiles are readable.
+  const matchPct = useMemo(() => {
+    if (!summary || !mine) return null;
+    const theirs = new Set([...summary.lookingFor, ...summary.hobbies].map((v) => v.trim().toLowerCase()).filter(Boolean));
+    const ours = new Set([...mine.lookingFor, ...mine.hobbies].map((v) => v.trim().toLowerCase()).filter(Boolean));
+    if (theirs.size === 0 || ours.size === 0) return null;
+    let shared = 0; theirs.forEach((v) => { if (ours.has(v)) shared += 1; });
+    return Math.min(99, Math.round((shared / Math.min(theirs.size, ours.size)) * 100));
+  }, [summary, mine]);
+  const minutesLeft = fallbackExpiresAt ? Math.max(0, Math.round((fallbackExpiresAt - Date.now()) / 60000)) : 0;
+  const leftLabel = minutesLeft >= 60 ? `${Math.floor(minutesLeft / 60)}h ${String(minutesLeft % 60).padStart(2, '0')}m` : `${minutesLeft}m`;
+  const hasStats = Boolean(summary) && (summary!.reliabilityScore != null || (summary!.verifiedPeersCount ?? 0) > 0 || matchPct != null);
   const facts = shortFacts({ pronouns: summary?.pronouns, heightCm: summary?.heightCm, bodyType: summary?.bodyType });
   const bio = summary?.bio?.trim();
 
@@ -180,7 +210,18 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
 
           <div className="g-peek__body">
             {intent && (
-              <div className="g-peek__intent"><Sparkles className="w-4 h-4" /><span>Right now</span><strong>{intent}</strong></div>
+              <div className="g-peek__intent"><Sparkles className="w-4 h-4" /><span>Right now</span><strong>{intent}</strong>{minutesLeft > 0 && <em>{leftLabel} left</em>}</div>
+            )}
+
+            {(hasStats || fallbackDistance) && (
+              <div className="pk-stats" aria-label="Profile at a glance">
+                {matchPct != null && <StatRing value={matchPct} label={`${matchPct}%`} caption="Match" />}
+                {summary?.reliabilityScore != null && <StatRing value={summary.reliabilityScore} label={String(Math.round(summary.reliabilityScore))} caption="Reliable" tone="green" />}
+                {(summary?.verifiedPeersCount ?? 0) > 0 && (
+                  <div className="pk-stat pk-stat--plain"><b>{summary!.verifiedPeersCount}</b><small>Verified</small></div>
+                )}
+                {fallbackDistance && <div className="pk-stat pk-stat--plain"><b>{fallbackDistance}</b><small>Away</small></div>}
+              </div>
             )}
 
             {loading ? (
