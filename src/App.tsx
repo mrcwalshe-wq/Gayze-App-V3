@@ -145,6 +145,7 @@ import {
   createGathering,
   requestToJoinGathering,
   leaveGathering,
+  closeGathering,
   respondToGatheringRequest,
   loadActiveSafetyCheckin,
   startSafetyCheckin,
@@ -2106,6 +2107,19 @@ export default function App() {
     );
   };
 
+  const handleCloseGathering = async (gatheringId: string) => {
+    const gathering = gatherings.find((g) => g.id === gatheringId);
+    if (!gathering || gathering.hostName !== 'You') return;
+    if (isSupabaseConfigured && isAuthenticated) {
+      const ok = await closeGathering(gatheringId);
+      if (!ok) { showToast('Could not close that plan. Please try again.'); return; }
+      await refreshGatherings();
+    } else {
+      setGatherings((prev) => prev.filter((g) => g.id !== gatheringId));
+    }
+    showToast(`Closed: ${gathering.title}`);
+  };
+
   const handleRespondToRequest = async (gatheringId: string, userId: string, accept: boolean) => {
     try {
       await respondToGatheringRequest(gatheringId, userId, accept);
@@ -3843,6 +3857,7 @@ export default function App() {
               gatherings={gatherings}
               onToggleRsvp={handleToggleRsvp}
               onRespondToRequest={handleRespondToRequest}
+              onCloseGathering={handleCloseGathering}
               onOpenProfile={(userId, name) => openPublicProfile(userId, { name })}
               onOpenGatheringChat={handleOpenGatheringChat}
               onCreateGathering={handleCreateGathering}
