@@ -146,6 +146,7 @@ import {
   requestToJoinGathering,
   leaveGathering,
   closeGathering,
+  cancelGathering,
   respondToGatheringRequest,
   loadActiveSafetyCheckin,
   startSafetyCheckin,
@@ -2090,7 +2091,7 @@ export default function App() {
           showToast(status === 'declined' ? 'The host has already answered this request.' : `Request sent. ${gathering.hostName === 'You' ? '' : 'The host will let you know.'}`.trim());
         }
       } catch (e) {
-        showToast(e instanceof Error && e.message === 'full' ? 'This gathering is full.' : e instanceof Error && e.message === 'ended' ? 'This gathering has finished.' : 'Could not update that. Please try again.');
+        showToast(e instanceof Error && e.message === 'full' ? 'This gathering is full.' : e instanceof Error && e.message === 'ended' ? 'This gathering has finished.' : e instanceof Error && e.message === 'cancelled' ? 'The host cancelled this plan.' : 'Could not update that. Please try again.');
       }
       await refreshGatherings();
       return;
@@ -2107,21 +2108,33 @@ export default function App() {
     );
   };
 
+  const handleCancelGathering = async (gatheringId: string) => {
+    const gathering = gatherings.find((g) => g.id === gatheringId);
+    if (!gathering || gathering.hostName !== 'You' || gathering.cancelled) return;
+    if (isSupabaseConfigured && isAuthenticated) {
+      // Tell the guests in the group chat first. Best effort: a failure here never blocks cancelling.
+      if (gathering.conversationId && gathering.rsvpCount > 1 && rooms.some((r) => r.id === gathering.conversationId)) {
+        try { await handleSendMessage(gathering.conversationId, `The host cancelled this plan: ${gathering.title}.`); } catch { /* still cancel it */ }
+      }
+      if (!(await cancelGathering(gatheringId))) { showToast('Could not cancel that plan. Please try again.'); return; }
+      await refreshGatherings();
+    } else {
+      setGatherings((prev) => prev.map((g) => g.id === gatheringId ? { ...g, cancelled: true } : g));
+    }
+    showToast(`Cancelled: ${gathering.title}`);
+  };
+
   const handleCloseGathering = async (gatheringId: string) => {
     const gathering = gatherings.find((g) => g.id === gatheringId);
     if (!gathering || gathering.hostName !== 'You') return;
     if (isSupabaseConfigured && isAuthenticated) {
-      // Tell the guests in the group chat first, so the chat they keep explains why the plan is gone. Best effort: a failure here never blocks closing.
-      if (gathering.conversationId && gathering.rsvpCount > 1 && rooms.some((r) => r.id === gathering.conversationId)) {
-        try { await handleSendMessage(gathering.conversationId, `The host closed this plan: ${gathering.title}.`); } catch { /* still close it */ }
-      }
       const ok = await closeGathering(gatheringId);
-      if (!ok) { showToast('Could not close that plan. Please try again.'); return; }
+      if (!ok) { showToast('Could not remove that plan. Please try again.'); return; }
       await refreshGatherings();
     } else {
       setGatherings((prev) => prev.filter((g) => g.id !== gatheringId));
     }
-    showToast(`Closed: ${gathering.title}`);
+    showToast(`Removed: ${gathering.title}`);
   };
 
   const handleRespondToRequest = async (gatheringId: string, userId: string, accept: boolean) => {
@@ -3861,6 +3874,7 @@ export default function App() {
               gatherings={gatherings}
               onToggleRsvp={handleToggleRsvp}
               onRespondToRequest={handleRespondToRequest}
+              onCancelGathering={handleCancelGathering}
               onCloseGathering={handleCloseGathering}
               onOpenProfile={(userId, name) => openPublicProfile(userId, { name })}
               onOpenGatheringChat={handleOpenGatheringChat}
