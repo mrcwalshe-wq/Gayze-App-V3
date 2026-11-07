@@ -1797,3 +1797,23 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 }
 .g-ev__cat { left: 74px; top: auto; bottom: 14px; }
 .g-ev__badges { top: 14px; }
+
+/* ===== Messages list: tighter rows, quieter chrome, group tile in the signal colour ===== */
+.g-chatrow__av { width: 48px !important; height: 48px !important; }
+.g-chatrow__av b { font-size: 18px; }
+.g-chatrow__av.is-group { border-radius: 12px !important; background: linear-gradient(145deg, rgba(150, 100, 235, .32), rgba(46, 22, 98, .9)) !important; box-shadow: inset 0 0 0 1px rgba(190, 150, 255, .4), 0 6px 18px rgba(0, 0, 0, .45) !important; }
+.g-shell[data-intent-mode='social'] .g-chatrow__av.is-group { background: linear-gradient(145deg, rgba(214, 170, 80, .28), rgba(60, 40, 8, .9)) !important; box-shadow: inset 0 0 0 1px rgba(226, 180, 84, .45), 0 6px 18px rgba(0, 0, 0, .45) !important; }
+.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow { padding-top: 10px !important; padding-bottom: 10px !important; gap: 12px !important; }
+.g-chatrow__top strong { font-size: 15.5px !important; letter-spacing: -.01em; }
+.g-chatrow__top time { font-size: 11px !important; letter-spacing: .02em; opacity: .7; }
+.g-chatrow__msg { font-size: 13.5px !important; }
+.g-msglist-head__title h2 { font-size: 22px; }
+.gayze-chat-sidebar > div.g-msglist-head > span.g-e2ee-chip { font-size: 11px !important; padding: 5px 9px !important; }
+
+/* ===== Notifications: what happened comes first; device status and preferences sit below ===== */
+.g-notifications-body { display: flex; flex-direction: column; }
+.g-notifications-body > .g-notification-inbox { order: 1; }
+.g-notifications-body > .g-notification-status { order: 4; padding: 12px 14px; }
+.g-notifications-body > .g-notification-preferences { order: 5; }
+.g-notifications-body > .g-notification-footnote { order: 6; }
+.g-notification-status--ready, .g-notification-status[class*='ready'] { padding: 10px 12px; }
