@@ -308,93 +308,42 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           )}
         </div>
       ) : (
-        <div className="g-panel px-3.5 sm:px-4 py-1 divide-y divide-white/[0.05]">
-          {rows.map((row) => (
-            <button
-              key={row.id}
-              type="button"
-              className="w-full py-3.5 flex items-center gap-3.5 text-left transition-colors duration-150 hover:bg-white/[0.025] rounded-xl px-1.5 cursor-pointer -mx-1.5"
-              onClick={() => { hapticLight(); setSelected(row); }}
-            >
-              <div
-                {...peekTapProps(openPeek, row.kind === 'pulse' ? row.item.peerId : row.item.id, { name: row.name, age: row.age, area: row.area, intent: row.intentLabel, online: row.live, photoUrl: row.kind === 'profile' ? row.item.photoUrl : (row.item.peerAvatar && row.item.peerAvatar !== 'user' ? row.item.peerAvatar : undefined) })}
-                className={`w-12 h-12 rounded-[8px] overflow-hidden flex items-center justify-center shrink-0 text-[14px] font-semibold border ${
-                  row.mode === 'private'
-                    ? 'border-[#6F3CC3]/40 bg-[#161324] text-[#d8c3f8]'
-                    : 'border-[#C9A24D]/35 bg-[#1f1b13] text-[#f4dfae]'
-                } ${row.live ? 'ring-2 ring-[#6F3CC3]/50 shadow-[0_0_12px_rgba(111,60,195,0.25)]' : ''}`}
+        <div className="dc-feed">
+          {rows.map((row, i) => {
+            const photo = row.kind === 'profile' ? row.item.photoUrl : (row.item.peerAvatar && row.item.peerAvatar !== 'user' ? row.item.peerAvatar : undefined);
+            const usable = photo && /^(https?:|data:|blob:)/i.test(photo);
+            const hue = 250 + ((row.name.charCodeAt(0) * 37) % 90);
+            return (
+              <article
+                key={row.id}
+                className="dc"
+                data-tone={row.mode === 'private' ? 'purple' : 'gold'}
+                style={{ ['--h' as string]: hue, animationDelay: `${Math.min(i * 60, 480)}ms` }}
               >
-                {row.kind === 'profile' ? (
-                  <img
-                    src={row.item.photoUrl}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (row.item.peerAvatar && row.item.peerAvatar !== 'user') ? (
-                  <img
-                    src={row.item.peerAvatar}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <span>{row.item.peerName.charAt(0)}</span>
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className={`text-[14.5px] truncate tracking-tight ${row.live ? 'font-bold text-white' : 'font-medium text-zinc-200'}`}>
-                      {row.name}
-                    </span>
-                    {row.verified && (
-                      <span title="Verified" className="shrink-0 text-emerald-400">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                  </div>
-                  {row.live ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold tracking-wide bg-[#6F3CC3]/20 border border-[#6F3CC3]/45 text-[#d8c3f8] shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#a879f1] animate-pulse" />
-                      LIVE
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/[0.04] text-zinc-400 border border-white/[0.06] shrink-0">
-                      Later
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-[12.5px] text-zinc-400 truncate mt-1 leading-snug">
-                  <span className={`font-semibold ${row.mode === 'private' ? 'text-[#c9b0f5]' : 'text-[#e7c98a]'}`}>
-                    {row.intentLabel}
+                <button type="button" className="dc__open" onClick={() => { hapticLight(); setSelected(row); }} aria-label={`Open ${row.name}`}>
+                  <span className="dc__photo">
+                    {usable ? <img src={photo} alt="" loading="lazy" draggable={false} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : <b aria-hidden="true">{row.name.charAt(0).toUpperCase()}</b>}
                   </span>
-                  {row.description && (
-                    <>
-                      <span className="text-zinc-600"> — </span>
-                      <span className="text-zinc-300">{row.description}</span>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-zinc-500 font-mono">
-                  <span>{row.area}</span>
-                  <span className="text-zinc-700">·</span>
-                  <span className="text-zinc-400 font-semibold">{formatDistance(row.km)}</span>
-                </div>
-              </div>
-
-              {row.expiresAt ? (
-                <div className="shrink-0">
-                  <CountdownPill expiresAt={row.expiresAt} />
-                </div>
-              ) : (
-                <MessageSquare className="w-4 h-4 text-zinc-600 shrink-0" />
-              )}
-            </button>
-          ))}
+                  <span className="dc__shade" aria-hidden="true" />
+                  <span className="dc__top">
+                    {row.live ? <span className="dc__live"><i aria-hidden="true" />Live</span> : <span className="dc__later">Later</span>}
+                    {row.expiresAt ? <CountdownPill expiresAt={row.expiresAt} /> : null}
+                  </span>
+                  <span className="dc__glass">
+                    <span className="dc__name"><strong>{row.name}{row.age ? <em>{row.age}</em> : null}</strong>{row.verified && <ShieldCheck className="w-4 h-4" aria-label="Verified" />}</span>
+                    <span className="dc__intent">{row.intentLabel}{row.description ? <span> · {row.description}</span> : null}</span>
+                    <span className="dc__meta">{row.area}<i aria-hidden="true" />{formatDistance(row.km)}</span>
+                  </span>
+                </button>
+                {(row.kind === 'pulse' ? row.item.peerId : row.item.id) && (
+                  <span
+                    {...peekTapProps(openPeek, row.kind === 'pulse' ? row.item.peerId : row.item.id, { name: row.name, age: row.age, area: row.area, intent: row.intentLabel, online: row.live, photoUrl: photo, later: !row.live })}
+                    className="dc__profile"
+                  >Profile</span>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
 
