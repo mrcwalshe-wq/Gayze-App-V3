@@ -4863,3 +4863,10 @@ body:has([data-gayze-call-screen="true"]) .g-desktop-header {
   .g-intent-hub__choice::before, .g-intent-hub__choice-icon, .g-opt::before, .g-opt__orb,
   .peer-intent-card__curtain { animation: none !important; }
 }
+
+/* Your marker, in the colour of your signal: a vivid purple for anything within a day */
+.gm-self--private {
+  border-color: rgba(214, 190, 255, .95);
+  box-shadow: 0 0 0 8px rgba(139, 92, 246, .22), 0 0 28px rgba(139, 92, 246, .75), 0 0 56px rgba(139, 92, 246, .35), 0 10px 24px rgba(0, 0, 0, .55);
+}
+.gm-self--private::after { border-color: rgba(190, 150, 255, .6); }
