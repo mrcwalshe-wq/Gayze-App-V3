@@ -2111,6 +2111,10 @@ export default function App() {
     const gathering = gatherings.find((g) => g.id === gatheringId);
     if (!gathering || gathering.hostName !== 'You') return;
     if (isSupabaseConfigured && isAuthenticated) {
+      // Tell the guests in the group chat first, so the chat they keep explains why the plan is gone. Best effort: a failure here never blocks closing.
+      if (gathering.conversationId && gathering.rsvpCount > 1 && rooms.some((r) => r.id === gathering.conversationId)) {
+        try { await handleSendMessage(gathering.conversationId, `The host closed this plan: ${gathering.title}.`); } catch { /* still close it */ }
+      }
       const ok = await closeGathering(gatheringId);
       if (!ok) { showToast('Could not close that plan. Please try again.'); return; }
       await refreshGatherings();
