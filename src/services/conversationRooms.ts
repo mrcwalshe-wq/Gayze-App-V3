@@ -42,6 +42,24 @@ export function buildRoomsFromSupabase(
     const lastTimestamp = Number.isFinite(parsedLastMessage) ? Math.max(createdTimestamp, parsedLastMessage) : createdTimestamp;
     const hasMessages = Number.isFinite(parsedLastMessage);
 
+    // A gathering's chat is always a group, even when only one guest has been accepted so far.
+    const gathering = result.gatheringChats?.[summary.id];
+    if (gathering) {
+      return {
+        id: summary.id,
+        name: gathering.title,
+        type: 'gathering' as const,
+        gatheringId: gathering.gatheringId,
+        safetyNumber: '',
+        swarmSecretKeyHex: '',
+        lastMessage: hasMessages ? 'Encrypted message' : '',
+        lastTimestamp,
+        ephemeralTtlSeconds: 0,
+        memberIds,
+        memberNames,
+      };
+    }
+
     // One other member = direct message. Anything else is a real group.
     if (memberIds.length <= 2 && others.length === 1) {
       const peerId = others[0];
