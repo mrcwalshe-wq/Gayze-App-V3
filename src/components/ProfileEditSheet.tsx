@@ -637,7 +637,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                 ))}
               </div>
               <p className="text-[10.5px] text-zinc-600 mt-1.5">
-                Your exact position is never published — discovery always uses a jittered area.
+                Your exact position is never stored — discovery only ever uses an approximate area.
               </p>
             </div>
             <div>

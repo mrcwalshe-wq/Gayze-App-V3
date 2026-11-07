@@ -1156,11 +1156,16 @@ export async function resolvePulsesWithAvatars(pulses: Pulse[]): Promise<Pulse[]
 /**
  * Persist the live broadcast.
  *
- * Two privacy rules are enforced here:
- *  1. the device's exact GPS point is never written — the stored point is
- *     jittered inside the user's configured privacy radius;
- *  2. nothing about the profile is written, so the device identity key that
- *     other clients need for E2EE can never be overwritten with a fingerprint.
+ * Location privacy is enforced by the database, not here: a BEFORE trigger on
+ * intents.location (supabase/migrations/20261107120100_location_fog_apply.sql)
+ * snaps whatever point is sent to the centre of a 500 m grid cell (1 km for the
+ * 'neighborhood' setting) using a per-member offset from a server-only secret,
+ * so the stored point is stable and never more precise than the cell. The client
+ * must NOT add its own random jitter: re-rolled jitter around a fixed position
+ * lets an observer average many writes back to the true point.
+ *
+ * Ghost members publish no location. Nothing about the profile is written, so
+ * the device identity key other clients need for E2EE cannot be overwritten.
  */
 export async function saveActiveIntentWithSession(
   intent: UserActiveIntent,
@@ -1170,35 +1175,8 @@ export async function saveActiveIntentWithSession(
   const user = await ensureSupabaseSession();
   if (!user) return null;
 
-  let publishedLocation: { lat: number; lng: number } | undefined;
-  if (location && sourceUser.privacySetting !== 'ghost') {
-    publishedLocation = jitterLocation(location, privacyRadiusMeters(sourceUser.privacySetting));
-  }
+  const publishedLocation = location && sourceUser.privacySetting !== 'ghost' ? location : undefined;
   return saveActiveIntent(intent, publishedLocation);
-}
-
-/** Privacy radius (metres) for each location-privacy setting. */
-export function privacyRadiusMeters(setting: UserProfile['privacySetting'] | undefined): number {
-  if (setting === 'neighborhood') return 800;
-  return 500;
-}
-
-/**
- * Privacy jitter: offsets a position by a random bearing and distance inside
- * `radiusMeters`. The offset is random per call (not derivable from the
- * published point), so an observer cannot recover the true position from the
- * stored/discovered coordinate.
- */
-export function jitterLocation(
-  location: { lat: number; lng: number },
-  radiusMeters: number,
-): { lat: number; lng: number } {
-  const bearing = Math.random() * Math.PI * 2;
-  const distance = Math.sqrt(Math.random()) * radiusMeters;
-  return {
-    lat: location.lat + (distance * Math.cos(bearing)) / 111_320,
-    lng: location.lng + (distance * Math.sin(bearing)) / (111_320 * Math.cos(location.lat * Math.PI / 180)),
-  };
 }
 
 /**

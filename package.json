@@ -30,6 +30,7 @@
     "test:presence": "tsx --test scripts/presence-tests/label.test.ts scripts/presence-tests/unsend.test.ts scripts/presence-tests/sounds.test.ts scripts/presence-tests/note.test.ts",
     "test:places": "tsx --test scripts/place-tests/place.test.ts scripts/place-tests/journey.test.ts scripts/place-tests/meetup.test.ts",
     "test:auth": "tsx --test scripts/auth-tests/auth.test.ts",
+    "test:location-fog": "node --test scripts/location-fog-tests/fog.test.mjs",
     "test:email": "node scripts/email-templates/build.mjs && node --test scripts/email-templates/templates.test.mjs"
   },
   "dependencies": {
