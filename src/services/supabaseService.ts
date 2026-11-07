@@ -1740,10 +1740,34 @@ export interface PublicProfileSummary {
   availability: string[];
   safetyVerified?: boolean;
   verifiedPeersCount?: number;
+  reliabilityScore?: number;
 }
 
 export async function loadPublicProfileSummary(userId: string): Promise<PublicProfileSummary | null> {
   if (!supabase || !userId) return null;
+  // Members can only read their own row in `profiles`, so other people's summaries come from a function that applies the
+  // visibility rules. Older databases without it fall back to the direct read below (which works for your own profile).
+  try {
+    const { data: rpc, error: rpcError } = await supabase.rpc('get_public_profile_summary', { p_user_id: userId });
+    if (!rpcError && rpc && typeof rpc === 'object') {
+      const r = rpc as Record<string, unknown>;
+      const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+      return {
+        displayName: (typeof r.displayName === 'string' && r.displayName) || 'Gayze member',
+        age: typeof r.age === 'number' ? r.age : undefined,
+        bio: typeof r.bio === 'string' && r.bio ? r.bio : undefined,
+        pronouns: typeof r.pronouns === 'string' && r.pronouns ? r.pronouns : undefined,
+        heightCm: typeof r.heightCm === 'number' ? r.heightCm : undefined,
+        bodyType: typeof r.bodyType === 'string' && r.bodyType ? r.bodyType : undefined,
+        lookingFor: strs(r.interests),
+        hobbies: strs(r.hobbies),
+        boundaries: [], mySetup: [], availability: [],
+        safetyVerified: r.safetyVerified === true,
+        verifiedPeersCount: typeof r.verifiedPeersCount === 'number' ? r.verifiedPeersCount : undefined,
+        reliabilityScore: typeof r.reliabilityScore === 'number' ? r.reliabilityScore : undefined,
+      };
+    }
+  } catch { /* fall through */ }
   try {
     const [{ data, error }, details] = await Promise.all([
       supabase

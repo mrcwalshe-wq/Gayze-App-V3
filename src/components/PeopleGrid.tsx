@@ -4,6 +4,7 @@ import { hapticLight } from '../services/hapticService';
 
 export interface PeopleTile {
   key: string;
+  userId?: string;
   name: string;
   age?: number;
   photo?: string;
