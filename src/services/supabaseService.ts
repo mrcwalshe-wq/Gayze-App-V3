@@ -90,8 +90,13 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     if (overviewError) console.warn('[GAYZE] Gathering guest lists unavailable:', overviewError.message);
     for (const row of (rows ?? []) as Overview[]) overview.set(row.gathering_id, row);
   }
+  // Each gathering's private group chat (only the host and accepted guests are members). Older databases lack the function: no chats.
+  const chats = new Map<string, string>();
+  const { data: chatRows, error: chatError } = await supabase.rpc('get_my_gathering_chats');
+  if (!chatError) for (const row of (chatRows ?? []) as { gathering_id: string; conversation_id: string }[]) chats.set(row.gathering_id, row.conversation_id);
   return (data ?? []).map((row: SupabaseGatheringRow) => ({
     id: row.id,
+    conversationId: chats.get(row.id) ?? null,
     hostId: row.host_id,
     hostName: row.host_id === user.id ? 'You' : 'Gayze member',
     hostShortKey: row.host_id.slice(0, 8) + '...',
