@@ -1338,7 +1338,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           1. TOP FLOATING ROW — current mode / your live signal + filter.
           The map stays clear; state reads at a glance.
          ========================================================================= */}
-      <div className="absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-40 flex items-start justify-between gap-2 pointer-events-none">
+      <div className="g-hud-top absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-40 flex items-start justify-between gap-2 pointer-events-none">
         <div className="pointer-events-auto min-w-0 flex-1">
           {activeUserIntent ? (
             <button
@@ -1470,16 +1470,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => { hapticLight(); setGridMode((v) => !v); }}
-          title={gridMode ? 'Hide map grid' : 'Show map grid (cells)'}
-          aria-label={gridMode ? 'Hide map grid' : 'Show map grid'}
-          aria-pressed={gridMode}
-          className={`g-icon-btn g-gridbtn ${gridMode ? 'is-on' : ''}`}
-        >
-          <LayoutGrid className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
           onClick={() => {
             hapticLight();
             mapControlsRef.current?.zoomOut();
@@ -1489,6 +1479,16 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           className="g-icon-btn"
         >
           <Minus className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => { hapticLight(); setGridMode((v) => !v); }}
+          title={gridMode ? 'Hide map grid' : 'Show map grid (cells)'}
+          aria-label={gridMode ? 'Hide map grid' : 'Show map grid'}
+          aria-pressed={gridMode}
+          className={`g-icon-btn g-gridbtn ${gridMode ? 'is-on' : ''}`}
+        >
+          <LayoutGrid className="w-4 h-4" />
         </button>
       </div>
 
