@@ -21,7 +21,8 @@ globalThis.self = {
   clients: { matchAll: async () => clients, openWindow: async (target) => { opened.push(target); return null; } },
   navigator: {},
 };
-globalThis.caches = { open: async () => ({ add: async () => {}, match: async () => null, put: async () => {} }), keys: async () => [], delete: async () => true };
+const store = new Map();
+globalThis.caches = { open: async () => ({ add: async () => {}, match: async (k) => (typeof k === 'string' && store.has(k) ? new Response(store.get(k)) : null), put: async (k, r) => { if (typeof k === 'string') store.set(k, await r.text()); } }), keys: async () => [], delete: async () => true };
 await import(fs.realpathSync(`${REPO}/public/service-worker.js`));
 async function fire(type, event) { const waits = []; for (const fn of listeners.get(type) ?? []) await fn({ waitUntil: (p) => waits.push(Promise.resolve(p)), ...event }); await Promise.all(waits); }
 console.log('\n=== Service worker push presentation ===');
@@ -46,6 +47,21 @@ for (const [type, expectedTitle, expectedPath] of [
   assert(n?.options.silent === false, `${type}: never silent`);
   assert(n?.options.renotify === true, `${type}: renotify enabled`);
 }
+console.log('\n=== A push for another account is not shown ===');
+const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+await fire('message', { data: { type: 'ACTIVE_USER', userId: A } });
+shown.length = 0;
+await fire('push', { data: { json: () => ({ type: 'message', recipientId: B, notificationId: '22222222-2222-4222-8222-222222222222' }), text: () => '' } });
+assert(shown.length === 0, 'push addressed to another account is suppressed');
+await fire('push', { data: { json: () => ({ type: 'message', recipientId: A, notificationId: '22222222-2222-4222-8222-222222222223' }), text: () => '' } });
+assert(shown.length === 1, 'push addressed to the signed-in account is shown');
+await fire('push', { data: { json: () => ({ type: 'message' }), text: () => '' } });
+assert(shown.length === 2, 'push with no addressee is still shown');
+await fire('message', { data: { type: 'ACTIVE_USER', userId: null } });
+shown.length = 0;
+await fire('push', { data: { json: () => ({ type: 'message', recipientId: A }), text: () => '' } });
+assert(shown.length === 0, 'nothing is shown after sign-out');
+store.clear();
 console.log('\n=== Safe payload and diagnostics ===');
 shown.length = 0;
 await fire('push', { data: { json: () => ({ type: 'unknown-type', url: 'https://evil.example/phish' }), text: () => '' } });

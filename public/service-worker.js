@@ -33,7 +33,24 @@ self.addEventListener('message', (event) => {
   const data = event.data || {};
   if (data.type === 'SKIP_WAITING') void self.skipWaiting();
   if (data.type === 'SET_BADGE') applyBadge(typeof data.count === 'number' ? data.count : 0);
+  // Which account is signed in on this device. Kept so a push meant for a different account is not shown here.
+  if (data.type === 'ACTIVE_USER') event.waitUntil(rememberActiveUser(typeof data.userId === 'string' ? data.userId : null));
 });
+
+const ACCOUNT_CACHE = 'gayze-account';
+const ACCOUNT_KEY = '/__gayze_active_user';
+async function rememberActiveUser(userId) {
+  try { await (await caches.open(ACCOUNT_CACHE)).put(ACCOUNT_KEY, new Response(JSON.stringify({ userId, at: Date.now() }))); } catch {}
+}
+/** undefined when this device has never said who is signed in (then nothing is suppressed). */
+async function readActiveUser() {
+  try {
+    const hit = await (await caches.open(ACCOUNT_CACHE)).match(ACCOUNT_KEY);
+    if (!hit) return undefined;
+    const value = await hit.json();
+    return typeof value.userId === 'string' || value.userId === null ? value.userId : undefined;
+  } catch { return undefined; }
+}
 
 function isImmutableAsset(url) { return url.pathname.startsWith('/assets/'); }
 function isStaticBrandAsset(url) {
@@ -134,6 +151,12 @@ self.addEventListener('push', (event) => {
         catch { payload = { body: event.data.text() }; format = 'text-fallback'; }
       }
       const type = typeof payload.type === 'string' ? payload.type : 'message';
+      // A push addressed to another account (a stale registration for a previous sign-in on this phone) is not shown here.
+      const activeUser = await readActiveUser();
+      if (validId(payload.recipientId) && activeUser !== undefined && activeUser !== payload.recipientId) {
+        pushDiagnostic('wrong-account-suppressed');
+        return;
+      }
       const defaults = DEFAULT_COPY[type] || DEFAULT_COPY.message;
       pushDiagnostic('payload-parsed', { format, hasTitle: typeof payload.title === 'string', hasBody: typeof payload.body === 'string' });
       const title = payload.title || defaults.title;
