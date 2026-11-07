@@ -7,6 +7,10 @@ interface LiveActivationOverlayProps {
   stage: 'connecting' | 'live';
   mode: TopLevelIntentMode;
   intent: string;
+  /** A signal planned for later wears gold; anything within a day wears purple. */
+  later?: boolean;
+  /** When it starts, e.g. "Right now", "Tonight" or a date. */
+  detail?: string;
   onComplete: () => void;
 }
 
@@ -16,7 +20,7 @@ interface LiveActivationOverlayProps {
 const ARRIVAL_MS = 1100;
 const HOLD_MS = 2600;
 
-export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ stage, mode, intent, onComplete }) => {
+export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ stage, intent, later = false, detail, onComplete }) => {
   // Keep the latest callback without restarting the dismissal timer on every parent render.
   const onCompleteRef = useRef(onComplete);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
@@ -37,7 +41,7 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ st
     return () => window.clearTimeout(t);
   }, [isLive]);
 
-  const tone = mode === 'private' ? 'private' : 'social';
+  const tone = later ? 'social' : 'private';
   const logo = tone === 'private' ? '/brand/gayze-nav-private.svg?v=20261008-1' : '/brand/gayze-nav-social.svg?v=20261008-1';
 
   return (
@@ -49,22 +53,33 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ st
       onClick={() => { if (isLive) onCompleteRef.current(); }}
     >
       <div className="g-golive__aurora" aria-hidden="true" />
-      <GayzeWarp burst={isLive} />
+      <GayzeWarp burst={isLive} tone={tone} />
       <div className="g-golive__stage">
         <div className="g-golive__mark" aria-hidden="true">
           {isLive && <><span className="g-golive__shock g-golive__shock--a" /><span className="g-golive__shock g-golive__shock--b" /><span className="g-golive__shock g-golive__shock--c" /></>}
-          <span className="g-golive__ring" />
+          {/* The signal "locks on": a ring draws itself around the mark, then nearby members appear as dots on a radar */}
+          <svg className="g-golive__lock" viewBox="0 0 200 200" focusable="false">
+            <circle className="g-golive__lock-track" cx="100" cy="100" r="92" />
+            <circle className="g-golive__lock-draw" cx="100" cy="100" r="92" pathLength="100" />
+            {Array.from({ length: 24 }, (_, i) => <line key={i} className="g-golive__tick" x1="100" y1="2" x2="100" y2={i % 6 === 0 ? 14 : 8} transform={`rotate(${i * 15} 100 100)`} style={{ animationDelay: `${0.5 + i * 0.025}s` }} />)}
+          </svg>
+          {isLive && [[-92, -34], [78, -70], [104, 38], [-70, 86], [24, 112], [-118, 20], [60, 96]].map(([x, y], i) => (
+            <span key={i} className="g-golive__blip" style={{ ['--x' as string]: `${x}px`, ['--y' as string]: `${y}px`, animationDelay: `${0.55 + i * 0.16}s` }} />
+          ))}
           <span className="g-golive__halo" />
           <img className="g-golive__logo" src={logo} alt="" width={168} height={84} draggable={false} />
         </div>
         <div className="g-golive__copy">
           <div className="g-golive__eyebrow">{isLive ? 'SIGNAL ESTABLISHED' : 'GAYZE NETWORK'}</div>
-          <h2 className="g-golive__title" key={isLive ? 'live' : 'connecting'}>
-            {isLive ? "You're live." : 'Going live'}
+          <h2 className="g-golive__title" key={isLive ? 'live' : 'connecting'} aria-label={isLive ? "You're live." : 'Going live'}>
+            {isLive
+              ? Array.from("You're live.").map((ch, i) => <span key={i} className="g-golive__ch" aria-hidden="true" style={{ animationDelay: `${0.12 + i * 0.045}s` }}>{ch === ' ' ? '\u00a0' : ch}</span>)
+              : 'Going live'}
           </h2>
           <p className="g-golive__sub">{isLive ? 'Your signal is on the map.' : 'Reaching the people around you…'}</p>
-          {isLive && <span className="g-golive__intent">{intent}</span>}
+          {isLive && <span className="g-golive__intent"><b>{intent}</b>{detail && <i>{detail}</i>}</span>}
           {isLive && <span className="g-golive__tap">Tap to continue</span>}
+          {isLive && <span className="g-golive__time" aria-hidden="true" style={{ animationDuration: `${HOLD_MS}ms` }} />}
         </div>
       </div>
     </div>
