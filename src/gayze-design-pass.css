@@ -2138,3 +2138,63 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .gz-legend__swatch { width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .5); box-shadow: none; }
 .gz-legend strong { font-family: inherit; font-size: 10.5px; letter-spacing: .14em; color: rgba(255, 255, 255, .9); }
 @keyframes gz-legend-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* ===================================================================================================
+   MAP HUD: one layout system.
+   12 px side margin, 44 px controls, 14 px radii, 8 px gaps, one glass material.
+   Top row:    [ your live signal ............ ] [ filters ]
+   Right rail: one capsule (locate / zoom in / zoom out / grid), directly under the filter button, same right edge.
+   Bottom dock: [ list ]   [ Map | People ]   on one baseline above the tab bar, left edge on the margin.
+   Grid legend: a slim glass bar above the dock, margin to margin.
+   =================================================================================================== */
+.g-shell[data-active-tab='right_now'] {
+  --hud-m: 12px; --hud-h: 44px; --hud-r: 14px; --hud-gap: 8px;
+  --hud-top: calc(env(safe-area-inset-top, 0px) + 10px);
+  --hud-bottom: calc(var(--g-tabbar-h, 68px) + env(safe-area-inset-bottom, 0px) + 16px);
+  --hud-glass: linear-gradient(180deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .04)), rgba(14, 10, 28, .6);
+}
+.g-shell[data-active-tab='right_now'] .g-hud-top { left: var(--hud-m) !important; right: var(--hud-m) !important; top: var(--hud-top) !important; gap: var(--hud-gap) !important; align-items: stretch !important; }
+.g-shell[data-active-tab='right_now'] .g-hud-top > div { display: flex; }
+.g-shell[data-active-tab='right_now'] .g-hud-top .g-intent-chip,
+.g-shell[data-active-tab='right_now'] .g-hud-top .g-map-state {
+  width: 100%; height: var(--hud-h) !important; min-height: var(--hud-h) !important; padding: 0 14px 0 14px !important; gap: 10px !important; border-radius: var(--hud-r) !important;
+  background: var(--hud-glass) !important; border: 1px solid rgba(var(--chip-rgb, 255, 255, 255), .5) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .24) !important; -webkit-backdrop-filter: blur(20px) saturate(1.7) !important; backdrop-filter: blur(20px) saturate(1.7) !important;
+}
+.g-shell[data-active-tab='right_now'] .g-intent-chip__mode { font-size: 10px; letter-spacing: .16em; }
+.g-shell[data-active-tab='right_now'] .g-intent-chip__title { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.g-shell[data-active-tab='right_now'] .g-intent-chip__time { font-size: 12px; padding-left: 10px; border-left-color: rgba(255, 255, 255, .22); }
+.g-shell[data-active-tab='right_now'] .g-hud-top > .g-icon-btn,
+.g-shell[data-active-tab='right_now'] .g-hud-top > button.g-icon-btn {
+  width: var(--hud-h) !important; height: var(--hud-h) !important; min-height: var(--hud-h) !important; flex: none; border-radius: var(--hud-r) !important;
+  background: var(--hud-glass) !important; border: 1px solid rgba(255, 255, 255, .2) !important; color: #fff !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .24) !important; -webkit-backdrop-filter: blur(20px) saturate(1.7) !important; backdrop-filter: blur(20px) saturate(1.7) !important;
+}
+
+/* The rail: one capsule */
+.g-shell[data-active-tab='right_now'] .g-map-rail {
+  right: var(--hud-m) !important; left: auto !important; top: calc(var(--hud-top) + var(--hud-h) + var(--hud-gap)) !important; gap: 0 !important; width: var(--hud-h); overflow: hidden;
+  border-radius: var(--hud-r); background: var(--hud-glass); border: 1px solid rgba(255, 255, 255, .2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .24); -webkit-backdrop-filter: blur(20px) saturate(1.7); backdrop-filter: blur(20px) saturate(1.7);
+}
+.g-shell[data-active-tab='right_now'] .g-map-rail .g-icon-btn {
+  width: var(--hud-h) !important; height: var(--hud-h) !important; min-height: var(--hud-h) !important; border-radius: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; color: rgba(255, 255, 255, .86) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+.g-shell[data-active-tab='right_now'] .g-map-rail .g-icon-btn + .g-icon-btn { border-top: 1px solid rgba(255, 255, 255, .12) !important; }
+.g-shell[data-active-tab='right_now'] .g-map-rail .g-gridbtn { border-top: 1px solid rgba(255, 255, 255, .2) !important; }
+.g-shell[data-active-tab='right_now'] .g-map-rail .g-gridbtn.is-on { color: #fff !important; background: linear-gradient(180deg, rgba(150, 100, 235, .6), rgba(110, 60, 200, .4)) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3) !important; }
+
+/* The dock: list and Map | People share one baseline, 44 px tall */
+.g-shell[data-active-tab='right_now'] .g-nearby-float { left: var(--hud-m) !important; right: auto !important; top: auto !important; bottom: var(--hud-bottom) !important; transform: none !important; }
+.g-shell[data-active-tab='right_now'] .g-nearby-btn {
+  position: relative; width: var(--hud-h) !important; height: var(--hud-h) !important; min-height: var(--hud-h) !important; padding: 0 !important; justify-content: center !important; border-radius: var(--hud-r) !important;
+  background: var(--hud-glass) !important; border: 1px solid rgba(255, 255, 255, .2) !important; color: #fff !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .24) !important; -webkit-backdrop-filter: blur(20px) saturate(1.7) !important; backdrop-filter: blur(20px) saturate(1.7) !important;
+}
+.g-shell[data-active-tab='right_now'] .g-nearby-btn svg { width: 18px !important; height: 18px !important; color: #fff !important; }
+.g-shell[data-active-tab='right_now'] .g-nearby-btn__chevron { display: none !important; }
+.g-shell[data-active-tab='right_now'] .g-nearby-btn[aria-expanded] > span:not(.g-nearby-btn__chevron) { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; display: grid; place-items: center; border-radius: 10px; font-size: 11px !important; font-weight: 800 !important; color: #fff; background: linear-gradient(180deg, #9a65ef, #6f3cc3); border: 2px solid #0b0a14; }
+.g-shell[data-active-tab='right_now'] .g-nearby-btn:not([aria-expanded]) { width: auto !important; padding: 0 14px !important; }
+.g-shell[data-active-tab='right_now'] .mapmode { bottom: var(--hud-bottom) !important; padding: 3px; border-radius: var(--hud-r); height: var(--hud-h); align-items: stretch; background: var(--hud-glass) !important; border-color: rgba(255, 255, 255, .2) !important; }
+.g-shell[data-active-tab='right_now'] .mapmode button { min-height: 0; height: 100%; padding: 0 18px; border-radius: 11px; }
+.g-shell[data-active-tab='right_now'] .gz-legend { left: var(--hud-m) !important; right: var(--hud-m) !important; max-width: none !important; bottom: calc(var(--hud-bottom) + var(--hud-h) + var(--hud-gap)) !important; min-height: 0; }
