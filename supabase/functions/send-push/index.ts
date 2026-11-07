@@ -159,6 +159,7 @@ Deno.serve(async (req: Request) => {
         connection: 'connections',
         intent_expiring: 'intent_expiry',
         safety: 'safety',
+        gathering_reminder: null,
         test: null,
       };
       const preference = preferenceColumn[notice.category];
@@ -206,6 +207,9 @@ Deno.serve(async (req: Request) => {
       } else if (notice.category === 'intent_expiring') {
         title = 'Intent expiring soon';
         bodyText = 'Your Right Now intent is about to expire.';
+      } else if (notice.category === 'gathering_reminder') {
+        title = 'Plan reminder';
+        bodyText = notice.event_key.endsWith(':1h') ? 'A plan you are going to starts within the hour.' : 'A plan you are going to starts tomorrow.';
       } else if (notice.category === 'safety') {
         title = 'Safety alert';
         bodyText = 'You have a new safety notification.';
