@@ -19,8 +19,6 @@ import {
   ArrowLeft,
   ArrowRight,
   AlertTriangle,
-  Bell,
-  BellOff,
   LogOut,
   Ban,
   UserRoundX,
@@ -40,7 +38,8 @@ import {
   uploadProfilePhoto,
   type ProfilePhoto,
 } from '../services/profilePhotoService';
-import { getPushEnvironment, isDeviceSubscribed } from '../services/pushService';
+import { usePushStatus } from '../hooks/usePushStatus';
+import { NotificationsCard } from './NotificationsCard';
 import { loadBlockedUsers, unblockUser, type BlockedUser } from '../services/blockService';
 
 interface ProfileViewProps {
@@ -62,8 +61,10 @@ interface ProfileViewProps {
   /** Opens the sectioned profile editor (the "Edit profile" pencil). */
   onOpenProfileEdit?: (section?: EditSectionKey) => void;
   onAvatarUpdated?: (url: string | undefined) => void;
-  /** Opens the Web Push opt-in / notification preferences sheet. */
+  /** Opens notification preferences and the activity log. */
   onOpenNotifications?: () => void;
+  /** Signed-in account id; the single Enable action on this screen registers this device for it. */
+  currentUserId?: string | null;
   onDeleteAccount?: () => void | Promise<void>;
   deletingAccount?: boolean;
 }
@@ -107,6 +108,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenProfileEdit,
   onAvatarUpdated,
   onOpenNotifications,
+  currentUserId = null,
   onDeleteAccount,
   deletingAccount = false,
 }) => {
@@ -116,8 +118,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [showNotificationReminder, setShowNotificationReminder] = useState(false);
-  const [notificationBlockReason, setNotificationBlockReason] = useState<'ios-needs-install' | 'permission-denied' | null>(null);
+  const push = usePushStatus(currentUserId);
   const [blockedUsersOpen, setBlockedUsersOpen] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [blockedUsersLoading, setBlockedUsersLoading] = useState(false);
@@ -126,45 +127,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
-
-  // Persistent device-status banner: it remains visible while push is
-  // unavailable on this device and disappears as soon as the device subscribes.
-  useEffect(() => {
-    let cancelled = false;
-    const checkReminder = async () => {
-      try {
-        const env = getPushEnvironment();
-        if (env.blockedBy === 'unsupported' || env.blockedBy === 'not-configured') {
-          if (!cancelled) setShowNotificationReminder(false);
-          return;
-        }
-        const subscribed = await isDeviceSubscribed();
-        if (cancelled) return;
-        if (subscribed) {
-          // Enabled — the prompt has done its job; hide it immediately.
-          setShowNotificationReminder(false);
-          return;
-        }
-        setShowNotificationReminder(true);
-      } catch {
-        // Notification setup is optional and must never affect the profile view.
-      }
-    };
-    // Own heartbeat (independent of the intent countdown, which only runs with
-    // a live intent) + focus/visibility, so a subscription started elsewhere —
-    // e.g. from the Notifications sheet or the OS settings — retires the prompt.
-    void checkReminder();
-    const id = window.setInterval(() => { void checkReminder(); }, 30000);
-    const onWake = () => { void checkReminder(); };
-    window.addEventListener('focus', onWake);
-    document.addEventListener('visibilitychange', onWake);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-      window.removeEventListener('focus', onWake);
-      document.removeEventListener('visibilitychange', onWake);
-    };
-  }, []);
 
   const refreshProfilePhotos = useCallback(async () => {
     try {
@@ -404,26 +366,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <span className="g-label">Profile</span>
       </header>
 
-      {showNotificationReminder && onOpenNotifications && (
-        <button
-          type="button"
-          className="g-profile-notification-banner g-profile-notification-banner--top w-full mb-4 text-left"
-          onClick={() => { hapticLight(); onOpenNotifications(); }}
-        >
-          <span className="g-profile-notification-banner__icon" aria-hidden="true">
-            {notificationBlockReason === 'permission-denied' ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-bold text-white">
-              {notificationBlockReason === 'ios-needs-install' ? 'Add GAYZE to your Home Screen' : notificationBlockReason === 'permission-denied' ? 'Notifications are blocked' : 'Turn on notifications'}
-            </span>
-            <span className="block text-[11px] text-zinc-400 mt-0.5">
-              {notificationBlockReason === 'ios-needs-install' ? 'Required on iPhone for push notifications.' : notificationBlockReason === 'permission-denied' ? 'Enable GAYZE in iPhone Settings.' : 'Get messages, Gayzes and intent alerts.'}
-            </span>
-          </span>
-          <span className="g-profile-notification-banner__action">{notificationBlockReason === 'permission-denied' ? 'Settings' : 'Enable'}</span>
-        </button>
-      )}
+      {/* The one place to turn notifications on. */}
+      <NotificationsCard
+        status={push.status}
+        busy={push.busy}
+        error={push.error}
+        onEnable={() => { void push.enable(); }}
+        onManage={onOpenNotifications}
+      />
 
       {/* Identity — prominent primary photo, authentic personal presence */}
       <section className="g-profile-id flex items-start gap-4 py-4">
@@ -802,7 +752,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         );
       })()}
 
-      {/* Notifications — always-visible Web Push entry point */}
       {/* Safety & privacy */}
       <section className="g-panel g-gayze-menu-frame overflow-hidden mb-5">
         <div className="px-4 pt-3.5 pb-1">

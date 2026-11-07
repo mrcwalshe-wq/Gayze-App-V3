@@ -46,8 +46,9 @@ function recordDismissal(): void {
 /**
  * A small, Gayze-native banner explaining Home Screen installation on iOS.
  * It never blocks the UI and stops asking once dismissed repeatedly.
+ * Positioned by SetupDock, which also hosts the persistent notifications pill.
  */
-export const InstallPrompt: React.FC = () => {
+export const InstallPrompt: React.FC<{ onVisibleChange?: (visible: boolean) => void }> = ({ onVisibleChange }) => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -55,6 +56,8 @@ export const InstallPrompt: React.FC = () => {
     const timer = window.setTimeout(() => setVisible(shouldShowInstallPrompt()), 2500);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => { onVisibleChange?.(visible); }, [visible, onVisibleChange]);
 
   if (!visible) return null;
 
@@ -66,7 +69,7 @@ export const InstallPrompt: React.FC = () => {
 
   return (
     <div
-      className="g-float fixed left-3 right-3 z-50 rounded-[8px] px-3.5 py-3 bottom-[calc(var(--g-tabbar-h,3.5rem)+env(safe-area-inset-bottom,0px)+12px)] md:left-auto md:right-6 md:bottom-6 md:w-[360px]"
+      className="g-float rounded-[8px] px-3.5 py-3"
       role="dialog"
       aria-label="Install Gayze"
     >

@@ -163,97 +163,94 @@ const sectionHeader = (root, name) =>
 const hasText = (root, needle) => (root.textContent || '').includes(needle);
 
 // ---------------------------------------------------------------------------
-section('[1] One notification experience — onboarding prompt + one permanent section');
+section('[1] One notification card — the single place to turn notifications on');
 // ---------------------------------------------------------------------------
 
-// --- 1a. unsupported platform: no promotional card, section still there
+const card = (root) => root.querySelector('[data-testid="notifications-card"]');
+const cardState = (root) => card(root)?.getAttribute('data-state') ?? null;
+const USER_ID = '00000000-0000-4000-8000-000000000001';
+
+// --- 1a. unsupported platform: no enable prompt, but one plain row to the settings
 removePushPlatform();
 {
   localStorage.clear();
-  const { container, calls, unmount } = await mountProfile(makeUser());
-  assert(!hasText(container, 'Turn on notifications'), 'unsupported platform: no "Turn on notifications" card');
-  assert(hasText(container, 'Messages, intent activity and safety'), 'permanent Notifications row is present');
-  const labels = [...container.querySelectorAll('.g-label')].filter((el) => text(el) === 'Notifications');
-  assert(labels.length === 1, `exactly ONE Notifications section label (found ${labels.length})`);
-  const row = [...container.querySelectorAll('.g-row')].find((r) => text(r).startsWith('Notifications'));
-  assert(Boolean(row), 'permanent Notifications row opens the existing settings');
-  await act(async () => { row.click(); await sleep(10); });
-  assert(calls.notifications === 1, 'tapping the permanent row opens the EXISTING notification settings (one system)');
+  const { container, calls, unmount } = await mountProfile(makeUser(), { currentUserId: USER_ID });
+  assert(!hasText(container, 'Turn on notifications'), 'unsupported platform: no "Turn on notifications" prompt');
+  assert(container.querySelectorAll('[data-testid="notifications-card"]').length === 1, 'exactly ONE notifications card');
+  assert(cardState(container) === 'hidden', 'unsupported platform: plain Notifications row');
+  await act(async () => { card(container).click(); await sleep(10); });
+  assert(calls.notifications === 1, 'the row opens the existing notification settings');
   await unmount();
 }
 
-// --- 1b. supported + not subscribed + not dismissed: prompt shows
+// --- 1b. supported + not subscribed: the card offers Enable
 installPushPlatform();
 {
   localStorage.clear();
   globalThis.__pushState.permission = 'default';
   globalThis.__pushState.subscription = null;
-  const { container, unmount } = await mountProfile(makeUser());
-  assert(hasText(container, 'Turn on notifications'), 'not enabled + not dismissed: onboarding card shows');
-  assert(hasText(container, 'Stay in the loop'), 'card copy is the onboarding prompt');
-  assert(hasText(container, 'Messages, intent activity and safety'), 'permanent Notifications row is still present');
+  const { container, unmount } = await mountProfile(makeUser(), { currentUserId: USER_ID });
+  assert(cardState(container) === 'off', 'not enabled: card is in the off state');
+  assert(hasText(container, 'Turn on notifications'), 'card offers to turn notifications on');
+  assert(container.querySelectorAll('[data-testid="notifications-card"]').length === 1, 'exactly ONE notifications card');
+  assert(![...container.querySelectorAll('button')].some((b) => (b.getAttribute('aria-label') || '').includes('Dismiss')), 'no dismiss control: the card is persistent');
   await unmount();
 }
 
-// --- 1c. supported + SUBSCRIBED: prompt is gone even without dismissal
+// --- 1c. subscribed: the card becomes a calm "on" row that manages preferences
 {
   localStorage.clear();
   globalThis.__pushState.permission = 'granted';
   globalThis.__pushState.subscription = { endpoint: 'https://push.example.test/ep1' };
   globalThis.__pushState.ownsRow = true;
-  const { container, unmount } = await mountProfile(makeUser());
-  assert(!hasText(container, 'Turn on notifications'), 'notifications ENABLED: promotional card is gone');
-  assert(hasText(container, 'Messages, intent activity and safety'), 'permanent Notifications row remains');
+  const { container, calls, unmount } = await mountProfile(makeUser(), { currentUserId: USER_ID });
+  assert(cardState(container) === 'on', 'enabled: card is in the on state');
+  assert(!hasText(container, 'Turn on notifications'), 'enabled: no enable prompt');
+  assert(hasText(container, 'Notifications are on'), 'enabled: status is stated');
+  await act(async () => { card(container).click(); await sleep(10); });
+  assert(calls.notifications === 1, 'the on row opens notification preferences');
   await unmount();
 }
 
-// --- 1d. enabling mid-session retires the prompt (the 30 s re-check)
+// --- 1d. enabling mid-session flips the card without a reload (the 30 s re-check)
 {
   localStorage.clear();
   globalThis.__pushState.permission = 'default';
   globalThis.__pushState.subscription = null;
-  const { container, unmount } = await mountProfile(makeUser());
-  assert(hasText(container, 'Turn on notifications'), 'before enabling: card visible');
+  const { container, unmount } = await mountProfile(makeUser(), { currentUserId: USER_ID });
+  assert(cardState(container) === 'off', 'before enabling: card offers Enable');
   await act(async () => {
     globalThis.__pushState.permission = 'granted';
     globalThis.__pushState.subscription = { endpoint: 'https://push.example.test/ep2' };
-    flushIntervals(); // the prompt's own heartbeat re-checks subscription state
+    flushIntervals(); // the shared status hook's heartbeat re-checks subscription state
   });
-  // Passive effects run at act exit; give the async re-check its own window.
   await act(async () => { await sleep(30); });
-  assert(!hasText(container, 'Turn on notifications'), 'after enabling: card disappears without a reload');
+  assert(cardState(container) === 'on', 'after enabling elsewhere: card flips to on without a reload');
   await unmount();
 }
 
-// --- 1e. dismissal is permanent
+// --- 1e. tapping Enable acts in place; it does not navigate away to another sheet
 {
   localStorage.clear();
   globalThis.__pushState.permission = 'default';
   globalThis.__pushState.subscription = null;
-  const first = await mountProfile(makeUser());
-  assert(hasText(first.container, 'Turn on notifications'), 'before dismiss: card visible');
-  const dismiss = [...first.container.querySelectorAll('button')]
-    .find((b) => (b.getAttribute('aria-label') || '') === 'Dismiss notification reminder');
-  await act(async () => { dismiss.click(); await sleep(10); });
-  assert(!hasText(first.container, 'Turn on notifications'), 'X dismisses the card');
-  await first.unmount();
-
-  // A fresh mount (e.g. next visit) must NOT resurface it.
-  const second = await mountProfile(makeUser());
-  assert(!hasText(second.container, 'Turn on notifications'), 'dismissal is permanent — card stays gone on re-mount');
-  await second.unmount();
+  const { container, calls, unmount } = await mountProfile(makeUser(), { currentUserId: USER_ID });
+  await act(async () => { card(container).click(); await sleep(50); });
+  assert(calls.notifications === 0, 'Enable runs in place (does not open the settings sheet)');
+  assert(cardState(container) === 'off', 'permission not granted: card stays in the off state so it can be retried');
+  await unmount();
 }
 
-// --- 1f. engaging the prompt retires it and opens the same settings sheet
+// --- 1f. blocked at device level: guidance, no Enable button
+installPushPlatform();
 {
   localStorage.clear();
-  globalThis.__pushState.permission = 'default';
+  globalThis.__pushState.permission = 'denied';
   globalThis.__pushState.subscription = null;
-  const { container, calls, unmount } = await mountProfile(makeUser());
-  const cta = findButton(container, 'Start notifications');
-  await act(async () => { cta.click(); await sleep(10); });
-  assert(calls.notifications === 1, 'CTA opens the existing notification settings sheet');
-  assert(!hasText(container, 'Turn on notifications'), 'engaging the prompt retires it');
+  const { container, unmount } = await mountProfile(makeUser(), { currentUserId: USER_ID });
+  assert(cardState(container) === 'blocked', 'denied: card is in the blocked state');
+  assert(hasText(container, 'Notifications are blocked'), 'denied: says so');
+  assert(!findButton(container, 'Enable'), 'denied: no Enable button that cannot work');
   await unmount();
 }
 

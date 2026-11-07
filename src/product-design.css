@@ -2287,3 +2287,43 @@ select:focus-visible {
     min-height: 62px;
   }
 }
+
+/* Notifications: calm "on" state for the Profile card, and the persistent floating pill. */
+.g-profile-notification-banner--on {
+  border-color: rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+}
+.g-profile-notification-banner--on:hover {
+  background: rgba(255,255,255,.055);
+  border-color: rgba(255,255,255,.16);
+}
+.g-profile-notification-banner--on .g-profile-notification-banner__icon {
+  color: #b9a4ea;
+  background: rgba(111,60,195,.14);
+  border-color: rgba(111,60,195,.30);
+}
+.g-setup-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.g-setup-pill:disabled { opacity: .7; cursor: default; }
+.g-setup-pill__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 999px;
+  color: #e2c36b;
+  background: rgba(201,162,77,.13);
+  border: 1px solid rgba(201,162,77,.30);
+}
