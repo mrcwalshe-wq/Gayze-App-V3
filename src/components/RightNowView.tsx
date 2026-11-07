@@ -7,6 +7,7 @@ import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../ser
 import { loadOutgoingInterestStatuses } from '../services/supabaseService';
 import L from 'leaflet';
 import { createMapGrid } from './mapGrid';
+import { PeopleGrid, type PeopleTile } from './PeopleGrid';
 import { intentThemeMode } from '../services/intentTiming';
 import {
   Pulse,
@@ -291,6 +292,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
   // GRID view: the map as a chart of square cells; people show as a hatched, counted cell, never a spot.
   const [gridMode, setGridMode] = useState<boolean>(() => { try { return localStorage.getItem('gayze_map_grid') === '1'; } catch { return false; } });
+  // PEOPLE view: the same people the map shows, as a grid of cards.
+  const [peopleView, setPeopleView] = useState<boolean>(false);
   const [gridInfo, setGridInfo] = useState<{ size: number; occupied: number } | null>(null);
   const gridRef = useRef<ReturnType<typeof createMapGrid> | null>(null);
   const gridPointsRef = useRef<{ lat: number; lng: number }[]>([]);
@@ -747,6 +750,18 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       .sort((a, b) => a.km - b.km)
       .map((entry) => entry.item);
   }, [datingProfiles, livePulses, safeHavens, activeCategory, activeIntentMode, maxDistanceKm, privacySetting, userLocation]);
+
+  const peopleTiles = useMemo<PeopleTile[]>(() => nearbyItems.flatMap((item): PeopleTile[] => {
+    if (item.type === 'pulse') {
+      const p = item.item;
+      return [{ key: p.id, name: p.peerName, age: p.peerAge, photo: p.peerAvatar && p.peerAvatar !== 'user' ? p.peerAvatar : undefined, intent: intentDisplayLabel(p.intent) || 'Social', area: p.neighborhood, distance: formatDistanceKm(distanceKmForPulse(p)), expiresAt: p.expiresAt }];
+    }
+    if (item.type === 'profile') {
+      const p = item.item;
+      return [{ key: p.id, name: p.name, age: p.age, photo: p.photoUrl, intent: intentDisplayLabel(p.intent) || p.lookingForLabel || 'Social', area: p.neighborhood, distance: formatDistanceKm(distanceKmForProfile(p)), expiresAt: p.intentExpiresAt, verified: p.safetyVerified }];
+    }
+    return [];
+  }), [nearbyItems]);
 
   const itemDistanceKm = (item: MapDiscoveryItem): number | undefined => {
     if (item.type === 'pulse') return distanceKmForPulse(item.item);
@@ -1395,6 +1410,23 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         <div className="g-map-edge g-map-edge--top" aria-hidden="true" />
         <div className="g-map-edge g-map-edge--bottom" aria-hidden="true" />
       </div>
+      {peopleView && (
+        <PeopleGrid
+          tiles={peopleTiles}
+          onClose={() => setPeopleView(false)}
+          onFilter={() => { setPeopleView(false); setIsFilterDrawerOpen(true); }}
+          onSelect={(key) => {
+            const found = nearbyItems.find((it) => it.type !== 'haven' && it.item.id === key);
+            if (found) { setSelectedItem(found); setIsCardExpanded(false); setPeopleView(false); }
+          }}
+        />
+      )}
+      {!selectedItem && !isNearbyOpen && !isFilterDrawerOpen && (
+        <div className="mapmode" role="group" aria-label="Map or people">
+          <button type="button" aria-pressed={!peopleView} onClick={() => { hapticLight(); setPeopleView(false); }}>Map</button>
+          <button type="button" aria-pressed={peopleView} onClick={() => { hapticLight(); setPeopleView(true); }}>People{peopleTiles.length > 0 ? ` · ${peopleTiles.length}` : ''}</button>
+        </div>
+      )}
       {gridMode && gridInfo && (
         <div className="gz-legend" role="status">
           <span className="gz-legend__swatch" aria-hidden="true" />
@@ -1433,7 +1465,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         <button
           type="button"
           onClick={() => { hapticLight(); setGridMode((v) => !v); }}
-          title={gridMode ? 'Hide grid' : 'Show grid'}
+          title={gridMode ? 'Hide map grid' : 'Show map grid (cells)'}
           aria-label={gridMode ? 'Hide map grid' : 'Show map grid'}
           aria-pressed={gridMode}
           className={`g-icon-btn g-gridbtn ${gridMode ? 'is-on' : ''}`}
