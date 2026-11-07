@@ -142,7 +142,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   }, [summary, mine]);
   const minutesLeft = fallbackExpiresAt ? Math.max(0, Math.round((fallbackExpiresAt - Date.now()) / 60000)) : 0;
   const leftLabel = minutesLeft >= 60 ? `${Math.floor(minutesLeft / 60)}h ${String(minutesLeft % 60).padStart(2, '0')}m` : `${minutesLeft}m`;
-  const hasStats = Boolean(summary) && (summary!.reliabilityScore != null || (summary!.verifiedPeersCount ?? 0) > 0 || matchPct != null);
+  const hasStats = Boolean(summary) && ((summary!.reliabilityScore ?? 0) > 0 || (summary!.verifiedPeersCount ?? 0) > 0 || matchPct != null);
   const facts = shortFacts({ pronouns: summary?.pronouns, heightCm: summary?.heightCm, bodyType: summary?.bodyType });
   const bio = summary?.bio?.trim();
 
@@ -230,7 +230,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
             {(hasStats || fallbackDistance) && (
               <div className="pk-stats" aria-label="Profile at a glance">
                 {matchPct != null && <StatRing value={matchPct} label={`${matchPct}%`} caption="Match" />}
-                {summary?.reliabilityScore != null && <StatRing value={summary.reliabilityScore} label={String(Math.round(summary.reliabilityScore))} caption="Reliable" tone="green" />}
+                {summary && (summary.reliabilityScore ?? 0) > 0 && <StatRing value={summary.reliabilityScore ?? 0} label={String(Math.round(summary.reliabilityScore ?? 0))} caption="Reliable" tone="green" />}
                 {(summary?.verifiedPeersCount ?? 0) > 0 && (
                   <div className="pk-stat pk-stat--plain"><b>{summary!.verifiedPeersCount}</b><small>Verified</small></div>
                 )}
