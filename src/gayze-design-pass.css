@@ -1711,3 +1711,37 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .gz-legend strong { display: block; font-family: var(--font-mono, ui-monospace, monospace); font-size: 10.5px; letter-spacing: .16em; font-weight: 700; }
 .gz-legend small { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.35; color: rgba(236, 231, 250, .72); }
 @media (prefers-reduced-motion: reduce) { .gz-grid-sweep::before, .gayze-leaflet-map .gz-cell--hot { animation: none; } }
+
+/* ===== Compact chat: smaller bubbles, one slim meta line per message, cards without a bubble around them ===== */
+.g-chat-feed { gap: 0; }
+.g-chat-feed > * + * { margin-top: 8px !important; }
+.g-msg-meta { display: flex; align-items: center; gap: 6px; min-height: 20px; margin: 0 2px 2px; font-size: 10.5px; letter-spacing: .02em; color: rgba(255, 255, 255, .42); }
+.g-msg-meta.is-me { flex-direction: row-reverse; }
+.g-msg-meta__name { color: rgba(255, 255, 255, .6); font-weight: 600; }
+.g-msg-meta > .relative > button { width: 22px !important; height: 22px !important; opacity: .55; }
+.g-msg-meta > .relative > button:hover, .g-msg-meta > .relative > button[aria-expanded='true'] { opacity: 1; }
+.g-chat-feed div.g-bubble--mine, .g-chat-feed div.g-bubble--peer { padding: 7px 12px !important; font-size: 14px !important; line-height: 1.38 !important; max-width: min(82%, 380px) !important; }
+.g-chat-feed .g-bubble__meta { margin-top: 1px; }
+.g-chat-feed .g-bubble__info { width: 22px; height: 22px; margin: -4px -6px -4px 0; }
+.g-chat-feed div.g-bubble--card { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; max-width: min(88%, 330px) !important; width: min(88%, 330px); }
+.g-chat-feed div.g-bubble--card::before { display: none !important; }
+.g-chat-feed div.g-bubble--card .g-meet { margin-top: 0; padding: 10px 12px 10px; }
+.g-chat-feed .g-meet__venue { font-size: 16px; margin: 5px 0 4px; letter-spacing: -.02em; }
+.g-chat-feed .g-meet__eyebrow { font-size: 9.5px; }
+.g-chat-feed .g-meet__pill { padding: 2px 8px; font-size: 10.5px; }
+.g-chat-feed .g-meet__facts li { font-size: 12px; }
+.g-chat-feed .g-meet__safety { margin-top: 8px; padding: 4px 8px; font-size: 11px; }
+.g-chat-feed .g-meet__actions { margin-top: 8px; gap: 6px; }
+.g-chat-feed .g-meet__btn { min-height: 34px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+.g-chat-feed .g-calln { padding: 11px 12px; gap: 3px 11px; }
+.g-chat-feed .g-calln__orb { width: 36px; height: 36px; }
+.g-chat-feed .g-calln__title { font-size: 14px; }
+.g-chat-feed .g-calln__actions { margin-top: 8px; }
+.g-chat-feed .g-calln__actions .g-calln__retry { height: 34px; font-size: 12.5px; }
+/* Header and composer slim down too */
+.gayze-chat-header { padding-top: 6px !important; padding-bottom: 6px !important; }
+.gayze-chat-header .g-chat-header__avatar { width: 36px !important; height: 36px !important; }
+.gayze-chat-header .g-icon-btn, .gayze-chat-header .g-chat-header__action { width: 38px !important; height: 38px !important; min-height: 0 !important; }
+.g-chat-composer { padding-top: 4px !important; padding-bottom: 4px !important; }
+.g-chat-composer > label, .g-chat-composer > button { width: 34px !important; height: 34px !important; }
+.g-chat-composer .g-icon-btn--send { width: 36px !important; height: 36px !important; }

@@ -938,7 +938,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   key={msg.id}
                   className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                 >
-                  <div className="flex items-center justify-end mb-1 px-1 text-[11px] text-zinc-500">
+                  <div className={`g-msg-meta ${isMe ? 'is-me' : ''}`}>
+                    {!isMe && currentRoom?.type !== 'direct' && <span className="g-msg-meta__name">{msg.senderName}</span>}
+                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    {msg.sendState === 'sending' && <span>· Sending…</span>}
+                    {msg.sendState === 'failed' && <span className="text-amber-300">· Not confirmed</span>}
                     <div className="relative">
                       <button
                         type="button"
@@ -957,17 +961,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-zinc-500">
-                    <span>{msg.senderName}</span>
-                    <span>·</span>
-                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    {msg.sendState === 'sending' && <span className="text-zinc-500">· Sending…</span>}
-                    {msg.sendState === 'failed' && <span className="text-amber-300">· Not confirmed</span>}
-                  </div>
 
                   <div
                     className={`max-w-[88%] sm:max-w-md px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed transition-all ${
-                      msg.callData ? 'g-bubble--call' : isMe ? 'g-bubble--mine' : 'g-bubble--peer'
+                      msg.callData ? 'g-bubble--call' : msg.meetingData ? 'g-bubble--card' : isMe ? 'g-bubble--mine' : 'g-bubble--peer'
                     }`}
                   >
                     {/* Encrypted Photo Attachment if present */}
@@ -1007,7 +1004,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         <span>{msg.noteData.kind === 'video' ? 'Video note' : 'Voice message'} · {msg.noteData.seconds}s</span>
                       </div>
                     ) : (
-                      <p className="whitespace-pre-wrap">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>
+                      !msg.deletedForEveryone && msg.meetingData ? null : <p className="whitespace-pre-wrap">{msg.deletedForEveryone ? 'Message unsent' : msg.plainText}</p>
                     )}
 
                     {/* The meetup as a card with its controls; older messages about the same meetup collapse */}
