@@ -2879,3 +2879,7 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .ss-plan-lock div { display: flex; gap: 8px; flex-wrap: wrap; }
 .ss-plan-lock button { flex: 1; min-height: 42px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 750; color: #fff; background: rgba(255, 255, 255, .1); cursor: pointer; }
 .ss-plan-lock .is-danger { background: rgba(224, 71, 90, .2); color: #ff9aa6; }
+
+/* The chat list is a scrolling flex column: swipe wrappers must keep their full height, not shrink to fit */
+.g-swipe { flex: none; min-height: min-content; }
+.g-swipe__body { min-height: 84px; }
