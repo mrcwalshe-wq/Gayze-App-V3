@@ -9,6 +9,7 @@ import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { SwipeRow } from './SwipeRow';
 import { readAutoRekeyAttempt } from '../services/autoRekey';
+import { fetchArchivedChats, pushArchivedChats, reconcileArchive } from '../services/chatArchive';
 import { GroupMembersSheet, formatEventWhen, type GroupMember, type GroupEventInfo } from './GroupMembersSheet';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
@@ -390,7 +391,12 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const archiveKey = `gayze:archived-chats:${currentUserId || 'local'}`;
   const readArchived = (key: string): string[] => { try { return JSON.parse(localStorage.getItem(key) || '[]') as string[]; } catch { return []; } };
   const [archivedIds, setArchivedIds] = useState<Set<string>>(() => new Set(readArchived(archiveKey)));
-  // The account id can arrive after the first render. Re-read when it does, and fold in anything archived before it was known.
+  const pendingKey = `gayze:archive-pending:${currentUserId || 'local'}`;
+  const migratedKey = `gayze:archive-migrated:${currentUserId || 'local'}`;
+  const readPending = (): Record<string, boolean> => { try { return JSON.parse(localStorage.getItem(pendingKey) || '{}'); } catch { return {}; } };
+  const writePending = (value: Record<string, boolean>) => { try { localStorage.setItem(pendingKey, JSON.stringify(value)); } catch { /* storage unavailable */ } };
+  // The account id can arrive after the first render. Re-read when it does, fold in anything archived before it was known,
+  // then take the account's list (changes made offline are applied on top and sent up).
   useEffect(() => {
     const own = readArchived(archiveKey);
     const early = archiveKey === 'gayze:archived-chats:local' ? [] : readArchived('gayze:archived-chats:local');
@@ -399,7 +405,22 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     if (early.length) {
       try { localStorage.setItem(archiveKey, JSON.stringify([...merged])); localStorage.removeItem('gayze:archived-chats:local'); } catch { /* keep the early list */ }
     }
-  }, [archiveKey]);
+    if (!currentUserId) return;
+    let cancelled = false;
+    void (async () => {
+      const server = await fetchArchivedChats();
+      if (cancelled || !server) return; // offline or not set up: the on-device list stands
+      let migrated = false;
+      try { migrated = localStorage.getItem(migratedKey) === '1'; } catch { migrated = true; }
+      const plan = reconcileArchive(server, [...merged], readPending(), migrated);
+      setArchivedIds(plan.archived);
+      try { localStorage.setItem(archiveKey, JSON.stringify([...plan.archived])); } catch { /* ignore */ }
+      const okA = await pushArchivedChats(plan.toArchive, true);
+      const okR = await pushArchivedChats(plan.toRestore, false);
+      if (okA && okR) { writePending({}); try { localStorage.setItem(migratedKey, '1'); } catch { /* ignore */ } }
+    })();
+    return () => { cancelled = true; };
+  }, [archiveKey, currentUserId]);
   const [showArchived, setShowArchived] = useState(false);
   const setArchived = (roomId: string, archived: boolean) => {
     hapticLight();
@@ -409,6 +430,13 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       try { localStorage.setItem(archiveKey, JSON.stringify([...next])); } catch { /* storage unavailable: archived for this session only */ }
       return next;
     });
+    // Save to the account; if that fails, remember it and send it next time.
+    if (currentUserId) {
+      writePending({ ...readPending(), [roomId]: archived });
+      void pushArchivedChats([roomId], archived).then((ok) => {
+        if (ok) { const rest = readPending(); delete rest[roomId]; writePending(rest); }
+      });
+    }
   };
   const isCancelledEvent = (room: SwarmRoom) => room.type === 'gathering'
     && (Boolean(room.gatheringId && cancelledGatheringIds?.has(room.gatheringId)) || /host cancelled this plan/i.test(room.lastMessage || ''));
