@@ -32,3 +32,11 @@ test('every back-filled activity in the migration is an allowed id', () => {
     assert.ok(allowed.has(m[1] as never) || ['new', 'friends', 'dating', 'social'].includes(m[1]), `unknown id ${m[1]}`);
   }
 });
+
+import { legacyActivityFor } from '../../src/services/intentModel';
+test('older signals without saved activities map to the closest activity', () => {
+  assert.deepEqual(legacyActivityFor('Drinks'), ['drinks']);
+  assert.deepEqual(legacyActivityFor('Hookup · Outdoor'), ['walks']);
+  assert.deepEqual(legacyActivityFor('Hookup'), ['spontaneous']);
+  assert.deepEqual(legacyActivityFor(undefined), ['spontaneous']);
+});

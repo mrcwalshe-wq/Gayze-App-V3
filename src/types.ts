@@ -202,7 +202,8 @@ export const PRIVATE_INTENTS = [
 
 export type SocialIntent = typeof SOCIAL_INTENTS[number];
 export type PrivateIntent = typeof PRIVATE_INTENTS[number];
-export type EncounterIntent = SocialIntent | PrivateIntent;
+/** Older signals use the fixed words above; new signals store the main activity's label. */
+export type EncounterIntent = SocialIntent | PrivateIntent | (string & {});
 
 export interface UserActiveIntent {
   /**
