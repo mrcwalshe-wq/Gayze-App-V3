@@ -7,7 +7,7 @@ import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import { intentStartsAt, formatLaterAt } from '../services/intentTiming';
 import { loadOpenToMore, setOpenToMore } from '../services/supabaseService';
 import {
-  ACTIVITIES, CONNECTIONS, MAX_ACTIVITIES, activityLabel, cleanActivities, cleanConnections, legacyActivityFor,
+  ACTIVITIES, CONNECTIONS, MAX_ACTIVITIES, activityLabel, cleanActivities, cleanConnections, legacyActivityFor, makeMain,
 } from '../services/intentModel';
 import { sparkBurst } from './SparkBorder';
 import { PlacePicker } from './PlacePicker';
@@ -238,15 +238,26 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
 
             {step === 1 && (
               <>
-                <p className="ss-sub">Choose up to {MAX_ACTIVITIES}. Change it whenever you like.</p>
+                <p className="ss-sub">Choose up to {MAX_ACTIVITIES}. Your main pick, number 1, is the one shown on the map.</p>
                 <div className="ss-grid2">
                   {ACTIVITIES.map((a) => (
                     <button key={a.id} type="button" className={`ss-tile ${later ? 'ss-tile--amber' : ''}`} aria-pressed={activities.includes(a.id)} onClick={() => { hapticLight(); setActivities((l) => toggle(l, a.id, MAX_ACTIVITIES)); }}>
+                      {activities.includes(a.id) && <em className="ss-rank" aria-label={`Pick ${activities.indexOf(a.id) + 1}${activities.indexOf(a.id) === 0 ? ', your main pick' : ''}`}>{activities.indexOf(a.id) + 1}</em>}
                       <span className="ss-ico">{React.createElement(ACTIVITY_ICON[a.id] ?? Sparkles, { className: 'w-[18px] h-[18px]' })}</span>
                       <span className="ss-copy"><b>{a.label}</b><span>{a.hint}</span></span>
                     </button>
                   ))}
                 </div>
+                {activities.length > 1 && (
+                  <div className="ss-main">
+                    <span className="ss-eyebrow">Main pick, shown on the map</span>
+                    <div className="ss-main__chips" role="group" aria-label="Choose your main pick">
+                      {activities.map((id, i) => (
+                        <button key={id} type="button" aria-pressed={i === 0} onClick={() => { hapticLight(); setActivities((l) => makeMain(l, id)); }}>{activityLabel(id)}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <button type="button" className="ss-more" aria-expanded={showDetail} onClick={() => { hapticLight(); setShowDetail((v) => !v); }}>{showDetail ? 'Hide details' : 'Add a line or a place (optional)'}</button>
                 {showDetail && (
                   <div className="ss-detail">
@@ -308,7 +319,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
             {step < 2 ? (
               <button type="button" className="ss-go" disabled={!canNext} onClick={() => go(1)}>Next</button>
             ) : (
-              <button type="button" className="ss-go" disabled={isSubmitting || activities.length === 0} onClick={() => void submit()}>{isSubmitting ? 'Publishing…' : isEditing ? 'Update signal' : 'Go live'}</button>
+              <button type="button" className="ss-go" disabled={isSubmitting || activities.length === 0} onClick={() => void submit()}>{isSubmitting ? 'Publishing…' : isEditing ? 'Update intent' : 'Go live'}</button>
             )}
           </div>
         </div>
