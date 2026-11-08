@@ -285,6 +285,22 @@ export async function discoverRightNow(options?: { radiusMeters?: number; mode?:
   }
 }
 
+/** Your own private "Open to more" setting. Nobody else's is ever readable. */
+export async function loadOpenToMore(): Promise<boolean> {
+  if (!supabase) return false;
+  const user = await ensureSupabaseSession();
+  if (!user) return false;
+  const { data, error } = await supabase.from('intent_openness').select('open_to_more').eq('user_id', user.id).maybeSingle();
+  return !error && data?.open_to_more === true;
+}
+
+export async function setOpenToMore(enabled: boolean): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('set_open_to_more', { p_enabled: enabled });
+  if (error) { console.warn('[GAYZE] Open to more update failed:', error.message); return false; }
+  return data === enabled;
+}
+
 export async function updateProfileLocation(location: { lat: number; lng: number }) {
   if (!supabase) return false;
   const user = await ensureSupabaseSession();
@@ -339,9 +355,11 @@ type IntentRow = {
   area: string | null;
   is_near_safe_haven: boolean | null;
   is_paused: boolean | null;
+  activities?: string[] | null;
+  connections?: string[] | null;
 };
 
-const INTENT_COLUMNS = 'id,mode,intent,description,starts_at,expires_at,duration_label,travel_distance_label,travel_willingness,can_host,context,area,is_near_safe_haven,is_paused';
+const INTENT_COLUMNS = 'id,mode,intent,description,starts_at,expires_at,duration_label,travel_distance_label,travel_willingness,can_host,context,area,is_near_safe_haven,is_paused,activities,connections';
 
 const CAN_HOST_VALUES = ['Can host', 'Cannot host', 'Depends'] as const;
 const TRAVEL_VALUES = ['Yes', 'Within reason', 'Car required'] as const;
@@ -358,6 +376,8 @@ export function intentRowToActiveIntent(row: IntentRow): UserActiveIntent {
     when: intentWhenLabel(activatedAt),
     duration: row.duration_label || '2 hrs',
     travelDistance: row.travel_distance_label || 'Within 2 km',
+    activities: Array.isArray(row.activities) ? row.activities : [],
+    connections: Array.isArray(row.connections) ? row.connections : [],
     canHost: CAN_HOST_VALUES.find((value) => value === row.can_host),
     travelWillingness: TRAVEL_VALUES.find((value) => value === row.travel_willingness),
     context: CONTEXT_VALUES.find((value) => value === row.context),
@@ -428,6 +448,8 @@ export async function saveActiveIntent(
       expires_at: new Date(intent.expiresAt).toISOString(),
       duration_label: intent.duration,
       travel_distance_label: intent.travelDistance,
+      activities: intent.activities ?? [],
+      connections: intent.connections ?? [],
       travel_willingness: intent.travelWillingness ?? null,
       can_host: intent.canHost ?? null,
       context: intent.context ?? null,

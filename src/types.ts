@@ -217,6 +217,10 @@ export interface UserActiveIntent {
   when: string;
   duration: string;
   travelDistance: string;
+  /** Activity ids the person is up for (see src/services/intentModel.ts). New model; empty for older signals. */
+  activities?: string[];
+  /** Kinds of connection they are open to. */
+  connections?: string[];
   canHost?: 'Can host' | 'Cannot host' | 'Depends';
   travelWillingness?: 'Yes' | 'Within reason' | 'Car required';
   context?: 'Private' | 'Public' | 'Either';
