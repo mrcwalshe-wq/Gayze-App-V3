@@ -157,11 +157,11 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     };
     try {
       const res = await onSaveIntent(data);
-      if (res === false) { setErrorMessage('Could not publish your signal. Please try again.'); return; }
+      if (res === false) { setErrorMessage('Could not publish your intent. Please try again.'); return; }
       if (openMore !== openMoreWas) { const ok = await setOpenToMore(openMore); if (ok) setOpenMoreWas(openMore); }
       onClose();
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to save your signal. Please try again.');
+      setErrorMessage(err?.message || 'Failed to save your intent. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -183,7 +183,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
         <span className="ss-haze" aria-hidden="true" />
         <div className="ss-head">
           <div>
-            <span className="ss-eyebrow">{isEditing ? 'Your live signal' : 'Set a signal'} · Step {step + 1} of 3</span>
+            <span className="ss-eyebrow">{isEditing ? 'Your live intent' : 'Set an intent'} · Step {step + 1} of 3</span>
             <h2 id="signal-title" className="ss-title">{step === 0 ? 'When are you free?' : step === 1 ? 'What are you up for?' : 'What are you open to?'}</h2>
           </div>
           <button type="button" className="ss-x" onClick={onClose} aria-label="Close"><X className="w-[18px] h-[18px]" /></button>
@@ -239,7 +239,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     </label>
                     {safeHavens.length > 0 && (
                       <div className="ss-switch-row">
-                        <div><b>Near a Safe Haven</b><span>Show my signal around a vetted public venue</span></div>
+                        <div><b>Near a Safe Haven</b><span>Show my intent around a vetted public venue</span></div>
                         <button type="button" role="switch" aria-checked={useSafeHaven} aria-label="Near a Safe Haven" className="ss-sw" onClick={() => { hapticLight(); setUseSafeHaven((v) => !v); setPlace(null); setPlaceText(''); }}><i /></button>
                       </div>
                     )}
@@ -252,7 +252,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                         <PlacePicker value={placeText} near={userLocation ?? null} placeholder="Search for a bar, café or park" className="g-field g-iset__field"
                           onTextChange={(t) => { setPlaceText(t); if (place && t !== place.name) setPlace(null); }}
                           onPick={(p) => { setPlaceText(p.name); setPlace({ name: p.name, area: p.area }); }} />
-                        <p className="ss-fine">{place ? 'Members who see your signal will see this place. Pick somewhere public.' : 'Leave empty to show only your approximate area.'}</p>
+                        <p className="ss-fine">{place ? 'Members who see your intent will see this place. Pick somewhere public.' : 'Leave empty to show only your approximate area.'}</p>
                       </div>
                     )}
                   </div>

@@ -582,7 +582,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
                   className="g-btn g-btn--quiet !min-h-[40px] mt-2.5"
                   onClick={() => { hapticLight(); onOpenSetIntent(); }}
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> Set a Right Now signal on the map
+                  <Sparkles className="w-3.5 h-3.5" /> Set a Right Now intent on the map
                 </button>
               )}
               <p className="text-[10.5px] text-zinc-600 mt-1.5">

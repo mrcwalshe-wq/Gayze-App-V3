@@ -2749,7 +2749,7 @@ export default function App() {
 
   const handleBlockPeer = async (peerId: string, peerName: string) => {
     if (!IS_LIVE_BACKEND || !peerId || peerId === supabaseUserId) return;
-    if (!window.confirm(`Block ${peerName}? They will no longer be able to send you Gayzes or messages, and their discovery signals will be hidden from you.`)) return;
+    if (!window.confirm(`Block ${peerName}? They will no longer be able to send you Gayzes or messages, and their intents will be hidden from you.`)) return;
     try {
       await blockUser(peerId);
       const blockedRoomIds = new Set(rooms.filter((room) => room.peerUserId === peerId).map((room) => room.id));
@@ -3432,7 +3432,7 @@ export default function App() {
 
     // Use one shared toast lane for the pending and final states. Replacing
     // this message avoids stacking the map-local toast over the app-level result.
-    showToast('Ending your signal…');
+    showToast('Ending your intent…');
 
     if (!IS_LIVE_BACKEND) {
       setActiveUserIntent(null);

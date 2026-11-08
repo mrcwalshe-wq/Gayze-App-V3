@@ -256,7 +256,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               </span>
             </div>
             <div className="text-[11.5px] text-zinc-400 truncate mt-0.5">
-              {activeUserIntent.isPaused ? 'Signal paused' : `Active around ${activeUserIntent.area}`}
+              {activeUserIntent.isPaused ? 'Intent paused' : `Active around ${activeUserIntent.area}`}
             </div>
           </div>
           <span className="text-[12px] font-semibold text-[#c9b0f5] shrink-0 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10">
@@ -281,7 +281,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           </div>
           <h3>No active intent nearby</h3>
           <p>
-            Nobody matches this view right now. Set your own signal — it shows here and on the map
+            Nobody matches this view right now. Set your own intent — it shows here and on the map
             the moment you go live.
           </p>
           {onOpenSetIntent && !activeUserIntent && (

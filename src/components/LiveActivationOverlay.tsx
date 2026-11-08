@@ -78,13 +78,13 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ st
           <img className="g-golive__logo" src={logo} alt="" width={168} height={84} draggable={false} />
         </div>
         <div className="g-golive__copy">
-          <div className="g-golive__eyebrow">{isLive ? 'SIGNAL ESTABLISHED' : 'GAYZE NETWORK'}</div>
+          <div className="g-golive__eyebrow">{isLive ? 'INTENT LIVE' : 'GAYZE NETWORK'}</div>
           <h2 className="g-golive__title" key={isLive ? 'live' : 'connecting'} aria-label={isLive ? "You're live." : 'Going live'}>
             {isLive
               ? Array.from("You're live.").map((ch, i, all) => <span key={i} className="g-golive__ch" aria-hidden="true" style={{ animationDelay: `${0.12 + i * 0.045}s`, color: i >= all.length - 5 ? LIVE_HUES[i - (all.length - 5)] : undefined }}>{ch === ' ' ? '\u00a0' : ch}</span>)
               : 'Going live'}
           </h2>
-          <p className="g-golive__sub">{isLive ? 'Your signal is on the map.' : 'Reaching the people around you…'}</p>
+          <p className="g-golive__sub">{isLive ? 'Your intent is on the map.' : 'Reaching the people around you…'}</p>
           {isLive && (
             <div className="g-golive__chips">
               {shown.map((c, i) => <span key={c} className="g-golive__chip" style={{ animationDelay: `${0.55 + i * 0.12}s` }}>{c}</span>)}

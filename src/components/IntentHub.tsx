@@ -138,12 +138,12 @@ export const IntentHub: React.FC<IntentHubProps> = ({
 
         <header className="g-intent-hub__header">
           <div className="g-intent-hub__heading">
-            <span className="g-intent-hub__eyebrow">GAYZE · YOUR SIGNAL</span>
+            <span className="g-intent-hub__eyebrow">GAYZE · YOUR INTENT</span>
             <h2>{hasActive ? (isPaused ? 'Your intent is paused' : 'Your intent is live') : 'What do you want to do?'}</h2>
             <p>
               {hasActive
-                ? (isPaused ? 'Hidden from the map until you resume.' : 'Your signal is visible on the map.')
-                : 'Create a time-bound signal and discover people around the same intent.'}
+                ? (isPaused ? 'Hidden from the map until you resume.' : 'Your intent is visible on the map.')
+                : 'Create a time-bound intent and discover people around you.'}
             </p>
           </div>
           <button type="button" className="g-intent-hub__close" onClick={onClose} aria-label="Close intents">
