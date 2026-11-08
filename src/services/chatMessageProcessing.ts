@@ -88,7 +88,13 @@ export class ChatMessageProcessor {
       // A changed/revoked identity or envelope must be retryable; do not let
       // an old request evict the replacement key started by another row.
       if (this.keys.get(keyId)?.work === keyWork) this.keys.delete(keyId);
-      // AES-GCM authentication failed: the ciphertext was altered or the key is wrong.
+      // This device never opened the key for THIS row's version (it was set up after that key, or its envelope is
+      // missing). The legacy key was only a last-ditch read, so its failure says nothing about the message: this is a
+      // missing key, not tampering. Only a failure with the row's own key is an integrity failure.
+      if (!versioned) {
+        throw new MessageDecryptError('no_key_for_version', 'This device does not hold the key that encrypted this message');
+      }
+      // AES-GCM authentication failed with the key for this version: the ciphertext was altered or the key is wrong.
       throw new MessageDecryptError('authentication_failed', lastError instanceof Error ? lastError.message : 'Message authentication failed');
     }).catch((error) => { if (this.texts.get(id) === entry) this.texts.delete(id); throw error; });
     this.texts.set(id, entry);

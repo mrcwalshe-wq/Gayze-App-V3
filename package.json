@@ -27,7 +27,7 @@
     "test:messaging": "node --test scripts/messaging-tests/rls.test.mjs scripts/messaging-tests/keyring.test.mjs",
     "test:admin": "node --test scripts/admin-tests/sql.test.mjs && tsx --test scripts/admin-tests/handler.test.ts scripts/admin-tests/insights-text.test.ts",
     "test:notices": "node --test scripts/notices-tests/notices.test.mjs",
-    "test:presence": "tsx --test scripts/presence-tests/label.test.ts scripts/presence-tests/unsend.test.ts scripts/presence-tests/sounds.test.ts scripts/presence-tests/note.test.ts scripts/presence-tests/rooms.test.ts",
+    "test:presence": "tsx --test scripts/presence-tests/label.test.ts scripts/presence-tests/unsend.test.ts scripts/presence-tests/sounds.test.ts scripts/presence-tests/note.test.ts scripts/presence-tests/rooms.test.ts scripts/presence-tests/decrypt-classify.test.ts",
     "test:places": "tsx --test scripts/place-tests/place.test.ts scripts/place-tests/journey.test.ts scripts/place-tests/meetup.test.ts",
     "test:auth": "tsx --test scripts/auth-tests/auth.test.ts",
     "test:location-fog": "node --test scripts/location-fog-tests/fog.test.mjs",
