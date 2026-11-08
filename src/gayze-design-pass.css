@@ -2899,3 +2899,9 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-chat-section.is-group span { background: rgba(231, 196, 111, .14); color: #e7c46f; }
 /* Under the "Event groups" heading the per-row tag says the same thing */
 .g-chat-section.is-group ~ .g-swipe .g-chatrow__tags .is-group { display: none; }
+
+/* Locked history: one calm note, not a wall of bubbles */
+.g-locked-run { display: flex; align-items: flex-start; gap: 10px; align-self: center; max-width: 92%; padding: 10px 14px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; color: rgba(255, 255, 255, .62); background: rgba(231, 196, 111, .08); box-shadow: inset 0 0 0 1px rgba(231, 196, 111, .2); }
+.g-locked-run svg { margin-top: 2px; color: #e7c46f; }
+.g-locked-run b { color: #f0d9a0; font-weight: 700; }
+.g-chatrow__tags .is-ok { color: #7fd1a8; font-weight: 600; }
