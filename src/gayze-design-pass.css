@@ -2929,3 +2929,21 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .yp__chat { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, .07); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
 .yp__chat svg:last-child { margin-left: auto; }
 .yp__note { margin: 0; font-size: 12.5px; color: rgba(255, 255, 255, .5); }
+
+/* ---- Consent screen ------------------------------------------------------------------------------------ */
+.cg { position: fixed; inset: 0; z-index: 90; display: flex; align-items: flex-end; justify-content: center; background: rgba(4, 3, 10, .92); backdrop-filter: blur(10px); padding: 16px; overflow-y: auto; }
+.cg__sheet { width: 100%; max-width: 480px; margin: auto; padding: 24px 20px 20px; border-radius: 10px; background: #0a0714; position: relative; box-shadow: 0 30px 80px rgba(0, 0, 0, .6); }
+.cg__sheet::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; border-radius: 10px 10px 0 0; background: linear-gradient(90deg, #7a3fe0, #e24bb0, #f0b64a); }
+.cg__icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: linear-gradient(135deg, #7a3fe0, #c23fb8); }
+.cg h1 { margin: 16px 0 8px; font-size: 24px; line-height: 1.12; font-weight: 850; letter-spacing: -.03em; color: #fff; }
+.cg p { margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: rgba(255, 255, 255, .72); }
+.cg ul { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.cg li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.4; color: rgba(255, 255, 255, .8); }
+.cg li svg { flex: none; margin-top: 2px; color: #e7c46f; }
+.cg__check { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 8px; background: rgba(255, 255, 255, .06); cursor: pointer; font-size: 13.5px; line-height: 1.45; color: #fff; }
+.cg__check input { width: 22px; height: 22px; flex: none; margin-top: 1px; accent-color: #a45be8; }
+.cg__check a { color: #d9c8ff; text-decoration: underline; }
+.cg__err { margin: 12px 0 0 !important; color: #f4848a !important; }
+.cg__go { width: 100%; min-height: 50px; margin-top: 16px; border: 0; border-radius: 8px; font-size: 15px; font-weight: 800; color: #fff; cursor: pointer; background: linear-gradient(90deg, #7a3fe0, #c23fb8); }
+.cg__go:disabled { opacity: .4; cursor: not-allowed; }
+.cg__no { width: 100%; min-height: 46px; margin-top: 8px; border: 0; background: none; color: rgba(255, 255, 255, .6); font-size: 13.5px; font-weight: 650; cursor: pointer; }

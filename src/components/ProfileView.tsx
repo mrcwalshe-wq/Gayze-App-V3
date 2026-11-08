@@ -66,6 +66,8 @@ interface ProfileViewProps {
   /** Signed-in account id; the single Enable action on this screen registers this device for it. */
   currentUserId?: string | null;
   onDeleteAccount?: () => void | Promise<void>;
+  /** Withdraw consent to process sexual-orientation information; the app asks again before it can be used. */
+  onWithdrawConsent?: () => void | Promise<void>;
   deletingAccount?: boolean;
 }
 
@@ -110,6 +112,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenNotifications,
   currentUserId = null,
   onDeleteAccount,
+  onWithdrawConsent,
   deletingAccount = false,
 }) => {
   const [now, setNow] = useState(Date.now());
@@ -838,6 +841,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <LogOut className="w-4 h-4" />
           {signingOut ? 'Signing out…' : 'Sign Out'}
         </button>
+      )}
+
+      {onWithdrawConsent && (
+        <section className="g-card mt-4 p-4">
+          <h3 className="text-sm font-bold text-white">Sensitive information</h3>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-400">You agreed that GAYZE may handle information that can reveal your sexual orientation. You can take that back at any time. You will need to agree again to keep using GAYZE.</p>
+          <button type="button" className="mt-3 inline-flex min-h-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-3.5 text-xs font-bold text-white" onClick={() => { hapticLight(); void onWithdrawConsent(); }}>Withdraw my consent</button>
+        </section>
       )}
 
       {onDeleteAccount && (
