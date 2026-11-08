@@ -53,6 +53,10 @@ test('encrypted message persists, reloads, decrypts, renders, and survives secon
         };
         return query;
       }
+      if (table === 'conversation_archives') {
+        // The chat list also asks the account which chats are archived; none are in this test.
+        return { select() { return Promise.resolve({ data: [], error: null }); } };
+      }
       assert.equal(table, 'messages');
       let roomId;
       let inserted;
