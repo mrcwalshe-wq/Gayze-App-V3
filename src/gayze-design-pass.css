@@ -2538,3 +2538,19 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .ss-go::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .38), transparent); animation: plan-shine 4.5s ease-in-out infinite; }
 .ss-go:disabled { opacity: .4; box-shadow: none; } .ss-go:disabled::after { display: none; }
 @media (prefers-reduced-motion: reduce) { .ss-haze, .ss-pane, .ss-detail, .ss-go::after { animation: none; } .ss-progress i::after, .ss-tile::after { transition: none; } }
+
+/* Discovery header v2: the title row, then one row of activity chips. The status strip sits at the right of the title row. */
+.g-discover-head { height: auto !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 4px !important; }
+.g-discover-head__title { height: 36px; }
+.g-discover-head__chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 4px; margin-inline: -12px; padding-inline: 12px; scroll-snap-type: x proximity; scroll-padding-inline: 12px; pointer-events: auto; }
+.g-discover-head__chips button { flex: none; scroll-snap-align: start; min-height: 32px; padding: 0 12px; border: 0; border-radius: 4px; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: rgba(255, 255, 255, .78); background: rgba(10, 8, 20, .66); box-shadow: 0 3px 10px rgba(0, 0, 0, .35); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: background .2s, color .2s, transform .18s cubic-bezier(.3, 1.5, .5, 1); }
+.g-discover-head__chips button:active { transform: scale(.95); }
+.g-discover-head__chips button[aria-pressed='true'] { color: #fff; background: linear-gradient(135deg, rgba(111, 60, 195, .95), rgba(178, 79, 216, .9)); box-shadow: 0 4px 14px rgba(111, 60, 195, .5); }
+.g-status-strip { top: calc(var(--hud-top, 10px) + 5px) !important; max-width: 46% !important; }
+.g-shell[data-active-tab='right_now'] .g-toast--map-status { top: calc(var(--hud-top) + 88px) !important; }
+
+/* Discover tab: activity chips replace the Social / Private toggle */
+.dc-chips { display: flex; gap: 6px; overflow-x: auto; margin: 0 -2px 14px; padding: 2px; scroll-padding-inline: 2px; scroll-snap-type: x proximity; }
+.dc-chips button { flex: none; scroll-snap-align: start; min-height: 34px; padding: 0 13px; border: 0; border-radius: 4px; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: rgba(255, 255, 255, .72); background: rgba(255, 255, 255, .07); transition: background .2s, color .2s, transform .18s cubic-bezier(.3, 1.5, .5, 1); }
+.dc-chips button:active { transform: scale(.95); }
+.dc-chips button[aria-pressed='true'] { color: #fff; background: linear-gradient(135deg, rgba(111, 60, 195, .95), rgba(178, 79, 216, .9)); box-shadow: 0 4px 14px rgba(111, 60, 195, .45); }
