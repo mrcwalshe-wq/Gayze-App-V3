@@ -843,18 +843,18 @@ nav.g-tabbar .g-tab--discover .g-tab__label {
 .g-chatlist__empty-icon { width: 52px; height: 52px; border-radius: 10px; display: grid; place-items: center; color: #8ff0c4; background: rgba(16, 185, 129, .1); box-shadow: inset 0 0 0 1px rgba(52, 211, 153, .3); margin-bottom: 4px; }
 .g-chatlist__empty p { margin: 0; font-size: 15px; font-weight: 750; }
 .g-chatlist__empty > span { font-size: 12px; line-height: 1.5; color: rgba(255, 255, 255, .5); max-width: 240px; }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow {
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow {
   position: relative !important; width: 100%; min-height: 84px !important; padding: 12px 13px !important; display: flex !important; align-items: center !important; gap: 13px !important;
   text-align: left; border-radius: 10px !important; border: 1px solid rgba(255, 255, 255, .06) !important;
   background: linear-gradient(135deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, .015)) !important;
   transition: background .2s ease, border-color .2s ease, transform .15s ease, box-shadow .25s ease !important;
 }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow:active { transform: scale(.985) !important; }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow[data-active='true'] {
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow:active { transform: scale(.985) !important; }
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow[data-active='true'] {
   background: radial-gradient(120% 160% at 0% 0%, rgba(150, 100, 235, .28), transparent 62%), linear-gradient(135deg, rgba(111, 60, 195, .16), rgba(201, 162, 77, .06)) !important;
   border-color: rgba(170, 132, 245, .5) !important; box-shadow: 0 10px 30px rgba(0, 0, 0, .35), 0 0 22px rgba(150, 100, 235, .16) !important;
 }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow::before { display: none !important; }
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow::before { display: none !important; }
 .g-chatrow__av { position: relative; flex: none; width: 56px; height: 56px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, rgba(111, 60, 195, .5), #171522 60%, rgba(201, 162, 77, .25)); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .12), 0 8px 20px rgba(0, 0, 0, .4); }
 .g-chatrow__av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .g-chatrow__av b { font-size: 21px; font-weight: 800; }
@@ -1003,20 +1003,20 @@ nav.g-tabbar {
 
 /* ---- Messages: rows are conversations, not cards ------------------------------- */
 .gayze-chat-sidebar > div.g-chatlist { padding: 0 0 12px !important; gap: 0 !important; }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow {
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow {
   --live: 0, 0, 0; min-height: 84px !important; padding: 13px 18px !important; gap: 14px !important; border-radius: 0 !important;
   border: 0 !important; background: transparent !important; box-shadow: none !important; overflow: hidden;
 }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow + button.g-chatrow::after,
-.gayze-chat-sidebar > div.g-chatlist > .g-live-rail + button.g-chatrow::after { content: ""; position: absolute; top: 0; left: 88px; right: 18px; height: 1px; background: rgba(255, 255, 255, .06); }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow:hover { background: rgba(255, 255, 255, .03) !important; }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow:active { transform: none !important; background: rgba(255, 255, 255, .06) !important; }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow[data-active='true'] {
+.gayze-chat-sidebar > div.g-chatlist .g-swipe + .g-swipe button.g-chatrow::after,
+.gayze-chat-sidebar > div.g-chatlist > .g-live-rail + .g-swipe button.g-chatrow::after { content: ""; position: absolute; top: 0; left: 88px; right: 18px; height: 1px; background: rgba(255, 255, 255, .06); }
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow:hover { background: rgba(255, 255, 255, .03) !important; }
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow:active { transform: none !important; background: rgba(255, 255, 255, .06) !important; }
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow[data-active='true'] {
   background: linear-gradient(90deg, rgba(150, 100, 235, .2), transparent 85%) !important; box-shadow: inset 3px 0 0 #a77bf0 !important; border: 0 !important;
 }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow[data-live='private'] { --live: 189, 91, 255; }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow[data-live='social'] { --live: 229, 173, 84; }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow[data-live] {
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow[data-live='private'] { --live: 189, 91, 255; }
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow[data-live='social'] { --live: 229, 173, 84; }
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow[data-live] {
   background: linear-gradient(90deg, rgba(var(--live), .13), rgba(var(--live), .03) 55%, transparent) !important;
   box-shadow: inset 3px 0 0 rgb(var(--live)) !important;
 }
@@ -1803,7 +1803,7 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-chatrow__av b { font-size: 18px; }
 .g-chatrow__av.is-group { border-radius: 12px !important; background: linear-gradient(145deg, rgba(150, 100, 235, .32), rgba(46, 22, 98, .9)) !important; box-shadow: inset 0 0 0 1px rgba(190, 150, 255, .4), 0 6px 18px rgba(0, 0, 0, .45) !important; }
 .g-shell[data-intent-mode='social'] .g-chatrow__av.is-group { background: linear-gradient(145deg, rgba(214, 170, 80, .28), rgba(60, 40, 8, .9)) !important; box-shadow: inset 0 0 0 1px rgba(226, 180, 84, .45), 0 6px 18px rgba(0, 0, 0, .45) !important; }
-.gayze-chat-sidebar > div.g-chatlist > button.g-chatrow { padding-top: 10px !important; padding-bottom: 10px !important; gap: 12px !important; }
+.gayze-chat-sidebar > div.g-chatlist button.g-chatrow { padding-top: 10px !important; padding-bottom: 10px !important; gap: 12px !important; }
 .g-chatrow__top strong { font-size: 15.5px !important; letter-spacing: -.01em; }
 .g-chatrow__top time { font-size: 11px !important; letter-spacing: .02em; opacity: .7; }
 .g-chatrow__msg { font-size: 13.5px !important; }
@@ -2846,3 +2846,13 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .ev-photo__x { position: absolute; right: 10px; top: 10px; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(8, 5, 16, .75); color: #fff; cursor: pointer; }
 .ev-photo__err { margin: 8px 0 0; font-size: 12.5px; color: #f4848a; }
 .qp::before { -webkit-mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent); left: -24px; right: -24px; }
+
+/* ---- Slide a chat to archive or delete ---------------------------------------------------------------- */
+.g-swipe { position: relative; overflow: hidden; background: #0b0b12; }
+.g-swipe__body { position: relative; z-index: 1; touch-action: pan-y; background: #0d0e14; will-change: transform; }
+.g-swipe__actions { position: absolute; right: 0; top: 0; bottom: 0; display: flex; }
+.g-swipe__act { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 0; color: #fff; font-size: 11.5px; font-weight: 750; letter-spacing: .02em; cursor: pointer; }
+.g-swipe__act.is-archive { background: linear-gradient(160deg, #6b3ad0, #4a2a9a); }
+.g-swipe__act.is-danger { background: linear-gradient(160deg, #e0475a, #b02a40); }
+.g-swipe__act:active { filter: brightness(.9); }
+.gayze-chat-sidebar > div.g-chatlist .g-swipe + .g-swipe::before { display: none; }
