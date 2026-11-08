@@ -1374,11 +1374,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <span className="g-intent-chip__time">{activeUserIntent.isPaused ? 'Paused' : formatRemainingTime(remainingMinutes)}</span>
             </button>
           ) : (
-            <div className="g-map-state g-map-state--empty !cursor-default" role="status" aria-label={`Right Now, ${liveMembersCount} live`}>
+            <button type="button" className="g-map-state g-map-state--empty g-status-set" onClick={() => { hapticLight(); if (onOpenIntentHub) onOpenIntentHub(); else setIsUserIntentDrawerOpen(true); }} aria-label="Set your signal">
               <span className="g-map-state__empty-dot" aria-hidden="true" />
-              <span className="g-map-state__empty-label">RIGHT NOW</span>
-              <span className="g-map-state__meta">{liveMembersCount} live</span>
-            </div>
+              <span className="g-map-state__empty-label">Set your signal</span>
+            </button>
           )}
         </div>
       </div>
