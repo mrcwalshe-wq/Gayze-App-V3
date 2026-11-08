@@ -90,13 +90,24 @@ mark.todo{background:#f6d98a;color:#1a1305;padding:0 4px;border-radius:3px;font-
 <h2>11. How long we keep information</h2>
 <table><tr><th>Information</th><th>How long</th></tr>
 <tr><td>Profile, photos and account</td><td>Until you delete your account. Deleted straight away from live systems.</td></tr>
-<tr><td>Intents and the position used for them</td><td>Shown until they expire; the record and its position are then deleted within <mark class="todo">[TO CONFIRM: proposed: 7 days]</mark></td></tr>
-<tr><td>Events, quick plans, requests and event pictures</td><td>Until <mark class="todo">[TO CONFIRM: proposed: 12 months after the event]</mark> or until you delete them</td></tr>
-<tr><td>Messages (encrypted)</td><td>Until you or the other person delete them or they expire under your chat settings, then <mark class="todo">[TO CONFIRM: proposed: 30 days]</mark></td></tr>
-<tr><td>Notifications</td><td><mark class="todo">[TO CONFIRM: proposed: 90 days]</mark></td></tr>
-<tr><td>Reports, blocks and moderation records</td><td><mark class="todo">[TO CONFIRM: proposed: up to 2 years, longer only if needed for a legal claim]</mark></td></tr>
-<tr><td>Security and request logs</td><td><mark class="todo">[TO CONFIRM: proposed: 90 days]</mark></td></tr>
-<tr><td>Backups</td><td>Deleted data can remain in backups for up to <mark class="todo">[TO CONFIRM: Supabase backup period]</mark> and is not restored except after a failure.</td></tr></table>
+<tr><td>The position used for an intent</td><td>Removed 24 hours after the intent expires.</td></tr>
+<tr><td>Intent record (text and activities)</td><td>Deleted 30 days after it expires.</td></tr>
+<tr><td>Stories</td><td>Shown for 24 hours, deleted 7 days after they expire.</td></tr>
+<tr><td>Quick plans</td><td>Deleted 30 days after the start time, with their requests and group chat.</td></tr>
+<tr><td>Events, requests and attendance</td><td>Deleted 6 months after the event, with the group chat.</td></tr>
+<tr><td>Event pictures</td><td>Deleted 30 days after the event.</td></tr>
+<tr><td>Requests to connect</td><td>Unanswered requests are deleted after 90 days. Gaze records are deleted after 90 days.</td></tr>
+<tr><td>Messages (encrypted)</td><td>Until you or the other person delete them. Messages that expire or are burned are deleted 7 days afterwards. A chat that nobody is in is deleted 30 days after the last activity.</td></tr>
+<tr><td>Call records</td><td>30 days.</td></tr>
+<tr><td>Safety timer entries</td><td>7 days after they end.</td></tr>
+<tr><td>Notifications</td><td>30 days after you read them, and 90 days at most.</td></tr>
+<tr><td>Push subscriptions</td><td>Until your browser stops accepting them, or 90 days unused.</td></tr>
+<tr><td>Reports and blocks</td><td>Reports for 2 years, or longer only where a legal claim or serious harm requires it. Blocks while either account exists.</td></tr>
+<tr><td>Admin action log</td><td>2 years.</td></tr>
+<tr><td>Security and request logs</td><td><mark class="todo">[TO CONFIRM: 30 days proposed; confirm against the hosting plan]</mark></td></tr>
+<tr><td>Backups</td><td>Deleted data can remain in backups for up to <mark class="todo">[TO CONFIRM: Supabase backup period; 30 days proposed]</mark> and is not restored except after a failure.</td></tr>
+<tr><td>Old device records</td><td><mark class="todo">[TO CONFIRM: not yet automated; see RETENTION.md]</mark></td></tr>
+<tr><td>Inactive accounts</td><td><mark class="todo">[TO CONFIRM: 24 months proposed; not yet built]</mark></td></tr></table>
 <p>Messages you sent stay in the other person’s chat after you delete your account, as encrypted text they already received.</p>
 
 <h2>12. Your rights</h2>
