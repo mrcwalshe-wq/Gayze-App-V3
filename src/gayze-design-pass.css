@@ -2762,3 +2762,26 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .gm-btn:active { transform: scale(.97); }
 .gm-btn.is-primary { background: linear-gradient(90deg, #7a3fe0, #c23fb8); }
 .gm-fine { margin: 14px 0 0; font-size: 12px; line-height: 1.45; color: rgba(255, 255, 255, .45); }
+
+/* ---- Events polish: quieter stamp, one 8-pt rhythm, purple leads / amber supports ---------------- */
+/* Cancelled: still stamped, but a small tag beside the time, not a banner across the card */
+.g-ev.is-cancelled > *:not(.g-ev__stamp) { filter: grayscale(.55) brightness(.86); }
+.g-ev.is-cancelled { border-color: rgba(255, 255, 255, .08); }
+.g-ev__stamp {
+  left: auto; right: 16px; top: 100px; transform: rotate(-5deg); padding: 4px 10px 3px; font-size: 11px; font-weight: 900; letter-spacing: .16em;
+  color: rgba(244, 132, 138, .95); border: 1.5px solid rgba(244, 132, 138, .6); border-radius: 4px; background: rgba(20, 6, 8, .55); box-shadow: none; text-shadow: none;
+  animation: ev-stamp-quiet .35s ease-out both;
+}
+@keyframes ev-stamp-quiet { from { opacity: 0; transform: rotate(-5deg) scale(1.25); } to { opacity: 1; transform: rotate(-5deg) scale(1); } }
+
+/* Spacing: 24 between sections, room under the last card for the tab bar */
+.gayze-premium-page.space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 24px !important; }
+.gayze-premium-page:has(.g-later__title) { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+.ev-quick__row { gap: 8px; }
+.g-later__cats { gap: 8px; padding-bottom: 2px; }
+.g-later__filters { display: flex; flex-direction: column; gap: 16px; }
+
+/* Purple is the interaction colour: selected states lose the glow, categories select in purple */
+.g-later__filters .g-iseg__opt[data-active='true'] { box-shadow: none; }
+.g-later__cat[data-active='true'] { background: rgba(138, 91, 224, .22); border-color: rgba(166, 120, 240, .7); box-shadow: none; }
+.g-ev.is-going { box-shadow: 0 14px 36px rgba(0, 0, 0, .42); }
