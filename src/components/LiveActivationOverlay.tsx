@@ -11,6 +11,8 @@ interface LiveActivationOverlayProps {
   later?: boolean;
   /** When it starts, e.g. "Right now", "Tonight" or a date. */
   detail?: string;
+  /** What they are up for, as readable labels. Shown as chips. */
+  chips?: string[];
   onComplete: () => void;
 }
 
@@ -20,7 +22,7 @@ interface LiveActivationOverlayProps {
 const ARRIVAL_MS = 1100;
 const HOLD_MS = 2600;
 
-export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ stage, intent, later = false, detail, onComplete }) => {
+export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ stage, intent, later = false, detail, chips, onComplete }) => {
   // Keep the latest callback without restarting the dismissal timer on every parent render.
   const onCompleteRef = useRef(onComplete);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
@@ -42,7 +44,12 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ st
   }, [isLive]);
 
   const tone = later ? 'social' : 'private';
-  const logo = tone === 'private' ? '/brand/gayze-nav-private.svg?v=20261008-1' : '/brand/gayze-nav-social.svg?v=20261008-1';
+  // The full-colour brand mark in both tones; the tone colours the light around it, not the mark.
+  const logo = '/brand/gayze-nav-v3.svg?v=20261008-1';
+  const shown = (chips && chips.length ? chips : [intent]).slice(0, 3);
+  const extra = Math.max(0, (chips?.length ?? 0) - shown.length);
+  // "live." warms from lilac to gold, one letter at a time.
+  const LIVE_HUES = ['#d9c2ff', '#e6a8f0', '#f6a8c0', '#f6c08a', '#f2d58a'];
 
   return (
     <div
@@ -66,6 +73,7 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ st
           {isLive && [[-92, -34], [78, -70], [104, 38], [-70, 86], [24, 112], [-118, 20], [60, 96]].map(([x, y], i) => (
             <span key={i} className="g-golive__blip" style={{ ['--x' as string]: `${x}px`, ['--y' as string]: `${y}px`, animationDelay: `${0.55 + i * 0.16}s` }} />
           ))}
+          {isLive && <span className="g-golive__sweep" />}
           <span className="g-golive__halo" />
           <img className="g-golive__logo" src={logo} alt="" width={168} height={84} draggable={false} />
         </div>
@@ -73,11 +81,17 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ st
           <div className="g-golive__eyebrow">{isLive ? 'SIGNAL ESTABLISHED' : 'GAYZE NETWORK'}</div>
           <h2 className="g-golive__title" key={isLive ? 'live' : 'connecting'} aria-label={isLive ? "You're live." : 'Going live'}>
             {isLive
-              ? Array.from("You're live.").map((ch, i) => <span key={i} className="g-golive__ch" aria-hidden="true" style={{ animationDelay: `${0.12 + i * 0.045}s` }}>{ch === ' ' ? '\u00a0' : ch}</span>)
+              ? Array.from("You're live.").map((ch, i, all) => <span key={i} className="g-golive__ch" aria-hidden="true" style={{ animationDelay: `${0.12 + i * 0.045}s`, color: i >= all.length - 5 ? LIVE_HUES[i - (all.length - 5)] : undefined }}>{ch === ' ' ? '\u00a0' : ch}</span>)
               : 'Going live'}
           </h2>
           <p className="g-golive__sub">{isLive ? 'Your signal is on the map.' : 'Reaching the people around you…'}</p>
-          {isLive && <span className="g-golive__intent"><b>{intent}</b>{detail && <i>{detail}</i>}</span>}
+          {isLive && (
+            <div className="g-golive__chips">
+              {shown.map((c, i) => <span key={c} className="g-golive__chip" style={{ animationDelay: `${0.55 + i * 0.12}s` }}>{c}</span>)}
+              {extra > 0 && <span className="g-golive__chip g-golive__chip--more" style={{ animationDelay: `${0.55 + shown.length * 0.12}s` }}>+{extra}</span>}
+            </div>
+          )}
+          {isLive && detail && <span className="g-golive__when">{detail}</span>}
           {isLive && <span className="g-golive__tap">Tap to continue</span>}
           {isLive && <span className="g-golive__time" aria-hidden="true" style={{ animationDuration: `${HOLD_MS}ms` }} />}
         </div>

@@ -50,9 +50,11 @@ import { consumeAuthCallbackOnce } from './services/authCallback';
 import { initNativeAuthDeepLinks, isNativeApp } from './services/nativeAuth';
 import { describeAuthError, type AuthIssue } from './services/authMessages';
 /** How the go-live celebration describes a signal: its colour (gold for Later) and when it starts. */
-const activationInfo = (i: UserActiveIntent): { later: boolean; detail: string } => {
+import { activityLabel } from './services/intentModel';
+const activationInfo = (i: UserActiveIntent): { later: boolean; detail: string; chips?: string[] } => {
   const when: string = i.when;
-  return { later: when === 'Later', detail: when === 'Later' ? formatLaterAt(i.activatedAt) : when === 'Now' ? 'Right now' : when };
+  const chips = (i.activities ?? []).map(activityLabel);
+  return { later: when === 'Later', detail: when === 'Later' ? formatLaterAt(i.activatedAt) : when === 'Now' ? `Right now · ${i.duration}` : when, chips: chips.length ? chips : undefined };
 };
 
 const AdminConsole = React.lazy(() => import('./components/AdminConsole'));
@@ -738,7 +740,7 @@ export default function App() {
   const [isIntentHubOpen, setIsIntentHubOpen] = useState(false);
   const [intentHubMode, setIntentHubMode] = useState<TopLevelIntentMode | null>(null);
   const [intentBusy, setIntentBusy] = useState(false);
-  const [liveActivation, setLiveActivation] = useState<{ stage: 'connecting' | 'live'; mode: TopLevelIntentMode; intent: string; later: boolean; detail: string } | null>(null);
+  const [liveActivation, setLiveActivation] = useState<{ stage: 'connecting' | 'live'; mode: TopLevelIntentMode; intent: string; later: boolean; detail: string; chips?: string[] } | null>(null);
   const [secureChatRetryNonce, setSecureChatRetryNonce] = useState(0);
   const [conversationKeyState, setConversationKeyState] = useState<{
     roomId: string;
@@ -3385,7 +3387,8 @@ export default function App() {
           console.warn('[GAYZE] Story creation failed', error);
         });
       }
-      showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
+      // The go-live screen already says so; a toast on top of it would repeat it.
+      if (!(isFirstPublish && intent.when === 'Now')) showToast(isFirstPublish ? 'You are live on the map' : 'Intent updated');
       return true;
     } catch (error) {
       console.error('[GAYZE] Failed to persist Right Now intent', error);
@@ -4240,6 +4243,7 @@ export default function App() {
           intent={liveActivation.intent}
           later={liveActivation.later}
           detail={liveActivation.detail}
+          chips={liveActivation.chips}
           onComplete={() => setLiveActivation(null)}
         />
       )}

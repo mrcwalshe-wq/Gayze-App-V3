@@ -2624,3 +2624,35 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 /* The empty status on the map is now an action, not a second "Right now" */
 .g-status-set { cursor: pointer; }
 .g-status-set .g-map-state__empty-label { font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: #fff; }
+
+/* ===================================================================================================
+   GO-LIVE, second pass: the full-colour brand mark, a radar that sweeps, quiet tone-coloured blips, "live." warming to gold,
+   activity chips, and a timer along the bottom edge instead of a stray line.
+   =================================================================================================== */
+.g-golive__logo { width: 176px; filter: drop-shadow(0 0 26px rgba(var(--gl-a), .75)) drop-shadow(0 6px 22px rgba(236, 61, 187, .28)); }
+.g-golive__mark { width: 210px; height: 210px; }
+.g-golive__halo { background: radial-gradient(circle, rgba(var(--gl-a), .5), rgba(236, 61, 187, .12) 46%, rgba(var(--gl-a), 0) 66%); }
+.g-golive__sweep { position: absolute; inset: 4px; z-index: 2; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: conic-gradient(from 0deg, rgba(var(--gl-a), 0) 0deg, rgba(var(--gl-a), 0) 250deg, rgba(var(--gl-a), .38) 345deg, rgba(var(--gl-hot), .75) 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%); mask: radial-gradient(circle, transparent 58%, #000 60%);
+  animation: gl-sweep-in .6s .5s ease-out forwards, gl-sweep 3.2s linear .5s infinite; }
+@keyframes gl-sweep-in { to { opacity: 1; } } @keyframes gl-sweep { to { transform: rotate(360deg); } }
+.g-golive__blip { width: 6px; height: 6px; margin: -3px; background: rgb(var(--gl-a)); box-shadow: 0 0 10px rgb(var(--gl-a)), 0 0 2px #fff; }
+.g-golive__blip::after { border-width: 1px; }
+.g-golive__lock-draw { stroke-width: 2; }
+.g-golive__tick { stroke-width: 1.2; }
+
+.g-golive__eyebrow { letter-spacing: .34em; }
+.g-golive__chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; max-width: 320px; }
+.g-golive__chip { padding: 7px 12px; border-radius: 4px; font-size: 12.5px; font-weight: 700; color: #fff; background: rgba(var(--gl-a), .16); box-shadow: 0 0 22px rgba(var(--gl-a), .22), inset 0 1px 0 rgba(255, 255, 255, .14); animation: gl-chip .55s cubic-bezier(.2, 1.4, .4, 1) both; }
+.g-golive__chip--more { color: rgb(var(--gl-hot)); background: rgba(255, 255, 255, .06); box-shadow: none; }
+@keyframes gl-chip { from { opacity: 0; transform: translateY(10px) scale(.9); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+.g-golive__when { margin-top: 2px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 11.5px; letter-spacing: .08em; color: rgb(var(--gl-hot)); animation: gl-rise .6s 1s ease-out both; }
+.g-golive__tap { margin-top: 18px; }
+.g-golive__time { position: fixed; left: 0; right: 0; bottom: 0; width: auto; height: 3px; margin: 0; border-radius: 0; opacity: .95; background: linear-gradient(90deg, #6f3cc3, #b24fd8 55%, #c9a24d); }
+@media (prefers-reduced-motion: reduce) { .g-golive__sweep { animation: none; opacity: 1; } .g-golive__chip { animation: none; } }
+.g-golive__ch { -webkit-text-fill-color: currentColor; }
+.g-golive__sweep {
+  background: conic-gradient(from 0deg, rgba(var(--gl-a), 0) 0deg, rgba(var(--gl-a), 0) 280deg, rgba(var(--gl-a), .5) 350deg, rgba(var(--gl-a), .95) 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 66%, #000 92%); mask: radial-gradient(circle, transparent 66%, #000 92%);
+}

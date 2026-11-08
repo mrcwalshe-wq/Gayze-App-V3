@@ -6,7 +6,8 @@ import React, { useEffect, useRef } from 'react';
  * ring of Gayze-coloured sparks erupts and the field relaxes to a calm drift.
  * Renders nothing animated for reduced-motion users.
  */
-const PURPLE = ['#8b5cf6', '#a78bfa', '#c4a8ff', '#7c3aed', '#d9ccff', '#ffffff'];
+// Purple with the brand's pink and orange flecks, so the burst reads as the Gayze gradient, not one flat colour.
+const PURPLE = ['#8b5cf6', '#a78bfa', '#c4a8ff', '#7c3aed', '#d9ccff', '#ffffff', '#ec3dbb', '#ff6a7e', '#ff9e20'];
 const GOLD = ['#C9A24D', '#E2C36B', '#F0C866', '#ffe2a0', '#b8872d', '#ffffff'];
 
 interface Star { x: number; y: number; z: number; pz: number; c: string }
