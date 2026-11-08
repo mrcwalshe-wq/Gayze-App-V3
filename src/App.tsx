@@ -188,6 +188,7 @@ import {
 import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';
 import { deleteMessageForMe, unsendMessage, setMessageExpiry } from './services/messageLifecycleService';
 import { resolveConversationKey, rekeyConversationKey } from './services/conversationKeyService';
+import { autoRekeyDue, isStuckWithoutKey, readAutoRekeyAttempt, writeAutoRekeyAttempt } from './services/autoRekey';
 import {
   hapticQRHandshake,
   hapticTimerWarning,
@@ -2329,6 +2330,31 @@ export default function App() {
           result = await messageProcessorRef.current.key(room, supabaseUserId);
         }
         if (disposed) return false;
+        // This device can never open the chat's key. Give another device a moment to share it, then start a fresh
+        // secure session automatically (once, with a cool-down) instead of leaving the chat stuck on Retry.
+        if (isStuckWithoutKey(result)) {
+          for (let wait = 1; isStuckWithoutKey(result) && wait <= 3 && !disposed; wait += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 1500 * wait));
+            if (disposed) return false;
+            result = await messageProcessorRef.current.key(room, supabaseUserId);
+          }
+          if (disposed) return false;
+          if (autoRekeyDue(result, readAutoRekeyAttempt(supabaseUserId, room.id), Date.now())) {
+            writeAutoRekeyAttempt(supabaseUserId, room.id, { at: Date.now(), ok: false });
+            setConversationKeyState({ roomId: activeRoomId, status: 'loading', reason: 'Starting a fresh secure session…' });
+            const fresh = await rekeyConversationKey(room);
+            messageProcessorRef.current.forgetConversation(room.id);
+            if (disposed) return false;
+            if (fresh.status === 'ready' && fresh.key) {
+              writeAutoRekeyAttempt(supabaseUserId, room.id, { at: Date.now(), ok: true });
+              showToast('Secure session refreshed. New messages will work.');
+              // Reload history under the new key.
+              setSecureChatRetryNonce((value) => value + 1);
+              return false;
+            }
+            result = fresh.key ? fresh : result;
+          }
+        }
         keyReady = Boolean(result.key);
         setConversationKeyState({
           roomId: activeRoomId,
