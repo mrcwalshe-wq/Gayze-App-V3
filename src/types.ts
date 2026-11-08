@@ -76,8 +76,11 @@ export interface Gathering {
   category: 'social' | 'games' | 'outdoor' | 'music' | 'food' | 'fitness' | 'arts' | 'active' | 'discussions' | 'nightlife';
   dateStr: string; // e.g. 'Tonight', 'Tomorrow', 'Saturday, 19:30'
   timestamp: number;
+  /** Empty unless you are the host or an accepted guest (see placeHidden). */
   locationName: string;
   address: string;
+  /** True when the venue and address are kept back because you are not the host or an accepted guest. */
+  placeHidden?: boolean;
   neighborhood: string;
   isSafeHavenVenue: boolean;
   lat: number | null;
