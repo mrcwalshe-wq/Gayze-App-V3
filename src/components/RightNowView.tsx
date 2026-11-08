@@ -1168,7 +1168,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         .addTo(layerGroup)
         .bindTooltip(
           isLive
-            ? `Your live signal · ${resolveAreaLabel(userNeighborhood)}`
+            ? `Your live intent · ${resolveAreaLabel(userNeighborhood)}`
             : `Approximate area · ${resolveAreaLabel(userNeighborhood)}`,
           { direction: 'top', offset: [0, -10] },
         );
@@ -1376,7 +1376,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           ) : (
             <button type="button" className="g-map-state g-map-state--empty g-status-set" onClick={() => { hapticLight(); if (onOpenIntentHub) onOpenIntentHub(); else setIsUserIntentDrawerOpen(true); }} aria-label="Set your signal">
               <span className="g-map-state__empty-dot" aria-hidden="true" />
-              <span className="g-map-state__empty-label">Set your signal</span>
+              <span className="g-map-state__empty-label">Set your intent</span>
             </button>
           )}
         </div>
@@ -2367,7 +2367,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 />
                 <div className="min-w-0">
                   <h2 className="text-[15px] font-extrabold text-white leading-tight">
-                    {activeUserIntent.isPaused ? 'Signal paused' : 'Your live signal'}
+                    {activeUserIntent.isPaused ? 'Intent paused' : 'Your live intent'}
                   </h2>
                   <span className="g-map-state__meta">
                     {formatRemainingTime(remainingMinutes)} left ·{' '}
@@ -2405,7 +2405,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               </div>
 
               <p className="text-[11px] text-zinc-500 leading-relaxed">
-                Your signal disappears the moment it expires or you end it. Nothing is added to
+                Your intent disappears the moment it expires or you end it. Nothing is added to
                 your profile.
               </p>
             </div>
