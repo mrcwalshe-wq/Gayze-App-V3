@@ -37,10 +37,12 @@ export const NearbySheet: React.FC<{ tiles: PeopleTile[]; onSelect: (key: string
   const height = drag === null ? target : Math.max(PEEK, Math.min(halfHeight(), target + drag));
 
   // The map controls sit above the sheet, so tell them how tall it is.
+  const hasTiles = tiles.length > 0;
   useEffect(() => {
-    document.documentElement.style.setProperty('--nearby-sheet-h', `${target + 10}px`);
+    // Reserve space only while the sheet is actually on screen (it renders nothing when no one is live).
+    document.documentElement.style.setProperty('--nearby-sheet-h', hasTiles ? `${target + 10}px` : '0px');
     return () => { document.documentElement.style.setProperty('--nearby-sheet-h', '0px'); };
-  }, [target]);
+  }, [target, hasTiles]);
 
   useEffect(() => {
     if (!open) return;

@@ -2454,3 +2454,9 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
    The view switch, sheet, header and notices stay crisp. */
 .g-filter-fab, .g-locate-fab { border-radius: 50% !important; width: 46px; height: 46px; }
 .g-filter-fab__count { border-radius: 9px; top: -4px; right: -4px; }
+
+/* Layout, from the marked-up screenshot: the button row sits just above the nav bar, and the Right Now status
+   goes to the top right, under the Social / Spicy toggle. Nothing at the bottom reserves room for the status any more. */
+.g-status-strip { left: auto !important; right: var(--hud-m, 12px); bottom: auto !important; top: calc(var(--hud-top, 10px) + 44px); max-width: 62%; }
+.g-status-strip > div { justify-content: flex-end; }
+.g-shell[data-active-tab='right_now'] .g-toast--map-status { top: calc(var(--hud-top) + 82px) !important; }
