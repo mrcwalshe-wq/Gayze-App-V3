@@ -7,6 +7,7 @@ import { presenceLabel } from '../services/presenceLabel';
 import { compressImageDataUrl } from '../services/imageCompress';
 import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
+import { GroupMembersSheet, formatEventWhen, type GroupMember, type GroupEventInfo } from './GroupMembersSheet';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
@@ -91,6 +92,10 @@ interface ChatRoomViewProps {
   cancelledGatheringIds?: Set<string>;
   /** Gatherings that have already happened (the start time plus a few hours has passed). */
   finishedGatheringIds?: Set<string>;
+  /** What the group chats are for: event time, place and host, keyed by gathering id. */
+  groupEvents?: Record<string, GroupEventInfo & { hostId?: string }>;
+  /** Start or open a private chat with a member of an event group (sends a chat request if there is none yet). */
+  onMessageMember?: (userId: string, name: string) => void;
   connectionState?: ChatConnectionState;
   /** True when no conversation key could be resolved on this device. */
   conversationKeyUnavailable?: boolean;
@@ -150,6 +155,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onlineUserIds,
   cancelledGatheringIds,
   finishedGatheringIds,
+  groupEvents,
+  onMessageMember,
   connectionState,
   conversationKeyUnavailable = false,
   conversationKeyReason,
@@ -194,6 +201,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
   const [noteRecorder, setNoteRecorder] = useState<{ kind: 'audio' | 'video' } | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
+  const [memberFocus, setMemberFocus] = useState<string | null>(null);
   const [showSharePlace, setShowSharePlace] = useState(false);
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
@@ -542,6 +551,23 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     return () => observer.disconnect();
   }, [currentRoom?.id, mobileView]);
 
+  const groupEvent = currentRoom?.type === 'gathering' && currentRoom.gatheringId ? groupEvents?.[currentRoom.gatheringId] : undefined;
+  const groupMembers: GroupMember[] = currentRoom?.type === 'gathering'
+    ? (currentRoom.memberIds ?? []).map((id) => ({
+        userId: id,
+        name: currentRoom.memberNames?.[id] || 'Gayze member',
+        isYou: id === currentUserId,
+        isHost: Boolean(groupEvent?.hostId && groupEvent.hostId === id),
+        hasChat: rooms.some((r) => r.type === 'direct' && r.peerUserId === id),
+      }))
+    : [];
+  const messageMember = (member: GroupMember) => {
+    setShowMembers(false);
+    if (member.hasChat) { const dm = rooms.find((r) => r.type === 'direct' && r.peerUserId === member.userId); if (dm) { handleSelectRoom(dm.id); return; } }
+    onMessageMember?.(member.userId, member.name);
+  };
+  const viewMember = (member: GroupMember) => openPeek?.(member.userId, { name: member.name });
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {connectionState && connectionState !== 'connected' && (
@@ -768,7 +794,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 </div>
                 <div className="flex min-w-0 max-w-full items-center gap-1.5 text-[11px] leading-tight">
                   {currentRoom.type !== 'direct' ? (
-                    <span className="text-zinc-400">Group conversation</span>
+                    <button type="button" className="g-group-sub" onClick={() => { hapticLight(); setShowMembers(true); }} aria-label="Show members">
+                      {groupMembers.length > 0 ? `${groupMembers.length} people` : 'Group conversation'}
+                      {groupEvent ? ` · ${groupEvent.cancelled ? 'Cancelled' : formatEventWhen(groupEvent.startsAt)}` : ''}
+                    </button>
                   ) : (() => {
                     const presence = presenceLabel(Boolean(currentRoom.peerUserId && onlineUserIds?.has(currentRoom.peerUserId)), currentRoom.peerLastSeenAt);
                     const dot = presence.tone === 'online' ? 'bg-emerald-400 g-breathe' : presence.tone === 'recent' ? 'bg-amber-400' : 'bg-zinc-500';
@@ -806,6 +835,12 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   aria-label="Start video call"
                 >
                   <Video className="w-4 h-4 text-[#c4a9f7]" />
+                </button>
+              )}
+
+              {currentRoom.type === 'gathering' && (
+                <button type="button" onClick={() => { hapticLight(); setShowMembers(true); }} className="g-icon-btn g-chat-header__action" title="Members" aria-label="Show members">
+                  <Users className="w-4 h-4 text-[#e7c46f]" />
                 </button>
               )}
 
@@ -969,7 +1004,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             {timeline.length === 0 && currentRoom && (
               <div className="g-chatlist__empty" role="status">
                 <span className="g-chatlist__empty-icon"><Lock className="w-5 h-5" /></span>
-                <p>You're connected with {currentRoom.peerName || currentRoom.name}. Say hello — it's encrypted on this device.</p>
+                <p>{currentRoom.type === 'gathering' ? `Say hello to the group. Everyone in ${currentRoom.name} can read it, and no one else.` : `You're connected with ${currentRoom.peerName || currentRoom.name}. Say hello — it's encrypted on this device.`}</p>
               </div>
             )}
             {timeline.map((entry) => {
@@ -1004,7 +1039,11 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                 >
                   <div className={`g-msg-meta ${isMe ? 'is-me' : ''}`}>
-                    {!isMe && currentRoom?.type !== 'direct' && <span className="g-msg-meta__name">{msg.senderName}</span>}
+                    {!isMe && currentRoom?.type !== 'direct' && (
+                      currentRoom?.type === 'gathering' && groupMembers.some((m) => m.userId === msg.senderKey)
+                        ? <button type="button" className="g-msg-meta__name g-msg-meta__name--tap" onClick={() => { hapticLight(); setMemberFocus(msg.senderKey); setShowMembers(true); }}>{msg.senderName}</button>
+                        : <span className="g-msg-meta__name">{msg.senderName}</span>
+                    )}
                     <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     {msg.sendState === 'sending' && <span>· Sending…</span>}
                     {msg.sendState === 'failed' && <span className="text-amber-300">· Not confirmed</span>}
@@ -1414,6 +1453,17 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         />
       )}
     </div>
+      {currentRoom?.type === 'gathering' && (
+        <GroupMembersSheet
+          isOpen={showMembers}
+          onClose={() => { setShowMembers(false); setMemberFocus(null); }}
+          title={currentRoom.name}
+          members={memberFocus ? groupMembers.filter((m) => m.userId === memberFocus || m.isHost) : groupMembers}
+          event={groupEvent}
+          onMessage={messageMember}
+          onViewProfile={viewMember}
+        />
+      )}
     </div>
   );
 };
