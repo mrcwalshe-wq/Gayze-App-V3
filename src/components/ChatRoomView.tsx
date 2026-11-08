@@ -649,12 +649,13 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             return (
               <SwipeRow
                 key={room.id}
-                hintKey={room.id === listedRooms[0]?.id && !archivedRow ? 'gayze:hint:swipe-chats' : undefined}
+                hintKey={archivedRow ? undefined : (cancelled || finished) ? `gayze:hint:archive:${room.id}` : room.id === listedRooms[0]?.id ? 'gayze:hint:swipe-chats' : undefined}
+                hintMax={(cancelled || finished) && !archivedRow ? 3 : 1}
                 isOpen={swipeOpenId === room.id}
                 onOpenChange={(open) => setSwipeOpenId(open ? room.id : (swipeOpenId === room.id ? null : swipeOpenId))}
                 actions={[
-                  { key: 'archive', label: archivedRow ? 'Restore' : 'Archive', tone: 'archive', icon: archivedRow ? <ArchiveRestore className="w-5 h-5" aria-hidden="true" /> : <Archive className="w-5 h-5" aria-hidden="true" />, onClick: () => setArchived(room.id, !archivedRow) },
                   ...(onDeleteChat ? [{ key: 'delete', label: 'Delete', tone: 'danger' as const, icon: <Trash2 className="w-5 h-5" aria-hidden="true" />, onClick: () => { setDeleteError(null); setConfirmDeleteRoomId(room.id); } }] : []),
+                  { key: 'archive', label: archivedRow ? 'Restore' : 'Archive', tone: 'archive', icon: archivedRow ? <ArchiveRestore className="w-5 h-5" aria-hidden="true" /> : <Archive className="w-5 h-5" aria-hidden="true" />, onClick: () => setArchived(room.id, !archivedRow) },
                 ]}
               >
               <button

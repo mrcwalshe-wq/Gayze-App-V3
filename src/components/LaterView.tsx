@@ -272,8 +272,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
             return (
               <SwipeRow key={g.id} hintKey={g.id === myPlans[0]?.id ? 'gayze:hint:swipe-plans' : undefined} isOpen={swipeId === g.id} onOpenChange={(open) => setSwipeId(open ? g.id : null)}
                 actions={[
-                  ...(onUpdateGathering ? [{ key: 'edit', label: 'Edit', tone: 'archive' as const, icon: <Pencil className="w-5 h-5" aria-hidden="true" />, onClick: () => setEditingPlan(g) }] : []),
                   ...(onCancelGathering ? [{ key: 'cancel', label: 'Cancel', tone: 'danger' as const, icon: <X className="w-5 h-5" aria-hidden="true" />, onClick: () => setClosingId(`mine:${g.id}`) }] : []),
+                  ...(onUpdateGathering ? [{ key: 'edit', label: 'Edit', tone: 'archive' as const, icon: <Pencil className="w-5 h-5" aria-hidden="true" />, onClick: () => setEditingPlan(g) }] : []),
                 ]}>
               <article className="yp__row" style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}>
                 <div className="yp__info">

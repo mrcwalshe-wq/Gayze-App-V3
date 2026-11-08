@@ -2888,3 +2888,6 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .gm-sheet .g-swipe__body { --swipe-bg: #07050f; }
 .gm-list > li .gm-row { border-top: 0; }
 .gm-list > li + li { border-top: 1px solid rgba(255, 255, 255, .06); }
+
+/* Margins inside a swipe row must not leak out and expose the actions behind it */
+.g-swipe__body { display: flow-root; }
