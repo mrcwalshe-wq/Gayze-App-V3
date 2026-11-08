@@ -1225,6 +1225,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     }
 
     // 4. Pulses
+    const zonePoints: { lat: number; lng: number }[] = [];
     if (activeCategory !== 'havens' && activeCategory !== 'people') {
       livePulses.forEach((pulse) => {
         if (pulse.peerId === 'peer_me') return;
@@ -1240,6 +1241,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         })) return;
         const lat = pulse.lat;
         const lng = pulse.lng;
+        zonePoints.push({ lat, lng });
         const jitter = typeof pulse.jitterMeters === 'number' && !isNaN(pulse.jitterMeters) ? pulse.jitterMeters : 300;
         if (showJitterCircles && !gridMode) {
           L.circle([lat, lng], {
@@ -1269,6 +1271,23 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           setSelectedItem({ type: 'pulse', item: pulse });
           setIsCardExpanded(false);
         });
+      });
+    }
+
+    // Activity zones: soft purple glows where people are live, grouped into roughly 500 m areas. They show where things
+    // are happening without marking anyone's spot (positions are already rounded to an area on the server).
+    if (!gridMode && zonePoints.length > 0) {
+      const cells = new Map<string, { lat: number; lng: number; n: number }>();
+      for (const pt of zonePoints) {
+        const key = `${Math.floor(pt.lat / 0.0045)}:${Math.floor(pt.lng / 0.007)}`;
+        const c = cells.get(key) ?? { lat: 0, lng: 0, n: 0 };
+        c.lat += pt.lat; c.lng += pt.lng; c.n += 1; cells.set(key, c);
+      }
+      cells.forEach((c) => {
+        const centre: [number, number] = [c.lat / c.n, c.lng / c.n];
+        const r = 240 + 90 * Math.sqrt(c.n);
+        L.circle(centre, { radius: r * 1.7, stroke: false, fillColor: '#8b5cf6', fillOpacity: 0.06, interactive: false, className: 'gz-zone' }).addTo(layerGroup);
+        L.circle(centre, { radius: r, stroke: false, fillColor: '#a879f1', fillOpacity: Math.min(0.12 + 0.04 * c.n, 0.3), interactive: false, className: 'gz-zone gz-zone--core' }).addTo(layerGroup);
       });
     }
   }, [
@@ -1356,6 +1375,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         </div>
       </div>
 
+      {!peopleView && (
+        <div className="g-discover-head" role="group" aria-label="Right now">
+          <div className="g-discover-head__title"><i aria-hidden="true" /><strong>Right now</strong><span>{liveMembersCount} live</span></div>
+          <div className="g-discover-head__seg" role="group" aria-label="Show">
+            {([['All', 'All'], ['Social', 'Social'], ['Private', 'Spicy']] as const).map(([mode, label]) => (
+              <button key={mode} type="button" data-mode={mode} aria-pressed={activeIntentMode === mode} onClick={() => { hapticLight(); setActiveIntentMode(mode); }}>{label}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Status toast */}
       {statusMessage && (
         <div className="g-toast g-toast--map-status" role="status" aria-live="polite">
@@ -1413,7 +1443,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <button type="button" aria-pressed={peopleView} onClick={() => { hapticLight(); setPeopleView(true); }}>People{peopleTiles.length > 0 ? ` · ${peopleTiles.length}` : ''}</button>
           </div>
           {!peopleView && (
-            <button type="button" className="g-filter-fab" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} aria-label="Open discovery filters">
+            <button type="button" className="g-filter-fab" onClick={() => { hapticLight(); setIsFilterDrawerOpen(true); }} aria-label="Open discovery filters">
               <SlidersHorizontal className="w-[18px] h-[18px]" />
               {activeFilterCount > 0 && <span className="g-filter-fab__count">{activeFilterCount}</span>}
             </button>
@@ -1431,7 +1461,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         </>
       )}
       {!selectedItem && !isNearbyOpen && !isFilterDrawerOpen && !peopleView && !isCardExpanded && (
-        <NearbySheet tiles={peopleTiles} onSelect={selectPersonTile} />
+        <NearbySheet tiles={peopleTiles} onSelect={selectPersonTile} onAdjustFilters={() => setIsFilterDrawerOpen(true)} />
       )}
       {gridMode && gridInfo && (
         <div className="gz-legend" role="status">
@@ -2057,7 +2087,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <div>
                 <span className="g-label">Intent</span>
                 <div className="g-seg mt-2.5">
-                  {(['All', 'Social'] as const).map((mode) => (
+                  {([['All', 'All'], ['Social', 'Social'], ['Private', 'Spicy']] as const).map(([mode, label]) => (
                     <button
                       key={mode}
                       type="button"
@@ -2069,7 +2099,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                         setActiveIntentMode(mode);
                       }}
                     >
-                      {mode}
+                      {label}
                     </button>
                   ))}
                 </div>
