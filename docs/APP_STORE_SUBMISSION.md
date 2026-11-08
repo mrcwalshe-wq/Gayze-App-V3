@@ -57,3 +57,24 @@ State of the repo on 8 Nov 2026. Bundle ID `com.gayze.app`, App Store Connect ap
 4. Sign in with Apple, then native push (me, after you supply the Apple keys).
 5. Screenshots, listing, privacy labels, review notes, demo accounts.
 6. Submit.
+
+## 7. Nude photos in chat (decided 8 Nov 2026)
+Members will send nude photos. The guidelines ban them, but chats are end-to-end encrypted, so GAYZE cannot see or scan them. Plan for it openly instead of hoping it does not happen.
+
+**Answer the age rating honestly.** "Sexual content or nudity" should be **Infrequent**, not "None", because members can send it to each other. The 18+ override already makes the rating 18+; the point is that the answers are true.
+
+**Built (PR "photo safety")**
+- Photos other people send are hidden (blurred) until you tap them, and a Report button appears on the photo.
+- The first time someone sends a photo on a device, a notice says nude and sexual images are not allowed, that sending an unrequested sexual image can be a criminal offence in England and Wales, and that the account will be suspended.
+
+**Why it matters in law and for review**
+- *Cyberflashing:* sending a sexual image of genitals to cause alarm or distress, or for gratification while reckless, is an offence in England and Wales (Online Safety Act 2023, section 66A of the Sexual Offences Act 2003). A blur and a report route show a reasonable effort.
+- *Child sexual abuse material:* if anyone ever reports it, it must be reported to the authorities. Have a written procedure: preserve the report, do not forward the image, report to the IWF and the police, suspend the account.
+- *App Review (guideline 1.2):* the report, block and delete-account tools, the published contact address, and the 24-hour action commitment are what Apple looks at. Say in the review notes that photos are hidden until opened and that explicit content is banned and acted on.
+- *Online Safety Act:* the illegal-content risk assessment must name this risk and the measures taken.
+
+**Next, in order of value**
+1. On-device nudity detection (Apple's Sensitive Content Analysis, iOS 17 and later) to blur likely nude photos and warn before sending. Needs a small native plugin, so it comes after the first TestFlight round.
+2. Only allow photos once both people have replied, or ask permission before the first photo.
+3. A "report this photo" path that attaches the photo from the reporter's phone (it is encrypted, so only the reporter can supply it).
+4. A written moderation procedure, with the 24-hour target and cover for when you are unavailable.
