@@ -8,6 +8,7 @@ import { compressImageDataUrl } from '../services/imageCompress';
 import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { SwipeRow } from './SwipeRow';
+import { readAutoRekeyAttempt } from '../services/autoRekey';
 import { GroupMembersSheet, formatEventWhen, type GroupMember, type GroupEventInfo } from './GroupMembersSheet';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
@@ -356,6 +357,17 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     () => buildChatTimeline(visibleMessages, roomGayzes, currentMessages.length > visibleCount),
     [visibleMessages, roomGayzes, currentMessages.length, visibleCount],
   );
+  // A run of messages this device has no key for collapses into one note instead of a wall of "can't decrypt" bubbles.
+  const lockedRuns = useMemo(() => {
+    const runs = new Map<string, number>();
+    let first: string | null = null;
+    for (const entry of timeline) {
+      const locked = entry.kind === 'message' && entry.message.decryptFailure === 'no_key' && !entry.message.deletedForEveryone;
+      if (!locked) { first = null; continue; }
+      if (first === null) { first = entry.key; runs.set(first, 1); } else { runs.set(first, (runs.get(first) ?? 1) + 1); runs.set(entry.key, 0); }
+    }
+    return runs;
+  }, [timeline]);
   // Latest activity first: newest message or newest received Gayze in each chat.
   const sortedRooms = useMemo(() => {
     const latestGayze = new Map<string, number>();
@@ -649,6 +661,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             const cancelled = isCancelledEvent(room);
             const finished = isFinishedEvent(room);
             const isLocked = /^can.?t decrypt/i.test(room.lastMessage || '');
+            const recovered = isLocked && Boolean(currentUserId && readAutoRekeyAttempt(currentUserId, room.id)?.ok);
             const roomAvatar = room.peerAvatar && room.peerAvatar !== 'user'
               ? (avatarUrls[room.peerAvatar] || (room.peerAvatar.startsWith('http') ? room.peerAvatar : null))
               : null;
@@ -704,7 +717,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     </span>
                   )}
                   {isLocked ? (
-                    <span className="g-chatrow__msg is-locked"><KeyRound className="w-3.5 h-3.5" aria-hidden="true" />Locked on this device</span>
+                    <span className="g-chatrow__msg is-locked"><KeyRound className="w-3.5 h-3.5" aria-hidden="true" />{recovered ? 'Earlier messages are locked' : 'Locked on this device'}</span>
                   ) : (
                     <span className={`g-chatrow__msg${room.lastMessage ? '' : ' is-empty'}`}>{room.lastMessage || 'Say hello. It is encrypted on this device.'}</span>
                   )}
@@ -718,7 +731,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       {room.ephemeralTtlSeconds > 0 && (
                         <span className="is-ttl"><Flame className="w-3 h-3" aria-hidden="true" />{getTtlLabel(room.ephemeralTtlSeconds)}</span>
                       )}
-                      {isLocked && <span className="is-warn">Verify this device to read</span>}
+                      {isLocked && (recovered ? <span className="is-ok">New messages work</span> : <span className="is-warn">Open to start a fresh session</span>)}
                     </span>
                   )}
                 </span>
@@ -1058,6 +1071,16 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       </time>
                     </span>
                     <span className="h-px flex-1 bg-gradient-to-l from-transparent to-violet-300/25" aria-hidden="true" />
+                  </div>
+                );
+              }
+              const lockedRun = lockedRuns.get(entry.key);
+              if (lockedRun === 0) return null;
+              if (lockedRun) {
+                return (
+                  <div key={entry.key} className="g-locked-run" role="note" data-decrypt-failure="no_key">
+                    <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span><b>{lockedRun === 1 ? 'An earlier message is' : `${lockedRun} earlier messages are`} locked on this device.</b> {conversationKeyUnavailable ? 'Setting up a fresh secure session so new messages work…' : 'New messages in this chat work normally.'}</span>
                   </div>
                 );
               }

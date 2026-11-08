@@ -2486,6 +2486,44 @@ export default function App() {
     };
   }, [activeRoomId, supabaseUserId, isAuthenticated, isSigningOut, secureChatRetryNonce, rooms.some((room) => room.id === activeRoomId)]);
 
+  // Chats whose last message this device can't open: start a fresh secure session in the background (the same automatic
+  // step as opening the chat), so new messages work without the member having to open each one. Cool-down and per-session
+  // limits stop it looping.
+  const lockedRoomIds = rooms.filter((r) => r.type === 'direct' && /^can.?t decrypt/i.test(r.lastMessage || '') && /^[0-9a-f-]{36}$/i.test(r.id)).map((r) => r.id).sort().join(',');
+  const backgroundRecoveryTried = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId || !lockedRoomIds) return;
+    const account = supabaseUserId;
+    let disposed = false;
+    const todo = lockedRoomIds.split(',').filter((id) => !backgroundRecoveryTried.current.has(`${account}:${id}`)).slice(0, 6);
+    if (!todo.length) return;
+    (async () => {
+      for (const id of todo) {
+        if (disposed) return;
+        backgroundRecoveryTried.current.add(`${account}:${id}`);
+        const room = roomsRef.current.find((candidate) => candidate.id === id);
+        if (!room) continue;
+        try {
+          let result = await messageProcessorRef.current.key(room, account);
+          if (isStuckWithoutKey(result)) {
+            // Give another signed-in device a moment to share the key first.
+            await new Promise((resolve) => window.setTimeout(resolve, 3000));
+            if (disposed) return;
+            result = await messageProcessorRef.current.key(room, account);
+          }
+          if (!autoRekeyDue(result, readAutoRekeyAttempt(account, id), Date.now())) continue;
+          writeAutoRekeyAttempt(account, id, { at: Date.now(), ok: false });
+          const fresh = await rekeyConversationKey(room);
+          messageProcessorRef.current.forgetConversation(id);
+          if (fresh.status === 'ready' && fresh.key) writeAutoRekeyAttempt(account, id, { at: Date.now(), ok: true });
+        } catch { /* the chat can still be opened and recovered there */ }
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      }
+      if (!disposed) setRooms((prev) => [...prev]);
+    })();
+    return () => { disposed = true; };
+  }, [isAuthenticated, isSigningOut, supabaseUserId, lockedRoomIds]);
+
   // Explicit, user-confirmed fresh conversation key for a chat this device cannot open.
   const handleStartFreshSecureSession = async () => {
     const room = rooms.find((candidate) => candidate.id === activeRoomId);
