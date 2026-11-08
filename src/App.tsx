@@ -2491,6 +2491,29 @@ export default function App() {
   // limits stop it looping.
   const lockedRoomIds = rooms.filter((r) => r.type === 'direct' && /^can.?t decrypt/i.test(r.lastMessage || '') && /^[0-9a-f-]{36}$/i.test(r.id)).map((r) => r.id).sort().join(',');
   const backgroundRecoveryTried = useRef<Set<string>>(new Set());
+  // Key sync: opening the app on any device that still holds a chat's older keys shares them with your other devices.
+  // That used to happen only when each chat was opened; now every chat is checked once per session, a few at a time.
+  const allChatIds = rooms.filter((r) => /^[0-9a-f-]{36}$/i.test(r.id)).map((r) => r.id).sort().join(',');
+  const keySyncDone = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId || !allChatIds) return;
+    const account = supabaseUserId;
+    let disposed = false;
+    const todo = allChatIds.split(',').filter((id) => !keySyncDone.current.has(`${account}:${id}`)).slice(0, 25);
+    if (!todo.length) return;
+    (async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 4000)); // let the app settle first
+      for (const id of todo) {
+        if (disposed) return;
+        keySyncDone.current.add(`${account}:${id}`);
+        const room = roomsRef.current.find((candidate) => candidate.id === id);
+        if (!room) continue;
+        try { await messageProcessorRef.current.key(room, account); } catch { /* it is retried when the chat is opened */ }
+        await new Promise((resolve) => window.setTimeout(resolve, 400));
+      }
+    })();
+    return () => { disposed = true; };
+  }, [isAuthenticated, isSigningOut, supabaseUserId, allChatIds]);
   useEffect(() => {
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId || !lockedRoomIds) return;
     const account = supabaseUserId;
