@@ -288,12 +288,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // Start with a clean map. Discovery details appear only after the user
   // explicitly selects a person, pulse, or Safe Haven.
   const [selectedItem, setSelectedItem] = useState<MapDiscoveryItem | null>(null);
-  // The status strip rides just above the tab bar; the setup pill, nearby sheet and map controls lift above it.
-  const statusStripShown = !selectedItem && !peopleView;
-  useEffect(() => {
-    document.documentElement.style.setProperty('--g-status-h', statusStripShown ? '34px' : '0px');
-    return () => { document.documentElement.style.setProperty('--g-status-h', '0px'); };
-  }, [statusStripShown]);
 
   const [isCardExpanded, setIsCardExpanded] = useState<boolean>(false);
 
