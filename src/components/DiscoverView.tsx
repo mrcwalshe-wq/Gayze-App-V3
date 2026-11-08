@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { intentDisplayLabel } from '../services/intentLabels';
+import { ACTIVITIES, legacyActivityFor } from '../services/intentModel';
 import {
   Map as MapIcon,
   MessageSquare,
@@ -108,7 +109,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   onOpenPublicProfile,
 }) => {
   const openPeek = useProfilePeek();
-  const [modeFilter, setModeFilter] = useState<ModeFilter>('All');
+  // Activity filter (intent model v2). 'all' shows everything.
+  const [activityFilter, setActivityFilter] = useState<string>('all');
   const [selected, setSelected] = useState<DiscoverRow | null>(null);
   const [gazedNames, setGazedNames] = useState<Set<string>>(new Set());
 
@@ -130,7 +132,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       if (pulsePeerIds.has(profile.id)) return;
       const mode: 'social' | 'private' =
         profile.intentMode === 'private' || profile.lookingFor === 'casual' ? 'private' : 'social';
-      if (modeFilter !== 'All' && mode !== modeFilter.toLowerCase()) return;
       const live = Boolean(profile.hasRightNowIntent && profile.intentExpiresAt && profile.intentExpiresAt > Date.now());
       collected.push({
         kind: 'profile',
@@ -155,7 +156,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       if (pulse.expiresAt <= nowTick) return;
       const mode: 'social' | 'private' =
         pulse.intentMode === 'private' || pulse.intent?.includes('Hookup') ? 'private' : 'social';
-      if (modeFilter !== 'All' && mode !== modeFilter.toLowerCase()) return;
+      if (activityFilter !== 'all' && !(pulse.activities ?? legacyActivityFor(pulse.intent)).includes(activityFilter)) return;
       const live = pulse.expiresAt > nowTick;
       collected.push({
         kind: 'pulse',
@@ -188,7 +189,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         : Number.POSITIVE_INFINITY;
       return aDistance - bDistance;
     });
-  }, [profiles, pulses, modeFilter, userNeighborhood, nowTick]);
+  }, [profiles, pulses, activityFilter, userNeighborhood, nowTick]);
 
   const liveCount = rows.filter((r) => r.live).length;
 
@@ -264,29 +265,12 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         </button>
       )}
 
-      {/* Mode segmented control */}
-      <div className="g-discover-mode-filter grid grid-cols-3 gap-1.5 p-1 mb-4">
-        {(['All', 'Social', 'Private'] as const).map((mode) => {
-          const isSelected = modeFilter === mode;
-          return (
-            <button
-              key={mode}
-              type="button"
-              className={`g-discover-mode-filter__button h-9 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all duration-150 flex items-center justify-center cursor-pointer ${
-                isSelected
-                  ? mode === 'Private'
-                    ? 'bg-[#6F3CC3]/30 text-[#f0e8ff] border border-[#6F3CC3]/65 shadow-[0_2px_12px_rgba(111,60,195,0.25)]'
-                    : mode === 'Social'
-                      ? 'bg-[#C9A24D]/25 text-[#fbf0d3] border border-[#C9A24D]/60 shadow-[0_2px_12px_rgba(201,162,77,0.22)]'
-                      : 'bg-white/15 text-white border border-white/20 shadow-[0_2px_10px_rgba(255,255,255,0.06)]'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'
-              }`}
-              onClick={() => { hapticLight(); setModeFilter(mode); }}
-            >
-              {mode}
-            </button>
-          );
-        })}
+      {/* Activity filter */}
+      <div className="dc-chips no-scrollbar" role="group" aria-label="Activity">
+        <button type="button" aria-pressed={activityFilter === 'all'} onClick={() => { hapticLight(); setActivityFilter('all'); }}>All</button>
+        {ACTIVITIES.map((a) => (
+          <button key={a.id} type="button" aria-pressed={activityFilter === a.id} onClick={() => { hapticLight(); setActivityFilter(a.id); }}>{a.label}</button>
+        ))}
       </div>
 
       {/* Rows — one surface */}

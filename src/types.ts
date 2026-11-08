@@ -43,6 +43,9 @@ export interface Pulse {
   travelDistance?: string;
   canHost?: string;
   travelWillingness?: string;
+  /** What they are up for, and what they are open to (intent model v2). */
+  activities?: string[];
+  connections?: string[];
   venueName: string;
   neighborhood: string;
   approxDistanceKm: number;

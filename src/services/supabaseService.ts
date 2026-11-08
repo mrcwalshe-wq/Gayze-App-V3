@@ -6,6 +6,8 @@ import { RealtimeRecovery, requireRealtimeSession, type ChatConnectionState } fr
 import type { UserActiveIntent, Pulse, SafeHaven, UserProfile, LocationPrivacy } from '../types';
 import { getProfilePhotoUrl } from './profilePhotoService';
 import { requestConnectionPush } from './pushService';
+import { DISCOVERY_JITTER_METERS, discoveryRowsToPulses } from './discoveryPulses';
+export { DISCOVERY_JITTER_METERS, discoveryRowsToPulses };
 
 export interface RightNowDiscoveryRow {
   intent_id: string; user_id: string; display_name: string; age: number | null; bio: string | null;
@@ -13,6 +15,8 @@ export interface RightNowDiscoveryRow {
   description: string | null; expires_at: string; distance_m: number; map_lat: number; map_lng: number;
   reliability_score: number; verified_peers_count: number; safety_verified: boolean;
   travel_distance_label: string | null; can_host: string | null; travel_willingness: string | null;
+  /** Present once the activities migration is applied. */
+  activities?: string[] | null; connections?: string[] | null;
 }
 
 export async function loadSafeHavens(): Promise<SafeHaven[]> {
@@ -338,7 +342,6 @@ export interface SupabaseIntentRecord {
 }
 
 /** Published privacy radius for other users' intents (client-side display only). */
-export const DISCOVERY_JITTER_METERS = 300;
 
 type IntentRow = {
   id: string;
@@ -1135,58 +1138,6 @@ export async function ensureSupabaseProfile(userId: string, sourceUser: UserProf
   }
 }
 
-export function discoveryRowsToPulses(rows: RightNowDiscoveryRow[], currentUserId?: string): Pulse[] {
-  const now = Date.now();
-  return rows
-    .filter((row) => {
-      // The authenticated user is never a "nearby person" in their own view.
-      if (currentUserId && row.user_id === currentUserId) return false;
-      const expTime = new Date(row.expires_at).getTime();
-      if (!isNaN(expTime) && expTime <= now) return false;
-      if (!Number.isFinite(row.map_lat) || !Number.isFinite(row.map_lng)) return false;
-      return true;
-    })
-    .map((row) => ({
-      id: `supabase_${row.intent_id}`,
-      peerId: row.user_id,
-      peerName: row.display_name || 'Gayze member',
-      // A short member reference for display only. This is NOT key material and
-      // must never be used to derive a safety code or a conversation key.
-      peerShortKey: `${row.user_id.slice(0, 8)}…`,
-      peerAvatar: row.avatar_path || 'user',
-      peerAge: row.age ?? undefined,
-      title: `${row.mode.toUpperCase()} · ${row.intent}`,
-      description: row.description || `Available for ${row.intent.toLowerCase()} nearby.`,
-      activityCategory: row.intent.toLowerCase().includes('drink') ? 'drinks'
-        : row.intent.toLowerCase().includes('meet') ? 'coffee'
-        : row.intent.toLowerCase().includes('walk') ? 'walk'
-        : row.mode === 'private' ? 'chill' : 'active',
-      intentMode: row.mode,
-      intent: row.intent as Pulse['intent'],
-      travelDistance: row.travel_distance_label || undefined,
-      canHost: row.can_host || undefined,
-      travelWillingness: row.travel_willingness || undefined,
-      venueName: row.neighborhood || 'Nearby',
-      neighborhood: row.neighborhood || 'Nearby',
-      // Distances are whatever the discovery function measured. Never invent one.
-      approxDistanceKm: typeof row.distance_m === 'number' && isFinite(row.distance_m)
-        ? row.distance_m / 1000
-        : 0,
-      jitterMeters: DISCOVERY_JITTER_METERS,
-      lat: row.map_lat,
-      lng: row.map_lng,
-      durationHours: Math.max(1, Math.ceil((new Date(row.expires_at).getTime() - now) / 3600000)),
-      createdAt: now,
-      expiresAt: new Date(row.expires_at).getTime(),
-      tags: [row.intent, row.mode],
-      isPaused: false,
-      // A zero reliability score means "not established yet" — not 95.
-      peerReliabilityScore: Number(row.reliability_score) > 0 ? Number(row.reliability_score) : undefined,
-      verifiedPeersCount: row.verified_peers_count || 0,
-      safetyVerified: Boolean(row.safety_verified),
-      bio: row.bio || undefined,
-    }));
-}
 
 /**
  * Hydrate pulses with signed avatar URLs from the profile-photos bucket.

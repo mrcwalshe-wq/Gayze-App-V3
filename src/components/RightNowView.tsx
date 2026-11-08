@@ -8,6 +8,7 @@ import { loadOutgoingInterestStatuses } from '../services/supabaseService';
 import L from 'leaflet';
 import { createMapGrid } from './mapGrid';
 import { NearbySheet } from './NearbySheet';
+import { ACTIVITIES, legacyActivityFor } from '../services/intentModel';
 import { PeopleGrid, type PeopleTile } from './PeopleGrid';
 import { intentThemeMode } from '../services/intentTiming';
 import {
@@ -262,6 +263,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [isNearbyOpen, setIsNearbyOpen] = useState<boolean>(false);
   const [activeCategory, setActiveCategory] = useState<'all' | 'people' | 'coffee' | 'drinks' | 'active' | 'havens'>('all');
   const [activeIntentMode, setActiveIntentMode] = useState<'All' | 'Social' | 'Private'>('All');
+  // Activity filter (intent model v2). Empty means everything.
+  const [activeActivities, setActiveActivities] = useState<string[]>([]);
+  const toggleActivity = (id: string) => setActiveActivities((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
   const [selectedSubIntent, setSelectedSubIntent] = useState<string | null>(null);
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
   // GRID view: the map as a chart of square cells; people show as a hatched, counted cell, never a spot.
@@ -614,8 +618,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     activityCategory?: string;
     hasIntent?: boolean;
     specificIntent?: string;
+    activities?: string[];
   }): boolean => {
-    const { category, isPrivate, km, activityCategory, specificIntent } = input;
+    const { category, isPrivate, km, activityCategory, specificIntent, activities } = input;
+    if (activeActivities.length > 0 && category === 'pulse' && !(activities ?? []).some((a) => activeActivities.includes(a))) return false;
     if (activeIntentMode === 'Social' && isPrivate) return false;
     if (activeIntentMode === 'Private' && !isPrivate) return false;
     if (selectedSubIntent && specificIntent && specificIntent !== selectedSubIntent) return false;
@@ -643,6 +649,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
         km: distanceKmForPulse(pulse),
         activityCategory: pulse.activityCategory,
+        activities: pulse.activities ?? legacyActivityFor(pulse.intent),
       })).length;
     }
     if (activeCategory === 'all' || activeCategory === 'havens') {
@@ -653,7 +660,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       })).length;
     }
     return count;
-  }, [livePulses, datingProfiles, safeHavens, activeCategory, activeIntentMode, maxDistanceKm, userLocation]);
+  }, [livePulses, datingProfiles, safeHavens, activeCategory, activeIntentMode, activeActivities, maxDistanceKm, userLocation]);
 
   // Live members count (people only, excluding safe haven facilities)
   const liveMembersCount = useMemo(() => {
@@ -671,20 +678,21 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
         km: distanceKmForPulse(pulse),
         activityCategory: pulse.activityCategory,
+        activities: pulse.activities ?? legacyActivityFor(pulse.intent),
       }))).length;
     }
     return count;
-  }, [livePulses, datingProfiles, activeCategory, activeIntentMode, maxDistanceKm, userLocation]);
+  }, [livePulses, datingProfiles, activeCategory, activeIntentMode, activeActivities, maxDistanceKm, userLocation]);
 
   // Active filter count for badge
   const activeFilterCount = useMemo(() => {
     let num = 0;
     if (activeCategory !== 'all') num += 1;
-    if (activeIntentMode !== 'All') num += 1;
+    if (activeActivities.length > 0) num += 1;
     if (!showJitterCircles) num += 1;
     if (maxDistanceKm < MAX_TRAVEL_DISTANCE_KM) num += 1;
     return num;
-  }, [activeCategory, activeIntentMode, showJitterCircles, maxDistanceKm]);
+  }, [activeCategory, activeActivities, showJitterCircles, maxDistanceKm]);
 
   // Nearby rows for the discovery drawer — same filter set as the map, sorted by distance
   const nearbyItems = useMemo<MapDiscoveryItem[]>(() => {
@@ -709,6 +717,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
           km,
           activityCategory: pulse.activityCategory,
+        activities: pulse.activities ?? legacyActivityFor(pulse.intent),
         })) return;
         collected.push({ item: { type: 'pulse', item: pulse }, km: km ?? Number.POSITIVE_INFINITY });
       });
@@ -780,6 +789,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     hapticLight();
     setActiveCategory('all');
     setActiveIntentMode('All');
+    setActiveActivities([]);
     setShowJitterCircles(true);
     setMaxDistanceKm(MAX_TRAVEL_DISTANCE_KM);
   };
@@ -1040,6 +1050,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
       km: distanceKmForPulse(pulse),
       activityCategory: pulse.activityCategory,
+        activities: pulse.activities ?? legacyActivityFor(pulse.intent),
     }))
     .map((pulse) => ({ lat: pulse.lat, lng: pulse.lng }));
   gridSelfRef.current = privacySetting !== 'ghost' && userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null;
@@ -1061,7 +1072,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     return () => { container.removeEventListener('gz-grid', onInfo); grid.destroy(); gridRef.current = null; setGridInfo(null); };
   }, [isMapReady, gridMode]);
 
-  useEffect(() => { gridRef.current?.refresh(); }, [livePulses, activeCategory, activeIntentMode, maxDistanceKm, userLocation, privacySetting]);
+  useEffect(() => { gridRef.current?.refresh(); }, [livePulses, activeCategory, activeIntentMode, activeActivities, maxDistanceKm, userLocation, privacySetting]);
 
   // Update map layers on pulses, havens, profiles, or filter changes
   useEffect(() => {
@@ -1092,6 +1103,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           isPrivate: pulse.intentMode === 'private' || Boolean(pulse.intent?.includes('Hookup')),
           km: distanceKmForPulse(pulse),
           activityCategory: pulse.activityCategory,
+        activities: pulse.activities ?? legacyActivityFor(pulse.intent),
         })) return;
         hazePoints.push({ lat: pulse.lat, lng: pulse.lng });
       });
@@ -1232,6 +1244,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           isPrivate,
           km: distanceKmForPulse(pulse),
           activityCategory: pulse.activityCategory,
+        activities: pulse.activities ?? legacyActivityFor(pulse.intent),
         })) return;
         const lat = pulse.lat;
         const lng = pulse.lng;
@@ -1291,6 +1304,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     datingProfiles,
     activeCategory,
     activeIntentMode,
+    activeActivities,
     showJitterCircles,
     gridMode,
     maxDistanceKm,
@@ -1372,9 +1386,10 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {!peopleView && (
         <div className="g-discover-head" role="group" aria-label="Right now">
           <div className="g-discover-head__title"><i aria-hidden="true" /><strong>Right now</strong><span>{liveMembersCount} live</span></div>
-          <div className="g-discover-head__seg" role="group" aria-label="Show">
-            {([['All', 'All'], ['Social', 'Social'], ['Private', 'Spicy']] as const).map(([mode, label]) => (
-              <button key={mode} type="button" data-mode={mode} aria-pressed={activeIntentMode === mode} onClick={() => { hapticLight(); setActiveIntentMode(mode); }}>{label}</button>
+          <div className="g-discover-head__chips no-scrollbar" role="group" aria-label="Activity">
+            <button type="button" aria-pressed={activeActivities.length === 0} onClick={() => { hapticLight(); setActiveActivities([]); }}>All</button>
+            {ACTIVITIES.map((a) => (
+              <button key={a.id} type="button" aria-pressed={activeActivities.includes(a.id)} onClick={() => { hapticLight(); toggleActivity(a.id); }}>{a.label.split(' & ')[0].replace('Explore the city', 'Explore').replace('Something spontaneous', 'Spontaneous').replace('Walks', 'Walks')}</button>
             ))}
           </div>
         </div>
@@ -2055,9 +2070,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                     // "People" only exists when there is a separate people
                     // dataset (demo mode). In live mode every row is an intent.
                     ...(datingProfiles.length > 0 ? [{ id: 'people', label: 'People' }] : []),
-                    { id: 'coffee', label: 'Coffee' },
-                    { id: 'drinks', label: 'Drinks' },
-                    { id: 'active', label: 'Active' },
                     { id: 'havens', label: 'Safe Havens' },
                   ].map((cat) => (
                     <button
@@ -2077,23 +2089,20 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                 </div>
               </div>
 
-              {/* Intent mode */}
+              {/* Activity (intent model v2) */}
               <div>
-                <span className="g-label">Intent</span>
-                <div className="g-seg mt-2.5">
-                  {([['All', 'All'], ['Social', 'Social'], ['Private', 'Spicy']] as const).map(([mode, label]) => (
+                <span className="g-label">What they are up for</span>
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  {ACTIVITIES.map((a) => (
                     <button
-                      key={mode}
+                      key={a.id}
                       type="button"
-                      className="g-seg__btn"
+                      className="g-optpill"
                       data-tone="purple"
-                      data-active={activeIntentMode === mode}
-                      onClick={() => {
-                        hapticLight();
-                        setActiveIntentMode(mode);
-                      }}
+                      data-active={activeActivities.includes(a.id)}
+                      onClick={() => { hapticLight(); toggleActivity(a.id); }}
                     >
-                      {label}
+                      {a.label}
                     </button>
                   ))}
                 </div>
