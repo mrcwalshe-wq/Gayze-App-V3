@@ -51,6 +51,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [followUp, setFollowUp] = useState<AuthIssue['action'] | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
   const touch = (field: string) => setTouched((t) => ({ ...t, [field]: true }));
 
   // Arrival notices from the callback (expired link, cancelled Google, suspended account...).
@@ -103,6 +104,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   const submitGoogle = async () => {
     if (!supabase) return;
+    if (mode === 'signup' && !adultConfirmed) { setFeedback('Please confirm you are 18 or over to continue.', 'error'); return; }
     setBusy(true);
     setMessage(null);
     try {
@@ -137,13 +139,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   const submitSignUp = async () => {
     if (!supabase) return;
+    if (!adultConfirmed) { setFeedback('Please confirm you are 18 or over to create an account.', 'error'); return; }
     if (!checkPassword(password).ok) { touch('password'); setFeedback('Choose a stronger password to continue.', 'error'); return; }
     if (password !== confirmPassword) { touch('confirm'); setFeedback('Passwords do not match.', 'error'); return; }
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
-        data: { display_name: displayName.trim() || 'Gayze User' },
+        data: { display_name: displayName.trim() || 'Gayze User', adult_confirmed_at: new Date().toISOString() },
         emailRedirectTo: getAuthRedirectUrl(AUTH_REDIRECT_PATHS.emailConfirm),
       },
     });
@@ -401,6 +404,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 </div>
               )}
             </div>
+
+            {mode === 'signup' && (
+              <label className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.025] p-3 text-xs text-zinc-300 cursor-pointer">
+                <input type="checkbox" checked={adultConfirmed} onChange={(e) => setAdultConfirmed(e.target.checked)} className="mt-0.5 accent-[#6F3CC3]" />
+                <span>I confirm that I am 18 or over. GAYZE is for adults only.</span>
+              </label>
+            )}
 
             <button
               type="submit"

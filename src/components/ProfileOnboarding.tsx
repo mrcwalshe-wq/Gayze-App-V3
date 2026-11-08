@@ -3,6 +3,7 @@ import { intentDisplayLabel } from '../services/intentLabels';
 import { ArrowRight, Check, ShieldCheck } from 'lucide-react';
 import type { LocationPrivacy, UserProfile } from '../types';
 import { LOOKING_FOR_OPTIONS } from '../config/profileOptions';
+import { ageFromDob, isAdultDob, recordUnderageAttempt, underageBlockActive } from '../services/ageGate';
 
 interface ProfileOnboardingProps {
   currentUser: UserProfile;
@@ -18,19 +19,22 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
 
   const [handle, setHandle] = useState(currentUser.handle?.replace(/^gayze-user(-[a-z0-9]+)?$/, '') || '');
   const [bio, setBio] = useState(currentUser.bio || '');
-  const [age, setAge] = useState('');
+  const [dob, setDob] = useState('');
+  const [blocked, setBlocked] = useState(() => underageBlockActive());
+  const age = ageFromDob(dob);
   const [privacySetting, setPrivacySetting] = useState<LocationPrivacy>(currentUser.privacySetting || 'fuzzy_500m');
   const [preferences, setPreferences] = useState<string[]>(currentUser.interests || []);
   const [confirmedAdult, setConfirmedAdult] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const canSave = useMemo(() => displayName.trim().length >= 2 && handle.trim().length >= 3 && Number(age) >= 18 && confirmedAdult && preferences.length > 0, [displayName, handle, age, confirmedAdult, preferences]);
+  const canSave = useMemo(() => displayName.trim().length >= 2 && handle.trim().length >= 3 && isAdultDob(dob) && confirmedAdult && preferences.length > 0 && !blocked, [displayName, handle, dob, confirmedAdult, preferences, blocked]);
   const togglePreference = (value: string) => setPreferences((prev) => prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (age !== null && age < 18) { recordUnderageAttempt(); setBlocked(true); return; }
     if (!canSave || busy) return;
     setBusy(true); setError(null);
-    const ok = await onSave({ displayName: displayName.trim(), handle: handle.trim(), bio, age: Number(age), privacySetting, interests: preferences });
+    const ok = await onSave({ displayName: displayName.trim(), handle: handle.trim(), bio, age: age as number, privacySetting, interests: preferences });
     if (!ok) setError('We could not save your profile. Please try again.');
     setBusy(false);
   };
@@ -47,7 +51,10 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
           <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" autoComplete="name" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
           <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/\s/g, '').toLowerCase())} placeholder="Username / handle" autoComplete="username" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
           <div className="grid grid-cols-2 gap-3">
-            <input value={age} onChange={(e) => setAge(e.target.value.replace(/\D/g, '').slice(0, 3))} inputMode="numeric" placeholder="Age (18+)" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
+            <label className="block">
+              <span className="sr-only">Date of birth</span>
+              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} max={new Date().toISOString().slice(0, 10)} aria-label="Date of birth (you must be 18 or over)" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
+            </label>
             <select value={privacySetting} onChange={(e) => setPrivacySetting(e.target.value as LocationPrivacy)} className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none">
               <option value="fuzzy_500m">Approx. 500m</option><option value="neighborhood">Neighborhood</option><option value="ghost">Ghost mode</option>
             </select>
@@ -68,6 +75,7 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
             <input type="checkbox" checked={confirmedAdult} onChange={(e) => setConfirmedAdult(e.target.checked)} className="mt-1 accent-[#6F3CC3]" />
             <span className="text-xs text-zinc-300">I confirm that I am 18 or older and understand that my selected preferences control what I see and how I appear in discovery.</span>
           </label>
+          {blocked && <div role="alert" className="rounded-xl border border-rose-400/25 bg-rose-400/5 px-3 py-2.5 text-xs text-rose-200">GAYZE is for people aged 18 and over. We can't create a profile from the date you entered.</div>}
           {error && <div className="rounded-xl border border-rose-400/25 bg-rose-400/5 px-3 py-2.5 text-xs text-rose-200">{error}</div>}
           <button type="submit" disabled={!canSave || busy} className="w-full h-12 rounded-xl bg-[#6F3CC3] hover:bg-[#7b46d2] disabled:opacity-40 text-white font-semibold flex items-center justify-center gap-2">{busy ? 'Saving…' : 'Finish profile'} <ArrowRight className="w-4 h-4" /></button>
         </form>
