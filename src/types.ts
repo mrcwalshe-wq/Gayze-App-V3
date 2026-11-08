@@ -72,7 +72,8 @@ export interface Gathering {
   hostAvatar: string;
   title: string;
   description: string;
-  category: 'social' | 'arts' | 'active' | 'games' | 'discussions' | 'nightlife';
+  /** Events categories. The older values (arts, active, discussions, nightlife) are read as their new equivalents. */
+  category: 'social' | 'games' | 'outdoor' | 'music' | 'food' | 'fitness' | 'arts' | 'active' | 'discussions' | 'nightlife';
   dateStr: string; // e.g. 'Tonight', 'Tomorrow', 'Saturday, 19:30'
   timestamp: number;
   locationName: string;

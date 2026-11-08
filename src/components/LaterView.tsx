@@ -15,21 +15,40 @@ import {
   Wine,
   Dices,
   Dumbbell,
-  Palette,
-  MessagesSquare,
+  Mountain,
+  Music,
+  UtensilsCrossed,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
 import { PlacePicker } from './PlacePicker';
+import { categoryKey, quickTime, type QuickWhen } from '../services/eventsModel';
 
 const CATEGORY_ART: Record<string, { label: string; icon: LucideIcon; rgb: string; rgb2: string }> = {
-  social: { label: 'Social & drinks', icon: Wine, rgb: '214, 170, 80', rgb2: '184, 92, 222' },
-  games: { label: 'Board games', icon: Dices, rgb: '120, 110, 255', rgb2: '70, 170, 230' },
-  active: { label: 'Outdoor & sports', icon: Dumbbell, rgb: '52, 211, 153', rgb2: '70, 150, 230' },
-  arts: { label: 'Arts & culture', icon: Palette, rgb: '240, 120, 160', rgb2: '184, 92, 222' },
-  discussions: { label: 'Salons & talks', icon: MessagesSquare, rgb: '170, 130, 255', rgb2: '214, 170, 80' },
+  social: { label: 'Social & Drinks', icon: Wine, rgb: '214, 170, 80', rgb2: '184, 92, 222' },
+  games: { label: 'Games & Hobbies', icon: Dices, rgb: '120, 110, 255', rgb2: '70, 170, 230' },
+  outdoor: { label: 'Outdoor & Adventure', icon: Mountain, rgb: '52, 211, 153', rgb2: '70, 150, 230' },
+  music: { label: 'Music & Nightlife', icon: Music, rgb: '184, 92, 222', rgb2: '240, 120, 160' },
+  food: { label: 'Food & Dining', icon: UtensilsCrossed, rgb: '240, 150, 90', rgb2: '214, 170, 80' },
+  fitness: { label: 'Fitness & Wellness', icon: Dumbbell, rgb: '70, 190, 230', rgb2: '52, 211, 153' },
 };
-const artFor = (category: string) => CATEGORY_ART[category] ?? CATEGORY_ART.social;
+const artFor = (category: string) => CATEGORY_ART[categoryKey(category, Object.keys(CATEGORY_ART))];
+
+
+const QUICK_WHEN: { id: QuickWhen; label: string }[] = [
+  { id: 'hour', label: 'In an hour' }, { id: 'tonight', label: 'Tonight' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'weekend', label: 'Saturday night' }, { id: 'sunday', label: 'Sunday' },
+];
+const quickPresets = (area: string): { text: string; category: Gathering['category']; when: QuickWhen; icon: LucideIcon }[] => [
+  { text: 'Anyone fancy a drink tonight?', category: 'social', when: 'tonight', icon: Wine },
+  { text: `Coffee around ${area || 'here'}?`, category: 'food', when: 'tomorrow', icon: UtensilsCrossed },
+  { text: 'Anyone going to the gym?', category: 'fitness', when: 'tonight', icon: Dumbbell },
+  { text: 'Sunday walk?', category: 'outdoor', when: 'sunday', icon: Mountain },
+  { text: 'Looking for people to go out this weekend?', category: 'music', when: 'weekend', icon: Music },
+];
+const isQuick = (g: Gathering) => (g.tags ?? []).includes('quick');
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const toLocalInputValue = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
 
 const startsIn = (timestamp: number): string => {
   const diff = timestamp - Date.now();
@@ -99,6 +118,11 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [formCoords, setFormCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [formCapacity, setFormCapacity] = useState(16);
   const [formTags, setFormTags] = useState('');
+  // A quick plan is a lightweight, spontaneous gathering ("Anyone fancy a drink tonight?"); an event is a formal listing.
+  const [hostKind, setHostKind] = useState<'event' | 'quick'>('event');
+  const [quickWhen, setQuickWhen] = useState<QuickWhen | null>(null);
+  const quick = hostKind === 'quick';
+  const area = currentUser.neighborhood || '';
 
   // Filters run off the real scheduled timestamp, so they also work for
   // backend gatherings (whose dateStr is a formatted date, not a label).
@@ -110,7 +134,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const filteredGatherings = gatherings
     .filter((g) => g.timestamp > Date.now())
     .filter((g) => {
-      if (categoryFilter !== 'all' && g.category !== categoryFilter) return false;
+      if (categoryFilter !== 'all' && categoryKey(g.category, Object.keys(CATEGORY_ART)) !== categoryFilter) return false;
       if (timeFilter === 'tonight' && !(g.timestamp >= startOfToday && g.timestamp < startOfTomorrow)) return false;
       if (timeFilter === 'tomorrow' && !(g.timestamp >= startOfTomorrow && g.timestamp < startOfDayAfterTomorrow)) return false;
       if (timeFilter === 'weekend') {
@@ -139,7 +163,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
       setFormError('Choose a date and time in the future.');
       return;
     }
-    if (!formLocation.trim()) {
+    if (!quick && !formLocation.trim()) {
       setFormError('Add a venue name.');
       return;
     }
@@ -151,18 +175,18 @@ export const LaterView: React.FC<LaterViewProps> = ({
       hostShortKey: currentUser.shortKey,
       hostAvatar: currentUser.avatarSeed,
       title: formTitle,
-      description: formDesc || 'A community gathering for connection and shared interests.',
+      description: formDesc || (quick ? 'A casual plan. Join and say hello in the group chat.' : 'A gathering for connection and shared interests.'),
       category: formCategory,
       dateStr: new Date(timestamp).toLocaleString([], { weekday: 'long', hour: '2-digit', minute: '2-digit' }),
       timestamp,
-      locationName: formLocation,
-      address: formAddress,
-      neighborhood: formNeighborhood,
+      locationName: formLocation.trim() || (quick ? `Around ${area || 'here'}` : formLocation),
+      address: formAddress || (quick ? (formLocation.trim() || area || 'To be agreed in the group chat') : formAddress),
+      neighborhood: formNeighborhood || (quick ? area : formNeighborhood),
       isSafeHavenVenue: false,
       lat: formCoords?.lat ?? userLocation?.lat ?? null,
       lng: formCoords?.lng ?? userLocation?.lng ?? null,
       capacity: formCapacity,
-      tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
+      tags: [...formTags.split(',').map((t) => t.trim()).filter(Boolean), ...(quick ? ['quick'] : [])],
       safetyGuidelines: 'Safe Haven principles. Consent-first communication and respectful space conduct.',
     });
 
@@ -175,6 +199,19 @@ export const LaterView: React.FC<LaterViewProps> = ({
     setFormNeighborhood('');
     setFormCoords(null);
     setFormError(null);
+    setHostKind('event');
+    setQuickWhen(null);
+  };
+
+  const startQuickPlan = (text: string, category: Gathering['category'], when: QuickWhen) => {
+    setHostKind('quick');
+    setFormTitle(text);
+    setFormCategory(category);
+    setQuickWhen(when);
+    setFormDate(toLocalInputValue(quickTime(when)));
+    setFormCapacity(8);
+    setFormError(null);
+    setIsHostModalOpen(true);
   };
 
   const nextUp = filteredGatherings[0];
@@ -183,14 +220,28 @@ export const LaterView: React.FC<LaterViewProps> = ({
     <div className="gayze-premium-page space-y-5">
       <div className="g-later__hero">
         <div className="min-w-0">
-          <div className="g-label">Later</div>
-          <h1 className="g-later__title">Plan something real</h1>
-          <p className="g-later__sub">Gatherings with people nearby. RSVP, then talk with everyone who is going.</p>
+          <div className="g-label">Events</div>
+          <h1 className="g-later__title">Find something happening. Or make it happen.</h1>
+          <p className="g-later__sub">Discover local gatherings, meet people with shared interests and organise something of your own.</p>
         </div>
-        <button onClick={() => setIsHostModalOpen(true)} className="g-btn g-btn--amber g-later__host">
-          <Plus className="w-4 h-4" />
-          <span>Host</span>
+      </div>
+
+      <div className="ev-actions">
+        <button type="button" className="ev-action" onClick={() => { hapticLight(); document.getElementById('ev-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+          <Calendar className="w-5 h-5" aria-hidden="true" /><span><b>Discover</b><small>Find events nearby</small></span>
         </button>
+        <button type="button" className="ev-action ev-action--host" onClick={() => { hapticLight(); setHostKind('event'); setIsHostModalOpen(true); }}>
+          <Plus className="w-5 h-5" aria-hidden="true" /><span><b>Host</b><small>Create a gathering</small></span>
+        </button>
+      </div>
+
+      <div className="ev-quick">
+        <div className="ev-quick__head"><Zap className="w-4 h-4" aria-hidden="true" /><b>Make a quick plan</b><span>Casual, no listing needed</span></div>
+        <div className="ev-quick__row no-scrollbar">
+          {quickPresets(area).map((q) => (
+            <button key={q.text} type="button" onClick={() => { hapticLight(); startQuickPlan(q.text, q.category, q.when); }}>{q.text}</button>
+          ))}
+        </div>
       </div>
 
       <div className="g-later__filters">
@@ -253,7 +304,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
         </div>
       )}
 
-      <div className="g-later__grid">
+      <div className="g-later__grid" id="ev-list">
         {filteredGatherings.map((gathering) => {
           const isHost = gathering.hostName === 'You';
           // Everyone the host has accepted, and the host, share one private group chat.
@@ -285,7 +336,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                     {isHost ? 'Hosting · ' : gathering.isAttending ? 'Going · ' : gathering.myStatus === 'requested' ? 'Requested · ' : isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}
                   </span>
                 </div>
-                <span className="g-ev__cat">{art.label}</span>
+                <span className="g-ev__cat">{isQuick(gathering) ? `Quick plan · ${art.label}` : art.label}</span>
               </div>
 
               <div className="g-ev__body">
@@ -407,8 +458,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
             <div className="g-sheet__grip" />
             <div className="g-sheet__head">
               <div className="min-w-0">
-                <h2 className="text-[16px] font-semibold tracking-[-0.015em] text-white leading-tight">Host a gathering</h2>
-                <p className="text-[11px] text-zinc-500 leading-tight mt-0.5">Creates an encrypted group room for the people who RSVP.</p>
+                <h2 className="text-[16px] font-semibold tracking-[-0.015em] text-white leading-tight">{quick ? 'Make a quick plan' : 'Host a gathering'}</h2>
+                <p className="text-[11px] text-zinc-500 leading-tight mt-0.5">{quick ? 'A casual plan. People who join get a group chat.' : 'Creates an encrypted group room for the people who RSVP.'}</p>
               </div>
               <button type="button" onClick={() => setIsHostModalOpen(false)} className="g-icon-btn g-icon-btn--bare shrink-0" aria-label="Close modal">
                 <X className="w-5 h-5" />
@@ -421,14 +472,30 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   <p className="text-[12px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-2">{formError}</p>
                 )}
 
+                <div className="ev-kind" role="group" aria-label="Kind of plan">
+                  <button type="button" aria-pressed={!quick} onClick={() => { hapticLight(); setHostKind('event'); }}>Event</button>
+                  <button type="button" aria-pressed={quick} onClick={() => { hapticLight(); setHostKind('quick'); setFormCapacity((n) => Math.min(n, 12)); }}>Quick plan</button>
+                </div>
+
+                {quick && (
+                  <div>
+                    <span className="g-label">When</span>
+                    <div className="ev-when no-scrollbar">
+                      {QUICK_WHEN.map((w) => (
+                        <button key={w.id} type="button" aria-pressed={quickWhen === w.id} onClick={() => { hapticLight(); setQuickWhen(w.id); setFormDate(toLocalInputValue(quickTime(w.id))); }}>{w.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <label htmlFor="gathering-title" className="g-label">What is it?</label>
+                  <label htmlFor="gathering-title" className="g-label">{quick ? 'What is the plan?' : 'What is it?'}</label>
                   <input
                     id="gathering-title"
                     type="text"
                     required
                     maxLength={80}
-                    placeholder="e.g. Queer sci-fi book club and wine"
+                    placeholder={quick ? 'e.g. Anyone fancy a drink tonight?' : 'e.g. Queer sci-fi book club and wine'}
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     className="g-field g-iset__field mt-2.5"
@@ -474,17 +541,17 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="gathering-venue" className="g-label">Where</label>
+                  <label htmlFor="gathering-venue" className="g-label">{quick ? 'Where (optional)' : 'Where'}</label>
                   <div className="mt-2.5">
                     <PlacePicker
-                      id="gathering-venue" required value={formLocation} near={userLocation}
+                      id="gathering-venue" required={!quick} value={formLocation} near={userLocation}
                       placeholder="Search for a venue near you"
                       className="g-field g-iset__field"
                       onTextChange={(t) => { setFormLocation(t); setFormCoords(null); }}
                       onPick={(pl) => { setFormLocation(pl.name); setFormAddress(pl.address || pl.area || pl.name); setFormNeighborhood(pl.area); setFormCoords({ lat: pl.lat, lng: pl.lng }); }}
                     />
                   </div>
-                  <input id="gathering-address" type="text" required value={formAddress} onChange={(e) => setFormAddress(e.target.value)} placeholder="Street address" aria-label="Street address" className="g-field g-iset__field mt-2" />
+                  <input id="gathering-address" type="text" required={!quick} value={formAddress} onChange={(e) => setFormAddress(e.target.value)} placeholder="Street address" aria-label="Street address" className="g-field g-iset__field mt-2" />
                   <input id="gathering-neighborhood" type="text" value={formNeighborhood} onChange={(e) => setFormNeighborhood(e.target.value)} placeholder="Neighbourhood (optional)" aria-label="Neighbourhood" className="g-field g-iset__field mt-2" />
                 </div>
 
@@ -501,7 +568,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
               <div className="g-sheet__foot">
                 <button type="button" onClick={() => setIsHostModalOpen(false)} className="g-btn g-btn--quiet !min-h-[46px] !px-5">Cancel</button>
-                <button type="submit" className="g-btn g-btn--amber flex-1 !min-h-[46px] font-semibold">Publish gathering</button>
+                <button type="submit" className="g-btn g-btn--amber flex-1 !min-h-[46px] font-semibold">{quick ? 'Post plan' : 'Publish gathering'}</button>
               </div>
             </form>
           </div>

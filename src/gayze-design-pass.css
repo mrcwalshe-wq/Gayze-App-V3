@@ -2554,3 +2554,27 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .dc-chips button { flex: none; scroll-snap-align: start; min-height: 34px; padding: 0 13px; border: 0; border-radius: 4px; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: rgba(255, 255, 255, .72); background: rgba(255, 255, 255, .07); transition: background .2s, color .2s, transform .18s cubic-bezier(.3, 1.5, .5, 1); }
 .dc-chips button:active { transform: scale(.95); }
 .dc-chips button[aria-pressed='true'] { color: #fff; background: linear-gradient(135deg, rgba(111, 60, 195, .95), rgba(178, 79, 216, .9)); box-shadow: 0 4px 14px rgba(111, 60, 195, .45); }
+
+/* ===== Events (was Later): two clear actions, quick plans, six categories ===== */
+.g-later__title { text-wrap: balance; }
+.ev-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ev-action { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 14px; text-align: left; color: #fff; border: 0; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, .07);
+  transition: transform .18s cubic-bezier(.3, 1.5, .5, 1), background .2s; }
+.ev-action::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, #8b5cf6, #c05bd8); }
+.ev-action--host::after { background: linear-gradient(90deg, #d6aa50, #f0cf86); }
+.ev-action:active { transform: scale(.97); }
+.ev-action svg { flex: none; color: #cdb0ff; } .ev-action--host svg { color: #f0cf86; }
+.ev-action b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.01em; } .ev-action small { display: block; margin-top: 1px; font-size: 12px; color: rgba(255, 255, 255, .6); }
+.ev-quick { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 2px; }
+.ev-quick__head { display: flex; align-items: baseline; gap: 8px; color: #f0cf86; }
+.ev-quick__head svg { align-self: center; }
+.ev-quick__head b { font-size: 14px; color: #fff; } .ev-quick__head span { font-size: 12px; color: rgba(255, 255, 255, .5); }
+.ev-quick__row { display: flex; gap: 6px; overflow-x: auto; margin-inline: -2px; padding: 2px; scroll-snap-type: x proximity; }
+.ev-quick__row button { flex: none; scroll-snap-align: start; min-height: 40px; padding: 0 14px; border: 0; border-radius: 4px; font-size: 13px; font-weight: 700; white-space: nowrap; color: #fff; background: rgba(255, 255, 255, .08); transition: background .2s, transform .18s cubic-bezier(.3, 1.5, .5, 1); }
+.ev-quick__row button:active { transform: scale(.96); background: rgba(214, 170, 80, .3); }
+.ev-kind { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 6px; background: rgba(255, 255, 255, .06); }
+.ev-kind button { min-height: 40px; border: 0; border-radius: 4px; font-weight: 700; color: rgba(255, 255, 255, .6); background: none; }
+.ev-kind button[aria-pressed='true'] { color: #fff; background: rgba(214, 170, 80, .35); }
+.ev-when { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; }
+.ev-when button { flex: none; min-height: 38px; padding: 0 13px; border: 0; border-radius: 4px; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: rgba(255, 255, 255, .75); background: rgba(255, 255, 255, .08); }
+.ev-when button[aria-pressed='true'] { color: #fff; background: rgba(214, 170, 80, .4); }
