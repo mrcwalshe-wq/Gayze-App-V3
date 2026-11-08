@@ -144,6 +144,7 @@ import {
   loadSupabaseProfile,
   loadSafeHavens,
   loadGatherings,
+  uploadEventPhoto,
   loadGatheringStates,
   createGathering,
   requestToJoinGathering,
@@ -2200,7 +2201,16 @@ export default function App() {
     requestConversationOpen(roomId);
   };
 
-  const handleCreateGathering = async (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => {
+  const handleCreateGathering = async (draft: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>, photo?: File | null) => {
+    let newGathering = draft;
+    if (isSupabaseConfigured && isAuthenticated && photo) {
+      let path: string | null = null;
+      try { path = await uploadEventPhoto(photo); } catch (error: any) { showToast(error?.message || 'The picture could not be uploaded.'); return; }
+      if (!path) { showToast('The picture could not be uploaded. Nothing was posted.'); return; }
+      newGathering = { ...draft, photoPath: path };
+    } else if (photo) {
+      newGathering = { ...draft, photoUrl: URL.createObjectURL(photo) };
+    }
     if (isSupabaseConfigured && isAuthenticated) {
       const id = await createGathering(newGathering);
       if (!id) {

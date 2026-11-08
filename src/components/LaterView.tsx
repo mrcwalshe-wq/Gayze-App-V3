@@ -19,10 +19,13 @@ import {
   Music,
   UtensilsCrossed,
   Zap,
+  ImagePlus,
+  Flame,
   type LucideIcon,
 } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
 import { PlacePicker } from './PlacePicker';
+import { sparkBurst } from './SparkBorder';
 import { categoryKey, quickTime, type QuickWhen } from '../services/eventsModel';
 
 const CATEGORY_ART: Record<string, { label: string; icon: LucideIcon; rgb: string; rgb2: string }> = {
@@ -46,6 +49,7 @@ const quickPresets = (area: string): { text: string; category: Gathering['catego
   { text: 'Sunday walk?', category: 'outdoor', when: 'sunday', icon: Mountain },
   { text: 'Anyone going out this weekend?', category: 'music', when: 'weekend', icon: Music },
 ];
+const QUICK_LABEL: Record<QuickWhen, string> = { hour: 'In an hour', tonight: 'Tonight', tomorrow: 'Tomorrow', weekend: 'Saturday night', sunday: 'Sunday' };
 const isQuick = (g: Gathering) => (g.tags ?? []).includes('quick');
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const toLocalInputValue = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
@@ -72,7 +76,8 @@ interface LaterViewProps {
   onCloseGathering?: (gatheringId: string) => void | Promise<void>;
   onOpenProfile?: (userId: string, name: string) => void;
   onOpenGatheringChat: (gathering: Gathering) => void;
-  onCreateGathering: (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>) => void;
+  /** `photo` is the optional event picture; the parent uploads it before posting. */
+  onCreateGathering: (newGathering: Omit<Gathering, 'id' | 'rsvpCount' | 'isAttending'>, photo?: File | null) => void;
   currentUser: UserProfile;
   currentUserId: string | null;
   userLocation: { lat: number; lng: number } | null;
@@ -118,6 +123,16 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [formCoords, setFormCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [formCapacity, setFormCapacity] = useState(16);
   const [formTags, setFormTags] = useState('');
+  const [formPhoto, setFormPhoto] = useState<{ file: File; preview: string } | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const pickPhoto = (file: File | undefined) => {
+    setPhotoError(null);
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type)) { setPhotoError('Choose a JPEG, PNG or WebP picture.'); return; }
+    if (file.size > 12 * 1024 * 1024) { setPhotoError('That picture is too large. Choose one under 12 MB.'); return; }
+    setFormPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return { file, preview: URL.createObjectURL(file) }; });
+  };
+  const clearPhoto = () => setFormPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return null; });
   // A quick plan is a lightweight, spontaneous gathering ("Anyone fancy a drink tonight?"); an event is a formal listing.
   const [hostKind, setHostKind] = useState<'event' | 'quick'>('event');
   const [quickWhen, setQuickWhen] = useState<QuickWhen | null>(null);
@@ -189,7 +204,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
       capacity: formCapacity,
       tags: [...formTags.split(',').map((t) => t.trim()).filter(Boolean), ...(quick ? ['quick'] : [])],
       safetyGuidelines: 'Safe Haven principles. Consent-first communication and respectful space conduct.',
-    });
+    }, formPhoto?.file ?? null);
 
     setIsHostModalOpen(false);
     setFormTitle('');
@@ -202,6 +217,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
     setFormError(null);
     setHostKind('event');
     setQuickWhen(null);
+    clearPhoto();
   };
 
   const startQuickPlan = (text: string, category: Gathering['category'], when: QuickWhen) => {
@@ -216,6 +232,11 @@ export const LaterView: React.FC<LaterViewProps> = ({
   };
 
   const nextUp = filteredGatherings.find((g) => !g.cancelled);
+  // Other people's (and your own) quick plans in the next three days, soonest first.
+  const livePlans = gatherings
+    .filter((g) => isQuick(g) && !g.cancelled && g.timestamp > Date.now() && g.timestamp < Date.now() + 72 * 3600_000)
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .slice(0, 8);
 
   return (
     <div className="gayze-premium-page space-y-5">
@@ -233,14 +254,59 @@ export const LaterView: React.FC<LaterViewProps> = ({
         </button>
       </div>
 
-      <div className="ev-quick">
-        <div className="ev-quick__head"><Zap className="w-4 h-4" aria-hidden="true" /><b>Make a quick plan</b><span>Casual, no listing needed</span></div>
-        <div className="ev-quick__row no-scrollbar">
-          {quickPresets(area).map((q) => (
-            <button key={q.text} type="button" onClick={() => { hapticLight(); startQuickPlan(q.text, q.category, q.when); }}>{q.text}</button>
-          ))}
+      <section className="qp" aria-label="Quick plans">
+        <div className="qp__head">
+          <span className="qp__bolt"><Zap className="w-5 h-5" aria-hidden="true" /></span>
+          <div>
+            <h2>Quick plans</h2>
+            <p>Post in ten seconds. People nearby can join.</p>
+          </div>
         </div>
-      </div>
+        <div className="qp__row no-scrollbar">
+          {quickPresets(area).map((q) => {
+            const art = artFor(q.category);
+            const Icon = q.icon;
+            return (
+              <button
+                key={q.text}
+                type="button"
+                className="qp__card"
+                style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}
+                onClick={(e) => { hapticLight(); sparkBurst(e.currentTarget, 'social', 40); window.setTimeout(() => startQuickPlan(q.text, q.category, q.when), 180); }}
+              >
+                <span className="qp__icon"><Icon className="w-6 h-6" aria-hidden="true" /></span>
+                <Icon className="qp__ghost" aria-hidden="true" />
+                <strong>{q.text}</strong>
+                <span className="qp__go"><em>{QUICK_LABEL[q.when]}</em><ArrowRight className="w-4 h-4" aria-hidden="true" /></span>
+              </button>
+            );
+          })}
+        </div>
+        {livePlans.length > 0 && (
+          <div className="qp__live">
+            <h3><Flame className="w-4 h-4" aria-hidden="true" />Happening near you</h3>
+            <div className="qp__live-row no-scrollbar">
+              {livePlans.map((g) => {
+                const art = artFor(g.category);
+                const mine = g.hostName === 'You';
+                const spots = Math.max(0, g.capacity - g.rsvpCount);
+                return (
+                  <article key={g.id} className="qp__plan" style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}>
+                    <span className="qp__when">{g.timestamp - Date.now() < 3 * 3600_000 && <i aria-hidden="true" />}{startsIn(g.timestamp)}</span>
+                    <strong>{g.title}</strong>
+                    <small>{mine ? 'You' : g.hostName} · {g.rsvpCount} going{spots > 0 ? ` · ${spots} left` : ' · Full'}</small>
+                    <button type="button" disabled={mine || busyGatheringId === g.id || (spots === 0 && !g.isAttending && g.myStatus !== 'requested')}
+                      className={g.isAttending || mine ? 'is-going' : ''}
+                      onClick={(e) => { hapticLight(); if (!g.isAttending) sparkBurst(e.currentTarget, 'social', 28); onToggleRsvp(g.id); }}>
+                      {mine ? "You're hosting" : g.isAttending ? 'Going' : g.myStatus === 'requested' ? 'Requested' : 'Join'}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="g-later__filters">
         <div className="g-iseg g-iseg--4" data-tone="social" role="tablist" aria-label="When">
@@ -322,8 +388,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
               style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}
             >
               {gathering.cancelled && <span className="g-ev__stamp" role="img" aria-label="Cancelled">Cancelled</span>}
-              <div className="g-ev__poster">
-                <ArtIcon className="g-ev__art" aria-hidden="true" />
+              <div className={`g-ev__poster ${gathering.photoUrl ? 'has-photo' : ''}`}>
+                {gathering.photoUrl ? <img className="g-ev__photo" src={gathering.photoUrl} alt="" loading="lazy" /> : <ArtIcon className="g-ev__art" aria-hidden="true" />}
                 <div className="g-ev__date" aria-label={when.toLocaleString()}>
                   <b>{when.getDate()}</b>
                   <span>{when.toLocaleString([], { month: 'short' })}</span>
@@ -505,6 +571,23 @@ export const LaterView: React.FC<LaterViewProps> = ({
                     onChange={(e) => setFormTitle(e.target.value)}
                     className="g-field g-iset__field mt-2.5"
                   />
+                </div>
+
+                <div>
+                  <span className="g-label">Picture <small className="ev-opt">optional</small></span>
+                  {formPhoto ? (
+                    <div className="ev-photo has-photo">
+                      <img src={formPhoto.preview} alt="Your event picture" />
+                      <button type="button" className="ev-photo__x" onClick={() => { hapticLight(); clearPhoto(); }} aria-label="Remove picture"><X className="w-4 h-4" /></button>
+                    </div>
+                  ) : (
+                    <label className="ev-photo">
+                      <ImagePlus className="w-6 h-6" aria-hidden="true" />
+                      <span><b>Add a picture</b><small>Makes your plan stand out. Please don't show your address or other people's faces.</small></span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => { pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+                    </label>
+                  )}
+                  {photoError && <p className="ev-photo__err" role="alert">{photoError}</p>}
                 </div>
 
                 <div>

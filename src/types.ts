@@ -94,6 +94,9 @@ export interface Gathering {
   myStatus?: 'requested' | 'attending' | 'declined' | 'cancelled' | null;
   /** The host cancelled this plan. It stays listed, stamped CANCELLED. */
   cancelled?: boolean;
+  /** Storage path of the event picture, and a short-lived link to show it. */
+  photoPath?: string | null;
+  photoUrl?: string | null;
   /** Host only: people waiting for a decision. */
   pending?: { userId: string; name: string; requestedAt: string }[];
   /** Host and accepted guests only: who is going. */
