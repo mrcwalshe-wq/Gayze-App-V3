@@ -2882,4 +2882,9 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 
 /* The chat list is a scrolling flex column: swipe wrappers must keep their full height, not shrink to fit */
 .g-swipe { flex: none; min-height: min-content; }
-.g-swipe__body { min-height: 84px; }
+.gayze-chat-sidebar .g-swipe__body { min-height: 84px; }
+.g-swipe__body { background: var(--swipe-bg, #0d0e14); }
+.g-notification-inbox .g-swipe__body { --swipe-bg: #120e1e; }
+.gm-sheet .g-swipe__body { --swipe-bg: #07050f; }
+.gm-list > li .gm-row { border-top: 0; }
+.gm-list > li + li { border-top: 1px solid rgba(255, 255, 255, .06); }

@@ -649,6 +649,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             return (
               <SwipeRow
                 key={room.id}
+                hintKey={room.id === listedRooms[0]?.id && !archivedRow ? 'gayze:hint:swipe-chats' : undefined}
                 isOpen={swipeOpenId === room.id}
                 onOpenChange={(open) => setSwipeOpenId(open ? room.id : (swipeOpenId === room.id ? null : swipeOpenId))}
                 actions={[

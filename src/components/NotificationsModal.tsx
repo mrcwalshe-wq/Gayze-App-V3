@@ -2,6 +2,7 @@ import { notificationCopy, type NotificationInbox, type InboxNotification } from
 import type { ChatConnectionState } from '../services/realtimeRecovery';
 import type { MemberNotice } from '../services/memberNotices';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { SwipeRow } from './SwipeRow';
 import {
   Bell,
   BellOff,
@@ -59,6 +60,8 @@ interface NotificationsModalProps {
   notices?: MemberNotice[];
   onOpenNotice?: (notice: MemberNotice) => void;
   onOpenNotification?: (notice: InboxNotification) => void;
+  /** Mark one notification read without opening it (slide a row to reveal it). */
+  onMarkNotificationRead?: (notice: InboxNotification) => void;
   /** Marks everything (notifications and Gayze messages) as read. */
   onMarkAllRead?: () => void | Promise<void>;
   unreadTotal?: number;
@@ -108,7 +111,8 @@ const CATEGORIES: { key: CategoryKey; icon: React.ReactNode; label: string; meta
   { key: 'safety', icon: <Shield className="w-4 h-4" />, label: 'Safety', meta: 'Genuine safety events only' },
 ];
 
-export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', notices = [], onOpenNotice, onOpenNotification, onMarkAllRead, unreadTotal = 0, onOpenPublicProfile, onInterestAccepted, embedded = false, onOpenProfile }) => {
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, currentUserId, onClose, inbox, inboxStatus = 'connecting', notices = [], onOpenNotice, onOpenNotification, onMarkNotificationRead, onMarkAllRead, unreadTotal = 0, onOpenPublicProfile, onInterestAccepted, embedded = false, onOpenProfile }) => {
+  const [swipeId, setSwipeId] = useState<string | null>(null);
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -505,7 +509,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                   <p className="text-xs text-zinc-500 px-4 pb-4">Nothing here yet. GAYZE will surface messages, Gayzes and connections here.</p>
                 ) : (
                   recentRows.map((notice) => (
-                    <button key={notice.id} type="button" onClick={() => onOpenNotification?.(notice)}
+                    <SwipeRow key={notice.id} isOpen={swipeId === notice.id} onOpenChange={(open) => setSwipeId(open ? notice.id : null)}
+                      actions={notice.read_at || !onMarkNotificationRead ? [] : [{ key: 'read', label: 'Mark read', tone: 'archive', icon: <CheckCheck className="w-5 h-5" aria-hidden="true" />, onClick: () => onMarkNotificationRead(notice) }]}>
+                    <button type="button" onClick={() => onOpenNotification?.(notice)}
                       className="g-notification-row" aria-label={`${notice.read_at ? 'Read' : 'Unread'}: ${notificationLabel(notice)}`}>
                       <span className={`g-notification-row__dot ${notice.read_at ? 'is-read' : ''}`} />
                       <span className="min-w-0 flex-1">
@@ -514,6 +520,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
                     </button>
+                    </SwipeRow>
                   ))
                 )}
               </section>
