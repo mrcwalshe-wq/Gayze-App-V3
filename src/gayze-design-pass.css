@@ -2954,3 +2954,12 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-photo-gate b { font-size: 14px; }
 .g-photo-gate span { font-size: 12px; color: rgba(255, 255, 255, .7); }
 .g-photo-report { position: absolute; right: 8px; bottom: 8px; min-height: 32px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 12px; font-weight: 750; color: #fff; background: rgba(8, 5, 16, .72); cursor: pointer; }
+
+/* Intent: numbered picks and a "main pick" chooser. The first pick is what the map and Discover show. */
+.ss-rank { position: absolute; top: 8px; right: 8px; min-width: 20px; height: 20px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; font-style: normal; font-size: 11px; font-weight: 800; line-height: 1; color: #fff; background: rgba(var(--ss-rgb), .9); }
+.ss-tile--amber .ss-rank, .ss--later .ss-rank { color: #1a1204; background: #e7c46f; }
+.ss-main { margin-top: 14px; padding: 12px; border-radius: 6px; background: rgba(255, 255, 255, .04); }
+.ss-main__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ss-main__chips button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 4px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .07); }
+.ss-main__chips button[aria-pressed='true'] { color: #fff; background: rgba(var(--ss-rgb), .35); box-shadow: inset 0 0 0 1px rgba(var(--ss-rgb), .8); }
+.ss-main__chips button[aria-pressed='true']::before { content: '1  '; font-weight: 800; opacity: .8; }

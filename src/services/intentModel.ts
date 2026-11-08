@@ -41,6 +41,11 @@ export function cleanActivities(values: readonly string[] | undefined): Activity
   const known = new Set<string>(ACTIVITIES.map((a) => a.id));
   return [...new Set((values ?? []).filter((v) => known.has(v)))].slice(0, MAX_ACTIVITIES) as ActivityId[];
 }
+/** Moves one pick to the front. The first activity is the "main" one shown on the map and in Discover. */
+export function makeMain<T extends string>(list: readonly T[], id: T): T[] {
+  if (!list.includes(id)) return [...list];
+  return [id, ...list.filter((x) => x !== id)];
+}
 export function cleanConnections(values: readonly string[] | undefined): ConnectionId[] {
   const known = new Set<string>(CONNECTIONS.map((c) => c.id));
   return [...new Set((values ?? []).filter((v) => known.has(v)))] as ConnectionId[];

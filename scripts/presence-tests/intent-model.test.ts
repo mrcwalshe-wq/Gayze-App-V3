@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { ACTIVITIES, CONNECTIONS, cleanActivities, cleanConnections, activitySummary } from '../../src/services/intentModel';
+import { ACTIVITIES, CONNECTIONS, cleanActivities, cleanConnections, activitySummary, makeMain } from '../../src/services/intentModel';
 
 const sql = fs.readFileSync(new URL('../../supabase/migrations/20261108100000_intent_model_v2.sql', import.meta.url), 'utf8');
 const listFrom = (marker: string) => {
@@ -39,4 +39,10 @@ test('older signals without saved activities map to the closest activity', () =>
   assert.deepEqual(legacyActivityFor('Hookup · Outdoor'), ['walks']);
   assert.deepEqual(legacyActivityFor('Hookup'), ['spontaneous']);
   assert.deepEqual(legacyActivityFor(undefined), ['spontaneous']);
+});
+
+test('makeMain moves one pick to the front and keeps the rest in order', () => {
+  assert.deepEqual(makeMain(['coffee', 'food', 'music'], 'music'), ['music', 'coffee', 'food']);
+  assert.deepEqual(makeMain(['coffee', 'food'], 'coffee'), ['coffee', 'food']);
+  assert.deepEqual(makeMain(['coffee', 'food'], 'walks'), ['coffee', 'food']);
 });
