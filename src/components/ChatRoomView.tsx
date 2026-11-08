@@ -376,9 +376,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
   // Chats you have put away. Kept on this device only; a cancelled event's group can be archived from the list.
   const archiveKey = `gayze:archived-chats:${currentUserId || 'local'}`;
-  const [archivedIds, setArchivedIds] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(archiveKey) || '[]') as string[]); } catch { return new Set(); }
-  });
+  const readArchived = (key: string): string[] => { try { return JSON.parse(localStorage.getItem(key) || '[]') as string[]; } catch { return []; } };
+  const [archivedIds, setArchivedIds] = useState<Set<string>>(() => new Set(readArchived(archiveKey)));
+  // The account id can arrive after the first render. Re-read when it does, and fold in anything archived before it was known.
+  useEffect(() => {
+    const own = readArchived(archiveKey);
+    const early = archiveKey === 'gayze:archived-chats:local' ? [] : readArchived('gayze:archived-chats:local');
+    const merged = new Set([...own, ...early]);
+    setArchivedIds(merged);
+    if (early.length) {
+      try { localStorage.setItem(archiveKey, JSON.stringify([...merged])); localStorage.removeItem('gayze:archived-chats:local'); } catch { /* keep the early list */ }
+    }
+  }, [archiveKey]);
   const [showArchived, setShowArchived] = useState(false);
   const setArchived = (roomId: string, archived: boolean) => {
     hapticLight();
