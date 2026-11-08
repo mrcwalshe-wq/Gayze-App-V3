@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ShieldCheck, X } from 'lucide-react';
+import {
+  CalendarClock, Check, ChevronLeft, Coffee, Compass, Dices, Dumbbell, Footprints, Heart, MessageCircle, Music, Palette, Radio, ShieldCheck, Sparkles, UsersRound, UtensilsCrossed, Wine, X,
+  type LucideIcon,
+} from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import { intentStartsAt, formatLaterAt } from '../services/intentTiming';
 import { loadOpenToMore, setOpenToMore } from '../services/supabaseService';
@@ -26,6 +29,11 @@ interface SetIntentSheetProps {
 }
 
 const STEPS = ['Availability', 'Activity', 'Connection'] as const;
+const ACTIVITY_ICON: Record<string, LucideIcon> = {
+  coffee: Coffee, drinks: Wine, food: UtensilsCrossed, walks: Footprints, music: Music, fitness: Dumbbell,
+  explore: Compass, culture: Palette, games: Dices, chat: MessageCircle, spontaneous: Sparkles,
+};
+const CONNECTION_ICON: Record<string, LucideIcon> = { new: UsersRound, friends: UsersRound, dating: Heart, see: Sparkles, social: Wine };
 const pad = (n: number) => String(n).padStart(2, '0');
 const toLocalInput = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 /** Tomorrow at 19:00, a sensible starting point for "later". */
@@ -188,10 +196,10 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
               <>
                 <div className="ss-grid2">
                   <button type="button" className="ss-tile ss-tile--big" aria-pressed={!later} onClick={() => { hapticLight(); setWhen('Now'); }}>
-                    <b>Right now</b><span>Available for the next few hours</span>
+                    <span className="ss-ico"><Radio className="w-[18px] h-[18px]" /></span><span className="ss-copy"><b>Right now</b><span>Available for the next few hours</span></span>
                   </button>
                   <button type="button" className="ss-tile ss-tile--big ss-tile--amber" aria-pressed={later} onClick={() => { hapticLight(); setWhen('Later'); }}>
-                    <b>Later</b><span>Planning ahead, up to 24 hours</span>
+                    <span className="ss-ico"><CalendarClock className="w-[18px] h-[18px]" /></span><span className="ss-copy"><b>Later</b><span>Planning ahead, up to 24 hours</span></span>
                   </button>
                 </div>
                 {later && (
@@ -217,7 +225,8 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 <div className="ss-grid2">
                   {ACTIVITIES.map((a) => (
                     <button key={a.id} type="button" className={`ss-tile ${later ? 'ss-tile--amber' : ''}`} aria-pressed={activities.includes(a.id)} onClick={() => { hapticLight(); setActivities((l) => toggle(l, a.id, MAX_ACTIVITIES)); }}>
-                      <b>{a.label}</b><span>{a.hint}</span>
+                      <span className="ss-ico">{React.createElement(ACTIVITY_ICON[a.id] ?? Sparkles, { className: 'w-[18px] h-[18px]' })}</span>
+                      <span className="ss-copy"><b>{a.label}</b><span>{a.hint}</span></span>
                     </button>
                   ))}
                 </div>
@@ -257,7 +266,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                 <div className="ss-opts">
                   {CONNECTIONS.map((c) => (
                     <button key={c.id} type="button" className="ss-opt" aria-pressed={connections.includes(c.id)} onClick={() => { hapticLight(); setConnections((l) => toggle(l, c.id)); }}>
-                      <span className="ss-box"><Check className="w-3 h-3" strokeWidth={3} /></span><b>{c.label}</b>
+                      <span className="ss-ico ss-ico--sm">{React.createElement(CONNECTION_ICON[c.id] ?? Sparkles, { className: 'w-4 h-4' })}</span><b>{c.label}</b><span className="ss-box"><Check className="w-3 h-3" strokeWidth={3} /></span>
                     </button>
                   ))}
                 </div>

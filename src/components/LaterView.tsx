@@ -227,11 +227,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
       </div>
 
       <div className="ev-actions">
-        <button type="button" className="ev-action" onClick={() => { hapticLight(); document.getElementById('ev-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
-          <Calendar className="w-5 h-5" aria-hidden="true" /><span><b>Discover</b><small>Find events nearby</small></span>
-        </button>
         <button type="button" className="ev-action ev-action--host" onClick={() => { hapticLight(); setHostKind('event'); setIsHostModalOpen(true); }}>
-          <Plus className="w-5 h-5" aria-hidden="true" /><span><b>Host</b><small>Create a gathering</small></span>
+          <Plus className="w-5 h-5" aria-hidden="true" /><span><b>Host an event</b><small>Create a gathering and chat with everyone who is going</small></span>
         </button>
       </div>
 
@@ -454,7 +451,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
       {isHostModalOpen && (
         <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setIsHostModalOpen(false)} role="dialog" aria-modal="true" aria-label="Host a gathering">
-          <div className="g-sheet g-sheet--above-nav g-iset" onClick={(e) => e.stopPropagation()}>
+          <div className="g-sheet g-sheet--above-nav g-iset g-sheet--dark" onClick={(e) => e.stopPropagation()}>
             <div className="g-sheet__grip" />
             <div className="g-sheet__head">
               <div className="min-w-0">

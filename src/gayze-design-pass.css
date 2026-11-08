@@ -2578,3 +2578,36 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .ev-when { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; }
 .ev-when button { flex: none; min-height: 38px; padding: 0 13px; border: 0; border-radius: 4px; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: rgba(255, 255, 255, .75); background: rgba(255, 255, 255, .08); }
 .ev-when button[aria-pressed='true'] { color: #fff; background: rgba(214, 170, 80, .4); }
+
+/* ===================================================================================================
+   MENUS, in the style of the original Social tab: icon tiles, the white-to-lilac-to-gold title and gradient labels,
+   on a much darker base. Selection glows instead of drawing a frame.
+   =================================================================================================== */
+.ss { background: #05030c !important; }
+.ss-haze { opacity: .5; filter: blur(34px); }
+.g-sheet--dark { background: #05030c !important; }
+.ss-title { background: linear-gradient(95deg, #fff 0%, #dcc8ff 38%, #f6c1cf 66%, #f2d58a 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 24px; letter-spacing: -.03em; }
+.ss-eyebrow { background: linear-gradient(90deg, #b796f0, #f0b8c8 55%, #d9b765); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700; }
+.ss-switch-row .ss-eyebrow, .ss-field .ss-eyebrow { display: inline-block; }
+
+.ss-tile { flex-direction: row; align-items: center; gap: 11px; min-height: 66px; padding: 10px 11px; background: rgba(255, 255, 255, .035); }
+.ss-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ss-copy b { font-size: 14px; font-weight: 750; letter-spacing: -.01em; line-height: 1.15; }
+.ss-copy span { font-size: 10.5px; line-height: 1.25; color: rgba(255, 255, 255, .45); }
+.ss-ico { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 6px; color: rgba(255, 255, 255, .6); background: rgba(255, 255, 255, .06); transition: color .2s, background .2s, box-shadow .25s; }
+.ss-ico--sm { width: 32px; height: 32px; }
+.ss-tile[aria-pressed='true'], .ss-opt[aria-pressed='true'] { background: linear-gradient(135deg, rgba(var(--ss-rgb), .22), rgba(var(--ss-rgb), .06)); box-shadow: 0 0 24px rgba(var(--ss-rgb), .26), inset 0 1px 0 rgba(255, 255, 255, .1); }
+.ss-tile[aria-pressed='true'] .ss-ico, .ss-opt[aria-pressed='true'] .ss-ico { color: rgb(var(--ss-rgb)); background: rgba(var(--ss-rgb), .2); box-shadow: 0 0 14px rgba(var(--ss-rgb), .45); }
+.ss-tile[aria-pressed='true'] .ss-copy span { color: rgba(255, 255, 255, .72); }
+.ss-tile--big { min-height: 84px; } .ss-tile--big .ss-copy b { font-size: 17px; }
+.ss-tile--amber[aria-pressed='true'] { background: linear-gradient(135deg, rgba(214, 170, 80, .22), rgba(214, 170, 80, .06)); box-shadow: 0 0 24px rgba(214, 170, 80, .26), inset 0 1px 0 rgba(255, 255, 255, .1); }
+.ss-tile--amber[aria-pressed='true'] .ss-ico { color: #f0cf86; background: rgba(214, 170, 80, .22); box-shadow: 0 0 14px rgba(214, 170, 80, .45); }
+.ss-opt { padding: 10px 12px; } .ss-opt b { flex: 1; }
+.ss-opt .ss-box { order: 3; margin-left: auto; }
+
+/* Events: one clear Host action */
+.ev-actions { grid-template-columns: 1fr; }
+.ev-action b { font-size: 16px; }
+.ss-haze { opacity: .28; }
+.ss-tile { gap: 9px; padding: 9px 10px; } .ss-tile .ss-ico { width: 32px; height: 32px; }
+.ss-copy b { font-size: 13.5px; }
