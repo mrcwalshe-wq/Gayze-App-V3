@@ -3,6 +3,8 @@
  * Implementing AES-GCM 256-bit authenticated encryption and SHA-256 fingerprints
  */
 
+import { singleFlight } from './singleFlight';
+
 // Helper to convert ArrayBuffer to Hex string
 export function bufToHex(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -237,7 +239,18 @@ function ecdhParams() {
   return { name: 'ECDH', namedCurve: 'P-256' } as const;
 }
 
-export async function getOrCreateDeviceIdentity(userId?: string): Promise<DeviceIdentity> {
+const deviceIdentityFlight = singleFlight<DeviceIdentity>();
+
+/**
+ * Two overlapping calls on a brand-new device used to each generate their own keys and device id and
+ * overwrite one another, so the registered signing key no longer matched the stored one and the
+ * sign-in check was rejected. Overlapping calls now share one run.
+ */
+export function getOrCreateDeviceIdentity(userId?: string): Promise<DeviceIdentity> {
+  return deviceIdentityFlight('device', () => createOrLoadDeviceIdentity(userId));
+}
+
+async function createOrLoadDeviceIdentity(userId?: string): Promise<DeviceIdentity> {
   // Account-scoped local storage, but unique cryptographic keys per physical device.
   // Cross-device conversation access is granted by per-device key envelopes.
   if (userId) localStorage.setItem(ACTIVE_IDENTITY_USER_KEY, userId);
