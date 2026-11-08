@@ -107,34 +107,7 @@ const spreadOverlappingCoordinate = (
 import { CountdownPill } from './CountdownPill';
 import { CompatibilitySnapshot } from './CompatibilitySnapshot';
 import { PeerProfileSummary } from './PeerProfileSummary';
-import {
-  ShieldCheck,
-  Lock,
-  Clock,
-  MapPin,
-  X,
-  Zap,
-  CheckCircle2,
-  Check,
-  Calendar,
-  MessageSquare,
-  SlidersHorizontal,
-  Plus,
-  Minus,
-  Navigation,
-  LayoutGrid,
-  Eye,
-  Maximize2,
-  Edit3,
-  Pause,
-  Play,
-  Share2,
-  Compass,
-  Sparkles,
-  RefreshCw,
-  List,
-  Radio
-} from 'lucide-react';
+import { ShieldCheck, Lock, Clock, MapPin, X, Zap, CheckCircle2, Check, Calendar, MessageSquare, SlidersHorizontal, Plus, Navigation, Eye, Maximize2, Edit3, Pause, Play, Share2, Compass, Sparkles, RefreshCw, Radio } from 'lucide-react';
 import { MAP_PROVIDERS, tileLayerOptions } from '../config/mapProviders';
 import {
   FALLBACK_MAP_CENTER,
@@ -1428,10 +1401,23 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         />
       )}
       {!selectedItem && !isNearbyOpen && !isFilterDrawerOpen && (
-        <div className="mapmode" role="group" aria-label="Map or people">
-          <button type="button" aria-pressed={!peopleView} onClick={() => { hapticLight(); setPeopleView(false); }}>Map</button>
-          <button type="button" aria-pressed={peopleView} onClick={() => { hapticLight(); setPeopleView(true); }}>People{peopleTiles.length > 0 ? ` · ${peopleTiles.length}` : ''}</button>
-        </div>
+        <>
+          <div className="mapmode" role="group" aria-label="How to see people">
+            <button type="button" aria-pressed={!peopleView && !gridMode} onClick={() => { hapticLight(); setPeopleView(false); setGridMode(false); }}>Map</button>
+            <button type="button" aria-pressed={!peopleView && gridMode} onClick={() => { hapticLight(); setPeopleView(false); setGridMode(true); }}>Grid</button>
+            <button type="button" aria-pressed={peopleView} onClick={() => { hapticLight(); setPeopleView(true); }}>People{peopleTiles.length > 0 ? ` · ${peopleTiles.length}` : ''}</button>
+          </div>
+          {!peopleView && (
+            <button
+              type="button"
+              className="g-locate-fab"
+              onClick={() => { hapticLight(); if (!userLocation && onRequestLocation) onRequestLocation(); else mapControlsRef.current?.recenter(); }}
+              aria-label={!userLocation && onRequestLocation ? 'Use my location' : 'Centre the map on me'}
+            >
+              {!userLocation && onRequestLocation ? <MapPin className="w-[18px] h-[18px]" /> : <Navigation className="w-[18px] h-[18px]" />}
+            </button>
+          )}
+        </>
       )}
       {gridMode && gridInfo && (
         <div className="gz-legend" role="status">
@@ -1442,56 +1428,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           </div>
         </div>
       )}
-      {/* Right micro-rail — locate · zoom only (privacy radius lives in filters) */}
-      <div className="g-map-rail absolute top-[calc(env(safe-area-inset-top,0px)+66px)] right-3 z-30 pointer-events-auto">
-        <button
-          type="button"
-          onClick={() => {
-            hapticLight();
-            mapControlsRef.current?.recenter();
-          }}
-          title="Locate me"
-          aria-label="Locate me"
-          className="g-icon-btn"
-        >
-          <Navigation className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            hapticLight();
-            mapControlsRef.current?.zoomIn();
-          }}
-          title="Zoom in"
-          aria-label="Zoom in"
-          className="g-icon-btn"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            hapticLight();
-            mapControlsRef.current?.zoomOut();
-          }}
-          title="Zoom out"
-          aria-label="Zoom out"
-          className="g-icon-btn"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => { hapticLight(); setGridMode((v) => !v); }}
-          title={gridMode ? 'Hide map grid' : 'Show map grid (cells)'}
-          aria-label={gridMode ? 'Hide map grid' : 'Show map grid'}
-          aria-pressed={gridMode}
-          className={`g-icon-btn g-gridbtn ${gridMode ? 'is-on' : ''}`}
-        >
-          <LayoutGrid className="w-4 h-4" />
-        </button>
-      </div>
-
       {/* Empty discovery is intentionally silent: the compact RIGHT NOW count above
           already communicates availability. Keep the map unobstructed and let the
           existing navigation/nearby controls provide the next actions. */}
@@ -1499,17 +1435,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {/* =========================================================================
           4.6. BOTTOM ACTION BAR — discovery drawer + the one primary action
          ========================================================================= */}
-      {!selectedItem && !isCardExpanded && (
-        <>
-          <div className="g-nearby-float">
-            {!userLocation && onRequestLocation ? (
-              <button type="button" onClick={onRequestLocation} className="g-float g-nearby-btn" aria-label="Use my location"><MapPin className="w-3.5 h-3.5 text-[#C9A24D]" /><span>Use location</span></button>
-            ) : (
-              <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className="g-float g-nearby-btn" aria-expanded={isNearbyOpen} aria-label={`${liveMembersCount} nearby — open nearby intents`}><List className="w-3.5 h-3.5" />{liveMembersCount > 0 && <span>{liveMembersCount}</span>}<span className="g-nearby-btn__chevron">›</span></button>
-            )}
-          </div>
-        </>
-      )}
 
       {/* =========================================================================
           5. INTENT PREVIEW CARD — identity, intent, one primary action

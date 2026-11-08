@@ -2276,3 +2276,27 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
     radial-gradient(46% 36% at 72% 88%, rgba(201, 150, 60, .19), transparent 70%),
     radial-gradient(40% 32% at 12% 84%, rgba(240, 190, 100, .17), transparent 70%);
 }
+
+/* ===================================================================================================
+   MAP, decluttered (research: Apple HIG Maps, NN/g bottom sheets, Apple/Google Maps).
+   Persistent controls fall from nine to four: [signal chip] [filters] at the top, and one row at the bottom with the
+   view switch (Map | Grid | People) centred and one locate button on the thumb side. Zoom buttons are gone (pinch and
+   double-tap are the norm), the list button is gone (it opened the same drawer as filters), and the grid toggle now
+   lives in the view switch instead of the rail.
+   =================================================================================================== */
+.g-shell[data-active-tab='right_now'] .mapmode { left: 50% !important; transform: translateX(-50%) !important; }
+.g-shell[data-active-tab='right_now'] .mapmode button { padding: 0 16px; min-width: 64px; justify-content: center; }
+.g-locate-fab {
+  position: absolute; z-index: 41; right: var(--hud-m, 12px); bottom: var(--hud-bottom, 100px); width: var(--hud-h, 44px); height: var(--hud-h, 44px); display: grid; place-items: center; color: #fff; border-radius: var(--hud-r, 6px);
+  background: var(--hud-glass, linear-gradient(180deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .04)), rgba(14, 10, 28, .6)); border: 1px solid rgba(255, 255, 255, .2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .24); -webkit-backdrop-filter: blur(20px) saturate(1.7); backdrop-filter: blur(20px) saturate(1.7);
+}
+.g-locate-fab:active { transform: scale(.96); }
+.g-locate-fab svg { color: #fff; }
+/* The legend sits just above the bottom row */
+.g-shell[data-active-tab='right_now'] .gz-legend { right: var(--hud-m) !important; }
+/* The attribution moves clear of the locate button */
+.g-shell[data-active-tab='right_now'] .leaflet-bottom.leaflet-right { margin-bottom: calc(var(--hud-bottom) - 18px) !important; }
+/* With the rail gone, the status notice runs margin to margin */
+.g-shell[data-active-tab='right_now'] .g-toast--map-status { right: var(--hud-m) !important; }
+.g-shell[data-active-tab='right_now'] .mapmode button { white-space: nowrap; }
