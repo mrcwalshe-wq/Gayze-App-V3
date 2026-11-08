@@ -2724,3 +2724,8 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-archived__toggle span { margin-left: 2px; padding: 1px 8px; border-radius: 4px; background: rgba(255, 255, 255, .08); font-size: 11.5px; }
 .g-archived__chev { margin-left: auto; transition: transform .2s ease; }
 .g-archived__chev.is-open { transform: rotate(180deg); }
+
+/* A finished event: calm, done */
+.g-chatrow[data-finished] .g-chatrow__av.is-group { color: #8fd8b4; background: linear-gradient(150deg, rgba(70, 190, 140, .2), #151221 62%); }
+.g-chatrow[data-finished] .g-chatrow__top strong { color: rgba(255, 255, 255, .78); }
+.g-chatrow__tags .is-finished { color: #7fd1a8; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 10.5px; }
