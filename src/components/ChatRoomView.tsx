@@ -23,6 +23,7 @@ import {
   Key,
   KeyRound,
   CalendarX,
+  MessageCircle,
   CalendarCheck,
   Archive,
   ArchiveRestore,
@@ -727,7 +728,19 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           };
           return (
             <>
-              {listedRooms.map((room) => renderRow(room, false))}
+              {(() => {
+                const privateRooms = listedRooms.filter((r) => r.type !== 'gathering');
+                const groupRooms = listedRooms.filter((r) => r.type === 'gathering');
+                const sectioned = privateRooms.length > 0 && groupRooms.length > 0;
+                return (
+                  <>
+                    {sectioned && <h3 className="g-chat-section"><MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />Private chats<span>{privateRooms.length}</span></h3>}
+                    {privateRooms.map((room) => renderRow(room, false))}
+                    {sectioned && <h3 className="g-chat-section is-group"><Users className="w-3.5 h-3.5" aria-hidden="true" />Event groups<span>{groupRooms.length}</span></h3>}
+                    {groupRooms.map((room) => renderRow(room, false))}
+                  </>
+                );
+              })()}
               {archivedRooms.length > 0 && (
                 <>
                   <button type="button" className="g-archived__toggle" aria-expanded={showArchived} onClick={() => { hapticLight(); setShowArchived((v) => !v); }}>
