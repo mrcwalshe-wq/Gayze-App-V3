@@ -4049,6 +4049,7 @@ export default function App() {
                     onMeetingAction={handleMeetingAction}
                     onReturnToDiscovery={() => setActiveTab('right_now')}
                     onlineUserIds={effectiveOnlineIds}
+                    cancelledGatheringIds={new Set(gatherings.filter((g) => g.cancelled).map((g) => g.id))}
                     connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
                     conversationKeyUnavailable={
                       Boolean(activeRoomId)

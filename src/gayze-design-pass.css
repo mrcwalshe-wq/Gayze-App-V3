@@ -2679,3 +2679,48 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-live-card__actions { gap: 6px; margin-top: 12px; }
 .g-live-card__actions button { min-height: 48px; border: 0 !important; border-radius: 6px !important; font-weight: 700; background: rgba(255, 255, 255, .07) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1); }
 .g-live-card__actions .is-end { background: rgba(244, 63, 94, .1) !important; }
+
+/* ---- Messages, refined: event groups, cancelled plans, archive ---------------------------------- */
+.g-chatrow__av.is-group {
+  color: #f0d58a; border-radius: 12px;
+  background: linear-gradient(150deg, rgba(120, 70, 210, .55), #151221 58%, rgba(214, 170, 80, .32));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), 0 8px 20px rgba(0, 0, 0, .5);
+}
+.g-chatrow__tags .is-group { color: #e7c46f; letter-spacing: .02em; }
+.g-chatrow__top strong { letter-spacing: -.02em; }
+.g-chatrow__top time { font-variant-numeric: tabular-nums; }
+.g-chatrow__msg { color: rgba(255, 255, 255, .62); }
+
+/* A cancelled plan: still there to read, clearly finished */
+.g-chatrow[data-cancelled] .g-chatrow__av.is-group {
+  color: #f08a8f; background: linear-gradient(150deg, rgba(240, 100, 110, .22), #151221 62%); filter: saturate(.8);
+}
+.g-chatrow[data-cancelled] .g-chatrow__top strong { color: rgba(255, 255, 255, .6); text-decoration: line-through; text-decoration-color: rgba(240, 120, 125, .55); text-decoration-thickness: 1.5px; }
+.g-chatrow[data-cancelled] .g-chatrow__msg { color: rgba(255, 255, 255, .42); }
+.g-chatrow__tags .is-cancelled { color: #f4848a; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 10.5px; }
+.g-chatrow[data-archived] { opacity: .72; }
+
+/* The strip under a cancelled / archived row */
+.g-chatrow-act {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px 18px 8px 88px; padding: 8px 0 0;
+  font-size: 12px; color: rgba(255, 255, 255, .48); border-top: 1px dashed rgba(255, 255, 255, .08);
+}
+.g-chatrow-act[data-cancelled] span { color: rgba(244, 132, 138, .85); }
+.g-chatrow-act button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px; border: 0; border-radius: 6px;
+  font-size: 12.5px; font-weight: 700; color: #fff; background: rgba(255, 255, 255, .07); cursor: pointer;
+  transition: background .18s ease, transform .12s ease;
+}
+.g-chatrow-act button:hover { background: rgba(255, 255, 255, .12); }
+.g-chatrow-act button:active { transform: scale(.97); }
+
+/* Archived section */
+.g-archived__toggle {
+  display: flex; align-items: center; gap: 10px; width: calc(100% - 36px); margin: 14px 18px 4px; padding: 0 14px; min-height: 44px;
+  border: 0; border-radius: 6px; background: rgba(255, 255, 255, .04); color: rgba(255, 255, 255, .7);
+  font-size: 13px; font-weight: 700; cursor: pointer; position: relative;
+}
+.g-archived__toggle::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; border-radius: 6px 6px 0 0; background: linear-gradient(90deg, #7a3fe0, #e24bb0, #f0b64a); opacity: .7; }
+.g-archived__toggle span { margin-left: 2px; padding: 1px 8px; border-radius: 4px; background: rgba(255, 255, 255, .08); font-size: 11.5px; }
+.g-archived__chev { margin-left: auto; transition: transform .2s ease; }
+.g-archived__chev.is-open { transform: rotate(180deg); }

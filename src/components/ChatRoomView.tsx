@@ -20,6 +20,10 @@ import {
   Flame,
   Key,
   KeyRound,
+  CalendarX,
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
   Check,
   Info,
   ChevronLeft,
@@ -82,6 +86,8 @@ interface ChatRoomViewProps {
   onMeetingAction?: (action: MeetupAction, meeting: MeetingProposal) => void;
   onReturnToDiscovery?: () => void;
   onlineUserIds?: Set<string>;
+  /** Gatherings the host has cancelled; their group chats get a Cancelled mark and can be archived. */
+  cancelledGatheringIds?: Set<string>;
   connectionState?: ChatConnectionState;
   /** True when no conversation key could be resolved on this device. */
   conversationKeyUnavailable?: boolean;
@@ -139,6 +145,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onMeetingAction,
   onReturnToDiscovery,
   onlineUserIds,
+  cancelledGatheringIds,
   connectionState,
   conversationKeyUnavailable = false,
   conversationKeyReason,
@@ -350,6 +357,26 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     };
     return [...rooms].sort((a, b) => activity(b) - activity(a));
   }, [rooms, messages, gayzeEvents]);
+
+  // Chats you have put away. Kept on this device only; a cancelled event's group can be archived from the list.
+  const archiveKey = `gayze:archived-chats:${currentUserId || 'local'}`;
+  const [archivedIds, setArchivedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(archiveKey) || '[]') as string[]); } catch { return new Set(); }
+  });
+  const [showArchived, setShowArchived] = useState(false);
+  const setArchived = (roomId: string, archived: boolean) => {
+    hapticLight();
+    setArchivedIds((prev) => {
+      const next = new Set(prev);
+      if (archived) next.add(roomId); else next.delete(roomId);
+      try { localStorage.setItem(archiveKey, JSON.stringify([...next])); } catch { /* storage unavailable: archived for this session only */ }
+      return next;
+    });
+  };
+  const isCancelledEvent = (room: SwarmRoom) => room.type === 'gathering'
+    && (Boolean(room.gatheringId && cancelledGatheringIds?.has(room.gatheringId)) || /host cancelled this plan/i.test(room.lastMessage || ''));
+  const listedRooms = sortedRooms.filter((r) => !archivedIds.has(r.id));
+  const archivedRooms = sortedRooms.filter((r) => archivedIds.has(r.id));
 
   // Who in my chats is live right now (display fields only; refreshed while the app is open).
   const peerLive = usePeersLiveIntents(useMemo(() => rooms.map((r) => r.peerUserId || '').filter(Boolean), [rooms]));
@@ -573,9 +600,10 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               </div>
             </section>
           )}
-          {sortedRooms.map((room) => {
+          {(() => { const renderRow = (room: SwarmRoom, archivedRow: boolean) => {
             const isSelected = room.id === currentRoom?.id;
             const isGathering = room.type === 'gathering';
+            const cancelled = isCancelledEvent(room);
             const isLocked = /^can.?t decrypt/i.test(room.lastMessage || '');
             const roomAvatar = room.peerAvatar && room.peerAvatar !== 'user'
               ? (avatarUrls[room.peerAvatar] || (room.peerAvatar.startsWith('http') ? room.peerAvatar : null))
@@ -585,11 +613,13 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             const recently = !isOnline && !isGathering && presenceLabel(false, room.peerLastSeenAt).tone === 'recent';
 
             return (
+              <React.Fragment key={room.id}>
               <button
-                key={room.id}
                 type="button"
                 onClick={() => handleSelectRoom(room.id)}
                 className="g-chatrow"
+                data-cancelled={cancelled || undefined}
+                data-archived={archivedRow || undefined}
                 data-active={isSelected}
                 data-live={liveNow ? liveNow.mode : undefined}
               >
@@ -599,7 +629,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   style={{ ['--h' as string]: avatarHue(room.name) }}
                 >
                   {isGathering ? (
-                    <Users className="w-5 h-5" />
+                    cancelled ? <CalendarX className="w-5 h-5" /> : <Users className="w-5 h-5" />
                   ) : roomAvatar ? (
                     <img src={roomAvatar} alt="" />
                   ) : (
@@ -625,7 +655,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   )}
                   {(isGathering || room.ephemeralTtlSeconds > 0 || isLocked) && (
                     <span className="g-chatrow__tags">
-                      {isGathering && <span className="is-group"><Users className="w-3 h-3" aria-hidden="true" />Group</span>}
+                      {cancelled
+                        ? <span className="is-cancelled"><CalendarX className="w-3 h-3" aria-hidden="true" />Cancelled</span>
+                        : isGathering && <span className="is-group"><Users className="w-3 h-3" aria-hidden="true" />Event group</span>}
                       {room.ephemeralTtlSeconds > 0 && (
                         <span className="is-ttl"><Flame className="w-3 h-3" aria-hidden="true" />{getTtlLabel(room.ephemeralTtlSeconds)}</span>
                       )}
@@ -634,8 +666,32 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   )}
                 </span>
               </button>
+              {(cancelled || archivedRow) && (
+                <div className="g-chatrow-act" data-cancelled={cancelled || undefined}>
+                  <span>{archivedRow ? 'Archived on this device.' : 'This plan is over. Archive it to tidy your list.'}</span>
+                  <button type="button" onClick={() => setArchived(room.id, !archivedRow)}>
+                    {archivedRow ? <ArchiveRestore className="w-3.5 h-3.5" aria-hidden="true" /> : <Archive className="w-3.5 h-3.5" aria-hidden="true" />}
+                    {archivedRow ? 'Restore' : 'Archive'}
+                  </button>
+                </div>
+              )}
+              </React.Fragment>
             );
-          })}
+          };
+          return (
+            <>
+              {listedRooms.map((room) => renderRow(room, false))}
+              {archivedRooms.length > 0 && (
+                <>
+                  <button type="button" className="g-archived__toggle" aria-expanded={showArchived} onClick={() => { hapticLight(); setShowArchived((v) => !v); }}>
+                    <Archive className="w-4 h-4" aria-hidden="true" />Archived<span>{archivedRooms.length}</span>
+                    <ChevronDown className={`w-4 h-4 g-archived__chev ${showArchived ? 'is-open' : ''}`} aria-hidden="true" />
+                  </button>
+                  {showArchived && archivedRooms.map((room) => renderRow(room, true))}
+                </>
+              )}
+            </>
+          ); })()}
         </div>
 
         {/* Footnote: plain words about what the lock means, clear of the tab bar */}
