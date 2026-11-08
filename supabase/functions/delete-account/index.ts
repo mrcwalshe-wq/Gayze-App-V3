@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     // Remove only objects under this account's own storage prefix.
-    // This covers current profile photos and legacy Photos uploads.
+    // This covers profile photos, event pictures the member uploaded, and legacy Photos uploads.
     async function listOwnedFiles(bucket: string, folder: string): Promise<string[]> {
       const { data, error } = await admin.storage.from(bucket).list(folder, { limit: 1000, offset: 0 });
       if (error) throw new Error(`Could not inspect account files in ${bucket}: ${error.message}`);
@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
       return files;
     }
 
-    for (const bucket of ["profile-photos", "Photos"]) {
+    for (const bucket of ["profile-photos", "event-photos", "Photos"]) {
       const files = await listOwnedFiles(bucket, user.id).catch((error) => {
         // A missing legacy bucket is harmless; a current profile bucket error is not.
         if (bucket === "Photos" && /not found|does not exist/i.test(String(error))) return [];
