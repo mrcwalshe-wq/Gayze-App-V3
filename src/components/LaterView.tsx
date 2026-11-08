@@ -20,12 +20,14 @@ import {
   UtensilsCrossed,
   Zap,
   ImagePlus,
+  Pencil,
   Flame,
   type LucideIcon,
 } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
 import { PlacePicker } from './PlacePicker';
 import { sparkBurst } from './SparkBorder';
+import { SwipeRow } from './SwipeRow';
 import { EditPlanSheet, type PlanChanges } from './EditPlanSheet';
 import { categoryKey, quickTime, myActivePlans, type QuickWhen } from '../services/eventsModel';
 
@@ -114,6 +116,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [closingId, setClosingId] = useState<string | null>(null);
   const [closeBusy, setCloseBusy] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Gathering | null>(null);
+  const [swipeId, setSwipeId] = useState<string | null>(null);
 
   // Form states
   const [formTitle, setFormTitle] = useState('');
@@ -267,7 +270,12 @@ export const LaterView: React.FC<LaterViewProps> = ({
             const art = artFor(g.category);
             const confirming = closingId === `mine:${g.id}`;
             return (
-              <article key={g.id} className="yp__row" style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}>
+              <SwipeRow key={g.id} hintKey={g.id === myPlans[0]?.id ? 'gayze:hint:swipe-plans' : undefined} isOpen={swipeId === g.id} onOpenChange={(open) => setSwipeId(open ? g.id : null)}
+                actions={[
+                  ...(onUpdateGathering ? [{ key: 'edit', label: 'Edit', tone: 'archive' as const, icon: <Pencil className="w-5 h-5" aria-hidden="true" />, onClick: () => setEditingPlan(g) }] : []),
+                  ...(onCancelGathering ? [{ key: 'cancel', label: 'Cancel', tone: 'danger' as const, icon: <X className="w-5 h-5" aria-hidden="true" />, onClick: () => setClosingId(`mine:${g.id}`) }] : []),
+                ]}>
+              <article className="yp__row" style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}>
                 <div className="yp__info">
                   <span className="yp__kind">{isQuick(g) ? 'Quick plan' : art.label} · {startsIn(g.timestamp)}</span>
                   <strong>{g.title}</strong>
@@ -286,6 +294,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   </div>
                 )}
               </article>
+              </SwipeRow>
             );
           })}
         </section>

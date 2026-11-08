@@ -3995,6 +3995,7 @@ export default function App() {
                     notices={memberNotices}
                     onOpenNotice={openMemberNotice}
                     onOpenNotification={openInboxNotification}
+                    onMarkNotificationRead={(notice) => { void markNotificationRead(notice.id).then(() => notificationRefreshRef.current()).catch(() => {}); }}
                     onMarkAllRead={handleMarkAllRead}
                     unreadTotal={(notificationInbox?.unread ?? 0) + memberUnreadCount}
                     onOpenPublicProfile={openPublicProfile}

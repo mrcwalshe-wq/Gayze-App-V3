@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { SwipeRow } from './SwipeRow';
 import { X, MessageCircle, Crown, UserRound, CalendarDays, MapPin, CalendarX } from 'lucide-react';
 import { hapticLight } from '../services/hapticService';
 
@@ -24,6 +25,7 @@ export function formatEventWhen(ts: number) {
 
 /** Who is in an event group, with a way to start a private chat with each of them. */
 export const GroupMembersSheet: React.FC<Props> = ({ isOpen, onClose, title, members, event, onMessage, onViewProfile }) => {
+  const [swipeId, setSwipeId] = useState<string | null>(null);
   if (!isOpen) return null;
   const sorted = [...members].sort((a, b) => Number(b.isHost) - Number(a.isHost) || Number(b.isYou) - Number(a.isYou) || a.name.localeCompare(b.name));
   return (
@@ -47,7 +49,13 @@ export const GroupMembersSheet: React.FC<Props> = ({ isOpen, onClose, title, mem
         <p className="gm-count">{members.length} {members.length === 1 ? 'person' : 'people'} in this group</p>
         <ul className="gm-list">
           {sorted.map((m) => (
-            <li key={m.userId} className="gm-row">
+            <li key={m.userId}>
+            <SwipeRow isOpen={swipeId === m.userId} onOpenChange={(open) => setSwipeId(open ? m.userId : null)}
+              actions={m.isYou ? [] : [
+                { key: 'profile', label: 'Profile', tone: 'archive', icon: <UserRound className="w-5 h-5" aria-hidden="true" />, onClick: () => onViewProfile(m) },
+                { key: 'message', label: m.hasChat ? 'Open chat' : 'Message', tone: 'archive', icon: <MessageCircle className="w-5 h-5" aria-hidden="true" />, onClick: () => onMessage(m) },
+              ]}>
+            <div className="gm-row">
               <button type="button" className="gm-av" style={{ ['--h' as string]: hue(m.name) }} onClick={() => { if (!m.isYou) onViewProfile(m); }} aria-label={m.isYou ? 'You' : `View ${m.name}`} disabled={m.isYou}>
                 <b>{m.name.charAt(0).toUpperCase()}</b>
               </button>
@@ -63,6 +71,8 @@ export const GroupMembersSheet: React.FC<Props> = ({ isOpen, onClose, title, mem
                   </button>
                 </span>
               )}
+            </div>
+            </SwipeRow>
             </li>
           ))}
         </ul>

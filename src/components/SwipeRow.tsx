@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export interface SwipeAction { key: string; label: string; icon: React.ReactNode; tone: 'archive' | 'danger'; onClick: () => void }
 
@@ -7,6 +7,8 @@ interface Props {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  /** Storage key: the first time it is seen, the row nudges open and back once so people discover the slide. */
+  hintKey?: string;
 }
 
 const ACTION_W = 84;
@@ -15,12 +17,22 @@ const ACTION_W = 84;
  * Slide a row left to reveal actions behind it. Horizontal drags move the row; vertical drags still scroll the list.
  * A drag never counts as a tap on the row underneath.
  */
-export const SwipeRow: React.FC<Props> = ({ actions, isOpen, onOpenChange, children }) => {
+export const SwipeRow: React.FC<Props> = ({ actions, isOpen, onOpenChange, children, hintKey }) => {
+  const [nudge, setNudge] = useState(false);
+  useEffect(() => {
+    if (!hintKey) return;
+    let seen = false;
+    try { seen = localStorage.getItem(hintKey) === '1'; } catch { seen = true; }
+    if (seen || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const open = window.setTimeout(() => setNudge(true), 900);
+    const close = window.setTimeout(() => { setNudge(false); try { localStorage.setItem(hintKey, '1'); } catch { /* shown again next time */ } }, 1700);
+    return () => { window.clearTimeout(open); window.clearTimeout(close); };
+  }, [hintKey]);
   const full = ACTION_W * actions.length;
   const start = useRef<{ x: number; y: number; base: number; locked: boolean | null } | null>(null);
   const moved = useRef(false);
   const [drag, setDrag] = useState<number | null>(null);
-  const offset = drag ?? (isOpen ? -full : 0);
+  const offset = drag ?? (isOpen ? -full : nudge ? -Math.min(56, full) : 0);
 
   const down = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -53,6 +65,8 @@ export const SwipeRow: React.FC<Props> = ({ actions, isOpen, onOpenChange, child
     if (moved.current) { e.preventDefault(); e.stopPropagation(); moved.current = false; return; }
     if (isOpen) { e.preventDefault(); e.stopPropagation(); onOpenChange(false); }
   };
+
+  if (actions.length === 0) return <>{children}</>;
 
   return (
     <div className="g-swipe" data-open={isOpen || undefined}>
