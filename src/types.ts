@@ -97,6 +97,9 @@ export interface Gathering {
   /** Storage path of the event picture, and a short-lived link to show it. */
   photoPath?: string | null;
   photoUrl?: string | null;
+  /** The host's picture (a short-lived link) and whether they are safety verified. */
+  hostAvatarUrl?: string | null;
+  hostVerified?: boolean;
   /** Host only: people waiting for a decision. */
   pending?: { userId: string; name: string; requestedAt: string }[];
   /** Host and accepted guests only: who is going. */

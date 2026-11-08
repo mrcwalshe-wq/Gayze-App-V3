@@ -107,6 +107,18 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     if (signError) console.warn('[GAYZE] Event photos unavailable:', signError.message);
     for (const item of signed ?? []) if (item.path && item.signedUrl) photoUrls.set(item.path, item.signedUrl);
   }
+  // Who is hosting: name, picture and verification (profiles are private; this function returns only those three fields).
+  const hosts = new Map<string, { name: string; avatarUrl: string | null; verified: boolean }>();
+  if (ids.length) {
+    const { data: hostRows, error: hostError } = await supabase.rpc('get_gathering_hosts', { p_ids: ids });
+    if (hostError) console.warn('[GAYZE] Event hosts unavailable:', hostError.message);
+    const { signedUrl } = await import('./profilePhotoService');
+    for (const row of (hostRows ?? []) as { gathering_id: string; host_id: string; display_name: string; avatar_path: string | null; safety_verified: boolean }[]) {
+      let avatarUrl: string | null = null;
+      if (row.avatar_path) { try { avatarUrl = await signedUrl(row.avatar_path, row.host_id); } catch { avatarUrl = null; } }
+      hosts.set(row.gathering_id, { name: row.display_name, avatarUrl, verified: row.safety_verified });
+    }
+  }
   // Each gathering's private group chat (only the host and accepted guests are members). Older databases lack the function: no chats.
   const chats = new Map<string, string>();
   const { data: chatRows, error: chatError } = await supabase.rpc('get_my_gathering_chats');
@@ -115,7 +127,9 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     id: row.id,
     conversationId: chats.get(row.id) ?? null,
     hostId: row.host_id,
-    hostName: row.host_id === user.id ? 'You' : 'Gayze member',
+    hostName: row.host_id === user.id ? 'You' : (hosts.get(row.id)?.name ?? 'Gayze member'),
+    hostAvatarUrl: hosts.get(row.id)?.avatarUrl ?? null,
+    hostVerified: hosts.get(row.id)?.verified ?? false,
     hostShortKey: row.host_id.slice(0, 8) + '...',
     hostAvatar: 'user',
     title: row.title,

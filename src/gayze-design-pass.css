@@ -2905,3 +2905,27 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-locked-run svg { margin-top: 2px; color: #e7c46f; }
 .g-locked-run b { color: #f0d9a0; font-weight: 700; }
 .g-chatrow__tags .is-ok { color: #7fd1a8; font-weight: 600; }
+
+/* ---- Events: host identity, cancelled section, a tighter header ---------------------------------------- */
+.g-ev__host-av { overflow: hidden; }
+.g-ev__host-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.g-ev__verified { display: inline-block; width: 14px; height: 14px; margin-left: 5px; vertical-align: -2px; color: #7fd1a8; }
+.ev-cancelled { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 16px; }
+.ev-cancelled__toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, .04); color: rgba(255, 255, 255, .6); font-size: 13px; font-weight: 700; cursor: pointer; }
+.ev-cancelled__toggle span { padding: 1px 8px; border-radius: 4px; background: rgba(244, 132, 138, .14); color: #f4848a; font-size: 11.5px; }
+.g-later__title { font-size: clamp(26px, 8vw, 32px); line-height: 1.08; }
+.g-later__sub { font-size: 13px; line-height: 1.45; }
+.g-later__hero { padding-bottom: 0; }
+
+/* Your plans: requests to join and the group chat, where the host will look for them */
+.yp__requests { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 6px; background: rgba(240, 182, 74, .1); box-shadow: inset 0 0 0 1px rgba(240, 182, 74, .3); }
+.yp__requests h3 { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #f6d98a; }
+.yp__request { display: flex; align-items: center; gap: 8px; }
+.yp__who { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 0; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.yp__no, .yp__yes { min-height: 40px; padding: 0 14px; border: 0; border-radius: 6px; font-size: 13.5px; font-weight: 750; color: #fff; cursor: pointer; }
+.yp__no { background: rgba(255, 255, 255, .09); }
+.yp__yes { background: linear-gradient(90deg, #7a3fe0, #c23fb8); }
+.yp__yes:disabled { opacity: .4; }
+.yp__chat { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, .07); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
+.yp__chat svg:last-child { margin-left: auto; }
+.yp__note { margin: 0; font-size: 12.5px; color: rgba(255, 255, 255, .5); }

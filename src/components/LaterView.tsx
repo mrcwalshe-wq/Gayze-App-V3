@@ -20,6 +20,7 @@ import {
   UtensilsCrossed,
   Zap,
   ImagePlus,
+  BadgeCheck,
   Pencil,
   Flame,
   type LucideIcon,
@@ -117,6 +118,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [closeBusy, setCloseBusy] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Gathering | null>(null);
   const [swipeId, setSwipeId] = useState<string | null>(null);
+  const [brokenPhotos, setBrokenPhotos] = useState<Set<string>>(new Set());
+  const [showCancelled, setShowCancelled] = useState(false);
 
   // Form states
   const [formTitle, setFormTitle] = useState('');
@@ -242,10 +245,16 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const nextUp = filteredGatherings.find((g) => !g.cancelled);
   // Other people's (and your own) quick plans in the next three days, soonest first.
   const myPlans = myActivePlans(gatherings).slice(0, 4);
+  // Quick plans already shown in "Happening near you" are not repeated in the full list unless a filter is on.
   const livePlans = gatherings
-    .filter((g) => isQuick(g) && !g.cancelled && g.timestamp > Date.now() && g.timestamp < Date.now() + 72 * 3600_000)
+    .filter((g) => isQuick(g) && g.hostName !== 'You' && !g.cancelled && g.timestamp > Date.now() && g.timestamp < Date.now() + 72 * 3600_000)
     .sort((a, b) => a.timestamp - b.timestamp)
     .slice(0, 8);
+  const railIds = new Set(livePlans.map((g) => g.id));
+  const unfiltered = timeFilter === 'all' && categoryFilter === 'all';
+  // Your own quick plans live in "Your plans" (edit, requests, chat), and others' in the rail; the full list does not repeat them.
+  const activeList = filteredGatherings.filter((g) => !g.cancelled && !(unfiltered && (railIds.has(g.id) || (isQuick(g) && g.hostName === 'You'))));
+  const cancelledList = filteredGatherings.filter((g) => g.cancelled);
 
   return (
     <div className="gayze-premium-page space-y-5">
@@ -281,6 +290,25 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   <strong>{g.title}</strong>
                   <small>{g.rsvpCount} going{(g.pending?.length ?? 0) > 0 ? ` · ${g.pending!.length} waiting for you` : ''}</small>
                 </div>
+                {(g.pending?.length ?? 0) > 0 && (
+                  <div className="yp__requests" role="group" aria-label={`Requests to join ${g.title}`}>
+                    <h3>{g.pending!.length === 1 ? '1 person wants to join' : `${g.pending!.length} people want to join`}</h3>
+                    {g.pending!.map((r) => {
+                      const full = g.rsvpCount >= g.capacity;
+                      return (
+                        <div key={r.userId} className="yp__request">
+                          <button type="button" className="yp__who" onClick={() => onOpenProfile?.(r.userId, r.name)}>{r.name}</button>
+                          <button type="button" className="yp__no" onClick={() => { hapticLight(); void onRespondToRequest?.(g.id, r.userId, false); }}>Decline</button>
+                          <button type="button" className="yp__yes" disabled={full} onClick={() => { hapticLight(); void onRespondToRequest?.(g.id, r.userId, true); }}>Accept</button>
+                        </div>
+                      );
+                    })}
+                    {g.rsvpCount >= g.capacity && <p className="yp__note">Full. Raise the places with Edit, or decline someone.</p>}
+                  </div>
+                )}
+                {g.conversationId
+                  ? <button type="button" className="yp__chat" onClick={() => { hapticLight(); onOpenGatheringChat(g); }}><Users className="w-4 h-4" aria-hidden="true" />Group chat<ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
+                  : <p className="yp__note">Your group chat opens as soon as you accept someone.</p>}
                 {confirming ? (
                   <div className="yp__confirm" role="alertdialog" aria-label={`Cancel ${g.title}?`}>
                     <p>Cancel this plan?{g.rsvpCount > 1 ? ` The ${g.rsvpCount - 1} joining are told in the group chat.` : ''}</p>
@@ -397,7 +425,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
         </div>
       </div>
 
-      {filteredGatherings.length === 0 && (
+      {activeList.length === 0 && cancelledList.length === 0 && (
         <div className="g-later__empty">
           <span className="g-later__empty-icon"><Calendar className="w-6 h-6" /></span>
           <p>{gatherings.length === 0 ? 'Nothing planned yet' : 'Nothing matches these filters'}</p>
@@ -415,7 +443,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
       )}
 
       <div className="g-later__grid" id="ev-list">
-        {filteredGatherings.map((gathering) => {
+        {(() => { const renderCard = (gathering: Gathering) => {
           const isHost = gathering.hostName === 'You';
           // Everyone the host has accepted, and the host, share one private group chat.
           const chatReady = Boolean(gathering.conversationId) && (isHost || gathering.isAttending);
@@ -434,8 +462,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
               style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}
             >
               {gathering.cancelled && <span className="g-ev__stamp" role="img" aria-label="Cancelled">Cancelled</span>}
-              <div className={`g-ev__poster ${gathering.photoUrl ? 'has-photo' : ''}`}>
-                {gathering.photoUrl ? <img className="g-ev__photo" src={gathering.photoUrl} alt="" loading="lazy" /> : <ArtIcon className="g-ev__art" aria-hidden="true" />}
+              <div className={`g-ev__poster ${gathering.photoUrl && !brokenPhotos.has(gathering.id) ? 'has-photo' : ''}`}>
+                {gathering.photoUrl && !brokenPhotos.has(gathering.id) ? <img className="g-ev__photo" src={gathering.photoUrl} alt="" loading="lazy" onError={() => setBrokenPhotos((prev) => new Set(prev).add(gathering.id))} /> : <ArtIcon className="g-ev__art" aria-hidden="true" />}
                 <div className="g-ev__date" aria-label={when.toLocaleString()}>
                   <b>{when.getDate()}</b>
                   <span>{when.toLocaleString([], { month: 'short' })}</span>
@@ -443,7 +471,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <div className="g-ev__badges">
                   <span className={`g-ev__badge ${gathering.isAttending ? 'is-going' : ''}`}>
                     {gathering.isAttending && <Check className="w-3 h-3" aria-hidden="true" />}
-                    {isHost ? 'Hosting · ' : gathering.isAttending ? 'Going · ' : gathering.myStatus === 'requested' ? 'Requested · ' : isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}
+                    {isHost ? 'Hosting · ' : gathering.isAttending ? 'Going · ' : isNext ? 'Up next · ' : ''}{startsIn(gathering.timestamp)}
                   </span>
                 </div>
                 <span className="g-ev__cat">{isQuick(gathering) ? `Quick plan · ${art.label}` : art.label}</span>
@@ -453,8 +481,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
                 <div className="g-ev__time"><Clock className="w-3.5 h-3.5" />{gathering.dateStr}</div>
                 <h3 className="g-ev__name">{gathering.title}</h3>
                 <div className="g-ev__host">
-                  <span className="g-ev__host-av">{gathering.hostName.charAt(0)}</span>
-                  <span>Hosted by <strong>{gathering.hostName}</strong></span>
+                  <span className="g-ev__host-av">{gathering.hostAvatarUrl ? <img src={gathering.hostAvatarUrl} alt="" /> : gathering.hostName.charAt(0)}</span>
+                  <span>Hosted by <strong>{gathering.hostName}</strong>{gathering.hostVerified && <BadgeCheck className="g-ev__verified" aria-label="Verified" />}</span>
                 </div>
                 <p className="g-ev__desc">{gathering.description}</p>
 
@@ -528,7 +556,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   ) : gathering.isAttending ? (
                     <><Check className="w-4 h-4" /><span>Going</span><small>Tap to leave</small></>
                   ) : gathering.myStatus === 'requested' ? (
-                    <><Clock className="w-4 h-4" /><span>Requested</span><small>Waiting for the host · tap to withdraw</small></>
+                    <><Clock className="w-4 h-4" /><span>Awaiting approval</span><small>Tap to withdraw</small></>
                   ) : gathering.myStatus === 'declined' ? (
                     <span>Not this time</span>
                   ) : spotsLeft === 0 ? (
@@ -569,7 +597,20 @@ export const LaterView: React.FC<LaterViewProps> = ({
               )}
             </article>
           );
-        })}
+        };
+        return (
+          <>
+            {activeList.map(renderCard)}
+            {cancelledList.length > 0 && (
+              <div className="ev-cancelled">
+                <button type="button" className="ev-cancelled__toggle" aria-expanded={showCancelled} onClick={() => { hapticLight(); setShowCancelled((v) => !v); }}>
+                  <X className="w-4 h-4" aria-hidden="true" />Cancelled<span>{cancelledList.length}</span>
+                </button>
+                {showCancelled && cancelledList.map(renderCard)}
+              </div>
+            )}
+          </>
+        ); })()}
       </div>
 
       <EditPlanSheet plan={editingPlan} onClose={() => setEditingPlan(null)} onSave={async (plan, changes) => (onUpdateGathering ? onUpdateGathering(plan, changes) : false)} />
