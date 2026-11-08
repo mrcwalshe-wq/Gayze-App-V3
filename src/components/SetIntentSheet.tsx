@@ -26,6 +26,9 @@ interface SetIntentSheetProps {
   defaultWhen?: string;
   /** Kept for callers; the new model no longer starts from a Social / Private choice. */
   initialMode?: TopLevelIntentMode | null;
+  /** A quick plan you host that is live. While it is, only a Later intent can be posted. */
+  liveQuickPlan?: { id: string; title: string; timestamp: number } | null;
+  onCancelQuickPlan?: (gatheringId: string) => void | Promise<void>;
 }
 
 const STEPS = ['Availability', 'Activity', 'Connection'] as const;
@@ -44,8 +47,9 @@ const defaultLaterValue = () => { const d = new Date(); d.setDate(d.getDate() + 
  * "Open to more" is a private, optional setting. It is never shown to anyone and never used as a filter.
  */
 export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
-  isOpen, onClose, onSaveIntent, existingIntent, safeHavens = [], userNeighborhood, userLocation, defaultWhen = 'Now',
+  isOpen, onClose, onSaveIntent, existingIntent, safeHavens = [], userNeighborhood, userLocation, defaultWhen = 'Now', liveQuickPlan, onCancelQuickPlan,
 }) => {
+  const [cancellingPlan, setCancellingPlan] = useState(false);
   const [step, setStep] = useState(0);
   const [when, setWhen] = useState<string>(defaultWhen);
   const [laterValue, setLaterValue] = useState<string>(() => defaultLaterValue());
@@ -105,7 +109,9 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   if (!isOpen) return null;
 
   const toggle = (list: string[], id: string, max = 99) => (list.includes(id) ? list.filter((x) => x !== id) : list.length >= max ? list : [...list, id]);
-  const canNext = step === 1 ? activities.length > 0 : true;
+  // Hosting a live quick plan: only a Later intent (starting 2+ hours away) can be posted.
+  const blockedByPlan = Boolean(liveQuickPlan) && !later;
+  const canNext = step === 0 ? !blockedByPlan : step === 1 ? activities.length > 0 : true;
   const mainLabel = activities.length ? activityLabel(activities[0]) : '';
 
   const go = (delta: 1 | -1) => {
@@ -116,13 +122,14 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
   };
 
   const submit = async () => {
-    if (isSubmitting || activities.length === 0) return;
+    if (isSubmitting || activities.length === 0 || blockedByPlan) return;
     hapticSensitiveAction();
     setIsSubmitting(true);
     setErrorMessage(null);
     const laterAt = later ? Date.parse(laterValue) : undefined;
-    if (later && (!Number.isFinite(laterAt) || (laterAt as number) < Date.now() + 5 * 60_000)) {
-      setErrorMessage('Pick a date and time at least 5 minutes from now.');
+    const earliest = Date.now() + (liveQuickPlan ? 2 * 3600_000 : 5 * 60_000);
+    if (later && (!Number.isFinite(laterAt) || (laterAt as number) < earliest)) {
+      setErrorMessage(liveQuickPlan ? 'While your quick plan is live, pick a time at least 2 hours from now.' : 'Pick a date and time at least 5 minutes from now.');
       setIsSubmitting(false);
       setDir('back'); setStep(0);
       return;
@@ -202,10 +209,20 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     <span className="ss-ico"><CalendarClock className="w-[18px] h-[18px]" /></span><span className="ss-copy"><b>Later</b><span>Planning ahead, up to 24 hours</span></span>
                   </button>
                 </div>
+                {blockedByPlan && liveQuickPlan && (
+                  <div className="ss-plan-lock" role="alert">
+                    <strong>You have a live quick plan</strong>
+                    <p>“{liveQuickPlan.title}” is open for people to join, so you can't also be Right now. End it first, or set your intent for later.</p>
+                    <div>
+                      <button type="button" onClick={() => { hapticLight(); setWhen('Later'); }}>Set it for later</button>
+                      {onCancelQuickPlan && <button type="button" className="is-danger" disabled={cancellingPlan} onClick={async () => { hapticLight(); setCancellingPlan(true); try { await onCancelQuickPlan(liveQuickPlan.id); } finally { setCancellingPlan(false); } }}>{cancellingPlan ? 'Cancelling…' : 'Cancel the quick plan'}</button>}
+                    </div>
+                  </div>
+                )}
                 {later && (
                   <label className="ss-field">
                     <span className="ss-eyebrow">Starts</span>
-                    <input type="datetime-local" value={laterValue} min={toLocalInput(Date.now() + 5 * 60_000)} max={toLocalInput(Date.now() + 30 * 86_400_000)} onChange={(e) => setLaterValue(e.target.value)} />
+                    <input type="datetime-local" value={laterValue} min={toLocalInput(Date.now() + (liveQuickPlan ? 2 * 3600_000 : 5 * 60_000))} max={toLocalInput(Date.now() + 30 * 86_400_000)} onChange={(e) => setLaterValue(e.target.value)} />
                   </label>
                 )}
                 <div>

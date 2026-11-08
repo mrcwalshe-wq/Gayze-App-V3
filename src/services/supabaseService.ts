@@ -215,6 +215,21 @@ export async function loadGatheringStates(ids: string[]): Promise<Record<string,
   return out;
 }
 
+/** Host only: change a plan's title, description, time or number of places. Returns false when nothing was changed. */
+export async function updateGathering(gatheringId: string, changes: { title: string; description: string; timestamp: number; capacity: number }): Promise<boolean> {
+  if (!supabase) return false;
+  const user = await ensureSupabaseSession();
+  if (!user) return false;
+  const { data, error } = await supabase.from('gatherings').update({
+    title: changes.title,
+    description: changes.description,
+    scheduled_at: new Date(changes.timestamp).toISOString(),
+    capacity: changes.capacity,
+  }).eq('id', gatheringId).eq('host_id', user.id).is('cancelled_at', null).select('id');
+  if (error) { console.warn('[GAYZE] Updating gathering failed:', error.message); return false; }
+  return (data ?? []).length > 0;
+}
+
 /** Host only: cancel a plan. It stays listed, stamped CANCELLED; new requests and reminders stop. */
 export async function cancelGathering(gatheringId: string): Promise<boolean> {
   if (!supabase) return false;

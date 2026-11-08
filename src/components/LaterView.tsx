@@ -26,7 +26,8 @@ import {
 import { hapticLight } from '../services/hapticService';
 import { PlacePicker } from './PlacePicker';
 import { sparkBurst } from './SparkBorder';
-import { categoryKey, quickTime, type QuickWhen } from '../services/eventsModel';
+import { EditPlanSheet, type PlanChanges } from './EditPlanSheet';
+import { categoryKey, quickTime, myActivePlans, type QuickWhen } from '../services/eventsModel';
 
 const CATEGORY_ART: Record<string, { label: string; icon: LucideIcon; rgb: string; rgb2: string }> = {
   social: { label: 'Social & Drinks', icon: Wine, rgb: '214, 170, 80', rgb2: '184, 92, 222' },
@@ -70,6 +71,8 @@ interface LaterViewProps {
   onToggleRsvp: (gatheringId: string) => void;
   /** Host only: accept or decline someone who asked to join. */
   onRespondToRequest?: (gatheringId: string, userId: string, accept: boolean) => void | Promise<void>;
+  /** Host only: change a plan's title, description, time or places. Resolves true when saved. */
+  onUpdateGathering?: (plan: Gathering, changes: PlanChanges) => Promise<boolean>;
   /** Host only: cancel a plan (it stays listed, stamped CANCELLED). */
   onCancelGathering?: (gatheringId: string) => void | Promise<void>;
   /** Host only: remove a plan from the list for good (offered once it is cancelled). */
@@ -92,6 +95,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   gatherings,
   onToggleRsvp,
   onRespondToRequest,
+  onUpdateGathering,
   onCancelGathering,
   onCloseGathering,
   onOpenProfile,
@@ -109,6 +113,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const [isHostModalOpen, setIsHostModalOpen] = useState<boolean>(false);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [closeBusy, setCloseBusy] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<Gathering | null>(null);
 
   // Form states
   const [formTitle, setFormTitle] = useState('');
@@ -233,6 +238,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
   const nextUp = filteredGatherings.find((g) => !g.cancelled);
   // Other people's (and your own) quick plans in the next three days, soonest first.
+  const myPlans = myActivePlans(gatherings).slice(0, 4);
   const livePlans = gatherings
     .filter((g) => isQuick(g) && !g.cancelled && g.timestamp > Date.now() && g.timestamp < Date.now() + 72 * 3600_000)
     .sort((a, b) => a.timestamp - b.timestamp)
@@ -253,6 +259,37 @@ export const LaterView: React.FC<LaterViewProps> = ({
           <Plus className="w-5 h-5" aria-hidden="true" /><span><b>Host an event</b><small>Create a gathering and chat with everyone who is going</small></span>
         </button>
       </div>
+
+      {myPlans.length > 0 && (
+        <section className="yp" aria-label="Your plans">
+          <h2>Your plans</h2>
+          {myPlans.map((g) => {
+            const art = artFor(g.category);
+            const confirming = closingId === `mine:${g.id}`;
+            return (
+              <article key={g.id} className="yp__row" style={{ ['--ev' as string]: art.rgb, ['--ev2' as string]: art.rgb2 }}>
+                <div className="yp__info">
+                  <span className="yp__kind">{isQuick(g) ? 'Quick plan' : art.label} · {startsIn(g.timestamp)}</span>
+                  <strong>{g.title}</strong>
+                  <small>{g.rsvpCount} going{(g.pending?.length ?? 0) > 0 ? ` · ${g.pending!.length} waiting for you` : ''}</small>
+                </div>
+                {confirming ? (
+                  <div className="yp__confirm" role="alertdialog" aria-label={`Cancel ${g.title}?`}>
+                    <p>Cancel this plan?{g.rsvpCount > 1 ? ` The ${g.rsvpCount - 1} joining are told in the group chat.` : ''}</p>
+                    <button type="button" disabled={closeBusy} onClick={() => setClosingId(null)}>Keep it</button>
+                    <button type="button" className="is-danger" disabled={closeBusy} onClick={async () => { hapticLight(); setCloseBusy(true); try { await onCancelGathering?.(g.id); } finally { setCloseBusy(false); setClosingId(null); } }}>Cancel plan</button>
+                  </div>
+                ) : (
+                  <div className="yp__acts">
+                    {onUpdateGathering && <button type="button" onClick={() => { hapticLight(); setEditingPlan(g); }}>Edit</button>}
+                    {onCancelGathering && <button type="button" className="is-danger" onClick={() => { hapticLight(); setClosingId(`mine:${g.id}`); }}>Cancel</button>}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       <section className="qp" aria-label="Quick plans">
         <div className="qp__head">
@@ -512,7 +549,10 @@ export const LaterView: React.FC<LaterViewProps> = ({
                     <button type="button" className="is-danger" disabled={closeBusy} onClick={async () => { hapticLight(); setCloseBusy(true); try { await act(gathering.id); } finally { setCloseBusy(false); setClosingId(null); } }}>{closeBusy ? 'Working…' : remove ? 'Remove plan' : 'Cancel plan'}</button>
                   </div>
                 ) : (
-                  <button type="button" className="g-ev__close" onClick={() => { hapticLight(); setClosingId(gathering.id); }}>{remove ? 'Remove from list' : 'Cancel this plan'}</button>
+                  <div className="g-ev__manage">
+                    {!remove && onUpdateGathering && <button type="button" className="g-ev__close" onClick={() => { hapticLight(); setEditingPlan(gathering); }}>Edit plan</button>}
+                    <button type="button" className="g-ev__close" onClick={() => { hapticLight(); setClosingId(gathering.id); }}>{remove ? 'Remove from list' : 'Cancel this plan'}</button>
+                  </div>
                 );
               })()}
               {!chatReady && gathering.isAttending && !isHost && (
@@ -522,6 +562,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
           );
         })}
       </div>
+
+      <EditPlanSheet plan={editingPlan} onClose={() => setEditingPlan(null)} onSave={async (plan, changes) => (onUpdateGathering ? onUpdateGathering(plan, changes) : false)} />
 
       {isHostModalOpen && (
         <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={() => setIsHostModalOpen(false)} role="dialog" aria-modal="true" aria-label="Host a gathering">

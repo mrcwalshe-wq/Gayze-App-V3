@@ -146,6 +146,7 @@ import {
   loadGatherings,
   uploadEventPhoto,
   loadGatheringStates,
+  updateGathering,
   createGathering,
   requestToJoinGathering,
   leaveGathering,
@@ -189,6 +190,7 @@ import {
 import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';
 import { deleteMessageForMe, unsendMessage, setMessageExpiry } from './services/messageLifecycleService';
 import { resolveConversationKey, rekeyConversationKey } from './services/conversationKeyService';
+import { liveQuickPlan } from './services/eventsModel';
 import { autoRekeyDue, isStuckWithoutKey, readAutoRekeyAttempt, writeAutoRekeyAttempt } from './services/autoRekey';
 import {
   hapticQRHandshake,
@@ -2122,6 +2124,24 @@ export default function App() {
     );
   };
 
+  const handleUpdateGathering = async (plan: Gathering, changes: { title: string; description: string; timestamp: number; capacity: number }): Promise<boolean> => {
+    if (plan.hostName !== 'You' || plan.cancelled) return false;
+    if (isSupabaseConfigured && isAuthenticated) {
+      if (!(await updateGathering(plan.id, changes))) return false;
+      // Tell the guests in the group chat when the plan itself changed. Best effort: it never blocks the save.
+      const changedPlan = changes.title !== plan.title || changes.timestamp !== plan.timestamp;
+      if (changedPlan && plan.conversationId && plan.rsvpCount > 1 && rooms.some((r) => r.id === plan.conversationId)) {
+        const when = new Date(changes.timestamp).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        try { await handleSendMessage(plan.conversationId, `The host updated this plan: ${changes.title}, ${when}.`); } catch { /* the change is saved either way */ }
+      }
+      await refreshGatherings();
+    } else {
+      setGatherings((prev) => prev.map((g) => g.id === plan.id ? { ...g, title: changes.title, description: changes.description, timestamp: changes.timestamp, capacity: changes.capacity, dateStr: new Date(changes.timestamp).toLocaleString([], { weekday: 'long', hour: '2-digit', minute: '2-digit' }) } : g));
+    }
+    showToast('Plan updated');
+    return true;
+  };
+
   const handleCancelGathering = async (gatheringId: string) => {
     const gathering = gatherings.find((g) => g.id === gatheringId);
     if (!gathering || gathering.hostName !== 'You' || gathering.cancelled) return;
@@ -3925,6 +3945,7 @@ export default function App() {
               gatherings={gatherings}
               onToggleRsvp={handleToggleRsvp}
               onRespondToRequest={handleRespondToRequest}
+              onUpdateGathering={handleUpdateGathering}
               onCancelGathering={handleCancelGathering}
               onCloseGathering={handleCloseGathering}
               onOpenProfile={(userId, name) => openPublicProfile(userId, { name })}
@@ -4284,6 +4305,8 @@ export default function App() {
         userNeighborhood={currentUser.neighborhood}
         userLocation={userLocation}
         initialMode={intentHubMode}
+        liveQuickPlan={(() => { const plan = liveQuickPlan(gatherings); return plan ? { id: plan.id, title: plan.title, timestamp: plan.timestamp } : null; })()}
+        onCancelQuickPlan={handleCancelGathering}
       />
 
       {liveActivation && (
