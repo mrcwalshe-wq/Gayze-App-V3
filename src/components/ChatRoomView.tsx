@@ -7,6 +7,7 @@ import { presenceLabel } from '../services/presenceLabel';
 import { compressImageDataUrl } from '../services/imageCompress';
 import { latestMeetups } from '../services/meetupState';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
+import { SwipeRow } from './SwipeRow';
 import { GroupMembersSheet, formatEventWhen, type GroupMember, type GroupEventInfo } from './GroupMembersSheet';
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
@@ -202,6 +203,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [noteRecorder, setNoteRecorder] = useState<{ kind: 'audio' | 'video' } | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const [memberFocus, setMemberFocus] = useState<string | null>(null);
   const [showSharePlace, setShowSharePlace] = useState(false);
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
@@ -645,7 +647,15 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             const recently = !isOnline && !isGathering && presenceLabel(false, room.peerLastSeenAt).tone === 'recent';
 
             return (
-              <React.Fragment key={room.id}>
+              <SwipeRow
+                key={room.id}
+                isOpen={swipeOpenId === room.id}
+                onOpenChange={(open) => setSwipeOpenId(open ? room.id : (swipeOpenId === room.id ? null : swipeOpenId))}
+                actions={[
+                  { key: 'archive', label: archivedRow ? 'Restore' : 'Archive', tone: 'archive', icon: archivedRow ? <ArchiveRestore className="w-5 h-5" aria-hidden="true" /> : <Archive className="w-5 h-5" aria-hidden="true" />, onClick: () => setArchived(room.id, !archivedRow) },
+                  ...(onDeleteChat ? [{ key: 'delete', label: 'Delete', tone: 'danger' as const, icon: <Trash2 className="w-5 h-5" aria-hidden="true" />, onClick: () => { setDeleteError(null); setConfirmDeleteRoomId(room.id); } }] : []),
+                ]}
+              >
               <button
                 type="button"
                 onClick={() => handleSelectRoom(room.id)}
@@ -710,7 +720,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   </button>
                 </div>
               )}
-              </React.Fragment>
+              </SwipeRow>
             );
           };
           return (
