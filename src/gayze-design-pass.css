@@ -2445,13 +2445,6 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 /* Nearby sheet: filters link */
 .ns__adjust { flex: none; display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; padding: 0 14px; font-size: 13px; font-weight: 700; color: #d5b8ff; background: rgba(255, 255, 255, .04); border: 0; border-top: 1px solid rgba(255, 255, 255, .08); }
 
-/* The centre logo is a little smaller, so the four tabs lead (dome geometry matches Navbar.tsx: rise 13, radius 46) */
-nav.g-tabbar.g-tabbar { --gd-center: 33px; --gd-r: 46px; --gd-rise: 13px; }
-nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-logo-image { width: 58px !important; height: 58px !important; }
-nav.g-tabbar.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action { width: 58px !important; height: 58px !important; }
-nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-action { top: -22px !important; }
-nav.g-tabbar.g-tabbar .g-tab--discover .g-tab__label { top: -8px !important; }
-
 /* Map contrast: roads and labels read a little clearer */
 .gayze-osm-dark-tiles .leaflet-tile, .leaflet-tile-pane.gayze-osm-dark-tiles .leaflet-tile {
   filter: invert(100%) hue-rotate(180deg) brightness(96%) contrast(112%) saturate(30%) sepia(0.20) hue-rotate(212deg) saturate(1.12) !important;
