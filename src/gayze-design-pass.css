@@ -2891,3 +2891,11 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 
 /* Margins inside a swipe row must not leak out and expose the actions behind it */
 .g-swipe__body { display: flow-root; }
+
+/* Private chats and event groups sit under their own headings */
+.g-chat-section { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 8px; margin: 0; padding: 14px 18px 8px; font-size: 11.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .5); background: linear-gradient(180deg, #0d0e14 70%, rgba(13, 14, 20, 0)); }
+.g-chat-section span { margin-left: 2px; padding: 1px 7px; border-radius: 4px; font-size: 10.5px; letter-spacing: .02em; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .7); }
+.g-chat-section.is-group { color: #e7c46f; }
+.g-chat-section.is-group span { background: rgba(231, 196, 111, .14); color: #e7c46f; }
+/* Under the "Event groups" heading the per-row tag says the same thing */
+.g-chat-section.is-group ~ .g-swipe .g-chatrow__tags .is-group { display: none; }
