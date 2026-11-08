@@ -288,6 +288,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   // Start with a clean map. Discovery details appear only after the user
   // explicitly selects a person, pulse, or Safe Haven.
   const [selectedItem, setSelectedItem] = useState<MapDiscoveryItem | null>(null);
+  // The status strip rides just above the tab bar; the setup pill, nearby sheet and map controls lift above it.
+  const statusStripShown = !selectedItem && !peopleView;
+  useEffect(() => {
+    document.documentElement.style.setProperty('--g-status-h', statusStripShown ? '34px' : '0px');
+    return () => { document.documentElement.style.setProperty('--g-status-h', '0px'); };
+  }, [statusStripShown]);
 
   const [isCardExpanded, setIsCardExpanded] = useState<boolean>(false);
 
@@ -1323,8 +1329,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           1. TOP FLOATING ROW — current mode / your live signal + filter.
           The map stays clear; state reads at a glance.
          ========================================================================= */}
-      <div className="g-hud-top absolute top-[calc(env(safe-area-inset-top,0px)+10px)] left-3 right-3 z-40 flex items-start justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto min-w-0 flex-1">
+      <div className={`g-status-strip pointer-events-none ${selectedItem || peopleView ? 'is-hidden' : ''}`}>
+        <div className="pointer-events-auto min-w-0">
           {activeUserIntent ? (
             <button
               type="button"
@@ -1348,10 +1354,6 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </div>
           )}
         </div>
-        <button type="button" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} className={`g-float g-icon-btn pointer-events-auto shrink-0 relative ${activeFilterCount > 0 ? '!border-[#6F3CC3]/70 !text-white' : ''}`} aria-label="Open discovery filters">
-          <SlidersHorizontal className="w-4 h-4" />
-          {activeFilterCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-[#6F3CC3] text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0b0c11]">{activeFilterCount}</span>}
-        </button>
       </div>
 
       {/* Status toast */}
@@ -1410,6 +1412,12 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             <button type="button" aria-pressed={!peopleView && gridMode} onClick={() => { hapticLight(); setPeopleView(false); setGridMode(true); }}>Grid</button>
             <button type="button" aria-pressed={peopleView} onClick={() => { hapticLight(); setPeopleView(true); }}>People{peopleTiles.length > 0 ? ` · ${peopleTiles.length}` : ''}</button>
           </div>
+          {!peopleView && (
+            <button type="button" className="g-filter-fab" onClick={() => { hapticLight(); setIsNearbyOpen(true); }} aria-label="Open discovery filters">
+              <SlidersHorizontal className="w-[18px] h-[18px]" />
+              {activeFilterCount > 0 && <span className="g-filter-fab__count">{activeFilterCount}</span>}
+            </button>
+          )}
           {!peopleView && (
             <button
               type="button"
