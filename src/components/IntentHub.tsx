@@ -3,6 +3,7 @@ import { Clock3, EyeOff, Pause, PencilLine, Play, Plus, Power, Radio, Sparkles, 
 import type { TopLevelIntentMode, UserActiveIntent } from '../types';
 import { hapticLight } from '../services/hapticService';
 import { intentDisplayLabel } from '../services/intentLabels';
+import { activityLabel } from '../services/intentModel';
 
 interface IntentHubProps {
   isOpen: boolean;
@@ -54,7 +55,9 @@ export const IntentHub: React.FC<IntentHubProps> = ({
   if (!isOpen) return null;
 
   const hasActive = Boolean(activeIntent);
-  const isPrivate = activeIntent?.mode === 'private';
+  // Purple within the day, amber for a signal planned for later (the old Social / Private split no longer decides colour).
+  const isPrivate = activeIntent?.when !== 'Later';
+  const others = (activeIntent?.activities ?? []).slice(1, 4).map(activityLabel);
   const isPaused = Boolean(activeIntent?.isPaused);
   const total = activeIntent ? Math.max(1, activeIntent.expiresAt - activeIntent.activatedAt) : 1;
   const left = activeIntent ? Math.max(0, activeIntent.expiresAt - Date.now()) : 0;
@@ -79,7 +82,10 @@ export const IntentHub: React.FC<IntentHubProps> = ({
           <header className="g-live-card__head">
             <span className="g-live-card__mode">
               <i aria-hidden="true" />
-              {isPaused ? 'PAUSED' : isPrivate ? 'PRIVATE · LIVE' : 'SOCIAL · LIVE'}
+              {isPaused ? 'PAUSED' : activeIntent.when === 'Later' ? 'LATER · LIVE' : 'RIGHT NOW · LIVE'}
+            </span>
+            <span className="g-live-card__time">
+              <b>{formatRemaining(remainingMinutes).replace(' left', '')}</b><small>left</small>
             </span>
             <button type="button" className="g-live-card__close" onClick={onClose} aria-label="Close">
               <X className="w-4 h-4" />
@@ -88,15 +94,14 @@ export const IntentHub: React.FC<IntentHubProps> = ({
 
           <div className="g-live-card__body">
             <span className="g-live-card__icon" aria-hidden="true">
-              {isPrivate ? <EyeOff className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+              <Radio className="w-5 h-5" />
             </span>
             <div className="g-live-card__copy">
               <strong>{intentDisplayLabel(activeIntent.intent)}</strong>
-              <span>{activeIntent.description || (isPaused ? 'Hidden from the map' : 'Visible on the map')}</span>
-            </div>
-            <div className="g-live-card__time">
-              <b>{formatRemaining(remainingMinutes).replace(' left', '')}</b>
-              <small>left</small>
+              {others.length > 0 && (
+                <span className="g-live-card__chips">{others.map((o) => <em key={o}>{o}</em>)}</span>
+              )}
+              {activeIntent.description && <span className="g-live-card__desc">{activeIntent.description}</span>}
             </div>
           </div>
 
