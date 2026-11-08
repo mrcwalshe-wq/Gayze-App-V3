@@ -59,6 +59,8 @@ const activationInfo = (i: UserActiveIntent): { later: boolean; detail: string; 
 
 const AdminConsole = React.lazy(() => import('./components/AdminConsole'));
 import { ProfileOnboarding } from './components/ProfileOnboarding';
+import { ConsentGate } from './components/ConsentGate';
+import { hasCurrentConsent, consentMetadata, withdrawnConsentMetadata } from './services/consent';
 import { SetupDock } from './components/SetupDock';
 import { NotificationsModal } from './components/NotificationsModal';
 import { Snack } from './components/Snack';
@@ -774,6 +776,8 @@ export default function App() {
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [showProfileOnboarding, setShowProfileOnboarding] = useState(false);
+  const [consentNeeded, setConsentNeeded] = useState(false);
+  const [consentWithdrawn, setConsentWithdrawn] = useState(false);
   const [identityDevices, setIdentityDevices] = useState<import('./services/supabaseService').IdentityDevice[]>([]);
   const [currentDeviceFingerprint, setCurrentDeviceFingerprint] = useState<string | null>(null);
 
@@ -959,6 +963,7 @@ export default function App() {
         const user = await ensureSupabaseSession();
         if (!user || isStale()) return;
         setShowProfileOnboarding(user.user_metadata?.profile_complete !== true);
+        setConsentNeeded(IS_LIVE_BACKEND && !hasCurrentConsent(user.user_metadata));
         if (supabaseUserIdRef.current !== user.id) { clearMessageWork(); messageAlertsRef.current.clear(); }
         const identity = await getOrCreateDeviceIdentity(user.id);
         if (isStale()) return;
@@ -3231,6 +3236,21 @@ export default function App() {
     return true;
   };
 
+  const handleAgreeConsent = async (): Promise<boolean> => {
+    if (!supabase) return false;
+    const { error } = await supabase.auth.updateUser({ data: consentMetadata() });
+    if (error) { console.warn('[GAYZE] Consent could not be saved:', error.message); return false; }
+    setConsentNeeded(false); setConsentWithdrawn(false);
+    return true;
+  };
+  const handleWithdrawConsent = async () => {
+    if (!supabase) return;
+    if (!window.confirm('Withdraw your consent? You will not be able to use GAYZE until you agree again. You can also delete your account in Profile.')) return;
+    const { error } = await supabase.auth.updateUser({ data: withdrawnConsentMetadata() });
+    if (error) { showToast('Could not withdraw consent. Try again.'); return; }
+    setConsentWithdrawn(true); setConsentNeeded(true);
+  };
+
   // Calling & Gaze Handlers
   const handleStartCall = async (peerName: string, type: 'audio' | 'video', targetUserId?: string, peerAvatar?: string) => {
     // Prime Web Audio inside the user's tap/click. Safari/iOS blocks audio created later by effects.
@@ -3949,6 +3969,7 @@ export default function App() {
               onSignOut={handleSignOut}
               signingOut={isSigningOut}
               onDeleteAccount={handleDeleteAccount}
+              onWithdrawConsent={IS_LIVE_BACKEND ? handleWithdrawConsent : undefined}
               deletingAccount={isDeletingAccount}
               onOpenQR={() => handleOpenQRModal()}
               onAvatarUpdated={handleOwnAvatarUpdated}
@@ -4218,7 +4239,11 @@ export default function App() {
         </Suspense>
       </main>
 
-      {showProfileOnboarding && supabaseUserId && (
+      {consentNeeded && supabaseUserId && (
+        <ConsentGate withdrawn={consentWithdrawn} onAgree={handleAgreeConsent} onDecline={() => { void handleSignOut(); }} />
+      )}
+
+      {showProfileOnboarding && !consentNeeded && supabaseUserId && (
         <ProfileOnboarding currentUser={currentUser} onSave={handleSaveProfileOnboarding} />
       )}
 
