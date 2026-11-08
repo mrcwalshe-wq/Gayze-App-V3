@@ -239,7 +239,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                     </label>
                     {safeHavens.length > 0 && (
                       <div className="ss-switch-row">
-                        <div><b>Near a Safe Haven</b><span>Show my intent around a vetted public venue</span></div>
+                        <div><b>Near a Safe Haven</b><span>Meet around a vetted public venue (others still see only your area)</span></div>
                         <button type="button" role="switch" aria-checked={useSafeHaven} aria-label="Near a Safe Haven" className="ss-sw" onClick={() => { hapticLight(); setUseSafeHaven((v) => !v); setPlace(null); setPlaceText(''); }}><i /></button>
                       </div>
                     )}
@@ -252,7 +252,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                         <PlacePicker value={placeText} near={userLocation ?? null} placeholder="Search for a bar, café or park" className="g-field g-iset__field"
                           onTextChange={(t) => { setPlaceText(t); if (place && t !== place.name) setPlace(null); }}
                           onPick={(p) => { setPlaceText(p.name); setPlace({ name: p.name, area: p.area }); }} />
-                        <p className="ss-fine">{place ? 'Members who see your intent will see this place. Pick somewhere public.' : 'Leave empty to show only your approximate area.'}</p>
+                        <p className="ss-fine">{place ? 'Only you see this place. Other members see your approximate area, and you can share the place in chat once you connect.' : 'Other members only ever see your approximate area.'}</p>
                       </div>
                     )}
                   </div>

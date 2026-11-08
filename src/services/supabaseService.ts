@@ -1686,7 +1686,8 @@ export async function createStoryFromIntent(intent: UserActiveIntent, photoUrl?:
       author_display_name: profile?.displayName || 'Gayze member',
       author_avatar_path: null,
       caption: intent.description || ('Available for ' + intent.intent.toLowerCase() + ' nearby.'),
-      location_name: intent.area || 'Nearby',
+      // Only the area, never the place picked for the intent: stories are readable by every member.
+      location_name: profile?.neighborhood || 'Nearby',
       intent: intent.intent,
       category,
       created_at: new Date().toISOString(),
