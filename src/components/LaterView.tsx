@@ -247,12 +247,13 @@ export const LaterView: React.FC<LaterViewProps> = ({
   const myPlans = myActivePlans(gatherings).slice(0, 4);
   // Quick plans already shown in "Happening near you" are not repeated in the full list unless a filter is on.
   const livePlans = gatherings
-    .filter((g) => isQuick(g) && !g.cancelled && g.timestamp > Date.now() && g.timestamp < Date.now() + 72 * 3600_000)
+    .filter((g) => isQuick(g) && g.hostName !== 'You' && !g.cancelled && g.timestamp > Date.now() && g.timestamp < Date.now() + 72 * 3600_000)
     .sort((a, b) => a.timestamp - b.timestamp)
     .slice(0, 8);
   const railIds = new Set(livePlans.map((g) => g.id));
   const unfiltered = timeFilter === 'all' && categoryFilter === 'all';
-  const activeList = filteredGatherings.filter((g) => !g.cancelled && !(unfiltered && railIds.has(g.id)));
+  // Your own quick plans live in "Your plans" (edit, requests, chat), and others' in the rail; the full list does not repeat them.
+  const activeList = filteredGatherings.filter((g) => !g.cancelled && !(unfiltered && (railIds.has(g.id) || (isQuick(g) && g.hostName === 'You'))));
   const cancelledList = filteredGatherings.filter((g) => g.cancelled);
 
   return (
@@ -289,6 +290,25 @@ export const LaterView: React.FC<LaterViewProps> = ({
                   <strong>{g.title}</strong>
                   <small>{g.rsvpCount} going{(g.pending?.length ?? 0) > 0 ? ` · ${g.pending!.length} waiting for you` : ''}</small>
                 </div>
+                {(g.pending?.length ?? 0) > 0 && (
+                  <div className="yp__requests" role="group" aria-label={`Requests to join ${g.title}`}>
+                    <h3>{g.pending!.length === 1 ? '1 person wants to join' : `${g.pending!.length} people want to join`}</h3>
+                    {g.pending!.map((r) => {
+                      const full = g.rsvpCount >= g.capacity;
+                      return (
+                        <div key={r.userId} className="yp__request">
+                          <button type="button" className="yp__who" onClick={() => onOpenProfile?.(r.userId, r.name)}>{r.name}</button>
+                          <button type="button" className="yp__no" onClick={() => { hapticLight(); void onRespondToRequest?.(g.id, r.userId, false); }}>Decline</button>
+                          <button type="button" className="yp__yes" disabled={full} onClick={() => { hapticLight(); void onRespondToRequest?.(g.id, r.userId, true); }}>Accept</button>
+                        </div>
+                      );
+                    })}
+                    {g.rsvpCount >= g.capacity && <p className="yp__note">Full. Raise the places with Edit, or decline someone.</p>}
+                  </div>
+                )}
+                {g.conversationId
+                  ? <button type="button" className="yp__chat" onClick={() => { hapticLight(); onOpenGatheringChat(g); }}><Users className="w-4 h-4" aria-hidden="true" />Group chat<ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
+                  : <p className="yp__note">Your group chat opens as soon as you accept someone.</p>}
                 {confirming ? (
                   <div className="yp__confirm" role="alertdialog" aria-label={`Cancel ${g.title}?`}>
                     <p>Cancel this plan?{g.rsvpCount > 1 ? ` The ${g.rsvpCount - 1} joining are told in the group chat.` : ''}</p>
