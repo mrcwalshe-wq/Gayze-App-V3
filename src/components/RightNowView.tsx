@@ -1429,7 +1429,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         <div className="gz-legend" role="status">
           <span className="gz-legend__swatch" aria-hidden="true" />
           <div>
-            <strong>GRID · {gridInfo.size >= 1000 ? `${gridInfo.size / 1000} km` : `${gridInfo.size} m`} cells</strong>
+            <strong>GRID · {gridInfo.size >= 1000 ? `${gridInfo.size / 1000} km` : `${gridInfo.size} m`} cells{gridInfo.occupied > 0 ? ` · ${gridInfo.occupied} live` : ''}</strong>
             <small>{gridInfo.occupied > 0 ? `${gridInfo.occupied} ${gridInfo.occupied === 1 ? 'cell has' : 'cells have'} people live. Their exact spot is never shown.` : 'No one live in view. Cells fill in as people go live.'}</small>
           </div>
         </div>

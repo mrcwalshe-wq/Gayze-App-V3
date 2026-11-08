@@ -2381,3 +2381,8 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .pg-tile__glass, .dc__glass, .pg-tile__live, .pg-tile__ver, .dc__live, .dc__later, .dc__profile { border: 0 !important; }
 .pm__score, .pm__tabs, .pm__list li, .pm__btn, .pm__qrbox, .pm__cam, .pm__lvl, .pm-av { border: 0 !important; }
 .g-ev__close { border: 0; background: rgba(255, 255, 255, .06); }
+
+/* Grid key: no bar. A quiet one-line caption over the map, left-aligned on the margin, just above the bottom row. */
+.g-shell[data-active-tab='right_now'] .gz-legend { left: var(--hud-m) !important; right: auto !important; max-width: calc(100% - var(--hud-m) * 2) !important; padding: 0 !important; gap: 0 !important; background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border-radius: 0 !important; min-height: 0; }
+.g-shell[data-active-tab='right_now'] .gz-legend__swatch, .g-shell[data-active-tab='right_now'] .gz-legend small { display: none !important; }
+.g-shell[data-active-tab='right_now'] .gz-legend strong { font-size: 10.5px; letter-spacing: .14em; color: rgba(255, 255, 255, .8); text-shadow: 0 1px 3px rgba(0, 0, 0, .9), 0 0 10px rgba(0, 0, 0, .7); }
