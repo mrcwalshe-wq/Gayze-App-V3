@@ -65,6 +65,7 @@ export interface SupabaseGatheringRow {
   tags: unknown;
   safety_guidelines: string;
   cancelled_at?: string | null;
+  photo_path?: string | null;
 }
 
 export async function loadGatherings(): Promise<import('../types').Gathering[]> {
@@ -73,7 +74,7 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
   if (!user) return [];
   const { data, error } = await supabase
     .from('gatherings')
-    .select('id,host_id,title,description,category,scheduled_at,neighborhood,is_safe_haven_venue,capacity,tags,safety_guidelines,cancelled_at')
+    .select('id,host_id,title,description,category,scheduled_at,neighborhood,is_safe_haven_venue,capacity,tags,safety_guidelines,cancelled_at,photo_path')
     .gte('scheduled_at', new Date().toISOString())
     .order('scheduled_at', { ascending: true });
   if (error) {
@@ -97,6 +98,14 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     const { data: placeRows, error: placeError } = await supabase.rpc('get_gathering_places', { p_ids: ids });
     if (placeError) console.warn('[GAYZE] Gathering places unavailable:', placeError.message);
     for (const row of (placeRows ?? []) as { gathering_id: string; location_name: string; address: string; lat: number | null; lng: number | null }[]) places.set(row.gathering_id, row);
+  }
+  // Event pictures: private files, shown through short-lived signed links.
+  const photoUrls = new Map<string, string>();
+  const photoPaths = [...new Set((data ?? []).map((row: SupabaseGatheringRow) => row.photo_path).filter((path): path is string => Boolean(path)))];
+  if (photoPaths.length) {
+    const { data: signed, error: signError } = await supabase.storage.from('event-photos').createSignedUrls(photoPaths, 60 * 60);
+    if (signError) console.warn('[GAYZE] Event photos unavailable:', signError.message);
+    for (const item of signed ?? []) if (item.path && item.signedUrl) photoUrls.set(item.path, item.signedUrl);
   }
   // Each gathering's private group chat (only the host and accepted guests are members). Older databases lack the function: no chats.
   const chats = new Map<string, string>();
@@ -130,6 +139,8 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     tags: Array.isArray(row.tags) ? row.tags as string[] : [],
     safetyGuidelines: row.safety_guidelines,
     cancelled: Boolean(row.cancelled_at),
+    photoPath: row.photo_path ?? null,
+    photoUrl: row.photo_path ? photoUrls.get(row.photo_path) ?? null : null,
   }));
 }
 
@@ -152,12 +163,34 @@ export async function createGathering(input: Omit<import('../types').Gathering, 
     capacity: input.capacity,
     tags: input.tags,
     safety_guidelines: input.safetyGuidelines,
+    photo_path: input.photoPath ?? null,
   }).select('id').single();
   if (error) {
     console.warn('[GAYZE] Gathering create failed:', error.message);
     return null;
   }
   return data?.id ?? null;
+}
+
+/** Shrink and upload one event picture (re-encoding drops location data stored in the photo). Returns its storage path. */
+export async function uploadEventPhoto(file: File): Promise<string | null> {
+  if (!supabase) return null;
+  const user = await ensureSupabaseSession();
+  if (!user) return null;
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type)) throw new Error('Choose a JPEG, PNG or WebP picture.');
+  const source: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('The picture could not be read.'));
+    reader.readAsDataURL(file);
+  });
+  const { compressImageDataUrl } = await import('./imageCompress');
+  const compressed = await compressImageDataUrl(source, 1600, 420_000);
+  const blob = await (await fetch(compressed)).blob();
+  const path = `${user.id}/${crypto.randomUUID()}.jpg`;
+  const { error } = await supabase.storage.from('event-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+  if (error) { console.warn('[GAYZE] Event photo upload failed:', error.message); return null; }
+  return path;
 }
 
 export type GatheringStatus = 'requested' | 'attending' | 'declined' | 'cancelled';
