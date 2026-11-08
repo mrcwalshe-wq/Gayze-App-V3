@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
-import { isNativeApp, startNativeGoogleSignIn } from '../services/nativeAuth';
+import { googleSignInAvailable, isNativeApp, startNativeGoogleSignIn } from '../services/nativeAuth';
 import { checkPassword, describeAuthError, isPlausibleEmail, type AuthContext, type AuthIssue } from '../services/authMessages';
 
 /** The multi-colour Google "G", as required by Google's sign-in branding guidelines. */
@@ -452,7 +452,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           )}
 
 
-          {(mode === 'signin' || mode === 'signup') && (
+          {(mode === 'signin' || mode === 'signup') && googleSignInAvailable() && (
             <>
               <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-zinc-600">
                 <span className="h-px flex-1 bg-white/[0.07]" />
@@ -473,7 +473,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
           {mode === 'signup' && (
             <p className="mt-4 text-center text-[11px] leading-relaxed text-zinc-500">
-              By creating an account or continuing with Google you agree to the{' '}
+              {googleSignInAvailable() ? 'By creating an account or continuing with Google you agree to the' : 'By creating an account you agree to the'}{' '}
               <a href="/terms.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Terms</a>,{' '}
               <a href="/privacy.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Privacy Policy</a> and{' '}
               <a href="/community-guidelines.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Community Guidelines</a>.

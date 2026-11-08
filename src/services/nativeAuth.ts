@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { isIosPlatform, type CapacitorLike } from './platform';
 
 /**
  * Google sign-in inside the Capacitor app (iOS and Android).
@@ -21,6 +22,15 @@ export function isNativeApp(): boolean {
     (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
       .Capacitor?.isNativePlatform?.(),
   );
+}
+
+/**
+ * Apple's App Review rule 4.8: an app that offers a third-party login must also offer Sign in with Apple.
+ * GAYZE does not, so the Google button is hidden in the iPhone app (email sign-in stays). Web and Android keep it.
+ */
+export function googleSignInAvailable(): boolean {
+  if (typeof window === 'undefined') return true;
+  return !isIosPlatform((window as unknown as { Capacitor?: CapacitorLike }).Capacitor);
 }
 
 /** Starts Google sign-in in the system browser. Resolves once the browser is open. */
