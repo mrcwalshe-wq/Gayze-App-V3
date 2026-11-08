@@ -29,6 +29,3 @@ A data protection impact assessment, the Article 9 condition for safety processi
 - It says users are "mainly UK, some international". If you knowingly serve people in the EU, check whether an EU representative is needed under Article 27 EU GDPR.
 - It describes a freemium model with subscriptions and in-app purchases. The draft now has placeholders for payments; the policy and terms must be updated again when premium launches.
 - It says the platform "does not facilitate or require any ... face to face services". GAYZE's events, quick plans and safety timer exist to help people meet in person. If that sentence is used in payment-provider or app-store applications, it could be read as inaccurate and put the account at risk. Describe the in-person element accurately.
-
-## Registered office
-The registered office on the public register is a residential-style address. It appears in the policy as the law expects, but a dating app's founder may prefer a registered-office service or business address. It can be changed with Companies House (form AD01).
