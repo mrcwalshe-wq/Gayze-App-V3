@@ -40,11 +40,11 @@ const QUICK_WHEN: { id: QuickWhen; label: string }[] = [
   { id: 'hour', label: 'In an hour' }, { id: 'tonight', label: 'Tonight' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'weekend', label: 'Saturday night' }, { id: 'sunday', label: 'Sunday' },
 ];
 const quickPresets = (area: string): { text: string; category: Gathering['category']; when: QuickWhen; icon: LucideIcon }[] => [
-  { text: 'Anyone fancy a drink tonight?', category: 'social', when: 'tonight', icon: Wine },
-  { text: `Coffee around ${area || 'here'}?`, category: 'food', when: 'tomorrow', icon: UtensilsCrossed },
+  { text: 'Drinks tonight?', category: 'social', when: 'tonight', icon: Wine },
+  { text: 'Anyone up for coffee nearby?', category: 'food', when: 'tomorrow', icon: UtensilsCrossed },
   { text: 'Anyone going to the gym?', category: 'fitness', when: 'tonight', icon: Dumbbell },
   { text: 'Sunday walk?', category: 'outdoor', when: 'sunday', icon: Mountain },
-  { text: 'Looking for people to go out this weekend?', category: 'music', when: 'weekend', icon: Music },
+  { text: 'Anyone going out this weekend?', category: 'music', when: 'weekend', icon: Music },
 ];
 const isQuick = (g: Gathering) => (g.tags ?? []).includes('quick');
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -143,7 +143,8 @@ export const LaterView: React.FC<LaterViewProps> = ({
       }
       return true;
     })
-    .sort((a, b) => a.timestamp - b.timestamp);
+    // Cancelled plans stay listed (stamped) but sit below everything still happening.
+    .sort((a, b) => Number(Boolean(a.cancelled)) - Number(Boolean(b.cancelled)) || a.timestamp - b.timestamp);
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -214,7 +215,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
     setIsHostModalOpen(true);
   };
 
-  const nextUp = filteredGatherings[0];
+  const nextUp = filteredGatherings.find((g) => !g.cancelled);
 
   return (
     <div className="gayze-premium-page space-y-5">
