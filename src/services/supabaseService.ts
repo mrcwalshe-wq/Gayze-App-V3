@@ -59,12 +59,8 @@ export interface SupabaseGatheringRow {
   description: string;
   category: 'social' | 'arts' | 'active' | 'games' | 'discussions' | 'nightlife';
   scheduled_at: string;
-  location_name: string;
-  address: string;
   neighborhood: string;
   is_safe_haven_venue: boolean;
-  lat: number | null;
-  lng: number | null;
   capacity: number;
   tags: unknown;
   safety_guidelines: string;
@@ -77,7 +73,7 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
   if (!user) return [];
   const { data, error } = await supabase
     .from('gatherings')
-    .select('id,host_id,title,description,category,scheduled_at,location_name,address,neighborhood,is_safe_haven_venue,lat,lng,capacity,tags,safety_guidelines,cancelled_at')
+    .select('id,host_id,title,description,category,scheduled_at,neighborhood,is_safe_haven_venue,capacity,tags,safety_guidelines,cancelled_at')
     .gte('scheduled_at', new Date().toISOString())
     .order('scheduled_at', { ascending: true });
   if (error) {
@@ -95,6 +91,13 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     if (overviewError) console.warn('[GAYZE] Gathering guest lists unavailable:', overviewError.message);
     for (const row of (rows ?? []) as Overview[]) overview.set(row.gathering_id, row);
   }
+  // The venue, address and map position come only for the host and accepted guests; for everyone else the function returns nothing.
+  const places = new Map<string, { location_name: string; address: string; lat: number | null; lng: number | null }>();
+  if (ids.length) {
+    const { data: placeRows, error: placeError } = await supabase.rpc('get_gathering_places', { p_ids: ids });
+    if (placeError) console.warn('[GAYZE] Gathering places unavailable:', placeError.message);
+    for (const row of (placeRows ?? []) as { gathering_id: string; location_name: string; address: string; lat: number | null; lng: number | null }[]) places.set(row.gathering_id, row);
+  }
   // Each gathering's private group chat (only the host and accepted guests are members). Older databases lack the function: no chats.
   const chats = new Map<string, string>();
   const { data: chatRows, error: chatError } = await supabase.rpc('get_my_gathering_chats');
@@ -111,12 +114,13 @@ export async function loadGatherings(): Promise<import('../types').Gathering[]> 
     category: row.category,
     dateStr: new Date(row.scheduled_at).toLocaleString([], { weekday: 'long', hour: '2-digit', minute: '2-digit' }),
     timestamp: new Date(row.scheduled_at).getTime(),
-    locationName: row.location_name,
-    address: row.address,
+    locationName: places.get(row.id)?.location_name ?? '',
+    address: places.get(row.id)?.address ?? '',
+    placeHidden: !places.has(row.id),
     neighborhood: row.neighborhood,
     isSafeHavenVenue: row.is_safe_haven_venue,
-    lat: row.lat ?? null,
-    lng: row.lng ?? null,
+    lat: places.get(row.id)?.lat ?? null,
+    lng: places.get(row.id)?.lng ?? null,
     capacity: row.capacity,
     rsvpCount: overview.get(row.id)?.attending_count ?? 0,
     isAttending: overview.get(row.id)?.my_status === 'attending',

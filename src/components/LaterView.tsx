@@ -347,13 +347,20 @@ export const LaterView: React.FC<LaterViewProps> = ({
 
                 <div className="g-ev__venue">
                   <MapPin className="w-4 h-4" />
-                  <div className="min-w-0">
-                    <strong>
-                      {gathering.locationName}
-                      {gathering.isSafeHavenVenue && <ShieldCheck className="inline w-3.5 h-3.5 ml-1 text-emerald-400" aria-label="Safe Haven venue" />}
-                    </strong>
-                    <span>{[gathering.address, gathering.neighborhood].filter(Boolean).join(' · ')}</span>
-                  </div>
+                  {gathering.placeHidden ? (
+                    <div className="min-w-0">
+                      <strong>{gathering.neighborhood || 'Area shared on request'}</strong>
+                      <span>Exact place is shared once the host accepts you</span>
+                    </div>
+                  ) : (
+                    <div className="min-w-0">
+                      <strong>
+                        {gathering.locationName}
+                        {gathering.isSafeHavenVenue && <ShieldCheck className="inline w-3.5 h-3.5 ml-1 text-emerald-400" aria-label="Safe Haven venue" />}
+                      </strong>
+                      <span>{[gathering.address, gathering.neighborhood].filter(Boolean).join(' · ')}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="g-ev__crowd">
