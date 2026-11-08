@@ -144,6 +144,7 @@ import {
   loadSupabaseProfile,
   loadSafeHavens,
   loadGatherings,
+  loadGatheringStates,
   createGathering,
   requestToJoinGathering,
   leaveGathering,
@@ -1314,6 +1315,15 @@ export default function App() {
   }, [onlineUserIds, serverPresenceById]);
   // A gathering's group chat is named after the gathering (and shows its date), so it is recognisable in the chat list.
   const gatheringChatById = useMemo(() => new Map(gatherings.filter((g) => g.conversationId).map((g) => [g.conversationId as string, g])), [gatherings]);
+  // Start time and cancelled state of every event chat, so finished and cancelled plans can be marked and archived.
+  const [gatheringStates, setGatheringStates] = useState<Record<string, { startsAt: number; cancelled: boolean }>>({});
+  const gatheringRoomIds = rooms.filter((r) => r.type === 'gathering' && r.gatheringId).map((r) => r.gatheringId as string).sort().join(',');
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !gatheringRoomIds) return;
+    let cancelled = false;
+    void loadGatheringStates(gatheringRoomIds.split(',')).then((states) => { if (!cancelled) setGatheringStates(states); });
+    return () => { cancelled = true; };
+  }, [gatheringRoomIds, gatherings]);
   const roomsWithPresence = useMemo(() => rooms.map((r) => {
     const gatheringChat = gatheringChatById.get(r.id);
     if (gatheringChat) r = { ...r, name: gatheringChat.title, type: 'gathering' as const, gatheringId: gatheringChat.id };
@@ -4049,7 +4059,8 @@ export default function App() {
                     onMeetingAction={handleMeetingAction}
                     onReturnToDiscovery={() => setActiveTab('right_now')}
                     onlineUserIds={effectiveOnlineIds}
-                    cancelledGatheringIds={new Set(gatherings.filter((g) => g.cancelled).map((g) => g.id))}
+                    cancelledGatheringIds={new Set([...gatherings.filter((g) => g.cancelled).map((g) => g.id), ...Object.entries(gatheringStates).filter(([, st]) => st.cancelled).map(([id]) => id)])}
+                    finishedGatheringIds={new Set(Object.entries(gatheringStates).filter(([, st]) => !st.cancelled && st.startsAt + 4 * 3600_000 < Date.now()).map(([id]) => id))}
                     connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
                     conversationKeyUnavailable={
                       Boolean(activeRoomId)

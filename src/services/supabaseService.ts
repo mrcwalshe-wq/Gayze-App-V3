@@ -170,6 +170,18 @@ export async function requestToJoinGathering(gatheringId: string): Promise<Gathe
   return data as GatheringStatus;
 }
 
+/** When each gathering starts and whether it was cancelled, for the chats you are in (including ones that have already happened, which the Events list no longer loads). */
+export async function loadGatheringStates(ids: string[]): Promise<Record<string, { startsAt: number; cancelled: boolean }>> {
+  if (!supabase || ids.length === 0) return {};
+  const user = await ensureSupabaseSession();
+  if (!user) return {};
+  const { data, error } = await supabase.from('gatherings').select('id,scheduled_at,cancelled_at').in('id', ids);
+  if (error) { console.warn('[GAYZE] Gathering states unavailable:', error.message); return {}; }
+  const out: Record<string, { startsAt: number; cancelled: boolean }> = {};
+  for (const row of (data ?? []) as { id: string; scheduled_at: string; cancelled_at: string | null }[]) out[row.id] = { startsAt: new Date(row.scheduled_at).getTime(), cancelled: Boolean(row.cancelled_at) };
+  return out;
+}
+
 /** Host only: cancel a plan. It stays listed, stamped CANCELLED; new requests and reminders stop. */
 export async function cancelGathering(gatheringId: string): Promise<boolean> {
   if (!supabase) return false;

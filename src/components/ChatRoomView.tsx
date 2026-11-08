@@ -21,6 +21,7 @@ import {
   Key,
   KeyRound,
   CalendarX,
+  CalendarCheck,
   Archive,
   ArchiveRestore,
   ChevronDown,
@@ -88,6 +89,8 @@ interface ChatRoomViewProps {
   onlineUserIds?: Set<string>;
   /** Gatherings the host has cancelled; their group chats get a Cancelled mark and can be archived. */
   cancelledGatheringIds?: Set<string>;
+  /** Gatherings that have already happened (the start time plus a few hours has passed). */
+  finishedGatheringIds?: Set<string>;
   connectionState?: ChatConnectionState;
   /** True when no conversation key could be resolved on this device. */
   conversationKeyUnavailable?: boolean;
@@ -146,6 +149,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onReturnToDiscovery,
   onlineUserIds,
   cancelledGatheringIds,
+  finishedGatheringIds,
   connectionState,
   conversationKeyUnavailable = false,
   conversationKeyReason,
@@ -375,6 +379,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   };
   const isCancelledEvent = (room: SwarmRoom) => room.type === 'gathering'
     && (Boolean(room.gatheringId && cancelledGatheringIds?.has(room.gatheringId)) || /host cancelled this plan/i.test(room.lastMessage || ''));
+  const isFinishedEvent = (room: SwarmRoom) => room.type === 'gathering' && !isCancelledEvent(room) && Boolean(room.gatheringId && finishedGatheringIds?.has(room.gatheringId));
   const listedRooms = sortedRooms.filter((r) => !archivedIds.has(r.id));
   const archivedRooms = sortedRooms.filter((r) => archivedIds.has(r.id));
 
@@ -604,6 +609,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             const isSelected = room.id === currentRoom?.id;
             const isGathering = room.type === 'gathering';
             const cancelled = isCancelledEvent(room);
+            const finished = isFinishedEvent(room);
             const isLocked = /^can.?t decrypt/i.test(room.lastMessage || '');
             const roomAvatar = room.peerAvatar && room.peerAvatar !== 'user'
               ? (avatarUrls[room.peerAvatar] || (room.peerAvatar.startsWith('http') ? room.peerAvatar : null))
@@ -619,6 +625,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 onClick={() => handleSelectRoom(room.id)}
                 className="g-chatrow"
                 data-cancelled={cancelled || undefined}
+                data-finished={finished || undefined}
                 data-archived={archivedRow || undefined}
                 data-active={isSelected}
                 data-live={liveNow ? liveNow.mode : undefined}
@@ -629,7 +636,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   style={{ ['--h' as string]: avatarHue(room.name) }}
                 >
                   {isGathering ? (
-                    cancelled ? <CalendarX className="w-5 h-5" /> : <Users className="w-5 h-5" />
+                    cancelled ? <CalendarX className="w-5 h-5" /> : finished ? <CalendarCheck className="w-5 h-5" /> : <Users className="w-5 h-5" />
                   ) : roomAvatar ? (
                     <img src={roomAvatar} alt="" />
                   ) : (
@@ -657,6 +664,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     <span className="g-chatrow__tags">
                       {cancelled
                         ? <span className="is-cancelled"><CalendarX className="w-3 h-3" aria-hidden="true" />Cancelled</span>
+                        : finished
+                        ? <span className="is-finished"><CalendarCheck className="w-3 h-3" aria-hidden="true" />Finished</span>
                         : isGathering && <span className="is-group"><Users className="w-3 h-3" aria-hidden="true" />Event group</span>}
                       {room.ephemeralTtlSeconds > 0 && (
                         <span className="is-ttl"><Flame className="w-3 h-3" aria-hidden="true" />{getTtlLabel(room.ephemeralTtlSeconds)}</span>
@@ -666,9 +675,9 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   )}
                 </span>
               </button>
-              {(cancelled || archivedRow) && (
+              {(cancelled || finished || archivedRow) && (
                 <div className="g-chatrow-act" data-cancelled={cancelled || undefined}>
-                  <span>{archivedRow ? 'Archived on this device.' : 'This plan is over. Archive it to tidy your list.'}</span>
+                  <span>{archivedRow ? 'Archived on this device.' : cancelled ? 'This plan is over. Archive it to tidy your list.' : 'This event has finished. Archive it to tidy your list.'}</span>
                   <button type="button" onClick={() => setArchived(room.id, !archivedRow)}>
                     {archivedRow ? <ArchiveRestore className="w-3.5 h-3.5" aria-hidden="true" /> : <Archive className="w-3.5 h-3.5" aria-hidden="true" />}
                     {archivedRow ? 'Restore' : 'Archive'}
