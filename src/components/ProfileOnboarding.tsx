@@ -52,14 +52,17 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
           <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/\s/g, '').toLowerCase())} placeholder="Username / handle" autoComplete="username" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="sr-only">Date of birth</span>
-              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} max={new Date().toISOString().slice(0, 10)} aria-label="Date of birth (you must be 18 or over)" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
+              <span className="block text-[11px] font-semibold text-zinc-300 mb-1">Date of birth</span>
+              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} max={new Date().toISOString().slice(0, 10)} autoComplete="bday" aria-label="Date of birth (you must be 18 or over)" className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none focus:border-[#6F3CC3]/70" />
             </label>
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-zinc-300 mb-1">Location privacy</span>
             <select value={privacySetting} onChange={(e) => setPrivacySetting(e.target.value as LocationPrivacy)} className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 px-4 text-sm outline-none">
               <option value="fuzzy_500m">Approx. 500m</option><option value="neighborhood">Neighborhood</option><option value="ghost">Ghost mode</option>
             </select>
-            <div className="text-xs font-semibold text-white">What are you looking for?</div>
+            </label>
           </div>
+          <p className="-mt-2 text-[11px] text-zinc-500">GAYZE is for people aged 18 and over. We use your date of birth only to check this and do not store it.</p>
           <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 280))} placeholder="Short bio (optional)" rows={3} className="w-full rounded-xl bg-[#090a0f] border border-white/10 px-4 py-3 text-sm outline-none resize-none focus:border-[#6F3CC3]/70" />
           <div>
             <div className="text-xs font-semibold text-white">What are you interested in?</div>
