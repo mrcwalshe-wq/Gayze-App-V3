@@ -3485,8 +3485,10 @@ export default function App() {
       setActiveTab('right_now');
       return;
     }
-    analytics.logEvent('intent_hub_opened');
     setActiveTab('right_now');
+    // With no live signal there is only one thing to do, so go straight to setting one. The hub is for managing a live signal.
+    if (!activeUserIntentRef.current) { handleOpenIntentSheet(null); return; }
+    analytics.logEvent('intent_hub_opened');
     setIsIntentHubOpen(true);
   };
 

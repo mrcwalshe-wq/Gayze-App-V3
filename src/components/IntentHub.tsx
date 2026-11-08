@@ -133,7 +133,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
 
         <header className="g-intent-hub__header">
           <div className="g-intent-hub__heading">
-            <span className="g-intent-hub__eyebrow">GAYZE · INTENTS</span>
+            <span className="g-intent-hub__eyebrow">GAYZE · YOUR SIGNAL</span>
             <h2>{hasActive ? (isPaused ? 'Your intent is paused' : 'Your intent is live') : 'What do you want to do?'}</h2>
             <p>
               {hasActive
@@ -153,7 +153,7 @@ export const IntentHub: React.FC<IntentHubProps> = ({
             </div>
             <div className="min-w-0 flex-1">
               <div className="g-intent-hub__live-top">
-                <span className="g-intent-hub__live-mode">{isPrivate ? 'PRIVATE' : 'SOCIAL'}</span>
+                <span className="g-intent-hub__live-mode">{activeIntent?.when === 'Later' ? 'LATER' : 'RIGHT NOW'}</span>
                 <span className="g-intent-hub__live-time"><Clock3 className="w-3 h-3" /> {formatRemaining(remainingMinutes)}</span>
               </div>
               <strong>{intentDisplayLabel(activeIntent?.intent)}</strong>
