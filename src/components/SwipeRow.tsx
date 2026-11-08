@@ -9,6 +9,8 @@ interface Props {
   children: React.ReactNode;
   /** Storage key: the first time it is seen, the row nudges open and back once so people discover the slide. */
   hintKey?: string;
+  /** How many times the nudge may play for this key across visits (default 1). It plays at most once per app session. */
+  hintMax?: number;
 }
 
 const ACTION_W = 84;
@@ -17,22 +19,38 @@ const ACTION_W = 84;
  * Slide a row left to reveal actions behind it. Horizontal drags move the row; vertical drags still scroll the list.
  * A drag never counts as a tap on the row underneath.
  */
-export const SwipeRow: React.FC<Props> = ({ actions, isOpen, onOpenChange, children, hintKey }) => {
+export const SwipeRow: React.FC<Props> = ({ actions, isOpen, onOpenChange, children, hintKey, hintMax = 1 }) => {
   const [nudge, setNudge] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState(false);
+  // The nudge waits until the row is actually on screen.
   useEffect(() => {
-    if (!hintKey) return;
-    let seen = false;
-    try { seen = localStorage.getItem(hintKey) === '1'; } catch { seen = true; }
-    if (seen || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const open = window.setTimeout(() => setNudge(true), 900);
-    const close = window.setTimeout(() => { setNudge(false); try { localStorage.setItem(hintKey, '1'); } catch { /* shown again next time */ } }, 1700);
-    return () => { window.clearTimeout(open); window.clearTimeout(close); };
-  }, [hintKey]);
+    if (!hintKey || seen) return;
+    const el = wrap.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { setSeen(true); return; }
+    const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { setSeen(true); io.disconnect(); } }, { threshold: 0.9 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hintKey, seen]);
+  useEffect(() => {
+    if (!hintKey || !seen) return;
+    let shown = 0;
+    try { shown = Number(localStorage.getItem(hintKey) || 0); if (sessionStorage.getItem(hintKey) === '1') shown = hintMax; } catch { shown = hintMax; }
+    if (shown >= hintMax || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    // Two soft bumps to the left and back: it says "slide me" without taking over.
+    const steps: [number, boolean][] = [[900, true], [1450, false], [1750, true], [2250, false]];
+    const timers = steps.map(([at, on]) => window.setTimeout(() => setNudge(on), at));
+    timers.push(window.setTimeout(() => {
+      try { localStorage.setItem(hintKey, String(shown + 1)); sessionStorage.setItem(hintKey, '1'); } catch { /* shown again next time */ }
+    }, 2300));
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [hintKey, hintMax, seen]);
+
   const full = ACTION_W * actions.length;
   const start = useRef<{ x: number; y: number; base: number; locked: boolean | null } | null>(null);
   const moved = useRef(false);
   const [drag, setDrag] = useState<number | null>(null);
-  const offset = drag ?? (isOpen ? -full : nudge ? -Math.min(56, full) : 0);
+  const offset = drag ?? (isOpen ? -full : nudge ? -Math.min(72, full) : 0);
 
   const down = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -69,7 +87,7 @@ export const SwipeRow: React.FC<Props> = ({ actions, isOpen, onOpenChange, child
   if (actions.length === 0) return <>{children}</>;
 
   return (
-    <div className="g-swipe" data-open={isOpen || undefined}>
+    <div ref={wrap} className="g-swipe" data-open={isOpen || undefined}>
       <div className="g-swipe__actions" style={{ width: full }} aria-hidden={!isOpen}>
         {actions.map((a) => (
           <button key={a.key} type="button" tabIndex={isOpen ? 0 : -1} className={`g-swipe__act is-${a.tone}`} style={{ width: ACTION_W }} onClick={() => { onOpenChange(false); a.onClick(); }}>
