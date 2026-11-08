@@ -1,36 +1,14 @@
-import { intentStartsAt, formatLaterAt } from '../services/intentTiming';
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  X,
-  Check,
-  Home,
-  Radio,
-  UsersRound,
-  EyeOff,
-  Coffee,
-  Wine,
-  Heart,
-  MessageCircle,
-  Moon,
-  Route,
-  TreePine,
-  Car,
-  Sparkles,
-  ShieldCheck,
-  CalendarClock,
-  type LucideIcon,
-} from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, ChevronLeft, ShieldCheck, X } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
-import { SparkBorder, sparkBurst } from './SparkBorder';
-import { PlacePicker } from './PlacePicker';
+import { intentStartsAt, formatLaterAt } from '../services/intentTiming';
+import { loadOpenToMore, setOpenToMore } from '../services/supabaseService';
 import {
-  SafeHaven,
-  TopLevelIntentMode,
-  EncounterIntent,
-  SocialIntent,
-  PrivateIntent,
-  UserActiveIntent,
-} from '../types';
+  ACTIVITIES, CONNECTIONS, MAX_ACTIVITIES, activityLabel, cleanActivities, cleanConnections, legacyActivityFor,
+} from '../services/intentModel';
+import { sparkBurst } from './SparkBorder';
+import { PlacePicker } from './PlacePicker';
+import { SafeHaven, TopLevelIntentMode, UserActiveIntent } from '../types';
 
 export { type UserActiveIntent };
 
@@ -43,601 +21,271 @@ interface SetIntentSheetProps {
   userNeighborhood: string;
   userLocation?: { lat: number; lng: number } | null;
   defaultWhen?: string;
+  /** Kept for callers; the new model no longer starts from a Social / Private choice. */
   initialMode?: TopLevelIntentMode | null;
 }
 
-/* ------------------------------------------------------------------ */
-/* Option vocabularies (stored values are shared across the product)   */
-/* ------------------------------------------------------------------ */
-
-type IntentOption<T> = { value: T; label: string; hint: string; icon: LucideIcon };
-
-const SOCIAL_OPTIONS: IntentOption<SocialIntent>[] = [
-  { value: 'Meet', label: 'Meet', hint: 'Coffee, a walk, a wander', icon: Coffee },
-  { value: 'Drinks', label: 'Drinks', hint: 'A drink nearby', icon: Wine },
-  { value: 'Date', label: 'Date', hint: 'Something with chemistry', icon: Heart },
-  { value: 'Chat', label: 'Chat', hint: 'Conversation first', icon: MessageCircle },
-  { value: 'Group', label: 'Group', hint: 'Company, not just two', icon: UsersRound },
-];
-
-// Stored values stay as they are (shared with the database and matching);
-// only the words people read are softened.
-const PRIVATE_OPTIONS: IntentOption<PrivateIntent>[] = [
-  { value: 'Hookup', label: 'Intimate', hint: 'Spontaneous, no fixed plan', icon: Moon },
-  { value: 'Hookup · Host', label: 'Host', hint: 'You have the place', icon: Home },
-  { value: 'Hookup · Travel', label: 'Travel', hint: 'Happy to come to you', icon: Route },
-  { value: 'Hookup · Outdoor', label: 'Outdoors', hint: 'Somewhere quiet and discreet', icon: TreePine },
-  { value: 'Hookup · Car', label: 'By car', hint: 'Meet somewhere private', icon: Car },
-  { value: 'Other', label: 'Other', hint: 'Say it in your words', icon: Sparkles },
-];
-
-const WHEN_OPTIONS: { value: string; label: string }[] = [
-  { value: 'Now', label: 'Right now' },
-  { value: 'Next 1 hour', label: '1 hour' },
-  { value: 'Next 2 hours', label: '2 hours' },
-  { value: 'Tonight', label: 'Tonight' },
-];
-
-const DURATION_OPTIONS = ['1 hr', '2 hrs', '4+ hrs'] as const;
-const DISTANCE_OPTIONS = ['Walking distance', 'Within 2 km', 'Within 5 km', 'Willing to travel'];
-const HOST_OPTIONS = ['Can host', 'Cannot host', 'Depends'] as const;
-const TRAVEL_OPTIONS = ['Yes', 'Within reason', 'Car required'] as const;
-
-const QUICK_SUGGESTIONS: Record<string, string[]> = {
-  Meet: ['Quick coffee, easy conversation', 'Stroll around the neighbourhood', 'Open to meeting someone grounded nearby'],
-  Drinks: ['Low-key cocktail after work', 'Quiet terrace drink nearby', 'One drink, see where it goes'],
-  Date: ['Dinner or gallery together', 'Low-pressure evening out', 'Good conversation, mutual chemistry'],
-  Chat: ['Tea and a long conversation', 'Walking chat, no agenda', 'Making a new friend in the area'],
-  Group: ['Gym or bouldering session', 'Exhibition or park meetup', 'Joining something happening tonight'],
-  Hookup: ['Spontaneous, discreet, respectful', 'Mutual vibes, clear boundaries', 'Low-key connection tonight'],
-  'Hookup · Host': ['Hosting nearby, relaxed and discreet', 'My place, easy evening', 'Low-key hosting right now'],
-  'Hookup · Travel': ['Mobile, can come to you', 'Within a reasonable radius', 'Discreet and easy to reach'],
-  'Hookup · Outdoor': ['A quiet spot, low-key', 'Night walk, no pressure', 'Discreet and outdoors'],
-  'Hookup · Car': ['Easy meet, private and safe', 'Discreet, on the move', 'Respectful and clear'],
-  Other: ['Discreet with clear boundaries', 'Open to a specific vibe', 'Respectful communication first'],
-};
-
+const STEPS = ['Availability', 'Activity', 'Connection'] as const;
 const pad = (n: number) => String(n).padStart(2, '0');
 const toLocalInput = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 /** Tomorrow at 19:00, a sensible starting point for "later". */
 const defaultLaterValue = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(19, 0, 0, 0); return toLocalInput(d.getTime()); };
 
-const optionLabel = (value: EncounterIntent): string => {
-  const all = [...SOCIAL_OPTIONS, ...PRIVATE_OPTIONS];
-  return all.find((o) => o.value === value)?.label ?? String(value);
-};
-
 /**
- * Intent composer — "set a live signal", not a profile form.
- * Progressive disclosure: WHAT ARE YOU UP FOR? → WHAT? → optional details.
+ * Set a live signal, in three separate choices: when you are free, what you are up for, and what you are open to.
+ * "Open to more" is a private, optional setting. It is never shown to anyone and never used as a filter.
  */
 export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
-  isOpen,
-  onClose,
-  onSaveIntent,
-  existingIntent,
-  safeHavens = [],
-  userNeighborhood,
-  userLocation,
-  defaultWhen = 'Now',
-  initialMode = null,
+  isOpen, onClose, onSaveIntent, existingIntent, safeHavens = [], userNeighborhood, userLocation, defaultWhen = 'Now',
 }) => {
-  const [mode, setMode] = useState<TopLevelIntentMode | null>(null);
-  const [intent, setIntent] = useState<EncounterIntent | null>(null);
-  const [description, setDescription] = useState('');
+  const [step, setStep] = useState(0);
   const [when, setWhen] = useState<string>(defaultWhen);
-  // "Later": a date and time picked in the person's own timezone, as a datetime-local value (YYYY-MM-DDTHH:mm).
   const [laterValue, setLaterValue] = useState<string>(() => defaultLaterValue());
   const [duration, setDuration] = useState<'1 hr' | '2 hrs' | '4+ hrs'>('2 hrs');
-  const [travelDistance, setTravelDistance] = useState('Within 2 km');
-  const [canHost, setCanHost] = useState<'Can host' | 'Cannot host' | 'Depends'>('Can host');
-  const [travelWillingness, setTravelWillingness] = useState<'Yes' | 'Within reason' | 'Car required'>('Yes');
+  const [activities, setActivities] = useState<string[]>([]);
+  const [connections, setConnections] = useState<string[]>([]);
+  const [openMore, setOpenMore] = useState(false);
+  const [openMoreWas, setOpenMoreWas] = useState(false);
+  const [description, setDescription] = useState('');
+  const [showDetail, setShowDetail] = useState(false);
   const [useSafeHaven, setUseSafeHaven] = useState(false);
-  // Social signals only: an optional real place to meet. Its name and area are shown to members who see the signal.
+  const [selectedHaven, setSelectedHaven] = useState<SafeHaven | null>(safeHavens[0] ?? null);
   const [placeText, setPlaceText] = useState('');
   const [place, setPlace] = useState<{ name: string; area: string } | null>(null);
-  const [selectedHaven, setSelectedHaven] = useState<SafeHaven | null>(safeHavens[0] ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const initializedDraftRef = useRef<string | null>(null);
-  const safeHavensRef = useRef(safeHavens);
-  safeHavensRef.current = safeHavens;
+  const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
+  const initialised = useRef<string | null>(null);
   const isEditing = Boolean(existingIntent);
-  const allowPrivateMode = existingIntent?.mode === 'private';
-  const isPrivateMode = mode === 'private';
+  const later = when === 'Later';
+  const tone = later ? 'social' : 'private';
 
   useEffect(() => {
-    if (!isOpen) { initializedDraftRef.current = null; return; }
+    if (!isOpen) { initialised.current = null; return; }
     const target = existingIntent?.remoteId ?? (existingIntent ? 'local-edit' : 'new');
-    if (initializedDraftRef.current === target) return;
-    initializedDraftRef.current = target;
-    setErrorMessage(null);
-    setIsSubmitting(false);
+    if (initialised.current === target) return;
+    initialised.current = target;
+    setStep(0); setDir('fwd'); setErrorMessage(null); setIsSubmitting(false); setShowDetail(false);
     if (existingIntent) {
-      setMode(existingIntent.mode);
-      setIntent(existingIntent.intent);
-      setDescription(existingIntent.description || '');
       setWhen(existingIntent.when || defaultWhen);
       setLaterValue(existingIntent.when === 'Later' ? toLocalInput(existingIntent.activatedAt) : defaultLaterValue());
       setDuration(existingIntent.duration === '1 hr' ? '1 hr' : existingIntent.duration === '4+ hrs' ? '4+ hrs' : '2 hrs');
-      setTravelDistance(existingIntent.travelDistance || 'Within 2 km');
-      setCanHost(existingIntent.canHost || 'Can host');
-      setTravelWillingness(existingIntent.travelWillingness || 'Yes');
+      const have = cleanActivities(existingIntent.activities);
+      setActivities(have.length ? have : legacyActivityFor(String(existingIntent.intent)));
+      setConnections(cleanConnections(existingIntent.connections));
+      setDescription(existingIntent.description || '');
       setUseSafeHaven(Boolean(existingIntent.isNearSafeHaven));
-      if (existingIntent.safeHavenName) {
-        const match = safeHavensRef.current.find((h) => h.name === existingIntent.safeHavenName);
-        if (match) setSelectedHaven(match);
-      }
     } else {
-      // New intents are always social. Private is kept only so older private intents can still be edited.
-      setMode('social');
-      setIntent(null);
-      setDescription('');
-      setWhen(defaultWhen);
-      setLaterValue(defaultLaterValue());
-      setDuration('2 hrs');
-      setTravelDistance('Within 2 km');
-      setCanHost('Can host');
-      setTravelWillingness('Yes');
-      setUseSafeHaven(false);
+      setWhen(defaultWhen); setLaterValue(defaultLaterValue()); setDuration('2 hrs');
+      setActivities([]); setConnections([]); setDescription(''); setUseSafeHaven(false);
     }
-  }, [isOpen, existingIntent, defaultWhen, initialMode]);
+    setPlace(null); setPlaceText('');
+    void loadOpenToMore().then((value) => { setOpenMore(value); setOpenMoreWas(value); });
+  }, [isOpen, existingIntent, defaultWhen]);
 
-  // Late haven data can fill an unchosen default, but must never reset the
-  // mode/intent/description that the user is currently editing.
   useEffect(() => {
-    if (!selectedHaven && safeHavens.length) {
-      setSelectedHaven(safeHavens.find((haven) => haven.name === existingIntent?.safeHavenName) ?? safeHavens[0]);
-    }
+    if (!selectedHaven && safeHavens.length) setSelectedHaven(safeHavens.find((h) => h.name === existingIntent?.safeHavenName) ?? safeHavens[0]);
   }, [safeHavens, selectedHaven, existingIntent?.safeHavenName]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const tone = isPrivateMode ? 'private' : 'social';
-  const options = isPrivateMode ? PRIVATE_OPTIONS : SOCIAL_OPTIONS;
+  const toggle = (list: string[], id: string, max = 99) => (list.includes(id) ? list.filter((x) => x !== id) : list.length >= max ? list : [...list, id]);
+  const canNext = step === 1 ? activities.length > 0 : true;
+  const mainLabel = activities.length ? activityLabel(activities[0]) : '';
 
-  const handleSelectMode = (next: TopLevelIntentMode) => {
+  const go = (delta: 1 | -1) => {
     hapticLight();
-    if (next !== mode) {
-      setMode(next);
-      setIntent(null);
-      setDescription('');
-    }
+    setDir(delta === 1 ? 'fwd' : 'back');
+    setErrorMessage(null);
+    setStep((s) => Math.max(0, Math.min(2, s + delta)));
   };
 
-  const handleSelectIntent = (value: EncounterIntent) => {
-    hapticLight();
-    setIntent(value);
-    if (!description && QUICK_SUGGESTIONS[value]?.[0]) {
-      setDescription(QUICK_SUGGESTIONS[value][0]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mode || !intent || isSubmitting) return;
+  const submit = async () => {
+    if (isSubmitting || activities.length === 0) return;
     hapticSensitiveAction();
     setIsSubmitting(true);
     setErrorMessage(null);
-
-    const laterAt = when === 'Later' ? Date.parse(laterValue) : undefined;
-    if (when === 'Later' && (!Number.isFinite(laterAt) || (laterAt as number) < Date.now() + 5 * 60_000)) {
+    const laterAt = later ? Date.parse(laterValue) : undefined;
+    if (later && (!Number.isFinite(laterAt) || (laterAt as number) < Date.now() + 5 * 60_000)) {
       setErrorMessage('Pick a date and time at least 5 minutes from now.');
       setIsSubmitting(false);
+      setDir('back'); setStep(0);
       return;
     }
-    const durationMs = (duration === '1 hr' ? 1 : duration === '4+ hrs' ? 4 : 2) * 3600 * 1000;
+    const durationMs = (duration === '1 hr' ? 1 : duration === '2 hrs' ? 2 : 4) * 3600 * 1000;
     const activatedAt = intentStartsAt(when, Date.now(), laterAt);
-    const expiresAt = activatedAt + durationMs;
-
-    const meetPlace = mode === 'social' && !useSafeHaven ? place : null;
+    const meetPlace = !useSafeHaven ? place : null;
     const areaText = useSafeHaven && selectedHaven
       ? `${selectedHaven.name} (Safe Haven, ${userNeighborhood})`
-      : meetPlace
-        ? `${meetPlace.name}${meetPlace.area ? ` (${meetPlace.area})` : ''}`
-        : `${userNeighborhood} (Approximate ±300m)`;
-
-    const activeData: UserActiveIntent = {
+      : meetPlace ? `${meetPlace.name}${meetPlace.area ? ` (${meetPlace.area})` : ''}` : `${userNeighborhood} (Approximate ±300m)`;
+    const picked = cleanActivities(activities);
+    const data: UserActiveIntent = {
       remoteId: existingIntent?.remoteId,
-      mode,
-      intent,
-      description: description.trim() || `Available for ${optionLabel(intent)} in ${userNeighborhood}`,
+      mode: 'social',
+      intent: activityLabel(picked[0]),
+      activities: picked,
+      connections: cleanConnections(connections),
+      description: description.trim() || `Up for ${picked.map(activityLabel).join(', ').toLowerCase()} in ${userNeighborhood}`,
       when,
       duration,
-      travelDistance,
-      canHost: intent === 'Hookup · Host' ? canHost : undefined,
-      travelWillingness: intent === 'Hookup · Travel' ? travelWillingness : undefined,
-      context: mode === 'private' ? 'Private' : 'Public',
+      travelDistance: existingIntent?.travelDistance || 'Within 2 km',
+      // Practical details from older signals are carried over untouched; new signals do not publish them.
+      canHost: existingIntent?.canHost,
+      travelWillingness: existingIntent?.travelWillingness,
+      context: 'Public',
       area: areaText,
       isNearSafeHaven: useSafeHaven,
       safeHavenName: useSafeHaven && selectedHaven ? selectedHaven.name : undefined,
       activatedAt,
-      expiresAt,
+      expiresAt: activatedAt + durationMs,
       isPaused: false,
     };
-
     try {
-      const res = await onSaveIntent(activeData);
-      if (res === false) {
-        setErrorMessage('Could not publish your signal. Please try again.');
-      } else {
-        onClose();
-      }
+      const res = await onSaveIntent(data);
+      if (res === false) { setErrorMessage('Could not publish your signal. Please try again.'); return; }
+      if (openMore !== openMoreWas) { const ok = await setOpenToMore(openMore); if (ok) setOpenMoreWas(openMore); }
+      onClose();
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to save signal. Please try again.');
+      setErrorMessage(err?.message || 'Failed to save your signal. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const suggestions = intent ? QUICK_SUGGESTIONS[intent] ?? [] : [];
-  const showHosting = intent === 'Hookup · Host';
-  const showTravel = intent === 'Hookup · Travel';
+  const summary = `${later && Number.isFinite(Date.parse(laterValue)) ? formatLaterAt(Date.parse(laterValue)) : 'Right now'} · ${activities.length ? activities.map(activityLabel).join(', ') : 'choose what you are up for'}`;
 
   return (
-    <div
-      className="g-overlay flex items-end sm:items-center justify-center sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="set-intent-title"
-    >
+    <div className="g-overlay flex items-end sm:items-center justify-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="signal-title">
       <div
-        className={`g-sheet g-sheet--above-nav g-iset ${mode ? `g-sheet--${mode}` : ""} ${when === 'Later' ? 'g-iset--later' : 'g-iset--now'}`}
+        className={`g-sheet g-sheet--above-nav ss ss--${later ? 'later' : 'now'}`}
         onClick={(e) => e.stopPropagation()}
         onClickCapture={(e) => {
-          // Every button on this sheet throws a burst of sparks in the signal's colour (gold for Later, purple otherwise).
-          const el = (e.target as HTMLElement).closest('.g-iseg__opt, .g-later-pick, .g-iset__sug, .g-sheet__foot button') as HTMLElement | null;
-          if (el) sparkBurst(el, el.closest('.g-later-pick') || (when === 'Later' && !el.closest('[data-seg="when"]')) ? 'social' : 'private', 30);
+          // Every choice and button throws sparks in the signal's colour: purple within the day, gold for later.
+          const el = (e.target as HTMLElement).closest('.ss-tile, .ss-opt, .ss-seg button, .ss-go, .ss-back, .ss-chip') as HTMLElement | null;
+          if (el) sparkBurst(el, tone, el.classList.contains('ss-go') ? 70 : 28);
         }}
       >
-        <div className="g-sheet__grip" />
-
-        {/* Header */}
-        <div className="g-sheet__head">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className={`flex items-center justify-center w-8 h-8 rounded-[6px] shrink-0 ${
-              isEditing
-                ? 'bg-[#6F3CC3]/18 border border-[#6F3CC3]/45 text-[#b796f0] shadow-[inset_0_1px_0_rgba(170,132,245,0.16)]'
-                : 'bg-white/[0.04] border border-white/[0.09] text-zinc-400'
-            }`}>
-              <Radio className="w-4 h-4" />
-            </span>
-            <div className="min-w-0">
-              <h2 id="set-intent-title" className="text-[15.5px] font-semibold tracking-[-0.015em] text-white leading-tight">
-                {isEditing ? 'Your live signal' : 'Set a live signal'}
-              </h2>
-              <p className="text-[11px] text-zinc-500 leading-tight mt-0.5">
-                {isEditing ? 'Update what you’re open to right now.' : 'Say what you’re up for — visible nearby until it expires.'}
-              </p>
-            </div>
+        <span className="ss-haze" aria-hidden="true" />
+        <div className="ss-head">
+          <div>
+            <span className="ss-eyebrow">{isEditing ? 'Your live signal' : 'Set a signal'} · Step {step + 1} of 3</span>
+            <h2 id="signal-title" className="ss-title">{step === 0 ? 'When are you free?' : step === 1 ? 'What are you up for?' : 'What are you open to?'}</h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="g-icon-btn g-icon-btn--bare shrink-0"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <button type="button" className="ss-x" onClick={onClose} aria-label="Close"><X className="w-[18px] h-[18px]" /></button>
+        </div>
+        <div className="ss-progress" aria-label={STEPS[step]}>{STEPS.map((s, i) => <i key={s} className={i <= step ? 'on' : ''} />)}</div>
+
+        <div className="ss-body">
+          <div key={step} className={`ss-pane ss-pane--${dir}`}>
+            {step === 0 && (
+              <>
+                <div className="ss-grid2">
+                  <button type="button" className="ss-tile ss-tile--big" aria-pressed={!later} onClick={() => { hapticLight(); setWhen('Now'); }}>
+                    <b>Right now</b><span>Available for the next few hours</span>
+                  </button>
+                  <button type="button" className="ss-tile ss-tile--big ss-tile--amber" aria-pressed={later} onClick={() => { hapticLight(); setWhen('Later'); }}>
+                    <b>Later</b><span>Planning ahead, up to 24 hours</span>
+                  </button>
+                </div>
+                {later && (
+                  <label className="ss-field">
+                    <span className="ss-eyebrow">Starts</span>
+                    <input type="datetime-local" value={laterValue} min={toLocalInput(Date.now() + 5 * 60_000)} max={toLocalInput(Date.now() + 30 * 86_400_000)} onChange={(e) => setLaterValue(e.target.value)} />
+                  </label>
+                )}
+                <div>
+                  <span className="ss-eyebrow">How long</span>
+                  <div className="ss-seg" role="group" aria-label="How long">
+                    {(['1 hr', '2 hrs', '4+ hrs'] as const).map((d) => (
+                      <button key={d} type="button" aria-pressed={duration === d} onClick={() => { hapticLight(); setDuration(d); }}>{d}</button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {step === 1 && (
+              <>
+                <p className="ss-sub">Choose up to {MAX_ACTIVITIES}. Change it whenever you like.</p>
+                <div className="ss-grid2">
+                  {ACTIVITIES.map((a) => (
+                    <button key={a.id} type="button" className={`ss-tile ${later ? 'ss-tile--amber' : ''}`} aria-pressed={activities.includes(a.id)} onClick={() => { hapticLight(); setActivities((l) => toggle(l, a.id, MAX_ACTIVITIES)); }}>
+                      <b>{a.label}</b><span>{a.hint}</span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="ss-more" aria-expanded={showDetail} onClick={() => { hapticLight(); setShowDetail((v) => !v); }}>{showDetail ? 'Hide details' : 'Add a line or a place (optional)'}</button>
+                {showDetail && (
+                  <div className="ss-detail">
+                    <label className="ss-field">
+                      <span className="ss-eyebrow">In your words</span>
+                      <input type="text" value={description} maxLength={100} placeholder="One line about what you have in mind" onChange={(e) => setDescription(e.target.value)} />
+                    </label>
+                    {safeHavens.length > 0 && (
+                      <div className="ss-switch-row">
+                        <div><b>Near a Safe Haven</b><span>Show my signal around a vetted public venue</span></div>
+                        <button type="button" role="switch" aria-checked={useSafeHaven} aria-label="Near a Safe Haven" className="ss-sw" onClick={() => { hapticLight(); setUseSafeHaven((v) => !v); setPlace(null); setPlaceText(''); }}><i /></button>
+                      </div>
+                    )}
+                    {useSafeHaven && safeHavens.length > 0 && (
+                      <div className="ss-chips">{safeHavens.slice(0, 4).map((h) => <button key={h.id} type="button" className="ss-chip" aria-pressed={selectedHaven?.id === h.id} onClick={() => { hapticLight(); setSelectedHaven(h); }}>{h.name}</button>)}</div>
+                    )}
+                    {!useSafeHaven && (
+                      <div>
+                        <span className="ss-eyebrow">Where to meet (optional)</span>
+                        <PlacePicker value={placeText} near={userLocation ?? null} placeholder="Search for a bar, café or park" className="g-field g-iset__field"
+                          onTextChange={(t) => { setPlaceText(t); if (place && t !== place.name) setPlace(null); }}
+                          onPick={(p) => { setPlaceText(p.name); setPlace({ name: p.name, area: p.area }); }} />
+                        <p className="ss-fine">{place ? 'Members who see your signal will see this place. Pick somewhere public.' : 'Leave empty to show only your approximate area.'}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <p className="ss-sub">Choose any that fit. Others see your activity and availability, plus the connections you pick here.</p>
+                <div className="ss-opts">
+                  {CONNECTIONS.map((c) => (
+                    <button key={c.id} type="button" className="ss-opt" aria-pressed={connections.includes(c.id)} onClick={() => { hapticLight(); setConnections((l) => toggle(l, c.id)); }}>
+                      <span className="ss-box"><Check className="w-3 h-3" strokeWidth={3} /></span><b>{c.label}</b>
+                    </button>
+                  ))}
+                </div>
+                <div className="ss-switch-row ss-switch-row--strip">
+                  <div>
+                    <b>Open to more</b> <span className="ss-eyebrow">Optional</span>
+                    <span className="ss-fine-block">Private. Never shown on the map, on your profile or in filters. It matters only if you both have it on, and then you each get a quiet prompt, nothing more.</span>
+                  </div>
+                  <button type="button" role="switch" aria-checked={openMore} aria-label="Open to more" className="ss-sw" onClick={() => { hapticLight(); setOpenMore((v) => !v); }}><i /></button>
+                </div>
+                <p className="ss-fine"><ShieldCheck className="inline w-3.5 h-3.5 mr-1" aria-hidden="true" />Your position stays approximate (±300 m) and the signal ends when it expires. Precise GPS never leaves this device.</p>
+              </>
+            )}
+            {errorMessage && <div className="ss-error" role="alert">{errorMessage}</div>}
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <div className="g-sheet__body">
-            {/* STEP 1 — mode */}
-            <div className="pt-1 pb-3">
-              <span className="g-label">What are you up for?</span>
-              <div className={`grid ${allowPrivateMode ? 'grid-cols-2' : 'grid-cols-1'} gap-2.5 mt-2.5`}>
-                <button
-                  type="button"
-                  className="g-opt"
-                  data-tone="social"
-                  data-active={mode === 'social'}
-                  onClick={() => handleSelectMode('social')}
-                >
-                  {mode === 'social' && <SparkBorder tone={when === 'Later' ? 'social' : 'private'} />}
-                  <span className="g-opt__orb" aria-hidden="true"><UsersRound className="w-[18px] h-[18px]" /></span>
-                  <span className="g-opt__t">Social</span>
-                  <span className="g-opt__d">Meet · Drinks · Dates · Groups</span>
-                  {mode === 'social' && (
-                    <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-[#C9A24D] flex items-center justify-center">
-                      <Check className="w-3 h-3 text-black" strokeWidth={3} />
-                    </span>
-                  )}
-                </button>
-
-                {allowPrivateMode && (
-                <button
-                  type="button"
-                  className="g-opt"
-                  data-tone="private"
-                  data-active={mode === 'private'}
-                  onClick={() => handleSelectMode('private')}
-                >
-                  {mode === 'private' && <SparkBorder tone="private" />}
-                  <span className="g-opt__orb" aria-hidden="true"><EyeOff className="w-[18px] h-[18px]" /></span>
-                  <span className="g-opt__t">Private</span>
-                  <span className="g-opt__d">Discreet · one-to-one</span>
-                  {mode === 'private' && (
-                    <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-[#6F3CC3] flex items-center justify-center">
-                      <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                    </span>
-                  )}
-                </button>
-                )}
-              </div>
-            </div>
-
-            {/* STEP 2 — what */}
-            {mode && (
-              <div className="g-reveal pt-3 pb-3 border-t border-white/[0.07]">
-                <span className="g-label">What?</span>
-                <div className="g-iset__grid mt-2.5">
-                  {options.map((opt) => {
-                    const Icon = opt.icon;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        className="g-itile"
-                        data-tone={tone}
-                        data-active={intent === opt.value}
-                        onClick={() => handleSelectIntent(opt.value)}
-                      >
-                        {intent === opt.value && <SparkBorder tone={when === 'Later' ? 'social' : 'private'} />}
-                        <span className="g-itile__icon" aria-hidden="true"><Icon className="w-[17px] h-[17px]" /></span>
-                        <span className="g-itile__copy">
-                          <span className="g-itile__t">{opt.label}</span>
-                          <span className="g-itile__d">{opt.hint}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* STEP 3 — contextual details */}
-            {mode && intent && (
-              <div className="g-reveal pt-3 border-t border-white/[0.07] space-y-4 pb-2">
-                <div>
-                  <span className="g-label">When</span>
-                  <div className="g-iseg g-iseg--4 mt-2.5" data-tone={tone} data-seg="when">
-                    {WHEN_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        className="g-iseg__opt"
-                        data-active={when === opt.value}
-                        onClick={() => { hapticLight(); setWhen(opt.value); }}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  {when === 'Tonight' && <p className="mt-2 text-[11px] text-zinc-500">From 19:00 local time, or now if it is already later.</p>}
-
-                  {/* Planned for another time: gold, with a date and time */}
-                  <button
-                    type="button"
-                    className="g-later-pick"
-                    data-active={when === 'Later'}
-                    onClick={() => { hapticLight(); setWhen('Later'); }}
-                    aria-pressed={when === 'Later'}
-                  >
-                    <span className="g-later-pick__icon"><CalendarClock className="w-[18px] h-[18px]" /></span>
-                    <span className="g-later-pick__txt">
-                      <strong>Later</strong>
-                      <small>{when === 'Later' && Number.isFinite(Date.parse(laterValue)) ? formatLaterAt(Date.parse(laterValue)) : 'Pick a date and time'}</small>
-                    </span>
-                  </button>
-                  {when === 'Later' && (
-                    <div className="g-later-pick__field g-reveal">
-                      <label htmlFor="intent-later-at" className="g-label">Date and time</label>
-                      <input
-                        id="intent-later-at"
-                        type="datetime-local"
-                        className="g-field g-iset__field mt-2"
-                        value={laterValue}
-                        min={toLocalInput(Date.now() + 5 * 60_000)}
-                        max={toLocalInput(Date.now() + 30 * 86_400_000)}
-                        onChange={(e) => setLaterValue(e.target.value)}
-                      />
-                      <p className="mt-2 text-[11px] text-zinc-500">Your signal goes live then, not before. Up to 30 days ahead.</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <span className="g-label">Time available</span>
-                    <div className="g-iseg g-iseg--3 mt-2.5" data-tone={tone}>
-                      {DURATION_OPTIONS.map((d) => (
-                        <button
-                          key={d}
-                          type="button"
-                          className="g-iseg__opt"
-                          data-active={duration === d}
-                          onClick={() => { hapticLight(); setDuration(d); }}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="g-label">How far you’ll go</span>
-                    <div className="g-iseg g-iseg--2 mt-2.5" data-tone={tone}>
-                      {DISTANCE_OPTIONS.map((d) => (
-                        <button
-                          key={d}
-                          type="button"
-                          className="g-iseg__opt"
-                          data-active={travelDistance === d}
-                          onClick={() => { hapticLight(); setTravelDistance(d); }}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {showHosting && (
-                  <div className="g-reveal">
-                    <span className="g-label flex items-center gap-1.5">
-                      <Home className="w-3 h-3" /> Can you host?
-                    </span>
-                    <div className="g-iseg g-iseg--3 mt-2.5" data-tone={tone}>
-                      {HOST_OPTIONS.map((o) => (
-                        <button
-                          key={o}
-                          type="button"
-                          className="g-iseg__opt"
-                          data-active={canHost === o}
-                          onClick={() => { hapticLight(); setCanHost(o); }}
-                        >
-                          {o}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {showTravel && (
-                  <div className="g-reveal">
-                    <span className="g-label">Willing to travel?</span>
-                    <div className="g-iseg g-iseg--3 mt-2.5" data-tone={tone}>
-                      {TRAVEL_OPTIONS.map((o) => (
-                        <button
-                          key={o}
-                          type="button"
-                          className="g-iseg__opt"
-                          data-active={travelWillingness === o}
-                          onClick={() => { hapticLight(); setTravelWillingness(o); }}
-                        >
-                          {o}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <span className="g-label">In your words</span>
-                  <input
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    maxLength={100}
-                    placeholder="One line — what you’re actually open to"
-                    className="g-field g-iset__field mt-2.5"
-                  />
-                  <span className="g-iset__count">{description.length}/100</span>
-                  {suggestions.length > 0 && (
-                    <div className="g-iset__sugs">
-                      {suggestions.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => { hapticLight(); setDescription(s); }}
-                          className="g-iset__sug"
-                          data-active={description === s}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {safeHavens.length > 0 && (
-                  <div className="flex items-center justify-between gap-3 py-3 px-3.5 rounded-[8px] bg-white/[0.03] border border-white/[0.07]">
-                    <div className="min-w-0">
-                      <span className="text-[13px] font-medium text-white block">Near a Safe Haven</span>
-                      <span className="text-[11px] text-zinc-500 block truncate">
-                        Show my signal around a vetted public venue
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={useSafeHaven}
-                      aria-label="Show my signal near a Safe Haven"
-                      className="g-toggle"
-                      onClick={() => { hapticLight(); setUseSafeHaven((v) => !v); setPlace(null); setPlaceText(''); }}
-                    />
-                  </div>
-                )}
-
-                {useSafeHaven && safeHavens.length > 0 && (
-                  <div className="g-reveal flex flex-wrap gap-2">
-                    {safeHavens.slice(0, 4).map((h) => (
-                      <button
-                        key={h.id}
-                        type="button"
-                        className="g-optpill"
-                        data-active={selectedHaven?.id === h.id}
-                        onClick={() => { hapticLight(); setSelectedHaven(h); }}
-                      >
-                        {h.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {mode === 'social' && !useSafeHaven && (
-                  <div className="g-iset__place">
-                    <span className="text-[13px] font-medium text-white block mb-1.5">Where to meet <span className="text-zinc-500 font-normal">(optional)</span></span>
-                    <PlacePicker
-                      value={placeText} near={userLocation ?? null} placeholder="Search for a bar, café or park"
-                      className="g-field g-iset__field"
-                      onTextChange={(t) => { setPlaceText(t); if (place && t !== place.name) setPlace(null); }}
-                      onPick={(p) => { setPlaceText(p.name); setPlace({ name: p.name, area: p.area }); }}
-                    />
-                    <span className="text-[11px] text-zinc-500 block mt-1.5">
-                      {place ? 'Members who see your signal will see this place. Pick somewhere public.' : 'Leave empty to show only your approximate area.'}
-                    </span>
-                  </div>
-                )}
-
-                {errorMessage && (
-                  <div className="text-[12px] text-amber-300 mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    {errorMessage}
-                  </div>
-                )}
-
-                <p className="g-iset__privacy">
-                  <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-                  <span>Your position stays approximate (±300 m) and the signal disappears when it expires. Precise GPS never leaves this device.</span>
-                </p>
-              </div>
+        <div className="ss-foot">
+          <p className="ss-summary">{summary}</p>
+          <div className="ss-actions">
+            {step > 0 && <button type="button" className="ss-back" onClick={() => go(-1)} aria-label="Back"><ChevronLeft className="w-5 h-5" /></button>}
+            {step < 2 ? (
+              <button type="button" className="ss-go" disabled={!canNext} onClick={() => go(1)}>Next</button>
+            ) : (
+              <button type="button" className="ss-go" disabled={isSubmitting || activities.length === 0} onClick={() => void submit()}>{isSubmitting ? 'Publishing…' : isEditing ? 'Update signal' : 'Go live'}</button>
             )}
           </div>
-
-          {/* Sticky footer: summary + go live */}
-          <div className={`g-sheet__foot ${mode ? `g-sheet__foot--${mode}` : ''}`}>
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium text-white truncate">
-                {intent ? optionLabel(intent) : 'Choose what you’re up for'}
-              </div>
-              <div className="text-[10.5px] font-mono text-zinc-500 truncate">
-                {mode && intent
-                  ? `${mode === 'private' ? 'Private' : 'Social'} · ${when === 'Now' ? 'Right now' : when === 'Later' && Number.isFinite(Date.parse(laterValue)) ? formatLaterAt(Date.parse(laterValue)) : when} · ${duration} · ${userNeighborhood}`
-                  : 'Two taps to go live'}
-              </div>
-            </div>
-            <button
-              type="submit"
-              className={`g-btn min-w-[128px] ${mode === 'social' ? 'g-btn--intent-social' : mode === 'private' ? 'g-btn--intent-private' : 'g-btn--primary'}`}
-              disabled={!mode || !intent || isSubmitting}
-            >
-              {isSubmitting ? 'Publishing…' : (isEditing ? 'Update signal' : 'Go live')}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );

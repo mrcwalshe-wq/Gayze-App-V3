@@ -52,3 +52,13 @@ export function activitySummary(values: readonly string[] | undefined): string {
   if (list.length === 0) return '';
   return list.length === 1 ? activityLabel(list[0]) : `${activityLabel(list[0])} +${list.length - 1}`;
 }
+
+/** For older signals that have no activities saved yet (local/demo data): the closest activity. */
+export function legacyActivityFor(intent: string | undefined | null): ActivityId[] {
+  switch (intent) {
+    case 'Drinks': case 'Date': return ['drinks'];
+    case 'Chat': return ['chat'];
+    case 'Hookup · Outdoor': return ['walks'];
+    default: return ['spontaneous'];
+  }
+}
