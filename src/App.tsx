@@ -1834,7 +1834,7 @@ export default function App() {
           if (!current()) return;
           if (target.kind === 'existing') requestConversationOpen(target.room.id);
           else if (target.kind === 'matched') await handleOpenDirectChatFromPulse(pulse, target.conversationId);
-          else if (target.kind === 'pending') showToast('Interest sent to ' + pulse.peerName);
+          else if (target.kind === 'pending') showToast(`Chat request sent to ${pulse.peerName}. It opens when they accept.`);
         } catch {
           if (current()) showToast('Could not open this conversation. Please try again.');
         }
@@ -4060,6 +4060,8 @@ export default function App() {
                     onReturnToDiscovery={() => setActiveTab('right_now')}
                     onlineUserIds={effectiveOnlineIds}
                     cancelledGatheringIds={new Set([...gatherings.filter((g) => g.cancelled).map((g) => g.id), ...Object.entries(gatheringStates).filter(([, st]) => st.cancelled).map(([id]) => id)])}
+                    groupEvents={Object.fromEntries(gatherings.map((g) => [g.id, { title: g.title, startsAt: g.timestamp, placeName: g.placeHidden ? undefined : g.locationName || undefined, address: g.placeHidden ? undefined : g.address || undefined, cancelled: g.cancelled, hostId: g.hostId }]))}
+                    onMessageMember={(userId, name) => { void handleOpenDirectChatFromPulse({ id: 'group_member', peerId: userId, peerName: name, peerAvatar: 'user', neighborhood: '', title: '', intentMode: 'social' }); }}
                     finishedGatheringIds={new Set(Object.entries(gatheringStates).filter(([, st]) => !st.cancelled && st.startsAt + 4 * 3600_000 < Date.now()).map(([id]) => id))}
                     connectionState={IS_LIVE_BACKEND ? (activeRoomId ? (chatConnection.roomId === activeRoomId ? chatConnection.state : 'connecting') : inboxConnection) : undefined}
                     conversationKeyUnavailable={
