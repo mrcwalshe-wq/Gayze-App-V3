@@ -27,6 +27,7 @@ import {
   CalendarX,
   MessageCircle,
   CalendarCheck,
+  EyeOff,
   Archive,
   ArchiveRestore,
   ChevronDown,
@@ -203,6 +204,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [photoStudioSource, setPhotoStudioSource] = useState<string | null>(null);
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
   const [zoomedMediaUrl, setZoomedMediaUrl] = useState<string | null>(null);
+  // Photos other people send are hidden until you choose to look.
+  const [revealedPhotos, setRevealedPhotos] = useState<Set<string>>(new Set());
   const [noteRecorder, setNoteRecorder] = useState<{ kind: 'audio' | 'video' } | null>(null);
   const [showChatActions, setShowChatActions] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -517,6 +520,14 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Once per device: say plainly what is not allowed, and that it can be a crime.
+    let told = false;
+    try { told = localStorage.getItem('gayze:photo-notice') === '1'; } catch { told = true; }
+    if (!told) {
+      const ok = window.confirm('Before you send a photo:\n\nOnly send photos the other person wants. Sexual or nude images are not allowed on GAYZE. Sending someone a sexual image they have not asked for can be a criminal offence in England and Wales, and your account will be suspended.\n\nSend photos anyway?');
+      if (!ok) { e.target.value = ''; return; }
+      try { localStorage.setItem('gayze:photo-notice', '1'); } catch { /* asked again next time */ }
+    }
     try {
       const dataUrl = await preparePhotoAttachment(file);
       setAttachedMedia(dataUrl);
@@ -1157,16 +1168,29 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     }`}
                   >
                     {/* Encrypted Photo Attachment if present */}
-                    {!msg.deletedForEveryone && msg.mediaUrl && (
-                      <div className="mb-2 rounded-xl overflow-hidden border border-black/10 bg-black/40 max-h-60">
-                        <img
-                          src={msg.mediaUrl}
-                          alt="Encrypted attachment"
-                          className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
-                          onClick={() => setZoomedMediaUrl(msg.mediaUrl || null)}
-                        />
-                      </div>
-                    )}
+                    {!msg.deletedForEveryone && msg.mediaUrl && (() => {
+                      const hidden = !isMe && !revealedPhotos.has(msg.id);
+                      return (
+                        <div className="mb-2 rounded-xl overflow-hidden border border-black/10 bg-black/40 max-h-60 relative">
+                          <img
+                            src={msg.mediaUrl}
+                            alt={hidden ? 'Hidden photo' : 'Encrypted attachment'}
+                            className={`w-full h-full object-cover transition-opacity ${hidden ? 'g-photo-hidden' : 'cursor-pointer hover:opacity-95'}`}
+                            onClick={() => { if (!hidden) setZoomedMediaUrl(msg.mediaUrl || null); }}
+                          />
+                          {hidden && (
+                            <button type="button" className="g-photo-gate" onClick={() => { hapticLight(); setRevealedPhotos((prev) => new Set(prev).add(msg.id)); }}>
+                              <EyeOff className="w-5 h-5" aria-hidden="true" />
+                              <b>Photo hidden</b>
+                              <span>Tap to look. You can report it afterwards.</span>
+                            </button>
+                          )}
+                          {!hidden && !isMe && currentRoom?.type === 'direct' && currentRoom.peerUserId && onReportPeer && (
+                            <button type="button" className="g-photo-report" onClick={() => { hapticLight(); onReportPeer(currentRoom.peerUserId!, currentRoom.peerName || currentRoom.name, currentRoom.id); }}>Report</button>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {msg.decryptFailure && !msg.deletedForEveryone ? (
                       <p className="flex items-start gap-1.5 text-[13px] italic opacity-80" data-decrypt-failure={msg.decryptFailure}>

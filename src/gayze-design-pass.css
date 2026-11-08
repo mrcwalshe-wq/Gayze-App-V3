@@ -2947,3 +2947,10 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .cg__go { width: 100%; min-height: 50px; margin-top: 16px; border: 0; border-radius: 8px; font-size: 15px; font-weight: 800; color: #fff; cursor: pointer; background: linear-gradient(90deg, #7a3fe0, #c23fb8); }
 .cg__go:disabled { opacity: .4; cursor: not-allowed; }
 .cg__no { width: 100%; min-height: 46px; margin-top: 8px; border: 0; background: none; color: rgba(255, 255, 255, .6); font-size: 13.5px; font-weight: 650; cursor: pointer; }
+
+/* Photos from other people stay hidden until the person chooses to look */
+.g-photo-hidden { filter: blur(34px) saturate(.8); transform: scale(1.15); }
+.g-photo-gate { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 12px; text-align: center; border: 0; color: #fff; background: rgba(8, 5, 16, .55); cursor: pointer; }
+.g-photo-gate b { font-size: 14px; }
+.g-photo-gate span { font-size: 12px; color: rgba(255, 255, 255, .7); }
+.g-photo-report { position: absolute; right: 8px; bottom: 8px; min-height: 32px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 12px; font-weight: 750; color: #fff; background: rgba(8, 5, 16, .72); cursor: pointer; }
