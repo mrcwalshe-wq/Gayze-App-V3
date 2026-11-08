@@ -2449,3 +2449,8 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .gayze-osm-dark-tiles .leaflet-tile, .leaflet-tile-pane.gayze-osm-dark-tiles .leaflet-tile {
   filter: invert(100%) hue-rotate(180deg) brightness(96%) contrast(112%) saturate(30%) sepia(0.20) hue-rotate(212deg) saturate(1.12) !important;
 }
+
+/* The two floating map action buttons (filters, locate) are round: they are the only round buttons on the map.
+   The view switch, sheet, header and notices stay crisp. */
+.g-filter-fab, .g-locate-fab { border-radius: 50% !important; width: 46px; height: 46px; }
+.g-filter-fab__count { border-radius: 9px; top: -4px; right: -4px; }
