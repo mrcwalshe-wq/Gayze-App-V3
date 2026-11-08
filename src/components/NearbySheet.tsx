@@ -28,7 +28,7 @@ const halfHeight = () => Math.min(Math.round((typeof window === 'undefined' ? 80
  * A non-modal sheet over the map. It rests as a short "peek" (a count and a strip of faces) and drags or taps up to a list.
  * The map stays usable behind it. A visible chevron collapses it (a grab handle alone is easy to miss).
  */
-export const NearbySheet: React.FC<{ tiles: PeopleTile[]; onSelect: (key: string) => void }> = ({ tiles, onSelect }) => {
+export const NearbySheet: React.FC<{ tiles: PeopleTile[]; onSelect: (key: string) => void; onAdjustFilters?: () => void }> = ({ tiles, onSelect, onAdjustFilters }) => {
   const [open, setOpen] = useState(false);
   const [drag, setDrag] = useState<number | null>(null);
   const start = useRef<{ y: number; base: number } | null>(null);
@@ -108,6 +108,9 @@ export const NearbySheet: React.FC<{ tiles: PeopleTile[]; onSelect: (key: string
             </li>
           ))}
         </ul>
+      )}
+      {open && onAdjustFilters && (
+        <button type="button" className="ns__adjust" onClick={() => { hapticLight(); onAdjustFilters(); }}>Adjust filters <span aria-hidden="true">→</span></button>
       )}
     </section>
   );

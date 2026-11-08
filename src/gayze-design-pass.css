@@ -2419,3 +2419,40 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-filter-fab__count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center; border-radius: 4px; font-size: 11px; font-weight: 800; color: #fff; background: linear-gradient(180deg, #9a65ef, #6f3cc3); }
 /* The nearby sheet also clears the strip */
 .ns { bottom: calc(var(--g-tabbar-h, 68px) + env(safe-area-inset-bottom, 0px) + 12px + var(--g-setup-h, 0px) + var(--g-status-h, 0px)); }
+
+/* ===================================================================================================
+   DISCOVERY HEADER: "Right now" is the primary mode, back at the top, compact. Social / Spicy quick filters sit on it.
+   Information, not decoration: no panel, no border, no glow. Zones and contrast do the visual work.
+   =================================================================================================== */
+.g-discover-head { position: absolute; z-index: 41; left: var(--hud-m, 12px); right: var(--hud-m, 12px); top: var(--hud-top, 10px); height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 10px; pointer-events: none; }
+.g-discover-head > * { pointer-events: auto; }
+.g-discover-head__title { display: flex; align-items: center; gap: 8px; min-width: 0; text-shadow: 0 1px 4px rgba(0, 0, 0, .9), 0 0 14px rgba(0, 0, 0, .7); }
+.g-discover-head__title i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #a879f1; box-shadow: 0 0 10px #a879f1; animation: peer-intent-pulse 1.8s ease-in-out infinite; }
+.g-discover-head__title strong { font-size: 15px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #fff; white-space: nowrap; }
+.g-discover-head__title span { font-family: var(--font-mono, ui-monospace, monospace); font-size: 11.5px; font-weight: 600; color: rgba(255, 255, 255, .75); white-space: nowrap; }
+.g-discover-head__seg { display: flex; padding: 2px; border-radius: 6px; background: rgba(10, 8, 20, .66); box-shadow: 0 4px 14px rgba(0, 0, 0, .4); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.g-discover-head__seg button { min-height: 32px; padding: 0 12px; border-radius: 4px; font-size: 12.5px; font-weight: 700; color: rgba(255, 255, 255, .62); background: none; border: 0; }
+.g-discover-head__seg button[aria-pressed='true'] { color: #fff; background: rgba(255, 255, 255, .18); }
+.g-discover-head__seg button[data-mode='Social'][aria-pressed='true'] { background: rgba(201, 162, 77, .55); }
+.g-discover-head__seg button[data-mode='Private'][aria-pressed='true'] { background: rgba(124, 76, 220, .75); }
+.g-shell[data-active-tab='right_now'] .g-toast--map-status { top: calc(var(--hud-top) + 48px) !important; }
+
+/* Activity zones: slow breathing on the core only */
+.gayze-leaflet-map .gz-zone--core { animation: gz-zone-breathe 5s ease-in-out infinite; }
+@keyframes gz-zone-breathe { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .gayze-leaflet-map .gz-zone--core { animation: none; } }
+
+/* Nearby sheet: filters link */
+.ns__adjust { flex: none; display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; padding: 0 14px; font-size: 13px; font-weight: 700; color: #d5b8ff; background: rgba(255, 255, 255, .04); border: 0; border-top: 1px solid rgba(255, 255, 255, .08); }
+
+/* The centre logo is a little smaller, so the four tabs lead (dome geometry matches Navbar.tsx: rise 13, radius 46) */
+nav.g-tabbar.g-tabbar { --gd-center: 33px; --gd-r: 46px; --gd-rise: 13px; }
+nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-logo-image { width: 58px !important; height: 58px !important; }
+nav.g-tabbar.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action { width: 58px !important; height: 58px !important; }
+nav.g-tabbar.g-tabbar .g-tab--discover .g-discover-action { top: -22px !important; }
+nav.g-tabbar.g-tabbar .g-tab--discover .g-tab__label { top: -8px !important; }
+
+/* Map contrast: roads and labels read a little clearer */
+.gayze-osm-dark-tiles .leaflet-tile, .leaflet-tile-pane.gayze-osm-dark-tiles .leaflet-tile {
+  filter: invert(100%) hue-rotate(180deg) brightness(96%) contrast(112%) saturate(30%) sepia(0.20) hue-rotate(212deg) saturate(1.12) !important;
+}
