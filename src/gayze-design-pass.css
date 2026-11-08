@@ -2344,3 +2344,40 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .ns__meta b { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; font-weight: 600; }
 .ns__meta small { font-size: 11px; color: rgba(255, 255, 255, .5); }
 @media (prefers-reduced-motion: reduce) { .ns { transition: none; } }
+
+/* ===================================================================================================
+   BORDERLESS. Most items sit on their own surface and shadow, with only a lit top edge. A few key items carry the
+   Gayze gradient strip (2 px, top or bottom) instead of a frame. Animated borders (selected plan card, buttons) stay.
+   =================================================================================================== */
+:root { --gz-strip: linear-gradient(90deg, #6f3cc3, #b24fd8 55%, #c9a24d); }
+.gs-top, .gs-bottom { position: relative; }
+.g-intent-chip, .g-setup-pill, .pm__score, .g-peek__shared { position: relative; }
+.g-shell[data-active-tab='right_now'] .g-hud-top .g-intent-chip::before, .ns::before, .g-toast--map-status::after, .g-setup-pill::after, .pm__score::before, .g-peek__shared::before,
+.dc__glass::after, .pg-tile__glass::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--gz-strip); pointer-events: none; display: block; border-radius: 0;
+}
+.g-shell[data-active-tab='right_now'] .g-hud-top .g-intent-chip::before, .ns::before, .pm__score::before, .g-peek__shared::before { top: 0; }
+.g-toast--map-status::after, .g-setup-pill::after, .dc__glass::after, .pg-tile__glass::after { bottom: 0; }
+.g-intent-chip::after { display: block !important; }
+.g-shell[data-active-tab='right_now'] .g-hud-top .g-intent-chip::after { display: none !important; }
+
+/* map controls: no frame, a lit top edge and a shadow */
+.g-shell[data-active-tab='right_now'] .g-hud-top .g-intent-chip, .g-shell[data-active-tab='right_now'] .g-hud-top .g-map-state,
+.g-shell[data-active-tab='right_now'] .g-hud-top > .g-icon-btn, .g-shell[data-active-tab='right_now'] .g-hud-top > button.g-icon-btn,
+.g-locate-fab, .g-shell[data-active-tab='right_now'] .mapmode, .gz-legend, .ns, .g-shell[data-active-tab='right_now'] .g-toast--map-status, .g-setup-pill {
+  border: 0 !important; box-shadow: 0 10px 28px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .2) !important;
+}
+.ns__toggle { border: 0; } .ns__toggle:active { background: rgba(255, 255, 255, .16); }
+.ns__chip .ns-face, .ns__row .ns-face { box-shadow: none; }
+.ns__chip .ns-face::after, .ns__row .ns-face::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(var(--tn)); }
+.ns__row { border-bottom-color: rgba(255, 255, 255, .06); }
+
+/* sheets and cards: surface, not frame */
+.g-plan__time, .g-plan__timer, .g-plan__durations, .g-plan__times, .g-plan__else .g-field, .g-plan__else input { border: 0 !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1) !important; }
+.g-plan__venue:not(.is-on) { border: 0; }
+.g-plan__timer.is-on { border: 0; background: linear-gradient(180deg, rgba(16, 185, 129, .16), rgba(16, 185, 129, .05)); }
+.pk-stat, .g-peek__badges span, .g-peek__signal, .g-peek__plan, .g-peek__shared, .g-peek__foot button { border: 0 !important; }
+.pg-tile, .dc__open { border: 0 !important; box-shadow: 0 14px 34px rgba(0, 0, 0, .5), 0 0 22px rgba(var(--tn), .22) !important; }
+.pg-tile__glass, .dc__glass, .pg-tile__live, .pg-tile__ver, .dc__live, .dc__later, .dc__profile { border: 0 !important; }
+.pm__score, .pm__tabs, .pm__list li, .pm__btn, .pm__qrbox, .pm__cam, .pm__lvl, .pm-av { border: 0 !important; }
+.g-ev__close { border: 0; background: rgba(255, 255, 255, .06); }
