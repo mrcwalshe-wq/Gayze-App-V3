@@ -2856,3 +2856,26 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-swipe__act.is-danger { background: linear-gradient(160deg, #e0475a, #b02a40); }
 .g-swipe__act:active { filter: brightness(.9); }
 .gayze-chat-sidebar > div.g-chatlist .g-swipe + .g-swipe::before { display: none; }
+
+/* ---- Your plans (host controls) and the quick-plan lock ---------------------------------------------- */
+.yp { display: flex; flex-direction: column; gap: 10px; }
+.yp h2 { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
+.yp__row { --ev: 214, 170, 80; --ev2: 184, 92, 222; position: relative; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 14px 18px; border-radius: 8px; overflow: hidden; background: linear-gradient(160deg, rgba(var(--ev), .16), #120d1e 60%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.yp__row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, rgb(var(--ev2)), rgb(var(--ev))); }
+.yp__kind { display: block; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgb(var(--ev)); }
+.yp__info strong { display: block; margin-top: 4px; font-size: 17px; font-weight: 750; letter-spacing: -.02em; }
+.yp__info small { display: block; margin-top: 3px; font-size: 12.5px; color: rgba(255, 255, 255, .6); }
+.yp__acts, .yp__confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.yp__confirm p { flex: 1 1 100%; margin: 0; font-size: 12.5px; color: rgba(255, 255, 255, .72); }
+.yp__acts button, .yp__confirm button { flex: 1; min-height: 42px; padding: 0 14px; border: 0; border-radius: 6px; font-size: 13.5px; font-weight: 750; color: #fff; background: rgba(255, 255, 255, .08); cursor: pointer; }
+.yp__acts button:first-child { background: linear-gradient(90deg, #7a3fe0, #c23fb8); }
+.yp__acts .is-danger, .yp__confirm .is-danger { background: rgba(224, 71, 90, .16); color: #ff9aa6; }
+.g-ev__manage { display: flex; gap: 8px; }
+.g-ev__manage .g-ev__close { flex: 1; }
+
+.ss-plan-lock { margin-top: 14px; padding: 14px; border-radius: 8px; background: rgba(240, 182, 74, .1); box-shadow: inset 0 0 0 1px rgba(240, 182, 74, .3); }
+.ss-plan-lock strong { display: block; font-size: 14px; color: #f6d98a; }
+.ss-plan-lock p { margin: 6px 0 12px; font-size: 13px; line-height: 1.45; color: rgba(255, 255, 255, .75); }
+.ss-plan-lock div { display: flex; gap: 8px; flex-wrap: wrap; }
+.ss-plan-lock button { flex: 1; min-height: 42px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 750; color: #fff; background: rgba(255, 255, 255, .1); cursor: pointer; }
+.ss-plan-lock .is-danger { background: rgba(224, 71, 90, .2); color: #ff9aa6; }

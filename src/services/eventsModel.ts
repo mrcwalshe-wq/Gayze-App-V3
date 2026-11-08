@@ -23,3 +23,17 @@ export function quickTime(when: QuickWhen, from: Date = new Date()): number {
   d.setDate(d.getDate() + add);
   return d.getTime();
 }
+
+/** Plans the signed-in member hosts that are not cancelled and still ahead of them (or only just started). */
+export function myActivePlans<T extends { hostName: string; cancelled?: boolean; timestamp: number }>(gatherings: T[], now = Date.now()): T[] {
+  return gatherings.filter((g) => g.hostName === 'You' && !g.cancelled && g.timestamp > now - 3 * 3600_000).sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
+ * A quick plan you host that is live: starts within 24 hours (or began in the last 3). While it is, a Right now intent
+ * can't be posted; a Later intent can. Mirrors the database rule `gayze_guard_intent_vs_quick_plan`.
+ */
+export function liveQuickPlan<T extends { hostName: string; cancelled?: boolean; timestamp: number; tags?: string[] }>(gatherings: T[], now = Date.now()): T | null {
+  return gatherings.find((g) => g.hostName === 'You' && !g.cancelled && (g.tags ?? []).includes('quick')
+    && g.timestamp > now - 3 * 3600_000 && g.timestamp < now + 24 * 3600_000) ?? null;
+}
