@@ -7,6 +7,7 @@ import { getProfilePhotoUrl, loadProfilePhotos, type ProfilePhoto } from '../ser
 import { loadOutgoingInterestStatuses } from '../services/supabaseService';
 import L from 'leaflet';
 import { createMapGrid } from './mapGrid';
+import { NearbySheet } from './NearbySheet';
 import { PeopleGrid, type PeopleTile } from './PeopleGrid';
 import { intentThemeMode } from '../services/intentTiming';
 import {
@@ -1282,6 +1283,17 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
     resolvedUserAvatarUrl,
   ]);
 
+  // Tapping a person (grid card or nearby-sheet row) opens their profile in a glass sheet; without a profile id it selects them on the map.
+  const selectPersonTile = (key: string) => {
+    const tile = peopleTiles.find((t) => t.key === key);
+    if (tile?.userId && openPeek) {
+      openPeek(tile.userId, { name: tile.name, age: tile.age, area: tile.area, photoUrl: tile.photo, intent: tile.intent, distance: tile.distance, expiresAt: tile.expiresAt, later: tile.later });
+      return;
+    }
+    const found = nearbyItems.find((it) => it.type !== 'haven' && it.item.id === key);
+    if (found) { setSelectedItem(found); setIsCardExpanded(false); setPeopleView(false); }
+  };
+
   return (
     <div className="g-right-now-shell absolute inset-0 w-full h-full min-h-0 overflow-hidden select-none">
       {/* Subtle Map Tile Failure Fallback State */}
@@ -1388,16 +1400,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
           tiles={peopleTiles}
           onClose={() => setPeopleView(false)}
           onFilter={() => { setPeopleView(false); setIsFilterDrawerOpen(true); }}
-          onSelect={(key) => {
-            // Tapping a card opens their profile in a glass sheet over the grid (stats, shared interests, photos).
-            const tile = peopleTiles.find((t) => t.key === key);
-            if (tile?.userId && openPeek) {
-              openPeek(tile.userId, { name: tile.name, age: tile.age, area: tile.area, photoUrl: tile.photo, intent: tile.intent, distance: tile.distance, expiresAt: tile.expiresAt, later: tile.later });
-              return;
-            }
-            const found = nearbyItems.find((it) => it.type !== 'haven' && it.item.id === key);
-            if (found) { setSelectedItem(found); setIsCardExpanded(false); setPeopleView(false); }
-          }}
+          onSelect={selectPersonTile}
         />
       )}
       {!selectedItem && !isNearbyOpen && !isFilterDrawerOpen && (
@@ -1418,6 +1421,9 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
             </button>
           )}
         </>
+      )}
+      {!selectedItem && !isNearbyOpen && !isFilterDrawerOpen && !peopleView && !isCardExpanded && (
+        <NearbySheet tiles={peopleTiles} onSelect={selectPersonTile} />
       )}
       {gridMode && gridInfo && (
         <div className="gz-legend" role="status">
