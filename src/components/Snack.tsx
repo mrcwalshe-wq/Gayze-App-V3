@@ -1,17 +1,19 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, Info, PauseCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Info, PauseCircle } from 'lucide-react';
 
-export type SnackKind = 'success' | 'error' | 'info' | 'paused';
+export type SnackKind = 'success' | 'error' | 'info' | 'paused' | 'wait';
 
 /** The app only hands us a sentence, so the tone is read from its wording. */
 export function snackKind(message: string): SnackKind {
+  // A rule asking you to wait (the 24-hour Gayze limit) is not a success and not a fault: a calm amber clock.
+  if (/\balready sent\b|\bnext gayze in\b|\btry again in\b|\bsend another in\b/i.test(message)) return 'wait';
   if (/\b(could not|couldn't|can't|cannot|failed|unavailable|error|unable|not saved|still live|unchanged)\b/i.test(message)) return 'error';
   if (/\bpaused\b/i.test(message)) return 'paused';
   if (/…|\.\.\.|\bending\b|\bsaving\b|\bsending\b|\bconnecting\b/i.test(message)) return 'info';
   return 'success';
 }
 
-const ICONS = { success: CheckCircle2, error: AlertTriangle, info: Info, paused: PauseCircle } as const;
+const ICONS = { success: CheckCircle2, error: AlertTriangle, info: Info, paused: PauseCircle, wait: Clock } as const;
 
 /**
  * Transient feedback, dropped in under the status bar like a system banner.
