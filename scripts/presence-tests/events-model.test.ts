@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { EVENT_CATEGORIES, categoryKey, quickTime } from '../../src/services/eventsModel';
+import { eventDefaultTime, EVENT_CATEGORIES, categoryKey, quickTime } from '../../src/services/eventsModel';
 
 const sql = fs.readFileSync(new URL('../../supabase/migrations/20261108130000_event_categories.sql', import.meta.url), 'utf8');
 
@@ -29,4 +29,15 @@ test('every quick plan time is in the future, on the right day and hour', () => 
   const wed = new Date(2026, 10, 11, 14, 0);
   assert.equal(new Date(quickTime('tonight', wed)).getHours(), 19);
   assert.equal(new Date(quickTime('tonight', new Date(2026, 10, 11, 20, 0))).getTime(), new Date(2026, 10, 11, 20, 0).getTime() + 90 * 60_000);
+});
+
+test('a new event never opens with an empty or past time', () => {
+  for (const from of [new Date(2026, 10, 11, 9, 0), new Date(2026, 10, 11, 18, 59), new Date(2026, 10, 11, 19, 30), new Date(2026, 10, 11, 23, 59), new Date(2026, 10, 14, 0, 5)]) {
+    const t = eventDefaultTime(from);
+    assert.ok(t >= from.getTime() + 60 * 60_000, `at least an hour ahead from ${from.toString()}`);
+    assert.equal(new Date(t).getHours(), 20);
+    assert.equal(new Date(t).getMinutes(), 0);
+  }
+  assert.equal(new Date(eventDefaultTime(new Date(2026, 10, 11, 9, 0))).getDate(), 11, 'morning: tonight');
+  assert.equal(new Date(eventDefaultTime(new Date(2026, 10, 11, 19, 30))).getDate(), 12, 'under an hour to 20:00: tomorrow');
 });
