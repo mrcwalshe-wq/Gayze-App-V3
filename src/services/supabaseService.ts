@@ -511,11 +511,19 @@ async function retireOtherActiveIntents(userId: string, keepIntentId?: string | 
   if (error) console.warn('[GAYZE] Supabase retire intents failed:', error.message);
 }
 
+/** Why the last intent save was refused by the database, when it is a rule the person can act on. */
+let lastIntentRefusal: 'quick_plan' | null = null;
+export const QUICK_PLAN_INTENT_MESSAGE = 'You have a Quick plan running, so you cannot go live yet. End the plan first, or set this intent for later.';
+export function takeIntentRefusal(): 'quick_plan' | null { const r = lastIntentRefusal; lastIntentRefusal = null; return r; }
+const noteIntentRefusal = (message: string | undefined) => { if (message && message.includes('QUICK_PLAN_LIVE')) lastIntentRefusal = 'quick_plan'; };
+
+
 export async function saveActiveIntent(
   intent: UserActiveIntent,
   location?: { lat: number; lng: number },
 ): Promise<SupabaseIntentRecord | null> {
   if (!supabase) return null;
+  lastIntentRefusal = null;
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) return null;
@@ -558,6 +566,7 @@ export async function saveActiveIntent(
           isPaused: Boolean(data.is_paused),
         };
       }
+      noteIntentRefusal(error?.message);
       console.warn('[GAYZE] Intent update failed, inserting a fresh broadcast:', error?.message);
     }
 
@@ -568,6 +577,7 @@ export async function saveActiveIntent(
       .select('id,expires_at,is_paused')
       .single();
     if (error) {
+      noteIntentRefusal(error.message);
       console.warn('[GAYZE] Supabase saveActiveIntent error:', error.message);
       return null;
     }

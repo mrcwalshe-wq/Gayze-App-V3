@@ -193,6 +193,8 @@ import {
   loadMyConversations,
   leaveConversation,
   loadConversationPeerKey,
+  takeIntentRefusal,
+  QUICK_PLAN_INTENT_MESSAGE,
 } from './services/supabaseService';
 import { buildRoomsFromSupabase, mergeBackendRooms } from './services/conversationRooms';
 import { deleteMessageForMe, unsendMessage, setMessageExpiry } from './services/messageLifecycleService';
@@ -3539,7 +3541,7 @@ export default function App() {
       );
       if (!saved) {
         setLiveActivation(null);
-        showToast('Could not publish your intent. Nothing was saved.');
+        showToast(takeIntentRefusal() === 'quick_plan' ? QUICK_PLAN_INTENT_MESSAGE : 'Could not publish your intent. Nothing was saved.');
         return false;
       }
 
