@@ -29,6 +29,7 @@ import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall } from './services/callSessions';
+import { startNativeCalls, endNativeCalls } from './services/nativeCalls';
 import { InterestDiscover } from './components/InterestDiscover';
 import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
 import { latestMeetups } from './services/meetupState';
@@ -3381,6 +3382,34 @@ export default function App() {
     await markCallAsMissed(call.conversationId, call.callerId, call.callType);
     await sendMissedCallNotification(call);
   };
+
+  // iPhone: an incoming call arrives as a real phone call. Answer / Decline on that screen land here.
+  const nativeCallActionRef = useRef<(action: 'answer' | 'decline', partial: Partial<IncomingCall> & { callId: string }) => void>(() => undefined);
+  nativeCallActionRef.current = (action, partial) => {
+    void (async () => {
+      let call: IncomingCall | null = null;
+      if (partial.conversationId && partial.callerId) {
+        call = { conversationId: partial.conversationId, callerId: partial.callerId, callerName: partial.callerName || 'Gayze member', callType: partial.callType === 'audio' ? 'audio' : 'video', timestamp: Date.now(), callId: partial.callId };
+      } else {
+        try { call = await getRingingCall(); } catch { call = null; }
+        if (call && call.callId !== partial.callId) call = null;
+      }
+      if (!call) return;
+      if (action === 'answer') await handleAcceptIncomingCall(call); else await handleDeclineIncomingCall(call);
+    })();
+  };
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    let stop: () => void = () => undefined;
+    let cancelled = false;
+    void startNativeCalls({
+      onAnswered: (c) => nativeCallActionRef.current('answer', c),
+      onDeclined: (c) => nativeCallActionRef.current('decline', c),
+    }).then((fn) => { if (cancelled) fn(); else stop = fn; });
+    return () => { cancelled = true; stop(); };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+  // When the call is over (or answered/declined inside the app), take the system call screen down.
+  useEffect(() => { if (!isCallModalOpen && !incomingCall) void endNativeCalls(); }, [isCallModalOpen, incomingCall]);
 
   const sendGayzeTo = async (peerName: string, peerId?: string, intentId?: string): Promise<GayzeOutcome> => {
     triggerVibration([40, 70]);
