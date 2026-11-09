@@ -7,10 +7,7 @@ for (const screen of SCREENS) {
     test.skip(Boolean(screen.desktopOnly) && !info.project.name.startsWith('desktop'), 'No mobile entry point for this screen (report F9)');
     await openApp(page);
     await screen.setup(page);
-    // Behind the blurred Set Intent sheet the emblem's glow keeps moving (it is not a CSS animation, so it cannot be frozen).
-    // Navigation chrome is covered unmasked by the 'navigation' test below.
-    const behindSheet = screen.name.startsWith('set-intent');
-    await expect(page).toHaveScreenshot(`${screen.name}.png`, behindSheet ? { mask: [page.locator('.g-tabbar, header')] } : {});
+    await expect(page).toHaveScreenshot(`${screen.name}.png`);
   });
 }
 

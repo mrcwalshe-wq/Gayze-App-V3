@@ -29,6 +29,8 @@ export default defineConfig({
     timezoneId: 'Europe/London',
     geolocation: { latitude: 51.4975, longitude: -0.0889 },
     permissions: ['geolocation'],
+    colorScheme: 'dark',
+    contextOptions: { reducedMotion: 'reduce' },
     trace: 'off',
   },
   projects: Object.entries(VIEWPORTS).map(([name, viewport]) => ({ name, use: { viewport, isMobile: false, hasTouch: name.startsWith('iphone') } })),
