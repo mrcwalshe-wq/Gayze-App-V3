@@ -11,10 +11,10 @@ export interface PrivacySettings {
 }
 export const DEFAULT_PRIVACY: PrivacySettings = { showOnlineStatus: true, showLastSeen: true, whoCanMessage: 'everyone', discoverable: true };
 
-const HEARTBEAT_MS = 45_000;
+export const HEARTBEAT_MS = 20_000;   // the server counts someone online for 90 s after a beat, so one missed beat never flickers them offline
 
 /**
- * Tells the server this person is here: every 45 s while the app is visible, and once as 'away' when it is hidden.
+ * Tells the server this person is here: every 20 s while the app is visible, and once as 'away' when it is hidden.
  * The server decides who is online from the last heartbeat, so a closed tab or dead phone goes offline by itself.
  */
 export function startPresenceHeartbeat(): () => void {
@@ -30,9 +30,11 @@ export function startPresenceHeartbeat(): () => void {
   sync();
   document.addEventListener('visibilitychange', sync);
   window.addEventListener('online', sync);
+  window.addEventListener('focus', sync);
   return () => {
     document.removeEventListener('visibilitychange', sync);
     window.removeEventListener('online', sync);
+    window.removeEventListener('focus', sync);
     if (timer !== null) window.clearInterval(timer);
   };
 }
