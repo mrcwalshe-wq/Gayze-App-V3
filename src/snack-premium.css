@@ -24,7 +24,7 @@
 .g-snack--success { --sn: 74, 222, 160; }
 .g-snack--error { --sn: 248, 100, 120; }
 .g-snack--info { --sn: 160, 130, 255; }
-.g-snack--paused { --sn: 201, 162, 77; }
+.g-snack--paused, .g-snack--wait { --sn: 201, 162, 77; }
 /* A lit edge in the tone colour along the top: the same gradient-strip idea as the rest of the app. */
 .g-snack::before {
   content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
