@@ -30,7 +30,7 @@ import { PlacePicker } from './PlacePicker';
 import { sparkBurst } from './SparkBorder';
 import { SwipeRow } from './SwipeRow';
 import { EditPlanSheet, type PlanChanges } from './EditPlanSheet';
-import { categoryKey, quickTime, myActivePlans, type QuickWhen } from '../services/eventsModel';
+import { categoryKey, quickTime, eventDefaultTime, myActivePlans, type QuickWhen } from '../services/eventsModel';
 
 const CATEGORY_ART: Record<string, { label: string; icon: LucideIcon; rgb: string; rgb2: string }> = {
   social: { label: 'Social & Drinks', icon: Wine, rgb: '214, 170, 80', rgb2: '184, 92, 222' },
@@ -128,6 +128,12 @@ export const LaterView: React.FC<LaterViewProps> = ({
   // Stored as a `datetime-local` value (YYYY-MM-DDTHH:mm) so the scheduled time
   // is always a real, unambiguous timestamp.
   const [formDate, setFormDate] = useState('');
+  // The "When" field is required: opening the form with it empty made the browser refuse the Create button with a tiny message
+  // (or none, on an iPhone). Every way of opening the form starts from a sensible time instead.
+  const openHostForm = () => {
+    setFormDate((current) => current || toLocalInputValue(eventDefaultTime()));
+    setIsHostModalOpen(true);
+  };
   const [formLocation, setFormLocation] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [formNeighborhood, setFormNeighborhood] = useState('');
@@ -267,7 +273,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
       </div>
 
       <div className="ev-actions">
-        <button type="button" className="ev-action ev-action--host" onClick={() => { hapticLight(); setHostKind('event'); setIsHostModalOpen(true); }}>
+        <button type="button" className="ev-action ev-action--host" onClick={() => { hapticLight(); setHostKind('event'); openHostForm(); }}>
           <Plus className="w-5 h-5" aria-hidden="true" /><span><b>Host an event</b><small>Create a gathering and chat with everyone who is going</small></span>
         </button>
       </div>
@@ -435,7 +441,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
               : 'Try a different day or category.'}
           </span>
           {gatherings.length === 0 && (
-            <button type="button" onClick={() => setIsHostModalOpen(true)} className="g-btn g-btn--amber !mt-2">
+            <button type="button" onClick={openHostForm} className="g-btn g-btn--amber !mt-2">
               <Plus className="w-4 h-4" /><span>Host the first one</span>
             </button>
           )}

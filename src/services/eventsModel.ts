@@ -24,6 +24,16 @@ export function quickTime(when: QuickWhen, from: Date = new Date()): number {
   return d.getTime();
 }
 
+/** A sensible start for a new event so the form never opens with an empty "When": 20:00 today, or 20:00 tomorrow once
+ *  that is less than an hour away. Always in the future. */
+export function eventDefaultTime(from: Date = new Date()): number {
+  const now = from.getTime();
+  const d = new Date(now);
+  d.setHours(20, 0, 0, 0);
+  if (d.getTime() < now + 60 * 60_000) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
 /** Plans the signed-in member hosts that are not cancelled and still ahead of them (or only just started). */
 export function myActivePlans<T extends { hostName: string; cancelled?: boolean; timestamp: number }>(gatherings: T[], now = Date.now()): T[] {
   return gatherings.filter((g) => g.hostName === 'You' && !g.cancelled && g.timestamp > now - 3 * 3600_000).sort((a, b) => a.timestamp - b.timestamp);
