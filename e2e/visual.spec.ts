@@ -13,7 +13,7 @@ for (const screen of SCREENS) {
     test.skip(Boolean(screen.desktopOnly) && !info.project.name.startsWith('desktop'), 'No mobile entry point for this screen (report F9)');
     await openApp(page);
     await screen.setup(page);
-    await expect(page).toHaveScreenshot(`${screen.name}.png`);
+    await expect(page).toHaveScreenshot(`${screen.name}.png`, { mask: screen.mask?.(page) ?? [] });
   });
 }
 
