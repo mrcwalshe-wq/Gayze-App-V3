@@ -6,6 +6,7 @@ import {
   saveNotificationPreferences,
   subscribeToPush,
 } from '../services/pushService';
+import { isNativeApp } from '../services/nativeAuth';
 
 /**
  * The single answer to "what should the app say about notifications on this
@@ -45,6 +46,11 @@ export function usePushStatus(userId: string | null | undefined): PushStatusStat
 
   const refresh = useCallback(async () => {
     try {
+      // The installed app is already on the Home Screen, and web push does not run in it (native push is separate).
+      if (isNativeApp()) {
+        if (mounted.current) setStatus('hidden');
+        return;
+      }
       const env = getPushEnvironment();
       if (env.blockedBy === 'unsupported' || env.blockedBy === 'not-configured') {
         if (mounted.current) setStatus('hidden');
