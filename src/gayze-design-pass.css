@@ -939,10 +939,10 @@ nav.g-tabbar {
    a footnote you can actually read, and rows without repeated labels.
    ========================================================================== */
 .gayze-chat-sidebar > div.g-msglist-head {
-  min-height: 0 !important; padding: 16px 16px 12px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 10px;
+  min-height: 0 !important; padding: 16px 16px 12px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px 10px; flex-wrap: wrap !important;
   border-bottom: 0 !important; background: transparent !important; flex: none;
 }
-.g-msglist-head__title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.g-msglist-head__title { display: flex; align-items: center; gap: 8px; flex: none; }
 .g-msglist-head__title h2 { margin: 0; font-size: 24px; line-height: 1.1; font-weight: 800; letter-spacing: -.035em; color: #fff; }
 .g-msglist-head__count { min-width: 22px; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 750; text-align: center; color: rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .07); }
 .gayze-chat-sidebar > div.g-msglist-head > span.g-e2ee-chip {
