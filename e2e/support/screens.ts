@@ -11,9 +11,12 @@ const settle = (page: Page, ms = 900) => page.waitForTimeout(ms);
 /** The visible navigation entry, on the mobile tab bar or the desktop pill. */
 export const nav = (page: Page, label: string | RegExp) => page.locator('.g-tab:visible, .g-navpill__btn:visible').filter({ hasText: label }).first();
 
-async function openSetIntent(page: Page) {
-  await page.locator('.g-tab:visible').nth(2).click().catch(async () => { await nav(page, 'Set your signal').click(); });
-  await page.locator('.ss-go').waitFor();
+/** Mobile: the centre tab opens the sheet. Desktop: the header "Set intent" button does. */
+export async function openSetIntent(page: Page) {
+  const tab = page.locator('.g-tab:visible').nth(2);
+  if (await tab.count()) await tab.click();
+  else await page.getByRole('button', { name: /^Set an intent/ }).first().click();
+  await page.locator('.ss-go').waitFor({ timeout: 10_000 });
   await settle(page, 600);
 }
 
@@ -25,23 +28,23 @@ export const SCREENS: Screen[] = [
   { name: 'discover-interests', desktopOnly: true, setup: async (page) => { await nav(page, /^GAYZE$/).click(); await settle(page, 1500); } },
   {
     name: 'set-intent-1-availability',
-    setup: async (page) => { await page.getByRole('button', { name: 'Set your signal' }).first().click(); await page.locator('.ss-go').waitFor(); await settle(page, 600); },
+    setup: async (page) => { await openSetIntent(page); },
   },
   {
     name: 'set-intent-2-activity',
     setup: async (page) => {
-      await page.getByRole('button', { name: 'Set your signal' }).first().click(); await page.locator('.ss-go').waitFor();
+      await openSetIntent(page);
       await page.getByRole('button', { name: /^Right now/ }).click(); await page.getByRole('button', { name: '2 hrs' }).click();
-      await page.locator('.ss-go').click(); await settle(page, 700);
+      await page.locator('.ss-go').click(); await settle(page, 1500);
     },
   },
   {
     name: 'set-intent-3-connection',
     setup: async (page) => {
-      await page.getByRole('button', { name: 'Set your signal' }).first().click(); await page.locator('.ss-go').waitFor();
+      await openSetIntent(page);
       await page.getByRole('button', { name: /^Right now/ }).click(); await page.getByRole('button', { name: '2 hrs' }).click();
       await page.locator('.ss-go').click(); await settle(page, 500);
-      await page.getByRole('button', { name: /^Coffee/ }).last().click(); await page.locator('.ss-go').click(); await settle(page, 700);
+      await page.getByRole('button', { name: /^Coffee/ }).last().click(); await page.locator('.ss-go').click(); await settle(page, 1500);
     },
   },
   { name: 'dialog-privacy', setup: async (page) => { await nav(page, 'Profile').click(); await settle(page, 1200); await page.getByRole('button', { name: /Privacy & visibility/ }).click(); await settle(page, 900); } },

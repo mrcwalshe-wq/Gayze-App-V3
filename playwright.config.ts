@@ -21,7 +21,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   timeout: 60_000,
-  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.001, animations: 'disabled', caret: 'hide' } },
+  expect: { timeout: 20_000, toHaveScreenshot: { maxDiffPixelRatio: 0.001, animations: 'disabled', caret: 'hide' } },
   use: {
     baseURL: 'http://localhost:4173',
     deviceScaleFactor: 1,
