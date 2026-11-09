@@ -87,6 +87,7 @@ import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './se
 import { primeCallAudio } from './services/callAudioService';
 import { hapticCallConnected, hapticCallEnded } from './services/hapticService';
 import { installCallSoundUnlock, playCallSound, stopCallSounds } from './services/callSounds';
+import { installAppSoundUnlock, playAppSound } from './services/appSounds';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
 import { blockUser, isBlockedBetween } from './services/blockService';
@@ -852,7 +853,7 @@ export default function App() {
     foreground: document.visibilityState === 'visible' && document.hasFocus(),
     viewingRoom: activeTabRef.current === 'swarms' ? visibleChatRoomRef.current : null,
     userId: supabaseUserIdRef.current, recipientId,
-  }, () => { showToast('New GAYZE message'); hapticMessageDecrypted(); });
+  }, () => { showToast('New GAYZE message'); hapticMessageDecrypted(); playAppSound('messageIn'); });
   // Delete-chat bookkeeping. A list load that STARTED before a delete was
   // confirmed may still contain the deleted room and must not resurrect it;
   // any load started afterwards reflects server truth (so a genuinely
@@ -1776,6 +1777,7 @@ export default function App() {
       if (!newInterest) return;
 
       triggerVibration([40, 60, 100]);
+      playAppSound('gayze');
       // Incoming Gayzes need a distinct, unmistakable arrival moment.
       // The request remains pending until the recipient chooses to respond.
       setIncomingGayzeCelebration(newInterest);
@@ -2950,6 +2952,7 @@ export default function App() {
       .catch(() => showToast('The missed call could not be added to the chat.'));
   };
   useEffect(() => installCallSoundUnlock(), []);
+  useEffect(() => installAppSoundUnlock(), []);
   // An incoming call rings until it is answered, declined or hung up.
   useEffect(() => {
     if (incomingCall) { playCallSound('incoming'); return () => { stopCallSounds(); }; }

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { TopLevelIntentMode } from '../types';
 import { hapticSensitiveAction, triggerVibration } from '../services/hapticService';
+import { playAppSound } from '../services/appSounds';
 import { GayzeWarp } from './GayzeWarp';
 
 interface LiveActivationOverlayProps {
@@ -39,6 +40,7 @@ export const LiveActivationOverlay: React.FC<LiveActivationOverlayProps> = ({ st
     if (!isLive) return;
     hapticSensitiveAction();
     triggerVibration([20, 40, 90]);
+    playAppSound('live');
     const t = window.setTimeout(() => onCompleteRef.current(), HOLD_MS);
     return () => window.clearTimeout(t);
   }, [isLive]);
