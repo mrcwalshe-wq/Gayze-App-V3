@@ -1118,6 +1118,9 @@ export default function App() {
     return () => { disposed = true; };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
+  // Tell the screen-edge glow (it lives outside the app tree) that the intent changed, so it updates at once.
+  useEffect(() => { window.dispatchEvent(new Event('gayze:intent-changed')); }, [activeUserIntent?.remoteId, activeUserIntent?.isPaused, activeUserIntent?.expiresAt]);
+
   // Expired intents disappear from the UI without waiting for a reload.
   useEffect(() => {
     if (!activeUserIntent) return;
@@ -1173,10 +1176,12 @@ export default function App() {
     if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
     let disposed = false;
     void refreshConversationListRef.current();
-    const poll = window.setInterval(() => {
-      if (!disposed) void refreshConversationListRef.current();
-    }, 5000);
-    return () => { disposed = true; window.clearInterval(poll); };
+    // Realtime delivers new messages at once; this poll only catches rooms created while the app was not looking.
+    // Only while the app is in front, and on coming back to it.
+    const refresh = () => { if (!disposed && document.visibilityState === 'visible') void refreshConversationListRef.current(); };
+    const poll = window.setInterval(refresh, 10_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { disposed = true; window.clearInterval(poll); document.removeEventListener('visibilitychange', refresh); };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
   // Global message stream: the inbox receives messages even when the user is
