@@ -2,8 +2,16 @@ import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
-import { googleSignInAvailable, isNativeApp, startNativeGoogleSignIn } from '../services/nativeAuth';
+import { appleSignInOffered, googleSignInAvailable, isNativeApp, signInWithApple, startNativeGoogleSignIn } from '../services/nativeAuth';
+import { isAppleCancel } from '../services/appleAuth';
 import { checkPassword, describeAuthError, isPlausibleEmail, type AuthContext, type AuthIssue } from '../services/authMessages';
+
+/** The Apple logo, drawn in the button's text colour. */
+const AppleMark: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor">
+    <path d="M16.37 12.62c-.03-2.64 2.15-3.9 2.25-3.97-1.22-1.79-3.13-2.04-3.81-2.07-1.62-.16-3.16.95-3.98.95-.82 0-2.09-.93-3.44-.9-1.77.03-3.4 1.03-4.31 2.61-1.84 3.19-.47 7.91 1.32 10.5.88 1.27 1.92 2.69 3.29 2.64 1.32-.05 1.82-.85 3.42-.85 1.6 0 2.05.85 3.45.82 1.42-.03 2.32-1.29 3.19-2.56 1.01-1.47 1.42-2.9 1.45-2.97-.03-.01-2.77-1.06-2.8-4.2zM13.76 4.86c.73-.88 1.22-2.11 1.09-3.33-1.05.04-2.31.7-3.06 1.58-.67.78-1.26 2.03-1.1 3.23 1.17.09 2.35-.6 3.07-1.48z"/>
+  </svg>
+);
 
 /** The multi-colour Google "G", as required by Google's sign-in branding guidelines. */
 const GoogleG: React.FC = () => (
@@ -100,6 +108,23 @@ export const AuthView: React.FC<AuthViewProps> = ({
     const issue = describeAuthError(error, context);
     if (issue.kind === 'unavailable' || issue.kind === 'oauth_failed') console.warn('[GAYZE] auth issue:', issue.kind);
     setFeedback(issue.message, issue.kind === 'oauth_cancelled' ? 'info' : 'error', issue.action ?? null);
+  };
+
+  const submitApple = async () => {
+    if (!supabase) return;
+    if (mode === 'signup' && !adultConfirmed) { setFeedback('Please confirm you are 18 or over to continue.', 'error'); return; }
+    setBusy(true);
+    setMessage(null);
+    try {
+      await signInWithApple();
+      analytics.logEvent('login_completed');
+      onAuthenticated();
+    } catch (error) {
+      if (isAppleCancel(error)) setFeedback('Sign in with Apple was cancelled.', 'info');
+      else fail(error, 'oauth');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const submitGoogle = async () => {
@@ -452,13 +477,25 @@ export const AuthView: React.FC<AuthViewProps> = ({
           )}
 
 
-          {(mode === 'signin' || mode === 'signup') && googleSignInAvailable() && (
+          {(mode === 'signin' || mode === 'signup') && (googleSignInAvailable() || appleSignInOffered()) && (
             <>
               <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-zinc-600">
                 <span className="h-px flex-1 bg-white/[0.07]" />
                 <span>or</span>
                 <span className="h-px flex-1 bg-white/[0.07]" />
               </div>
+              {appleSignInOffered() && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void submitApple()}
+                  className="mb-2.5 w-full h-12 rounded-xl bg-white text-black hover:bg-zinc-100 disabled:opacity-50 font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors"
+                >
+                  {busy ? <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden="true" /> : <AppleMark />}
+                  {mode === 'signup' ? 'Sign up with Apple' : 'Sign in with Apple'}
+                </button>
+              )}
+              {googleSignInAvailable() && (
               <button
                 type="button"
                 disabled={busy}
@@ -468,12 +505,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 {busy ? <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden="true" /> : <GoogleG />}
                 {mode === 'signup' ? 'Sign up with Google' : 'Sign in with Google'}
               </button>
+              )}
             </>
           )}
 
           {mode === 'signup' && (
             <p className="mt-4 text-center text-[11px] leading-relaxed text-zinc-500">
-              {googleSignInAvailable() ? 'By creating an account or continuing with Google you agree to the' : 'By creating an account you agree to the'}{' '}
+              {googleSignInAvailable() || appleSignInOffered() ? 'By creating an account or continuing with a sign-in provider you agree to the' : 'By creating an account you agree to the'}{' '}
               <a href="/terms.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Terms</a>,{' '}
               <a href="/privacy.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Privacy Policy</a> and{' '}
               <a href="/community-guidelines.html" className="underline underline-offset-4 hover:text-[#c9a24d]">Community Guidelines</a>.

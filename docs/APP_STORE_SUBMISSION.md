@@ -78,3 +78,14 @@ Members will send nude photos. The guidelines ban them, but chats are end-to-end
 2. Only allow photos once both people have replied, or ask permission before the first photo.
 3. A "report this photo" path that attaches the photo from the reporter's phone (it is encrypted, so only the reporter can supply it).
 4. A written moderation procedure, with the 24-hour target and cover for when you are unavailable.
+
+## 8. Sign in with Apple (iPhone app)
+
+Built as a small local Capacitor plugin (`plugins/gayze-apple-sign-in`, Swift, `AuthenticationServices`) plus the `signInWithApple()` call in `src/services/nativeAuth.ts`. Apple returns an identity token; the app exchanges it with Supabase (`signInWithIdToken`). The button appears only inside the iPhone app. Google is shown again in the iPhone app alongside it (App Review 4.8). `APPLE_SIGN_IN_ENABLED` in `src/services/platform.ts` is the kill switch: set it to `false` and both buttons disappear from the iPhone app.
+
+One-time setup you must do (the code cannot):
+1. **Apple Developer** → Certificates, Identifiers & Profiles → Identifiers → `com.gayze.app` → tick **Sign in with Apple** → Save. (Without this the Codemagic signing step fails: the profile lacks the entitlement.)
+2. **Supabase** → Authentication → Providers → **Apple**: switch on, put `com.gayze.app` in **Client IDs**, save. (Native sign-in needs no secret key.)
+3. Run the Codemagic iOS release build, install from TestFlight, and try **Sign in with Apple** with a real Apple ID.
+
+Not done yet: when someone deletes their account, Apple expects their Sign in with Apple token to be revoked (App Review 5.1.1(v)). That needs Apple's REST call from the delete-account function with a client secret made from a `.p8` key. Until then, a person can still remove GAYZE under their Apple ID settings.

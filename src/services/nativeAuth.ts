@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
-import { isIosPlatform, type CapacitorLike } from './platform';
+import { appleSignInAvailable, googleSignInAllowed, type CapacitorLike } from './platform';
+import { appleDisplayName, randomNonce, sha256Hex } from './appleAuth';
 
 /**
  * Google sign-in inside the Capacitor app (iOS and Android).
@@ -24,13 +25,24 @@ export function isNativeApp(): boolean {
   );
 }
 
-/**
- * Apple's App Review rule 4.8: an app that offers a third-party login must also offer Sign in with Apple.
- * GAYZE does not, so the Google button is hidden in the iPhone app (email sign-in stays). Web and Android keep it.
- */
-export function googleSignInAvailable(): boolean {
-  if (typeof window === 'undefined') return true;
-  return !isIosPlatform((window as unknown as { Capacitor?: CapacitorLike }).Capacitor);
+const capacitor = (): CapacitorLike => (typeof window === 'undefined' ? undefined : (window as unknown as { Capacitor?: CapacitorLike }).Capacitor);
+
+/** Google: everywhere, except the iPhone app when Apple sign-in is switched off (App Review 4.8). */
+export function googleSignInAvailable(): boolean { return googleSignInAllowed(capacitor()); }
+
+/** Apple: inside the iPhone app only. */
+export function appleSignInOffered(): boolean { return appleSignInAvailable(capacitor()); }
+
+/** Native Sign in with Apple, then exchange Apple's token for a Supabase session. Throws on failure; cancelling is reported by the caller. */
+export async function signInWithApple(): Promise<void> {
+  if (!supabase) throw new Error('Authentication is not configured.');
+  const { GayzeAppleSignIn } = await import('gayze-apple-sign-in');
+  const rawNonce = randomNonce();
+  const result = await GayzeAppleSignIn.authorize({ nonce: await sha256Hex(rawNonce) });
+  const { error } = await supabase.auth.signInWithIdToken({ provider: 'apple', token: result.identityToken, nonce: rawNonce });
+  if (error) throw error;
+  const name = appleDisplayName(result.givenName, result.familyName);
+  if (name) { try { await supabase.auth.updateUser({ data: { display_name: name } }); } catch { /* name is a convenience */ } }
 }
 
 /** Starts Google sign-in in the system browser. Resolves once the browser is open. */
