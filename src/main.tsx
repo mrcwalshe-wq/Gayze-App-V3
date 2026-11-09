@@ -14,6 +14,7 @@ import './gayze-design-pass.css';
 import './peek-premium.css';
 import './snack-premium.css';
 import './chat-calm.css';
+import './discover-dock.css';
 
 installChunkReload();
 

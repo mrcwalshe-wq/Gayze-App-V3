@@ -1,0 +1,16 @@
+/* Discover: the map controls sit in one row docked just above the tab bar, and the header is quiet.
+   Why: the screen area already ends at the top of the tab bar, but --hud-bottom (and the nearby sheet) added the tab bar's
+   height again, leaving a dead gap of 70px or more under the controls, so they looked like they floated mid-map. */
+.g-shell[data-active-tab='right_now'] {
+  --hud-bottom: calc(10px + var(--g-setup-h, 0px) + var(--g-status-h, 0px) + var(--nearby-sheet-h, 0px));
+}
+.g-shell[data-active-tab='right_now'] .ns { bottom: calc(10px + var(--g-setup-h, 0px) + var(--g-status-h, 0px)); }
+
+/* One baseline, one height, one corner shape for the filter button, the Map / Grid / People switch and the locate button. */
+.g-shell[data-active-tab='right_now'] .g-filter-fab,
+.g-shell[data-active-tab='right_now'] .g-locate-fab { width: 46px; height: 46px; }
+.g-shell[data-active-tab='right_now'] .mapmode { height: 46px; }
+
+/* Header: a quiet label and a live count, not a loud title. */
+.g-discover-head__title strong { font-size: 14px; letter-spacing: .01em; text-transform: none; font-weight: 750; }
+.g-discover-head__title span { font-size: 12px; opacity: .8; }
