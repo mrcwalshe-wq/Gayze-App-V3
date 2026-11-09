@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Ban, BadgeCheck, CalendarClock, Flag, Check, ChevronDown, MapPin, MessageCircle, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Ban, BadgeCheck, CalendarClock, Flag, Check, ChevronDown, MapPin, MessageCircle, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
 import type { IntimacyProfile } from '../types';
 import { loadIntimacyProfile, loadPublicProfileSummary, type PublicProfileSummary } from '../services/supabaseService';
 import { getProfilePhotoUrl, loadPeerPhotos, type PeerPhoto } from '../services/profilePhotoService';
@@ -26,6 +26,8 @@ export interface PublicProfileSheetProps {
   onMessage?: () => void;
   /** Opens the plan-a-meetup sheet for this person. Omit when there is no conversation to send it to. */
   onPlan?: () => void;
+  /** Sends a Gayze request to this person. Resolves true when it was sent. Omit for yourself or when signed out. */
+  onGayze?: () => Promise<boolean>;
   onBlock?: (userId: string) => void;
   onReport?: (userId: string) => void;
 }
@@ -63,9 +65,19 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   onClose,
   onMessage,
   onPlan,
+  onGayze,
   onBlock,
   onReport,
 }) => {
+  const [gayzeState, setGayzeState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  useEffect(() => { setGayzeState('idle'); }, [userId]);
+  const sendGayze = async () => {
+    if (!onGayze || gayzeState !== 'idle') return;
+    setGayzeState('sending');
+    let sent = false;
+    try { sent = await onGayze(); } catch { sent = false; }
+    setGayzeState(sent ? 'sent' : 'idle');
+  };
   const [summary, setSummary] = useState<PublicProfileSummary | null>(null);
   const [mine, setMine] = useState<PublicProfileSummary | null>(null);
   const [intimacy, setIntimacy] = useState<IntimacyProfile | null>(null);
@@ -318,8 +330,19 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
           </div>
         </div>
 
-        {(onMessage || onPlan) && (
+        {(onMessage || onPlan || onGayze) && (
           <div className={`g-peek__foot ${onMessage && onPlan ? 'g-peek__foot--two' : ''}`}>
+            {onGayze && (
+              <button
+                type="button"
+                onClick={() => void sendGayze()}
+                disabled={gayzeState !== 'idle'}
+                className={`g-peek__gayze${gayzeState === 'sent' ? ' is-sent' : ''}`}
+              >
+                {gayzeState === 'sent' ? <Check className="w-[18px] h-[18px]" /> : <Zap className="w-[18px] h-[18px]" />}
+                {gayzeState === 'sent' ? 'Gayze sent' : gayzeState === 'sending' ? 'Sending…' : 'Send a Gayze'}
+              </button>
+            )}
             {onPlan && <button type="button" onClick={onPlan} className="g-peek__plan"><CalendarClock className="w-[18px] h-[18px]" />Plan a safe meet</button>}
             {onMessage && <button type="button" onClick={onMessage} className="g-peek__message"><MessageCircle className="w-[18px] h-[18px]" />Message</button>}
           </div>

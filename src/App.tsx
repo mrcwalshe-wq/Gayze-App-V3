@@ -4455,6 +4455,9 @@ export default function App() {
               onClose={() => setViewingPublicProfile(null)}
               onBlock={IS_LIVE_BACKEND ? (id) => { void handleBlockPeer(id, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
               onReport={IS_LIVE_BACKEND ? (id) => handleReportPeer(id, viewingPublicProfile.fallbackName || 'this user') : undefined}
+              onGayze={IS_LIVE_BACKEND && peerId && peerId !== supabaseUserId
+                ? () => handleGazeAtPeer(viewingPublicProfile.fallbackName || peerRoom?.peerName || 'them', peerId)
+                : undefined}
               onPlan={peerRoom ? () => {
                 setViewingPublicProfile(null);
                 handleOpenScheduleMeeting(peerRoom.peerName || viewingPublicProfile.fallbackName || peerRoom.name);
