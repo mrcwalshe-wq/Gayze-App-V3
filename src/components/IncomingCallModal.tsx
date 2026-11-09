@@ -4,6 +4,7 @@ import { Phone, PhoneOff, Video } from 'lucide-react';
 import { CallAura, CallOrb, CallSecureChip } from './callUi';
 import { triggerVibration, hapticSensitiveAction } from '../services/hapticService';
 import type { IncomingCall } from '../services/webrtcService';
+import { peerPhotoUrl } from '../services/peerPhoto';
 
 interface IncomingCallModalProps {
   incomingCall: IncomingCall | null;
@@ -19,6 +20,15 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   const [busy, setBusy] = useState(false);
   const activeCallKey = incomingCall ? `${incomingCall.conversationId}:${incomingCall.callId || incomingCall.timestamp}` : '';
   const handledCallRef = useRef('');
+  const [photo, setPhoto] = useState<string | undefined>(undefined);
+  const callerId = incomingCall?.callerId;
+  useEffect(() => {
+    setPhoto(undefined);
+    if (!callerId) return;
+    let live = true;
+    void peerPhotoUrl(callerId).then((url) => { if (live && url) setPhoto(url); });
+    return () => { live = false; };
+  }, [callerId]);
 
   useEffect(() => {
     setBusy(false);
@@ -48,7 +58,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
 
       <div className="g-call__center">
         <p className="g-call__kicker">{isVideo ? 'Incoming video call' : 'Incoming voice call'}</p>
-        <CallOrb name={incomingCall.callerName} state="ringing" />
+        <CallOrb name={incomingCall.callerName} avatar={photo} state="ringing" />
         <h2 className="g-call__name">{incomingCall.callerName}</h2>
         <p className="g-call__status is-pending">is calling you</p>
       </div>
