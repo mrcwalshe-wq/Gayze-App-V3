@@ -1,0 +1,22 @@
+/* Chat room, calmer. The room shows the conversation: one slim header, one slim
+   intent line that sits quietly over the top, no per-message icons. */
+
+/* Intent banner: a slim line, no glow, no falling particles. */
+.peer-intent-card--compact {
+  margin: 0 10px !important;
+  box-shadow: none !important;
+  border-radius: 12px !important;
+  background: rgba(var(--peer-accent-rgb), .12) !important;
+  border-color: rgba(var(--peer-accent-rgb), .28) !important;
+}
+.peer-intent-card--compact .peer-intent-card__row { padding: 5px 10px 5px 7px; gap: 9px; }
+.peer-intent-card--compact .peer-intent-card__icon { flex-basis: 26px; width: 26px; height: 26px; }
+.peer-intent-card--compact .peer-intent-card__icon svg { width: 14px; height: 14px; }
+.peer-intent-card--compact .peer-intent-card__intent { font-size: 13px; }
+.g-chat-overlay { padding-bottom: 14px; }
+
+/* Message footer: only appears when a message needs a Retry. */
+.g-bubble__meta { margin-top: 4px; }
+
+/* The "connected via" strip is one quiet line. */
+.g-chat-context { margin-bottom: 4px; background: transparent; border-color: transparent; padding-left: 4px; padding-right: 0; }

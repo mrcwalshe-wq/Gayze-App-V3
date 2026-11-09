@@ -43,10 +43,13 @@
   box-shadow: inset 0 1px 0 rgba(255, 238, 190, .3), inset 0 0 0 1px rgba(232, 196, 111, .38), 0 0 18px rgba(201, 162, 77, .2);
 }
 
+/* More of the card's content is visible above the action bar: a shorter photo area (it was 60% of the screen). */
+.g-peek__gallery { height: min(50dvh, 430px); }
+
 /* The action bar. */
 .g-peek__foot {
   position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  padding: 16px 18px calc(16px + env(safe-area-inset-bottom));
+  padding: 14px 18px calc(12px + env(safe-area-inset-bottom));
   border-top: 0; background: linear-gradient(180deg, rgba(10, 9, 18, 0), rgba(10, 9, 18, .94) 30%);
 }
 .g-peek__foot::before {
@@ -74,6 +77,15 @@
   background: var(--gz-strip, linear-gradient(90deg, #6f3cc3, #b24fd8 55%, #c9a24d));
 }
 .g-peek__foot .g-peek__gayze svg { box-sizing: content-box; width: 16px; height: 16px; padding: 6px; border-radius: 50%; background: rgba(255, 255, 255, .2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+/* The official emblem, unaltered, repeated huge across the button like wrapping paper. */
+.g-peek__foot .g-peek__gayze::before {
+  content: ''; position: absolute; inset: -40% -10%; pointer-events: none; z-index: 0;
+  background: url('/brand/gayze-nav-v3.svg') 0 0 / 92px 46px repeat;
+  transform: rotate(-12deg); opacity: .34;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,.55), #000 40%, #000 60%, rgba(0,0,0,.55));
+  mask-image: linear-gradient(90deg, rgba(0,0,0,.55), #000 40%, #000 60%, rgba(0,0,0,.55));
+}
+.g-peek__foot .g-peek__gayze > * { position: relative; z-index: 1; }
 .g-peek__foot .g-peek__gayze:disabled { opacity: .82; }
 .g-peek__foot .g-peek__gayze.is-sent {
   color: #c9f7e2; text-shadow: none;
@@ -81,7 +93,15 @@
   box-shadow: inset 0 0 0 1px rgba(110, 231, 183, .45), 0 10px 24px rgba(0, 0, 0, .35);
   opacity: 1;
 }
-.g-peek__foot .g-peek__gayze.is-sent::after { display: none; }
+.g-peek__foot .g-peek__gayze.is-sent::after, .g-peek__foot .g-peek__gayze.is-wait::after { display: none; }
+.g-peek__foot .g-peek__gayze.is-sent::before, .g-peek__foot .g-peek__gayze.is-wait::before { opacity: .12; }
+/* One new Gayze per 24 hours: shown as a calm countdown, not an error. */
+.g-peek__foot .g-peek__gayze.is-wait {
+  color: #ece3ff; text-shadow: none; opacity: 1;
+  background: linear-gradient(180deg, rgba(170, 120, 245, .22), rgba(170, 120, 245, .07)), rgba(17, 12, 34, .92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), inset 0 0 0 1px rgba(170, 120, 245, .3), 0 10px 24px rgba(0, 0, 0, .35);
+}
+.g-peek__foot .g-peek__gayze.is-wait svg { background: rgba(170, 120, 245, .22); }
 .g-peek__foot .g-peek__gayze.is-sent svg { background: rgba(110, 231, 183, .22); }
 
 /* Message: violet glass. Plan a safe meet: mint glass. */
@@ -97,3 +117,14 @@
 .g-peek__foot .g-peek__plan svg { color: #6ee7b7; }
 
 @media (prefers-reduced-motion: reduce) { .g-peek__foot button { transition: none; } }
+
+/* Status on the photo ("Food · 1h 52m left"): one clean gradient pill, a live dot, a plain countdown. */
+.g-peek__signal {
+  gap: 9px; padding: 7px 14px 7px 12px; border-radius: 999px; font-size: 13.5px;
+  background: linear-gradient(115deg, rgba(91, 44, 184, .92), rgba(138, 63, 203, .9) 55%, rgba(184, 64, 143, .9));
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: 0 8px 22px rgba(91, 44, 184, .45), inset 0 1px 0 rgba(255, 255, 255, .32);
+}
+.g-peek__signal i { background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .22); }
+.g-peek__signal b { font-weight: 800; }
+.g-peek__signal em { font-family: inherit; font-size: 12.5px; font-weight: 600; opacity: .9; padding-left: 9px; border-left-color: rgba(255, 255, 255, .35); }

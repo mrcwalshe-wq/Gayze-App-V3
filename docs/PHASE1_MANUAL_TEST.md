@@ -18,6 +18,7 @@ These screens are not in the automated baseline:
 
 | Not covered | Why |
 |---|---|
+| Profile screen | At 402px wide it paints one pixel differently in about 1 of 5 loads (element positions identical in all 40 loads measured), so it cannot be a stable image baseline. The dialogs opened from it (Privacy, Edit profile, Identity, Safety check-in, QR) are covered |
 | Sign-in / sign-up (`AuthView`), Consent gate, Profile onboarding | The fake user is already signed in, consented and onboarded, so the app skips them |
 | Intent Hub | Needs an active intent; creating one needs a real backend response |
 | A chat room, including the photo-send notice (`window.confirm`) | Needs a conversation and message keys |
