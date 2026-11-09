@@ -913,7 +913,7 @@ nav.g-tabbar {
 .g-bubble__meta { display: flex; align-items: center; justify-content: flex-end; gap: 2px; margin-top: 2px; font-size: 11px; opacity: .6; }
 .g-bubble__info { display: inline-grid; place-items: center; width: 28px; height: 28px; margin: -6px -8px -6px 0; border-radius: 6px; color: inherit; opacity: .8; }
 .g-bubble__info:hover, .g-bubble__info[aria-expanded='true'] { opacity: 1; background: rgba(255, 255, 255, .08); }
-@media (max-width: 767px) { .g-composer-note { margin-bottom: 20px; } }
+@media (max-width: 1023px) { .g-composer-note { margin-bottom: 20px; } }
 
 /* ---- Profile: header aligned to the photo, quieter empty slots ---------------- */
 .g-profile-id > button { margin-top: 2px; }
@@ -932,7 +932,7 @@ nav.g-tabbar {
 .g-panel--danger { border-color: rgba(248, 113, 113, .28) !important; background: linear-gradient(180deg, rgba(60, 18, 24, .35), rgba(20, 12, 16, .6)) !important; }
 .g-later__hero { padding-top: 4px; }
 .g-later__host { top: 4px; }
-@media (min-width: 768px) { .g-later__hero { padding-top: 10px; } .g-later__host { top: 10px; } }
+@media (min-width: 1024px) { .g-later__hero { padding-top: 10px; } .g-later__host { top: 10px; } }
 
 /* ==========================================================================
    Messages list: a header that sits tight, one clear encryption statement,
@@ -958,7 +958,7 @@ nav.g-tabbar {
   font-size: 11.5px; line-height: 1.5; color: rgba(255, 255, 255, .6) !important;
 }
 .g-msglist-foot svg { flex: none; margin-top: 2px; color: #6ee7b7; }
-@media (max-width: 767px) { .gayze-chat-sidebar > div.g-msglist-foot { padding-bottom: 34px !important; } } /* clear the tab bar's dome */
+@media (max-width: 1023px) { .gayze-chat-sidebar > div.g-msglist-foot { padding-bottom: 34px !important; } } /* clear the tab bar's dome */
 
 .g-chatrow__av:not(.is-group) { background: linear-gradient(145deg, hsl(var(--h, 265) 58% 44% / .9), #171522 72%); }
 .g-chatrow__msg.is-empty { font-style: italic; color: rgba(255, 255, 255, .42); }
@@ -1120,7 +1120,7 @@ nav.g-tabbar {
 @media (prefers-reduced-motion: reduce) { .g-plan, .g-plan__sheet { animation: none; } }
 
 /* ---- Tab bar: docked to the bottom edge, not floating over the page ---------- */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   :root { --g-tabbar-h: 68px; --g-tabbar-bottom-gap: 0px; }
   nav.g-tabbar.g-tabbar {
     left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important;
@@ -1139,7 +1139,7 @@ nav.g-tabbar {
   /* The line sits exactly on the bar's top edge (stroke centred on y = RISE + 1), and it is the only line there. */
   nav.g-tabbar .g-tabbar__edge { top: -19px; }
 }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   nav.g-tabbar .g-tabbar__edge { z-index: 0; }
   nav.g-tabbar.g-tabbar .g-tabbar__inner { position: relative; z-index: 1; }
 }
@@ -1528,7 +1528,7 @@ nav.g-tabbar .g-tab--discover[data-intent-mode='private'] { --gj: 150, 100, 235;
 nav.g-tabbar .g-tab--discover[data-intent-mode='social'] { --gj: 214, 170, 80; --gj2: 255, 190, 110; }
 nav.g-tabbar .g-tab--discover[data-intent-mode='private'] .g-discover-logo-image,
 nav.g-tabbar .g-tab--discover[data-intent-mode='social'] .g-discover-logo-image { filter: drop-shadow(0 0 10px rgba(var(--gj), .95)) drop-shadow(0 0 26px rgba(var(--gj), .65)) !important; }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-tab--discover[data-intent-mode='private'] .g-discover-action { border-color: rgba(190, 140, 255, .95) !important; box-shadow: 0 0 0 2px rgba(150, 100, 235, .35), 0 0 26px rgba(150, 100, 235, .65), 0 0 54px rgba(150, 100, 235, .35), inset 0 1px 0 rgba(255, 255, 255, .12) !important; }
   .g-tab--discover[data-intent-mode='social'] .g-discover-action { border-color: rgba(240, 200, 110, .95) !important; box-shadow: 0 0 0 2px rgba(214, 170, 80, .35), 0 0 26px rgba(214, 170, 80, .6), 0 0 54px rgba(214, 170, 80, .3), inset 0 1px 0 rgba(255, 255, 255, .12) !important; }
 }

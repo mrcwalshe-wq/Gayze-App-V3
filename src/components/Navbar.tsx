@@ -196,7 +196,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="g-desktop-header hidden md:block">
+      <header className="g-desktop-header hidden lg:block">
         <div className="g-desktop-header__inner">
           <button onClick={() => onTabChange('dating')} className="flex items-center gap-2.5 group cursor-pointer" aria-label="GAYZE home">
             <GayzeLogo size={30} showWordmark={false} />
@@ -217,6 +217,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           <div className="flex items-center gap-2">
+            {onOpenIntentHub && (
+              <button onClick={() => { hapticLight(); onOpenIntentHub(); }} aria-label="Set an intent" title="Set an intent" className="g-btn g-btn--primary !min-h-[36px] !px-3.5 !text-[12px] font-semibold">
+                <Radio className="w-3.5 h-3.5" />
+                <span>Set intent</span>
+              </button>
+            )}
             <button onClick={onOpenSafetyTimer} title="Safety check-in" aria-label="Safety check-in" className={`g-btn !min-h-[36px] !px-3 !text-[11.5px] ${isSafetyTimerActive ? 'g-btn--danger-quiet' : 'g-btn--ghost'}`}>
               <Shield className={`w-3.5 h-3.5 ${isSafetyTimerActive ? 'text-rose-400' : 'text-emerald-400'}`} />
               <span className="hidden lg:inline">{isSafetyTimerActive ? 'Check-in active' : 'Safety'}</span>
@@ -232,7 +238,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      <nav className="g-tabbar md:hidden" aria-label="Primary">
+      <nav className="g-tabbar lg:hidden" aria-label="Primary">
         <TabbarEdge />
         <div className="g-tabbar__inner">
           {TABS.map((tab) => {

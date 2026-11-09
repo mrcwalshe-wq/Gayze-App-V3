@@ -59,7 +59,7 @@ export const SetupDock: React.FC<SetupDockProps> = ({ userId, enabled, suppressP
 
   return (
     <div
-      className="fixed left-3 right-3 z-50 flex flex-col items-stretch gap-2 pointer-events-none bottom-[calc(var(--g-tabbar-h,3.5rem)+env(safe-area-inset-bottom,0px)+12px+var(--g-status-h,0px))] md:left-auto md:right-6 md:bottom-6 md:w-[360px]"
+      className="fixed left-3 right-3 z-50 flex flex-col items-stretch gap-2 pointer-events-none bottom-[calc(var(--g-tabbar-h,3.5rem)+env(safe-area-inset-bottom,0px)+12px+var(--g-status-h,0px))] lg:left-auto lg:right-6 lg:bottom-6 lg:w-[360px]"
       data-testid="setup-dock"
       ref={dockRef}
     >
