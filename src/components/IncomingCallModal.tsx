@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Phone, PhoneOff, Video } from 'lucide-react';
 import { CallAura, CallOrb, CallSecureChip } from './callUi';
 import { triggerVibration, hapticSensitiveAction } from '../services/hapticService';
@@ -37,7 +38,8 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
 
   const isVideo = incomingCall.callType === 'video';
 
-  return (
+  // Portal to <body>: inside the app shell the tab bar can sit on top of it and hide Answer / Decline.
+  return createPortal(
     <div className="g-call g-call--incoming" data-state="ringing" role="alertdialog" aria-modal="true" aria-label={`Incoming ${isVideo ? 'video' : 'audio'} call from ${incomingCall.callerName}`}>
       <CallAura />
       <header className="g-call__top">
@@ -92,6 +94,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
