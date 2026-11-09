@@ -16,6 +16,7 @@ import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode, VoiceNote } from '../types';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction, hapticMessageSent } from '../services/hapticService';
+import { playAppSound } from '../services/appSounds';
 import {
   Lock,
   ShieldCheck,
@@ -485,7 +486,12 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       // Jump on hydration/reopen; don't animate every decrypted history batch.
       feed.scrollTop = feed.scrollHeight;
     }
-    if (!changedRoom && previous.id && lastMessageId !== previous.id && nearBottomRef.current) hapticMessageDecrypted();
+    if (!changedRoom && previous.id && lastMessageId !== previous.id && nearBottomRef.current) {
+      hapticMessageDecrypted();
+      const last = currentMessages.at(-1);
+      const mine = last ? (currentUserId ? last.senderKey === currentUserId : last.senderKey === currentUser.publicKey) : true;
+      if (last && !mine && !last.isSystem) playAppSound('messageIn');
+    }
     previousTailRef.current = { room: activeRoomId, id: lastMessageId };
   }, [activeRoomId, lastMessageId, visibleCount]);
 
@@ -541,6 +547,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     if ((!inputText.trim() && !attachedMedia) || !currentRoom) return;
 
     hapticMessageSent();
+    playAppSound('messageOut');
     const textToSend = inputText.trim() || (attachedMedia ? 'Shared a photo' : '');
     const mediaToSend = attachedMedia || undefined;
 

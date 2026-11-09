@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { playAppSound } from '../services/appSounds';
 import { formatLaterAt } from '../services/intentTiming';
 import { peekTapProps, useProfilePeek } from './ProfilePeek';
 import { intentDisplayLabel } from '../services/intentLabels';
@@ -301,6 +302,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [interestStatusByPulseId, setInterestStatusByPulseId] = useState<Record<string, 'pending' | 'mutual' | 'declined' | 'withdrawn'>>({});
   const [gazedPeerNames, setGazedPeerNames] = useState<Set<string>>(new Set());
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
+  useEffect(() => { if (mutualMatchPulse) playAppSound('matched'); }, [mutualMatchPulse]);
   const [interestDraftPulse, setInterestDraftPulse] = useState<Pulse | null>(null);
   const [interestMessage, setInterestMessage] = useState('');
   const [interestPhotos, setInterestPhotos] = useState<ProfilePhoto[]>([]);

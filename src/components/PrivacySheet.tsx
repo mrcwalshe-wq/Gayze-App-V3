@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, MessageCircle, Radar, Clock, Vibrate, X } from 'lucide-react';
+import { Eye, MessageCircle, Radar, Clock, Vibrate, Volume2, X } from 'lucide-react';
+import { areSoundsEnabled, playAppSound, setSoundsEnabled } from '../services/appSounds';
 import { readCallLog } from '../services/webrtcService';
 import { areHapticsEnabled, hapticLight, setHapticsEnabled } from '../services/hapticService';
 import { DEFAULT_PRIVACY, loadPrivacySettings, savePrivacySettings, type PrivacySettings } from '../services/serverPresence';
@@ -21,6 +22,7 @@ export const PrivacySheet: React.FC<PrivacySheetProps> = ({ isOpen, onClose, use
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [saveError, setSaveError] = useState(false);
   const [haptics, setHaptics] = useState(areHapticsEnabled);
+  const [sounds, setSounds] = useState(areSoundsEnabled);
   const [diagCopied, setDiagCopied] = useState(false);
 
   useEffect(() => {
@@ -67,6 +69,8 @@ export const PrivacySheet: React.FC<PrivacySheetProps> = ({ isOpen, onClose, use
             <Row icon={<MessageCircle className="w-4 h-4" />} title="Only connections can message me" body="People you've never chatted with would need to connect first." on={s.whoCanMessage === 'connections'} onToggle={() => void update({ whoCanMessage: s.whoCanMessage === 'connections' ? 'everyone' : 'connections' })} />
             <Row icon={<Vibrate className="w-4 h-4" />} title="Haptic feedback" body="Taps and buzzes for buttons, messages and calls. Saved on this device only." on={haptics}
               onToggle={() => { const next = !haptics; setHaptics(next); setHapticsEnabled(next); if (next) hapticLight(); }} />
+            <Row icon={<Volume2 className="w-4 h-4" />} title="Sounds" body="The GAYZE chime for new messages, Gayzes and going live. Calls always ring. Saved on this device only." on={sounds}
+              onToggle={() => { const next = !sounds; setSounds(next); setSoundsEnabled(next); if (next) playAppSound('notify'); }} />
             <button type="button" className="g-priv__diag" onClick={async () => {
               const text = readCallLog() || 'No call events recorded on this device yet.';
               try { await navigator.clipboard.writeText(text); setDiagCopied(true); window.setTimeout(() => setDiagCopied(false), 2500); } catch { window.prompt('Copy this call log', text); }
