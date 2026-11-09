@@ -2,17 +2,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "GayzeCallKit",
+    name: "GayzeCallkit",
     platforms: [.iOS(.v15)],
     products: [
-        .library(name: "GayzeCallKit", targets: ["GayzeCallKit"])
+        .library(name: "GayzeCallkit", targets: ["GayzeCallkit"])
     ],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
     ],
     targets: [
         .target(
-            name: "GayzeCallKit",
+            name: "GayzeCallkit",
             dependencies: [
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm")
