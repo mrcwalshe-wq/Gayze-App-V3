@@ -85,10 +85,27 @@ function element(kind: AppSound): HTMLAudioElement | null {
 
 const inCall = (): boolean => typeof document !== 'undefined' && Boolean(document.querySelector('[data-gayze-call-screen="true"], .g-call'));
 
-/** Plays one sound. Quietly does nothing when sounds are off, a call is on screen, or the same sound just played. */
+/** Sounds that announce something arriving. They stay silent while the app is still loading what was already there. */
+const ARRIVAL_SOUNDS: readonly AppSound[] = ['messageIn', 'gayze', 'matched'];
+export const STARTUP_QUIET_MS = 8000;
+let quietUntil = Date.now() + STARTUP_QUIET_MS;
+
+/** Pure rule, so it can be tested: is this sound held back right now? */
+export function isHeldBack(kind: AppSound, now: number, until: number): boolean {
+  return ARRIVAL_SOUNDS.includes(kind) && now < until;
+}
+
+/** Call at login or app start: history that loads now is not news, so arrival sounds wait. */
+export function quietArrivalSounds(ms: number = STARTUP_QUIET_MS): void { quietUntil = Math.max(quietUntil, Date.now() + ms); }
+
+/** A message older than this is history, not something that just arrived. */
+export const FRESH_MESSAGE_MS = 60_000;
+
+/** Plays one sound. Quietly does nothing when sounds are off, a call is on screen, the app is still loading, or the same sound just played. */
 export function playAppSound(kind: AppSound): void {
   if (!areSoundsEnabled() || inCall()) return;
   const now = Date.now();
+  if (isHeldBack(kind, now, quietUntil)) return;
   if (now - (lastPlayed.get(kind) ?? 0) < 350) return;
   lastPlayed.set(kind, now);
   const el = element(kind);
