@@ -1,7 +1,10 @@
 /**
- * Haptic Feedback Service using the HTML5 Vibration API (navigator.vibrate)
+ * Haptic Feedback Service. Android and desktop browsers use the Vibration API (navigator.vibrate). Inside the iPhone app it
+ * uses the phone's native haptic engine (Capacitor Haptics), and in iPhone Safari a hidden-switch trick that needs a finger tap.
  * Provides tactile sensory feedback for critical privacy, cryptographic, and safety actions.
  */
+import { isIosPlatform, type CapacitorLike } from './platform';
+import { hapticStepsFor } from './hapticPattern';
 
 // Check if Vibration API is available in the current browser environment
 export const isVibrationSupported = (): boolean => {
@@ -35,6 +38,8 @@ export const setHapticsEnabled = (enabled: boolean): void => {
 export const triggerVibration = (pattern: number | number[]): boolean => {
   if (!areHapticsEnabled()) return false;
 
+  if (nativeIosTaps(pattern)) return true;
+
   if (isVibrationSupported()) {
     try {
       return navigator.vibrate(pattern);
@@ -43,6 +48,19 @@ export const triggerVibration = (pattern: number | number[]): boolean => {
     }
   }
   return iosTaps(pattern);
+};
+
+/** Inside the iPhone app: real native taps from the phone's haptic engine. Works without a finger on the screen (for example a ringing call). */
+const nativeIosTaps = (pattern: number | number[]): boolean => {
+  if (typeof window === 'undefined') return false;
+  if (!isIosPlatform((window as unknown as { Capacitor?: CapacitorLike }).Capacitor)) return false;
+  void import('@capacitor/haptics').then(({ Haptics, ImpactStyle }) => {
+    hapticStepsFor(pattern).forEach(({ at, style }) => {
+      const run = () => { void Haptics.impact({ style: ImpactStyle[style === 'LIGHT' ? 'Light' : style === 'MEDIUM' ? 'Medium' : 'Heavy'] }).catch(() => undefined); };
+      if (at === 0) run(); else window.setTimeout(run, at);
+    });
+  }).catch(() => undefined);
+  return true;
 };
 
 /**
