@@ -24,7 +24,7 @@ export const SCREENS: Screen[] = [
   { name: 'right-now-map', setup: async () => undefined },
   { name: 'later', setup: async (page) => { await nav(page, 'Events').click(); await settle(page, 1200); } },
   { name: 'messages-chats', setup: async (page) => { await nav(page, 'Messages').click(); await settle(page, 1200); } },
-  { name: 'profile', setup: async (page) => { await nav(page, 'Profile').click(); await settle(page, 1500); } },
+  { name: 'profile', setup: async (page) => { await nav(page, 'Profile').click(); await settle(page, 3500); } },
   { name: 'discover-interests', desktopOnly: true, setup: async (page) => { await nav(page, /^GAYZE$/).click(); await settle(page, 1500); } },
   {
     name: 'set-intent-1-availability',
@@ -50,5 +50,5 @@ export const SCREENS: Screen[] = [
   { name: 'dialog-privacy', setup: async (page) => { await nav(page, 'Profile').click(); await settle(page, 1200); await page.getByRole('button', { name: /Privacy & visibility/ }).click(); await settle(page, 900); } },
   { name: 'dialog-edit-profile', setup: async (page) => { await nav(page, 'Profile').click(); await settle(page, 1200); await page.getByRole('button', { name: 'Edit profile' }).first().click(); await settle(page, 900); } },
   { name: 'dialog-identity', setup: async (page) => { await nav(page, 'Profile').click(); await settle(page, 1200); await page.getByRole('button', { name: /Identity & devices/ }).click(); await settle(page, 900); } },
-  { name: 'dialog-safety-timer', setup: async (page) => { await nav(page, 'Profile').click(); await settle(page, 1200); await page.getByRole('button', { name: 'Safety check-in' }).click(); await settle(page, 900); } },
+  { name: 'dialog-safety-timer', setup: async (page) => { await nav(page, 'Profile').click(); await settle(page, 1200); await page.locator('.g-row', { hasText: 'Safety check-in' }).click(); await settle(page, 900); } },
 ];
