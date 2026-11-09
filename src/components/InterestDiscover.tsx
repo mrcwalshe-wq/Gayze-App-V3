@@ -11,7 +11,8 @@ interface Props {
   onEditInterests: () => void;
   onOpenProfile: (userId: string, name: string) => void;
   /** Open the existing chat with this person, if there is one. */
-  onOpenChat: (userId: string) => boolean;
+  /** Opens the chat with this person. It looks in the loaded chats first, then asks the server. */
+  onOpenChat: (userId: string, name: string) => void;
   showToast: (message: string) => void;
 }
 
@@ -141,7 +142,7 @@ export const InterestDiscover: React.FC<Props> = ({ myInterests, onEditInterests
                 </span>
               </button>
               {p.hasConversation ? (
-                <button type="button" className="g-disc__cta" onClick={() => { if (!onOpenChat(p.userId)) showToast('Open Chats to continue this conversation.'); }}><MessageCircle className="w-4 h-4" aria-hidden="true" />Message</button>
+                <button type="button" className="g-disc__cta" onClick={() => onOpenChat(p.userId, p.displayName)}><MessageCircle className="w-4 h-4" aria-hidden="true" />Message</button>
               ) : p.canContact ? (
                 <button type="button" className="g-disc__cta" onClick={() => setHello(p)}><MessageCircle className="w-4 h-4" aria-hidden="true" />Say hello</button>
               ) : (
