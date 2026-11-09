@@ -197,6 +197,8 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
   return createPortal(
     <div className="g-peek-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name}'s profile`}>
       <section className="g-peek" onClick={(event) => event.stopPropagation()}>
+        {/* Outside the scroll area so it stays reachable however far the card is scrolled. */}
+        <button type="button" onClick={onClose} className="g-peek__close" aria-label="Close profile"><X className="w-[18px] h-[18px]" /></button>
         <div className="g-peek__scroll">
           <div className="g-peek__gallery">
             {gallery.length > 0 ? (
@@ -211,7 +213,6 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
               <div className={`g-peek__initial ${photosLoading ? 'is-loading' : ''}`}>{name.charAt(0).toUpperCase()}</div>
             )}
             <div className="g-peek__shade" aria-hidden="true" />
-            <button type="button" onClick={onClose} className="g-peek__close" aria-label="Close profile"><X className="w-[18px] h-[18px]" /></button>
             {gallery.length > 1 && (
               <>
                 <div className="g-peek__bars" aria-hidden="true">
