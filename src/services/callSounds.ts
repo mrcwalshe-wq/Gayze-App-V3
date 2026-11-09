@@ -1,3 +1,4 @@
+import { unlockElementSilently } from './audioUnlock';
 /**
  * Call sounds: ringing, connected, ended, not answered.
  *
@@ -88,17 +89,15 @@ export function playCallSound(kind: CallSound) {
 }
 
 /**
- * Browsers only let a sound start after the person has touched the page. The first touch plays every sound silently for a
- * moment, which is what allows a call to ring later with nobody touching anything.
+ * Browsers only let a sound start after the person has touched the page. The first touch plays every sound muted for a
+ * moment (muted, not volume 0: iOS ignores volume), which is what allows a call to ring later with nobody touching anything.
  */
 export function unlockCallSounds() {
   if (unlocked) return;
   (Object.keys(RECIPES) as CallSound[]).forEach((kind) => {
     const el = element(kind);
     if (!el) return;
-    const volume = el.volume;
-    el.volume = 0;
-    void el.play().then(() => { el.pause(); el.currentTime = 0; el.volume = volume; }).catch(() => { el.volume = volume; });
+    unlockElementSilently(el);
   });
   unlocked = true;
 }

@@ -12,6 +12,7 @@
  *   error       two low, soft notes falling
  */
 import { encodeWav } from './callSounds';
+import { unlockElementSilently } from './audioUnlock';
 
 export type AppSound = 'messageIn' | 'messageOut' | 'gayze' | 'matched' | 'live' | 'notify' | 'error';
 
@@ -114,7 +115,7 @@ export function playAppSound(kind: AppSound): void {
   void el.play().catch(() => undefined);
 }
 
-/** Browsers allow sound only after a touch: the first one plays every sound silently for a moment so later ones can play on their own. */
+/** Browsers allow sound only after a touch: the first one plays every sound MUTED for a moment so later ones can play on their own (muted, not volume 0: iOS ignores volume). */
 export function installAppSoundUnlock(): () => void {
   if (typeof document === 'undefined') return () => undefined;
   const handler = () => {
@@ -123,9 +124,7 @@ export function installAppSoundUnlock(): () => void {
     (Object.keys(APP_RECIPES) as AppSound[]).forEach((kind) => {
       const el = element(kind);
       if (!el) return;
-      const volume = el.volume;
-      el.volume = 0;
-      void el.play().then(() => { el.pause(); el.currentTime = 0; el.volume = volume; }).catch(() => { el.volume = volume; });
+      unlockElementSilently(el);
     });
   };
   const events = ['pointerdown', 'touchend', 'click', 'keydown'] as const;
