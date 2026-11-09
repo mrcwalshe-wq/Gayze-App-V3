@@ -1,6 +1,6 @@
 /* Focused Right Now map chrome refinement.
    Loaded after the existing design layers; does not change map, intent or counter logic. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed {
     box-sizing: border-box !important;
     width: auto !important;

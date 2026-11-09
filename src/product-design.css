@@ -12,7 +12,7 @@
   --g-product-border-strong: rgba(255,255,255,.14);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-tabbar {
     background: rgba(10,12,17,.96) !important;
     border-color: rgba(255,255,255,.10) !important;
@@ -177,7 +177,7 @@ select:focus-visible {
 
 /* Final mobile chrome refinement: the navigation should frame the app, not overlap it. */
 :root { --g-tabbar-h: 52px; }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-tabbar {
     padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
   }
@@ -281,7 +281,7 @@ select:focus-visible {
 
 /* Discover brand action reflects the live intent mode, not the Social palette.
    Private is rich violet; Social is amber; no active intent stays neutral. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-tab--discover[data-intent-mode='private'] .g-discover-action {
     border-color: rgba(111,60,195,.78) !important;
     background: linear-gradient(145deg, #171021 0%, #24153d 58%, #11131a 100%) !important;
@@ -396,7 +396,7 @@ select:focus-visible {
 }
 
 /* The GAYZE Discover action inherits the same mode hue. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-shell .g-tab--discover[data-intent-mode='private'] .g-discover-action {
     border-color: var(--g-intent-accent-border) !important;
     box-shadow: 0 0 0 1px var(--g-intent-accent-soft), 0 10px 24px var(--g-intent-accent-glow), inset 0 1px 0 rgba(255,255,255,.08) !important;
@@ -553,7 +553,7 @@ select:focus-visible {
 
 
 /* Discover reference refinement: calm header, intent-led status strip, deliberate empty surface. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-shell .gayze-premium-page {
     padding-left: 0.25rem;
     padding-right: 0.25rem;
@@ -692,7 +692,7 @@ select:focus-visible {
 /* Discover nav — refined branded centre action.
    The logo sits in a compact circular dock rather than a large floating tile.
    It remains vertically centred with the four ordinary tabs. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-tabbar {
     overflow: visible !important;
   }
@@ -844,7 +844,7 @@ select:focus-visible {
 
 /* Discover is a primary navigation action, not a decorative logo.
    Give it an unmistakable tap target while keeping the nav compact. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-tab--discover {
     cursor: pointer !important;
     -webkit-tap-highlight-color: transparent;
@@ -925,7 +925,7 @@ select:focus-visible {
 /* ==========================================================================
    Navigation — icon-only rail, no active capsules
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-tabbar__inner .g-tab,
   .g-tabbar__inner .g-tab[data-active='true'],
   .g-tabbar__inner .g-tab:hover,
@@ -995,7 +995,7 @@ select:focus-visible {
    One geometry rule for every primary tab. Content ends before the fixed nav;
    sheets and transient UI never compete with it.
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   :root {
     --g-tabbar-h: 52px;
     --g-nav-clearance: calc(var(--g-tabbar-h) + env(safe-area-inset-bottom, 0px) + 16px);
@@ -1175,7 +1175,7 @@ select:focus-visible {
 }
 
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   /* Right Now: the map key must sit below the live-state card, never through it. */
   .g-shell[data-active-tab='right_now'] .g-map-legend {
     top: calc(env(safe-area-inset-top, 0px) + 176px) !important;
@@ -1202,7 +1202,7 @@ select:focus-visible {
    This block is intentionally last: product-design.css is imported after the
    legacy/public navigation sheets, so these rules are the final authority.
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   /* The nav rail is the only surface. Individual destinations are never cards. */
   nav.g-tabbar .g-tabbar__inner .g-tab,
   nav.g-tabbar .g-tabbar__inner .g-tab:hover,
@@ -1335,7 +1335,7 @@ select:focus-visible {
    One hierarchy: charcoal surfaces, amber for Social, purple for GAYZE,
    green for pause/resume, red→amber for destructive end.
    -------------------------------------------------------------------------- */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   /* Active intent card: reduce amber ink and let the map breathe. */
   .g-shell .g-map-state.g-map-state--live.g-map-state--social {
     min-height: 0 !important;
@@ -1489,7 +1489,7 @@ select:focus-visible {
    FINAL MOBILE NAV + MESSAGES HUB
    Authoritative last-pass override. Keep logo proportions intact.
    -------------------------------------------------------------------------- */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   :root { --g-tabbar-h: 68px !important; }
 
   .g-tabbar {
@@ -1649,7 +1649,7 @@ select:focus-visible {
    FINAL MOBILE NAV + MESSAGES HUB
    Authoritative last-pass override. Keep logo proportions intact.
    -------------------------------------------------------------------------- */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   :root { --g-tabbar-h: 68px !important; }
 
   .g-tabbar {
@@ -1866,7 +1866,7 @@ select:focus-visible {
 
 
 /* Intent-reactive GAYZE mark: the logo itself adopts the active intent hue. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-shell .g-tab--discover[data-intent-mode='private'] .g-discover-logo-image {
     filter:
       drop-shadow(0 0 3px rgba(183,124,255,.98))
@@ -1921,14 +1921,14 @@ select:focus-visible {
 
 
 /* Right Now map header: full-width live status card and no redundant bottom legend. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-shell[data-active-tab='right_now'] .g-map-state--live.is-collapsed { width: 100% !important; max-width: none !important; }
   .g-shell[data-active-tab='right_now'] .g-map-legend-wrap { display: none !important; }
 }
 
 
 /* Final mobile polish: compact live-intent status bar without shrinking the nearby control. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-shell[data-active-tab='right_now'] .g-map-state--live.is-collapsed {
     min-height: 0 !important;
     height: auto !important;
@@ -1952,7 +1952,7 @@ select:focus-visible {
    Right Now — calmer live status hierarchy and compact GAYZE status dock.
    Keep the map dominant; remove excess labels, padding and floating-card bulk.
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   /* Top status: two clear rows, stable typography and a single timer. */
   .g-shell[data-active-tab='right_now'] .g-map-state.g-map-state--live.is-collapsed {
     min-height: 0 !important;
@@ -2121,7 +2121,7 @@ select:focus-visible {
 
 
 /* Live state uses a clear red signal; paused state remains muted. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-shell .g-map-state.g-map-state--live .g-map-state__live-pill:not(.is-paused) .g-map-state__live-dot,
   .g-shell .g-map-state.g-map-state--live:not(.g-map-state--paused) .g-live-dot:not(.g-live-dot--paused) {
     background: #FF453A !important;
@@ -2242,7 +2242,7 @@ select:focus-visible {
 /* Notifications sub-tab spacing fix (2026-10-09).
    Embedded mode scrolls as one page. The old body used gap without a flex/grid
    layout, so the status, preferences and activity panels visually collided. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-messages-notifications__panel {
     display: flex;
     flex-direction: column;

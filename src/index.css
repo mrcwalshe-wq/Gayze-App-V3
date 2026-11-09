@@ -919,7 +919,7 @@ button, input, select, textarea, [role="button"] {
   pointer-events: none;
 }
 .g-map-bar > * { pointer-events: auto; }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .g-map-bar { bottom: 24px; left: 24px; right: 24px; max-width: 640px; margin: 0 auto; }
 }
 
@@ -996,7 +996,7 @@ button, input, select, textarea, [role="button"] {
 @media (min-width: 640px) {
   .g-preview { position: absolute; }
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .g-preview { bottom: 92px; }
 }
 
@@ -1999,7 +1999,7 @@ button, input, select, textarea, [role="button"] {
   overflow: hidden;
   overscroll-behavior: none;
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .g-chat-viewport {
     top: calc(var(--g-visual-top, 0px) + 3.5rem + env(safe-area-inset-top, 0px));
     height: max(0px, calc(var(--g-visual-height, 100dvh) - 4.5rem - env(safe-area-inset-top, 0px)));
@@ -2016,7 +2016,7 @@ button, input, select, textarea, [role="button"] {
   margin-bottom: var(--g-sheet-bottom-gap);
   max-height: max(0px, calc(100dvh - env(safe-area-inset-top, 0px) - var(--g-sheet-bottom-gap) - 14px));
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .g-sheet.g-sheet--above-nav { --g-sheet-bottom-gap: 24px; }
 }
 
@@ -2502,7 +2502,7 @@ button, input, select, textarea, [role="button"] {
 
 /* Nearby map list: it is a modal surface, so it must stop above the
    navigation rather than compete with it. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-sheet.g-sheet--nearby {
     width: calc(100% - 2px);
     margin-left: 1px;
@@ -2727,7 +2727,7 @@ button, input, select, textarea, [role="button"] {
   margin-top: 4px;
   margin-bottom: 18px;
 }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-notifications-sheet {
     width: calc(100% - 2px);
     margin-left: 1px;
@@ -2827,7 +2827,7 @@ button, input, select, textarea, [role="button"] {
     top: calc(env(safe-area-inset-top, 0px) + 122px);
   }
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .g-toast--map-status {
     top: 112px;
   }
@@ -3896,7 +3896,7 @@ button, input, select, textarea, [role="button"] {
    Reserve real space for the fixed five-item nav and iOS safe area. Keep
    floating map UI inside the remaining viewport instead of under the nav.
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   :root {
     --g-tabbar-h: 64px;
     --g-chrome-gap: 38px; /* clears the GAYZE roundel that rises above the tab bar */
@@ -4000,7 +4000,7 @@ button, input, select, textarea, [role="button"] {
 
 
 /* Mobile map dock clearance: keep the active-intent card fully above the tall tab bar. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .g-right-now-shell .g-intent-dock {
     bottom: calc(112px + env(safe-area-inset-bottom, 0px) + 10px) !important;
     z-index: 45;
