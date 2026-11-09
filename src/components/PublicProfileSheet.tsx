@@ -359,7 +359,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
                 disabled={gayzeState !== 'idle'}
                 className={`g-peek__gayze${gayzeState === 'sent' ? ' is-sent' : ''}${gayzeState === 'wait' ? ' is-wait' : ''}`}
               >
-                {gayzeState === 'sent' ? <Check className="w-[18px] h-[18px]" /> : gayzeState === 'wait' ? <Clock className="w-[18px] h-[18px]" /> : <img className="g-peek__gayze-mark" src="/brand/gayze-nav-v3.svg" alt="" aria-hidden="true" draggable={false} />}
+                {gayzeState === 'sent' ? <Check className="w-[18px] h-[18px]" /> : gayzeState === 'wait' ? <Clock className="w-[18px] h-[18px]" /> : null}
                 {gayzeState === 'sent' ? 'Gayze sent' : gayzeState === 'wait' ? `Next Gayze in ${formatCooldown(waitSeconds)}` : gayzeState === 'sending' ? 'Sending…' : 'Send a Gayze'}
               </button>
             )}

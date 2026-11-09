@@ -33,7 +33,6 @@ import {
   ArchiveRestore,
   ChevronDown,
   Check,
-  Info,
   ChevronLeft,
   Users,
   User,
@@ -640,7 +639,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {connectionState && connectionState !== 'connected' && (
+      {connectionState && connectionState !== 'connected' && !(mobileView === 'chat' && (connectionState === 'connecting' || connectionState === 'syncing')) && (
         <div role="status" aria-live="polite" className="shrink-0 px-3 py-1 flex items-center justify-center">
           <div className="g-connection-bar">
             <span className={`w-1.5 h-1.5 rounded-full ${connectionState === 'reconnecting' || connectionState === 'offline' ? 'bg-amber-400 animate-pulse' : 'bg-[#a879f1] animate-pulse'}`} />
@@ -1162,6 +1161,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       {messageActionId === msg.id && (
                         <div className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-white/10 bg-[#11131a] p-1.5 shadow-2xl">
                           {isMe && onUnsendMessage && !msg.deletedForEveryone && <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/5" onClick={async () => { await onUnsendMessage(msg.id); setMessageActionId(null); }}>Unsend for everyone</button>}
+                          <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={() => { setInspectedMessageId(isInspecting ? null : msg.id); if (!isInspecting) hapticMessageDecrypted(); setMessageActionId(null); }}>{isInspecting ? 'Hide encryption details' : 'Encryption details'}</button>
                           {onDeleteMessage && <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onDeleteMessage(msg.id); setMessageActionId(null); }}>Delete for me</button>}
                           {onSetMessageExpiry && !msg.deletedForEveryone && <div className="border-t border-white/10 mt-1 pt-1"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, 60); setMessageActionId(null); }}>Expire in 1 minute</button><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, 3600); setMessageActionId(null); }}>Expire in 1 hour</button><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5" onClick={async () => { await onSetMessageExpiry(msg.id, null); setMessageActionId(null); }}>Never expire</button></div>}
                         </div>
@@ -1245,8 +1245,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       );
                     })()}
 
-                    <div className="g-bubble__meta">
-                      {msg.sendState === 'failed' ? (
+                    {msg.sendState === 'failed' && (
+                      <div className="g-bubble__meta">
                         <button
                           type="button"
                           className="text-amber-300 underline"
@@ -1259,25 +1259,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         >
                           Retry
                         </button>
-                      ) : (
-                        <Lock className="w-2.5 h-2.5" aria-hidden="true" />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = isInspecting ? null : msg.id;
-                          setInspectedMessageId(next);
-                          if (next) {
-                            hapticMessageDecrypted();
-                          }
-                        }}
-                        className="g-bubble__info"
-                        aria-label={isInspecting ? 'Hide encryption details' : 'Show encryption details'}
-                        aria-expanded={isInspecting}
-                      >
-                        <Info className="w-3 h-3" aria-hidden="true" />
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Cryptographic Inspector Drawer */}
