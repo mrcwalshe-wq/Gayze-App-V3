@@ -16,7 +16,7 @@ let package = Package(
         .package(name: "CapacitorBrowser", path: "../../../node_modules/@capacitor/browser"),
         .package(name: "CapacitorHaptics", path: "../../../node_modules/@capacitor/haptics"),
         .package(name: "GayzeAppleSignIn", path: "../../../plugins/gayze-apple-sign-in"),
-        .package(name: "GayzeCallKit", path: "../../../plugins/gayze-callkit")
+        .package(name: "GayzeCallkit", path: "../../../plugins/gayze-callkit")
     ],
     targets: [
         .target(
@@ -28,7 +28,7 @@ let package = Package(
                 .product(name: "CapacitorBrowser", package: "CapacitorBrowser"),
                 .product(name: "CapacitorHaptics", package: "CapacitorHaptics"),
                 .product(name: "GayzeAppleSignIn", package: "GayzeAppleSignIn"),
-                .product(name: "GayzeCallKit", package: "GayzeCallKit")
+                .product(name: "GayzeCallkit", package: "GayzeCallkit")
             ]
         )
     ]
