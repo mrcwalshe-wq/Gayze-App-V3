@@ -13,6 +13,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
+import { sendVoipPush } from './voip.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -70,6 +71,35 @@ Deno.serve(async (req: Request) => {
         rpcError: dispatchAuthError?.message ?? null,
       });
       return jsonResponse({ error: 'Forbidden' }, 403);
+    }
+
+    // A call that just started ringing: ring the callee's iPhone as a real phone call (VoIP push).
+    if (body.callSessionId) {
+      if (!isValidUuid(body.callSessionId)) return jsonResponse({ error: 'Invalid call' }, 400);
+      const keyPem = Deno.env.get('APNS_KEY_P8') ?? '';
+      const keyId = Deno.env.get('APNS_KEY_ID') ?? '';
+      const teamId = Deno.env.get('APNS_TEAM_ID') ?? '';
+      if (!keyPem || !keyId || !teamId) return jsonResponse({ delivered: 0, reason: 'apns_not_configured' });
+      const { data: session } = await admin.from('call_sessions')
+        .select('id, conversation_id, caller_id, callee_id, call_type, status, created_at')
+        .eq('id', body.callSessionId).maybeSingle();
+      if (!session || session.status !== 'ringing') return jsonResponse({ delivered: 0, reason: 'call_not_ringing' });
+      // Blocked pairs are refused when the call is recorded (start_call_session), so no call row exists for them.
+      const [{ data: caller }, { data: tokens }] = await Promise.all([
+        admin.from('profiles').select('display_name').eq('id', session.caller_id).maybeSingle(),
+        admin.from('voip_tokens').select('token, environment').eq('user_id', session.callee_id),
+      ]);
+      const cfg = { keyPem, keyId, teamId, topic: Deno.env.get('APNS_VOIP_TOPIC') ?? 'com.gayze.app.voip' };
+      let delivered = 0;
+      for (const t of tokens ?? []) {
+        const result = await sendVoipPush(cfg, t.token, t.environment, {
+          callId: session.id, callerId: session.caller_id, callerName: caller?.display_name || 'Gayze member',
+          callType: session.call_type, conversationId: session.conversation_id, startedAtMs: Date.parse(session.created_at) || Date.now(),
+        });
+        if (result === 'sent') delivered += 1;
+        else if (result === 'bad_token') await admin.from('voip_tokens').delete().eq('token', t.token);
+      }
+      return jsonResponse({ delivered });
     }
 
     // Member notices: admin broadcasts/messages and gathering updates. The title and body are

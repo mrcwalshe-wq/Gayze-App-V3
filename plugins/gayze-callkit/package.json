@@ -1,0 +1,10 @@
+{
+  "name": "gayze-callkit",
+  "version": "1.0.0",
+  "description": "Incoming GAYZE calls shown by iOS as a real phone call (CallKit + PushKit), even when the app is closed.",
+  "main": "js/index.js",
+  "types": "js/index.d.ts",
+  "files": ["js", "ios", "Package.swift"],
+  "capacitor": { "ios": { "src": "ios" } },
+  "peerDependencies": { "@capacitor/core": ">=8.0.0" }
+}
