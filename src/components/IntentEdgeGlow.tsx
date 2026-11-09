@@ -31,8 +31,23 @@ export function IntentEdgeGlow() {
       }
     };
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 2500);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    // Check when something changes (the app announces intent changes) and when the app comes back to the front,
+    // with a slow safety poll. It used to ask the server every 2.5 seconds, all day.
+    let debounce: number | undefined;
+    const soon = () => { window.clearTimeout(debounce); debounce = window.setTimeout(() => { void refresh(); }, 400); };
+    const visibleRefresh = () => { if (document.visibilityState === 'visible') soon(); };
+    const timer = window.setInterval(visibleRefresh, 30_000);
+    window.addEventListener('gayze:intent-changed', soon);
+    window.addEventListener('focus', visibleRefresh);
+    document.addEventListener('visibilitychange', visibleRefresh);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.clearTimeout(debounce);
+      window.removeEventListener('gayze:intent-changed', soon);
+      window.removeEventListener('focus', visibleRefresh);
+      document.removeEventListener('visibilitychange', visibleRefresh);
+    };
   }, []);
 
   if (!intent || intent.isPaused) return null;
