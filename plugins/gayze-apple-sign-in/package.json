@@ -2,9 +2,9 @@
   "name": "gayze-apple-sign-in",
   "version": "1.0.0",
   "description": "Native Sign in with Apple for the GAYZE iPhone app (Capacitor 8).",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": ["dist", "ios", "Package.swift"],
+  "main": "js/index.js",
+  "types": "js/index.d.ts",
+  "files": ["js", "ios", "Package.swift"],
   "capacitor": { "ios": { "src": "ios" } },
   "peerDependencies": { "@capacitor/core": ">=8.0.0" }
 }
