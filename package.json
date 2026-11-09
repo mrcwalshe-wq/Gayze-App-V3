@@ -31,7 +31,10 @@
     "test:places": "tsx --test scripts/place-tests/place.test.ts scripts/place-tests/journey.test.ts scripts/place-tests/meetup.test.ts",
     "test:auth": "tsx --test scripts/auth-tests/auth.test.ts scripts/auth-tests/ios-google.test.ts",
     "test:location-fog": "node --test scripts/location-fog-tests/fog.test.mjs",
-    "test:email": "node scripts/email-templates/build.mjs && node --test scripts/email-templates/templates.test.mjs"
+    "test:email": "node scripts/email-templates/build.mjs && node --test scripts/email-templates/templates.test.mjs",
+    "test:visual": "playwright test e2e/visual.spec.ts",
+    "test:visual:update": "playwright test e2e/visual.spec.ts --update-snapshots",
+    "test:a11y": "playwright test e2e/a11y.spec.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
@@ -59,7 +62,9 @@
     "vite": "^8.3.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.56.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/express": "^4.17.21",
