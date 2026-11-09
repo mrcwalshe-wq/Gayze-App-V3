@@ -5,4 +5,4 @@
 set -euo pipefail
 IMAGE="mcr.microsoft.com/playwright:v1.56.1-noble"
 node scripts/check-playwright-pin.mjs
-exec docker run --rm --init --ipc=host -v "$PWD":/work -w /work -e CI=1 -e E2E_IN_DOCKER=1 "$IMAGE" npx playwright test e2e/visual.spec.ts "$@"
+exec docker run --rm --init --ipc=host -v "$PWD":/work -w /work -e CI=1 -e E2E_IN_DOCKER=1 -e E2E_FREEZE="${E2E_FREEZE:-}" "$IMAGE" npx playwright test e2e/visual.spec.ts "$@"

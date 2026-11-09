@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { createRequire } from 'node:module';
 import type { Locator, Page } from '@playwright/test';
+import { consentMetadata } from '../../src/services/consent';
 
 const require = createRequire(import.meta.url);
 const FONTS_DIR = new URL('./fonts/', import.meta.url);
@@ -21,7 +22,7 @@ export const fakeSession = () => ({
   token_type: 'bearer',
   expires_in: 3_000_000_000,
   expires_at: 4102444800,
-  user: { id: USER_ID, aud: 'authenticated', role: 'authenticated', email: 'visual-test@example.invalid', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+  user: { id: USER_ID, aud: 'authenticated', role: 'authenticated', email: 'visual-test@example.invalid', app_metadata: {}, user_metadata: { ...consentMetadata(FIXED_NOW), profile_complete: true }, created_at: '2026-01-01T00:00:00Z' },
 });
 
 /** Open the app signed in, with no real network: every external and Supabase request is answered locally. */
@@ -29,7 +30,7 @@ export async function openApp(page: Page, path = '/') {
   await page.clock.setFixedTime(FIXED_NOW);
   // Test-only: nothing moves. Playwright cancels animations only at capture time, which lets the compositor
   // promote layers differently between runs and rasterise text at different sub-pixel offsets.
-  await page.addInitScript(() => {
+  if (process.env.E2E_FREEZE !== 'pw') await page.addInitScript(() => {
     const freeze = () => {
       const style = document.createElement('style');
       style.textContent = '*,*::before,*::after{animation:none !important;transition:none !important;caret-color:transparent !important;scroll-behavior:auto !important}';
@@ -54,12 +55,35 @@ export async function openApp(page: Page, path = '/') {
     if (url.hostname === 'unpkg.com' && url.pathname.endsWith('leaflet.css')) return route.fulfill({ contentType: 'text/css', body: LEAFLET_CSS });
     if (/tile|openstreetmap|cartocdn|basemaps/.test(url.hostname)) return route.fulfill({ contentType: 'image/png', body: TILE });
     if (url.hostname.endsWith('supabase.co')) {
-      if (url.pathname.startsWith('/auth/v1/user')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify(fakeSession().user) });
+      const json = (body: unknown) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
+      if (url.pathname.startsWith('/auth/v1/user')) return json(fakeSession().user);
+      // The app publishes the signed-in user only after its device is registered and a signed challenge is verified.
+      if (url.pathname.endsWith('/rpc/register_identity_device')) {
+        const body = route.request().postDataJSON() ?? {};
+        return json({ id: 'e2e-device-row', user_id: USER_ID, device_id: body.p_device_id, device_fingerprint: body.p_fingerprint, device_label: 'e2e', public_key: body.p_public_key, signing_public_key: body.p_signing_public_key, status: 'active', created_at: FIXED_NOW.toISOString() });
+      }
+      if (url.pathname.endsWith('/functions/v1/verify-device-signature')) {
+        const body = route.request().postDataJSON() ?? {};
+        return json(body.action === 'issue' ? { challenge_id: 'e2e-challenge', challenge: 'e2e-challenge' } : { verified: true });
+      }
+      // List-returning RPCs answer with an empty list; anything else with null.
+      if (url.pathname.endsWith('/rpc/discover_people') || url.pathname.endsWith('/rpc/get_presence')) return json([]);
       if (url.pathname.startsWith('/rest/v1/rpc/')) return route.fulfill({ contentType: 'application/json', body: 'null' });
       if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ contentType: 'application/json', body: '[]' });
       return route.fulfill({ contentType: 'application/json', body: '{}' });
     }
     return route.abort();
+  });
+  // Realtime: accept every channel join so the app shows "connected" instead of "connecting".
+  await page.routeWebSocket(/supabase\.co\/realtime/, (ws) => {
+    ws.onMessage((raw) => {
+      const m = JSON.parse(String(raw));
+      const [joinRef, ref, topic, event, payload] = Array.isArray(m) ? m : [null, m.ref, m.topic, m.event, m.payload];
+      if (event !== 'phx_join' && event !== 'heartbeat') return;
+      const response = event === 'phx_join' ? { postgres_changes: (payload?.config?.postgres_changes ?? []).map((c: object, i: number) => ({ ...c, id: i + 1 })) } : {};
+      const reply = { status: 'ok', response };
+      ws.send(JSON.stringify(Array.isArray(m) ? [joinRef, ref, topic, 'phx_reply', reply] : { topic, event: 'phx_reply', payload: reply, ref }));
+    });
   });
   await page.goto(path, { waitUntil: 'load' });
   await page.locator('.g-tabbar, .g-shell').first().waitFor({ timeout: 20_000 });
