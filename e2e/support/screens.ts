@@ -51,7 +51,9 @@ async function step3(page: Page) {
 const profile = async (page: Page) => { await nav(page, 'Profile').click(); await ready(page, page.getByText('The short version')); await normaliseDeviceKey(page); };
 
 /**
- * Scope: only screens the Phase 1 P0 fixes touch. Deliberately NOT covered (they need further mock layers; see
+ * Profile is NOT in the baseline: at 402px wide, about one load in five paints the photo card (and everything below it) one pixel
+ * differently from the others, with identical element geometry in all 40 loads measured (a paint-level difference, not layout, not
+ * content, and not the random device key). It is checked by hand instead. Scope: only screens the Phase 1 P0 fixes touch. Deliberately NOT covered (they need further mock layers; see
  * docs/PHASE1_MANUAL_TEST.md): Intent Hub (needs an active intent), a chat room (photo-send notice), Later, Discover
  * (desktop-only), the people sheet (needs live people), the two call modals, and the first-run screens
  * (sign-in, consent, onboarding), which the fake signed-in user bypasses.
@@ -60,7 +62,6 @@ export const SCREENS: Screen[] = [
   { name: 'right-now-map', setup: async (page) => { await ready(page, page.locator('.g-map-state')); } },
   { name: 'messages-chats', setup: async (page) => { await nav(page, 'Messages').click(); await ready(page, page.getByRole('tab', { name: /^Chats/ })); } },
   { name: 'messages-notifications', setup: async (page) => { await nav(page, 'Messages').click(); await page.getByRole('tab', { name: /^Notifications/ }).click(); await ready(page, page.getByRole('heading', { name: 'Notifications' })); } },
-  { name: 'profile', setup: profile },
   { name: 'set-intent-1-availability', setup: openSetIntent },
   { name: 'set-intent-2-activity', setup: step2 },
   { name: 'set-intent-3-connection', setup: step3 },
