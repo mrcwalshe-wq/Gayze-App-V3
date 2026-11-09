@@ -11,6 +11,7 @@ import './discovery-premium.css';
 import './product-design.css';
 import './map-chrome-refinement.css';
 import './gayze-design-pass.css';
+import './peek-premium.css';
 
 installChunkReload();
 
