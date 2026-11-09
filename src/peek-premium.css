@@ -1,0 +1,99 @@
+/* ============================================================================================
+   Profile peek: the one authoritative look for the card and its actions.
+   Loaded after gayze-design-pass.css. The older per-pass overrides for these buttons were removed from
+   that file so nothing here needs !important. Gayze gradient = purple > magenta > amber (--gz-strip).
+   --pk-tn is the card's hue: violet for Right Now, gold for Later.
+   ============================================================================================ */
+.g-peek { --pk-tn: 170, 120, 245; --pk-r: 14px; }
+.g-peek[data-tone='gold'] { --pk-tn: 232, 184, 78; }
+
+/* The card: obsidian, washed with its hue at the top and a warm bloom low down. A lit top edge, no frame. */
+.g-peek {
+  border: 0;
+  background:
+    radial-gradient(120% 52% at 50% 0%, rgba(var(--pk-tn), .18), transparent 64%),
+    radial-gradient(85% 38% at 88% 100%, rgba(201, 86, 155, .14), transparent 72%),
+    linear-gradient(180deg, #15102b, #0a0912 72%);
+  box-shadow: 0 -24px 70px rgba(0, 0, 0, .62), inset 0 1px 0 rgba(255, 255, 255, .2);
+}
+.g-peek__body {
+  background:
+    linear-gradient(180deg, rgba(var(--pk-tn), .1), rgba(255, 255, 255, .012) 38%),
+    rgba(11, 9, 21, .9);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .22);
+}
+
+/* Match / Reliable / Away: lit glass tiles, rings in the Gayze gradient. */
+.pk-stat {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .02)), rgba(21, 16, 40, .72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), inset 0 0 0 1px rgba(255, 255, 255, .05), 0 10px 22px rgba(0, 0, 0, .34);
+}
+.pk-stat small { color: rgba(255, 255, 255, .64); }
+/* The ring's glow was clipped by its own 44px box, which showed as a faint square. */
+.pk-stat svg { overflow: visible; }
+
+/* In common: a hue-washed panel (it keeps its gradient strip) with gold glass chips. */
+.g-peek__shared {
+  background: linear-gradient(180deg, rgba(var(--pk-tn), .22), rgba(var(--pk-tn), .05)), rgba(15, 11, 30, .62);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 12px 32px rgba(var(--pk-tn), .14);
+}
+.g-peek__chip.is-shared {
+  color: #f7e6b4; border-color: transparent;
+  background: linear-gradient(180deg, rgba(232, 196, 111, .28), rgba(201, 162, 77, .1));
+  box-shadow: inset 0 1px 0 rgba(255, 238, 190, .3), inset 0 0 0 1px rgba(232, 196, 111, .38), 0 0 18px rgba(201, 162, 77, .2);
+}
+
+/* The action bar. */
+.g-peek__foot {
+  position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  padding: 16px 18px calc(16px + env(safe-area-inset-bottom));
+  border-top: 0; background: linear-gradient(180deg, rgba(10, 9, 18, 0), rgba(10, 9, 18, .94) 30%);
+}
+.g-peek__foot::before {
+  content: ''; position: absolute; left: 18px; right: 18px; top: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(var(--pk-tn), .55) 25%, rgba(201, 86, 155, .45) 60%, transparent);
+}
+.g-peek__foot > :only-child, .g-peek__foot > .g-peek__gayze + :last-child { grid-column: 1 / -1; }
+.g-peek__foot button {
+  position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 52px; border: 0; border-radius: var(--pk-r); color: #fff;
+  font-size: 15px; font-weight: 750; letter-spacing: .005em; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, filter .12s ease;
+}
+.g-peek__foot button:active:not(:disabled) { transform: scale(.975); filter: brightness(1.08); }
+.g-peek__foot button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Send a Gayze: the hero. Purple to raspberry (white text stays at 5:1 or better), the amber end lives in the edge strip. */
+.g-peek__foot .g-peek__gayze {
+  grid-column: 1 / -1; min-height: 56px; font-size: 16px; text-shadow: 0 1px 0 rgba(0, 0, 0, .25);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, 0) 48%), linear-gradient(115deg, #5b2cb8 0%, #8a3fcb 48%, #b8408f 100%);
+  box-shadow: 0 16px 34px rgba(138, 63, 203, .46), 0 5px 14px rgba(184, 64, 143, .34), inset 0 1px 0 rgba(255, 255, 255, .42), inset 0 -1px 0 rgba(0, 0, 0, .3);
+}
+.g-peek__foot .g-peek__gayze::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; pointer-events: none;
+  background: var(--gz-strip, linear-gradient(90deg, #6f3cc3, #b24fd8 55%, #c9a24d));
+}
+.g-peek__foot .g-peek__gayze svg { box-sizing: content-box; width: 16px; height: 16px; padding: 6px; border-radius: 50%; background: rgba(255, 255, 255, .2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+.g-peek__foot .g-peek__gayze:disabled { opacity: .82; }
+.g-peek__foot .g-peek__gayze.is-sent {
+  color: #c9f7e2; text-shadow: none;
+  background: linear-gradient(180deg, rgba(110, 231, 183, .24), rgba(110, 231, 183, .08)), rgba(9, 24, 19, .92);
+  box-shadow: inset 0 0 0 1px rgba(110, 231, 183, .45), 0 10px 24px rgba(0, 0, 0, .35);
+  opacity: 1;
+}
+.g-peek__foot .g-peek__gayze.is-sent::after { display: none; }
+.g-peek__foot .g-peek__gayze.is-sent svg { background: rgba(110, 231, 183, .22); }
+
+/* Message: violet glass. Plan a safe meet: mint glass. */
+.g-peek__foot .g-peek__message {
+  background: linear-gradient(180deg, rgba(170, 120, 245, .28), rgba(170, 120, 245, .08)), rgba(17, 12, 34, .92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), inset 0 0 0 1px rgba(170, 120, 245, .3), 0 10px 24px rgba(0, 0, 0, .4);
+}
+.g-peek__foot .g-peek__message svg { color: #e6d6ff; }
+.g-peek__foot .g-peek__plan {
+  background: linear-gradient(180deg, rgba(110, 231, 183, .17), rgba(110, 231, 183, .04)), rgba(13, 20, 24, .9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), inset 0 0 0 1px rgba(110, 231, 183, .28), 0 10px 24px rgba(0, 0, 0, .4);
+}
+.g-peek__foot .g-peek__plan svg { color: #6ee7b7; }
+
+@media (prefers-reduced-motion: reduce) { .g-peek__foot button { transition: none; } }

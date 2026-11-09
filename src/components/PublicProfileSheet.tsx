@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Ban, BadgeCheck, CalendarClock, Flag, Check, ChevronDown, MapPin, MessageCircle, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
 import type { IntimacyProfile } from '../types';
@@ -38,12 +38,22 @@ export interface PublicProfileSheetProps {
  * have most in common. One tap on "Full profile" opens the rest.
  */
 /** A thin ring that fills to `value` (0-100) when it appears. */
+const RING_STOPS: Record<'violet' | 'gold', [string, string, string]> = {
+  violet: ['#9b6bf0', '#d06ae0', '#e8b84e'],
+  gold: ['#e8b84e', '#e8a04e', '#e0707a'],
+};
 const StatRing: React.FC<{ value: number; label: string; caption: string; tone?: 'violet' | 'green' | 'gold' }> = ({ value, label, caption, tone = 'violet' }) => {
   const [shown, setShown] = useState(0);
+  const gradientId = `pk-ring-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const stops = tone === 'green' ? null : RING_STOPS[tone];
   useEffect(() => { const t = window.setTimeout(() => setShown(Math.max(0, Math.min(100, value))), 80); return () => window.clearTimeout(t); }, [value]);
   return (
     <div className={`pk-stat pk-stat--${tone}`}>
-      <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" className="pk-ring-track" /><circle cx="24" cy="24" r="20" className="pk-ring" pathLength={100} style={{ strokeDasharray: `${shown} 100` }} /></svg>
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        {stops && <defs><linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={stops[0]} /><stop offset="0.55" stopColor={stops[1]} /><stop offset="1" stopColor={stops[2]} /></linearGradient></defs>}
+        <circle cx="24" cy="24" r="20" className="pk-ring-track" />
+        <circle cx="24" cy="24" r="20" className="pk-ring" pathLength={100} style={{ strokeDasharray: `${shown} 100`, ...(stops ? { stroke: `url(#${gradientId})` } : {}) }} />
+      </svg>
       <b>{label}</b>
       <small>{caption}</small>
     </div>
@@ -196,7 +206,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
 
   return createPortal(
     <div className="g-peek-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name}'s profile`}>
-      <section className="g-peek" onClick={(event) => event.stopPropagation()}>
+      <section className="g-peek" data-tone={fallbackLater ? 'gold' : 'violet'} onClick={(event) => event.stopPropagation()}>
         {/* Outside the scroll area so it stays reachable however far the card is scrolled. */}
         <button type="button" onClick={onClose} className="g-peek__close" aria-label="Close profile"><X className="w-[18px] h-[18px]" /></button>
         <div className="g-peek__scroll">
@@ -242,7 +252,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
           <div className="g-peek__body">
             {(hasStats || fallbackDistance) && (
               <div className="pk-stats" aria-label="Profile at a glance">
-                {matchPct != null && <StatRing value={matchPct} label={`${matchPct}%`} caption="Match" />}
+                {matchPct != null && <StatRing value={matchPct} label={`${matchPct}%`} caption="Match" tone={fallbackLater ? 'gold' : 'violet'} />}
                 {summary?.reliabilityScore != null && <StatRing value={summary.reliabilityScore} label={String(Math.round(summary.reliabilityScore))} caption="Reliable" tone="green" />}
                 {(summary?.verifiedPeersCount ?? 0) > 0 && (
                   <div className="pk-stat pk-stat--plain"><b>{summary!.verifiedPeersCount}</b><small>Verified</small></div>
