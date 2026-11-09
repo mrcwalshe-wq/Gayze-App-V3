@@ -68,3 +68,11 @@ Installed PWA: Google sign-in opens in the system browser and returns to the ins
 3. Change email → confirmation to the new address.
 4. Google sign-in (new and existing account), cancel at the consent screen, installed-PWA behaviour on iPhone and iPad.
 5. Wrong password, unverified account sign-in (offers "Send the confirmation link again"), offline sign-in, repeated attempts (rate-limit wording).
+
+## Email links wait for a tap
+
+Emailed one-time links (reset password, confirm email, change email, magic link) open GAYZE's own page, which shows a
+**Continue** button. The one-time token is only used when the person taps it. Email security scanners (Outlook/Hotmail
+and others) open links, and some run the page, before the person does; using the token on page load let them spend it
+and left people with "link invalid or expired". See `src/services/authCallback.ts` (`consumeAuthCallback` returns a
+`confirm` result; `completeAuthCallback` uses the token).

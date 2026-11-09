@@ -33,6 +33,9 @@ interface AuthViewProps {
   pendingEmail?: string | null;
   onClearForcedMode?: () => void;
   onPasswordResetComplete?: () => void;
+  /** An emailed one-time link is waiting. It is used only when the person taps Continue, so a mail scanner that opens it cannot spend it. */
+  linkConfirm?: { type: string } | null;
+  onConfirmLink?: () => Promise<void>;
   /** Something the person should know on arrival (expired link, cancelled Google, suspended, signed out). */
   notice?: AuthIssue | { kind: 'info' | 'signed_out' | 'suspended'; message: string; action?: undefined } | null;
 }
@@ -46,6 +49,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
   pendingEmail = null,
   onClearForcedMode,
   onPasswordResetComplete,
+  linkConfirm = null,
+  onConfirmLink,
   notice = null,
 }) => {
   const [mode, setMode] = useState<AuthMode>(forcedMode || 'signin');
@@ -294,11 +299,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
         ? 'border-emerald-400/25 bg-emerald-400/5 text-emerald-200'
         : 'border-amber-400/20 bg-amber-400/5 text-amber-200';
 
-  return (
-    <div className="min-h-[100dvh] bg-[#090a0f] text-white flex items-center justify-center px-5 py-10">
-      <div className="g-atmos" aria-hidden="true" />
-      <div className="g-shell w-full max-w-md">
-        <div className="mb-8 text-center">
+  const brandHeader = (
+      <div className="mb-8 text-center">
           <img
             src="/brand/gayze-nav-v3.svg"
             alt="GAYZE"
@@ -313,6 +315,42 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <span className="text-[#C9A24D]/90">Real Time.</span>
           </p>
         </div>
+  );
+
+  if (linkConfirm) {
+    const copy: Record<string, { title: string; body: string }> = {
+      recovery: { title: 'Choose a new password', body: 'Tap Continue to set a new password for your GAYZE account.' },
+      email_change: { title: 'Confirm your new email', body: 'Tap Continue to confirm the new email address for your GAYZE account.' },
+      magiclink: { title: 'Sign in to GAYZE', body: 'Tap Continue to sign in.' },
+    };
+    const { title: linkTitle, body: linkBody } = copy[linkConfirm.type] ?? { title: 'Confirm your email', body: 'Tap Continue to finish confirming your email address.' };
+    return (
+      <div className="min-h-[100dvh] bg-[#090a0f] text-white flex items-center justify-center px-5 py-10">
+        <div className="g-atmos" aria-hidden="true" />
+        <div className="g-shell w-full max-w-md">
+          {brandHeader}
+          <div className="g-panel p-5 sm:p-7 !rounded-[12px]">
+            <h2 className="text-lg font-semibold">{linkTitle}</h2>
+            <p className="mt-1 text-xs text-zinc-500">{linkBody}</p>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={async () => { if (busy || !onConfirmLink) return; setBusy(true); try { await onConfirmLink(); } finally { setBusy(false); } }}
+              className="mt-6 w-full h-12 rounded-xl bg-[#6F3CC3] hover:bg-[#7d4bd1] disabled:opacity-60 font-semibold text-sm text-white transition-colors"
+            >
+              {busy ? 'One moment…' : 'Continue'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[100dvh] bg-[#090a0f] text-white flex items-center justify-center px-5 py-10">
+      <div className="g-atmos" aria-hidden="true" />
+      <div className="g-shell w-full max-w-md">
+        {brandHeader}
 
         <div className="g-panel p-5 sm:p-7 !rounded-[12px]">
           <div className="mb-6">

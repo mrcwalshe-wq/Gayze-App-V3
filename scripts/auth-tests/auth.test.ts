@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { describeAuthError, isPlausibleEmail, checkPassword } from '../../src/services/authMessages.ts';
-import { consumeAuthCallback, readCallbackParams } from '../../src/services/authCallback.ts';
+import { completeAuthCallback, consumeAuthCallback, readCallbackParams } from '../../src/services/authCallback.ts';
 
 const loc = (pathname: string, search = '', hash = '') => ({ pathname, search, hash });
 const client = (result: { error: unknown } = { error: null }) => {
@@ -42,20 +42,29 @@ test('validators', () => {
   assert.equal(checkPassword('x'.repeat(80) + '1').ok, false);
 });
 
-test('token_hash links are exchanged on the GAYZE domain and the URL is cleaned', async () => {
+test('token_hash links wait for a tap: nothing is used on load, and the URL is cleaned', async () => {
   const c = client(); let cleaned = '';
   const r = await consumeAuthCallback(c, loc('/auth/reset-password', '?token_hash=abc123&type=recovery'), (p) => { cleaned = p; });
-  assert.deepEqual(r, { kind: 'recovery' });
-  assert.deepEqual(c.calls, [{ token_hash: 'abc123', type: 'recovery' }]);
+  assert.deepEqual(r, { kind: 'confirm', link: { type: 'recovery', tokenHash: 'abc123' } });
+  assert.deepEqual(c.calls, [], 'a scanner opening the page must not use up the one-time token');
   assert.equal(cleaned, '/auth/reset-password', 'token no longer in the URL');
   const c2 = client(); let cleaned2 = '';
-  assert.deepEqual(await consumeAuthCallback(c2, loc('/auth/confirm', '?token_hash=zzz&type=signup'), (p) => { cleaned2 = p; }), { kind: 'verified' });
+  assert.deepEqual(await consumeAuthCallback(c2, loc('/auth/confirm', '?token_hash=zzz&type=signup'), (p) => { cleaned2 = p; }), { kind: 'confirm', link: { type: 'signup', tokenHash: 'zzz' } });
   assert.equal(cleaned2, '/');
-  assert.deepEqual(await consumeAuthCallback(client(), loc('/auth/email-change', '?token_hash=q&type=email_change'), () => {}), { kind: 'email_changed' });
+  assert.deepEqual(c2.calls, []);
+  assert.deepEqual(await consumeAuthCallback(client(), loc('/auth/email-change', '?token_hash=q&type=email_change'), () => {}), { kind: 'confirm', link: { type: 'email_change', tokenHash: 'q' } });
+});
+
+test('tapping Continue exchanges the token on the GAYZE domain, once', async () => {
+  const c = client();
+  assert.deepEqual(await completeAuthCallback(c, { type: 'recovery', tokenHash: 'abc123' }), { kind: 'recovery' });
+  assert.deepEqual(c.calls, [{ token_hash: 'abc123', type: 'recovery' }]);
+  assert.deepEqual(await completeAuthCallback(client(), { type: 'signup', tokenHash: 'zzz' }), { kind: 'verified' });
+  assert.deepEqual(await completeAuthCallback(client(), { type: 'email_change', tokenHash: 'q' }), { kind: 'email_changed' });
 });
 
 test('expired or reused links become a recoverable state, not a raw error', async () => {
-  const r = await consumeAuthCallback(client({ error: { message: 'Email link is invalid or has expired', status: 403 } }), loc('/auth/reset-password', '?token_hash=old&type=recovery'), () => {});
+  const r = await completeAuthCallback(client({ error: { message: 'Email link is invalid or has expired', status: 403 } }), { type: 'recovery', tokenHash: 'old' });
   assert.equal(r.kind, 'error');
   if (r.kind === 'error') { assert.equal(r.issue.kind, 'link_expired'); assert.equal(r.issue.action, 'request_reset'); assert.equal(r.flow, 'recovery'); }
 });

@@ -46,7 +46,7 @@ import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { LiveActivationOverlay } from './components/LiveActivationOverlay';
 import { AuthView, type AuthMode } from './components/AuthView';
-import { consumeAuthCallbackOnce } from './services/authCallback';
+import { completeAuthCallback, consumeAuthCallbackOnce, type PendingLink } from './services/authCallback';
 import { initNativeAuthDeepLinks, isNativeApp } from './services/nativeAuth';
 import { describeAuthError, type AuthIssue } from './services/authMessages';
 /** How the go-live celebration describes a signal: its colour (gold for Later) and when it starts. */
@@ -242,6 +242,8 @@ export default function App() {
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [isAuthenticated, setIsAuthenticated] = useState(!isSupabaseConfigured);
   const [forcedAuthMode, setForcedAuthMode] = useState<AuthMode | null>(null);
+  // An emailed one-time link waits here until the person taps Continue (see authCallback.ts).
+  const [pendingLink, setPendingLink] = useState<PendingLink | null>(null);
   const [pendingAuthEmail, setPendingAuthEmail] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<React.ComponentProps<typeof AuthView>['notice']>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -340,7 +342,11 @@ export default function App() {
     const generation = authGenerationRef.current;
     void callbackDone.then((result) => {
       if (disposed) return;
-      if (result.kind === 'recovery') {
+      if (result.kind === 'confirm') {
+        setPendingLink(result.link);
+        recoverySessionRef.current = result.link.type === 'recovery';
+        setIsAuthenticated(false);
+      } else if (result.kind === 'recovery') {
         recoverySessionRef.current = true;
         setForcedAuthMode('reset');
         setIsAuthenticated(false);
@@ -3846,18 +3852,38 @@ export default function App() {
     return <DiscreetMaskView onExitMask={() => setIsMaskActive(false)} />;
   }
 
-  if (isSupabaseConfigured && authReady && !isAuthenticated && typeof window !== 'undefined'
+  if (isSupabaseConfigured && authReady && !isAuthenticated && !pendingLink && typeof window !== 'undefined'
     && window.location.pathname !== '/login' && !isAuthPath(window.location.pathname)) {
     // Someone tapping a notification while signed out keeps their destination for after they sign in.
     rememberNotificationPath(window.location.pathname + window.location.search);
     return <ConceptHoldingPage />;
   }
 
-  if (isSupabaseConfigured && (!authReady || !isAuthenticated)) {
+  if (isSupabaseConfigured && (!authReady || !isAuthenticated || pendingLink)) {
     if (!authReady) return <GayzeLoadingScreen mode="startup" />;
     return (
       <AuthView
         onAuthenticated={() => setIsAuthenticated(true)}
+        linkConfirm={pendingLink}
+        onConfirmLink={async () => {
+          const link = pendingLink;
+          if (!link || !supabase) return;
+          const result = await completeAuthCallback(supabase, link);
+          setPendingLink(null);
+          if (result.kind === 'recovery') {
+            recoverySessionRef.current = true;
+            setForcedAuthMode('reset');
+            setIsAuthenticated(false);
+          } else if (result.kind === 'error') {
+            setAuthNotice(result.issue);
+            setForcedAuthMode(result.flow === 'recovery' ? 'forgot' : null);
+            setIsAuthenticated(false);
+          } else {
+            const { data } = await supabase.auth.getSession();
+            setSessionUserId(data.session?.user?.id ?? null);
+            setIsAuthenticated(Boolean(data.session?.user));
+          }
+        }}
         forcedMode={forcedAuthMode}
         notice={authNotice}
         pendingEmail={pendingAuthEmail}
