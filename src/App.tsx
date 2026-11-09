@@ -31,6 +31,7 @@ import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall } from './services/callSessions';
 import { startNativeCalls, endNativeCalls } from './services/nativeCalls';
 import { InterestDiscover } from './components/InterestDiscover';
+import { mergeOnlineIds } from './services/presenceLabel';
 import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
 import { latestMeetups } from './services/meetupState';
 import { callLineText, decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
@@ -85,6 +86,7 @@ import {
 } from './services/notificationRouting';
 import { supabase, isSupabaseConfigured, GAYZE_AUTH_STORAGE_KEY, AUTH_REDIRECT_PATHS } from './services/supabaseClient';
 import { getProfilePhotoUrl } from './services/profilePhotoService';
+import { peerPhotoUrl } from './services/peerPhoto';
 import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './services/locationService';
 import { primeCallAudio } from './services/callAudioService';
 import { hapticCallConnected, hapticCallEnded } from './services/hapticService';
@@ -1320,16 +1322,15 @@ export default function App() {
       void fetchPresence(ids).then((rows) => { if (live && rows.length) setServerPresenceById(new Map(rows.map((r) => [r.userId, r]))); });
     };
     poll();
-    const timer = window.setInterval(poll, 30_000);
+    const timer = window.setInterval(poll, 10_000);
     document.addEventListener('visibilitychange', poll);
-    return () => { live = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', poll); };
+    window.addEventListener('focus', poll);
+    return () => { live = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', poll); window.removeEventListener('focus', poll); };
   }, [presencePeerKey, isAuthenticated, isSigningOut]);
 
   // The server wins where it has an answer: someone who hides their status never shows as online or with a last-seen time.
   const effectiveOnlineIds = useMemo(() => {
-    const out = new Set(onlineUserIds);
-    serverPresenceById.forEach((p, id) => { if (p.status === 'online') out.add(id); else out.delete(id); });
-    return out;
+    return mergeOnlineIds(onlineUserIds, serverPresenceById);
   }, [onlineUserIds, serverPresenceById]);
   // A gathering's group chat is named after the gathering (and shows its date), so it is recognisable in the chat list.
   const gatheringChatById = useMemo(() => new Map(gatherings.filter((g) => g.conversationId).map((g) => [g.conversationId as string, g])), [gatherings]);
@@ -3291,20 +3292,11 @@ export default function App() {
         return;
       }
       setCallPeerName(peerName);
-      setCallPeerAvatar(peerAvatar);
-      // Call launchers may only pass a display name. Resolve the peer's
-      // profile avatar as a fallback so the call roundel does not stay on initials.
-      if (!peerAvatar && supabase && targetUserId) {
-        void (async () => {
-          try {
-            const { data, error } = await supabase.from('profiles').select('avatar_path').eq('id', targetUserId).maybeSingle();
-            if (error) return;
-            const avatar = await getProfilePhotoUrl(data?.avatar_path);
-            if (avatar) setCallPeerAvatar((current) => current || avatar);
-          } catch {
-            // Keep the initials fallback if the profile photo is unavailable.
-          }
-        })();
+      setCallPeerAvatar(peerAvatar && /^(https?:|data:|blob:)/.test(peerAvatar) ? peerAvatar : undefined);
+      // Launchers may pass a storage path, not a link, or nothing at all. Look the photo up the way the profile card does
+      // (the other person's profiles row is private, so it cannot be read from there).
+      if (targetUserId) {
+        void peerPhotoUrl(targetUserId).then((avatar) => { if (avatar) setCallPeerAvatar((current) => current || avatar); });
       }
       setCallType(type);
       setCallTargetUserId(targetUserId);
@@ -3340,19 +3332,8 @@ export default function App() {
     setIncomingCall(null);
     setCallPeerName(call.callerName);
     setCallPeerAvatar(undefined);
-    // Incoming signalling carries identity, not a photo URL. Resolve the
-    // caller's own profile avatar instead of leaving the call screen on initials.
-    if (supabase && call.callerId) {
-      void (async () => {
-        try {
-          const { data } = await supabase.from('profiles').select('avatar_path').eq('id', call.callerId).maybeSingle();
-          const avatar = await getProfilePhotoUrl(data?.avatar_path);
-          if (avatar) setCallPeerAvatar((current) => current || avatar);
-        } catch (error) {
-          console.warn('[GAYZE Call] Caller avatar could not be loaded');
-        }
-      })();
-    }
+    // Incoming signalling carries identity, not a photo URL: look it up the way the profile card does.
+    if (call.callerId) void peerPhotoUrl(call.callerId).then((avatar) => { if (avatar) setCallPeerAvatar((current) => current || avatar); });
     setCallType(call.callType);
     setCallTargetUserId(call.callerId);
     setActiveRoomId(call.conversationId);

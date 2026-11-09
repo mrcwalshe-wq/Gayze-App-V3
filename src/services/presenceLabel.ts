@@ -16,3 +16,10 @@ export function presenceLabel(online: boolean, lastSeenAt: number | undefined, n
   if (age < 24 * 60 * MIN) return { tone: 'recent', text: 'Recently online' };
   return { tone: 'offline', text: `Offline · last seen ${new Date(lastSeenAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` };
 }
+
+/** Who counts as online: the live channel is instant, the server poll can lag, so either saying "online" is enough; "hidden" always wins. */
+export function mergeOnlineIds(live: Set<string>, server: Map<string, { status: 'online' | 'away' | 'offline' | 'hidden' }>): Set<string> {
+  const out = new Set(live);
+  server.forEach((p, id) => { if (p.status === 'online') out.add(id); else if (p.status === 'hidden') out.delete(id); });
+  return out;
+}
