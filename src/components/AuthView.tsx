@@ -121,7 +121,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
       onAuthenticated();
     } catch (error) {
       if (isAppleCancel(error)) setFeedback('Sign in with Apple was cancelled.', 'info');
-      else fail(error, 'oauth');
+      else {
+        console.warn('[GAYZE] Sign in with Apple failed:', (error as { message?: string } | null)?.message ?? error);
+        setFeedback('Sign in with Apple did not complete. Please try again, or use your email and password.', 'error');
+      }
     } finally {
       setBusy(false);
     }
