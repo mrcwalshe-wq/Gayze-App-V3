@@ -13,3 +13,7 @@ coverage/
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+
+# Playwright run output (baselines in e2e/baseline are tracked)
+test-results/
+playwright-report/
