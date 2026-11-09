@@ -30,6 +30,7 @@ export default defineConfig({
     geolocation: { latitude: 51.4975, longitude: -0.0889 },
     permissions: ['geolocation'],
     colorScheme: 'dark',
+    serviceWorkers: 'block',
     contextOptions: { reducedMotion: 'reduce' },
     trace: 'off',
   },

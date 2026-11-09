@@ -3,6 +3,7 @@ import { basename } from 'node:path';
 import { createRequire } from 'node:module';
 import type { Locator, Page } from '@playwright/test';
 import { consentMetadata } from '../../src/services/consent';
+import { ledgerFor, type Handling } from './network';
 
 const require = createRequire(import.meta.url);
 const FONTS_DIR = new URL('./fonts/', import.meta.url);
@@ -46,15 +47,18 @@ export async function openApp(page: Page, path = '/') {
     } catch { /* ignore */ }
   }, fakeSession());
 
+  const ledger = ledgerFor(page);
   await page.route(/^https?:\/\//, async (route) => {
     const url = new URL(route.request().url());
-    if (url.hostname === 'localhost') return route.continue();
+    const note = (handling: Handling) => ledger.note(url.hostname, handling, url.pathname);
+    if (url.hostname === 'localhost') { note('localhost (app under test)'); return route.continue(); }
     // Fonts come from a local copy (latin + latin-ext only) so the baseline never depends on the network.
-    if (url.hostname === 'fonts.googleapis.com') return route.fulfill({ contentType: 'text/css', body: FONTS_CSS.replace(/\/__e2e_fonts\//g, 'https://fonts.gstatic.com/e2e/') });
-    if (url.hostname === 'fonts.gstatic.com') return route.fulfill({ contentType: 'font/woff2', body: readFileSync(new URL(basename(url.pathname), FONTS_DIR)) });
-    if (url.hostname === 'unpkg.com' && url.pathname.endsWith('leaflet.css')) return route.fulfill({ contentType: 'text/css', body: LEAFLET_CSS });
-    if (/tile|openstreetmap|cartocdn|basemaps/.test(url.hostname)) return route.fulfill({ contentType: 'image/png', body: TILE });
+    if (url.hostname === 'fonts.googleapis.com') { note('served locally'); return route.fulfill({ contentType: 'text/css', body: FONTS_CSS.replace(/\/__e2e_fonts\//g, 'https://fonts.gstatic.com/e2e/') }); }
+    if (url.hostname === 'fonts.gstatic.com') { note('served locally'); return route.fulfill({ contentType: 'font/woff2', body: readFileSync(new URL(basename(url.pathname), FONTS_DIR)) }); }
+    if (url.hostname === 'unpkg.com' && url.pathname.endsWith('leaflet.css')) { note('served locally'); return route.fulfill({ contentType: 'text/css', body: LEAFLET_CSS }); }
+    if (/tile|openstreetmap|cartocdn|basemaps/.test(url.hostname)) { note('served locally'); return route.fulfill({ contentType: 'image/png', body: TILE }); }
     if (url.hostname.endsWith('supabase.co')) {
+      note('fake server (answered in harness.ts)');
       const json = (body: unknown) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
       if (url.pathname.startsWith('/auth/v1/user')) return json(fakeSession().user);
       // The app publishes the signed-in user only after its device is registered and a signed challenge is verified.
@@ -72,10 +76,15 @@ export async function openApp(page: Page, path = '/') {
       if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ contentType: 'application/json', body: '[]' });
       return route.fulfill({ contentType: 'application/json', body: '{}' });
     }
+    // Anything else (analytics, CDNs, other APIs) is not mocked: abort it and let the network guard fail the test.
+    note('BLOCKED (aborted)');
     return route.abort();
   });
-  // Realtime: accept every channel join so the app shows "connected" instead of "connecting".
-  await page.routeWebSocket(/supabase\.co\/realtime/, (ws) => {
+  // Realtime: accept every channel join so the app shows "connected" instead of "connecting". Any other websocket is blocked.
+  await page.routeWebSocket(/.*/, (ws) => {
+    const url = new URL(ws.url());
+    if (!(url.hostname.endsWith('supabase.co') && url.pathname.startsWith('/realtime'))) { ledger.note(url.hostname, 'BLOCKED (aborted)', url.pathname); void ws.close(); return; }
+    ledger.note(url.hostname, 'fake server (answered in harness.ts)', url.pathname);
     ws.onMessage((raw) => {
       const m = JSON.parse(String(raw));
       const [joinRef, ref, topic, event, payload] = Array.isArray(m) ? m : [null, m.ref, m.topic, m.event, m.payload];
