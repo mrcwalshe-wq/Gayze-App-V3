@@ -47,6 +47,7 @@ import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { LiveActivationOverlay } from './components/LiveActivationOverlay';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { completeAuthCallback, consumeAuthCallbackOnce, type PendingLink } from './services/authCallback';
+import { COOLDOWN_FALLBACK_SECONDS, formatCooldown, noteGayzeCooldown, type GayzeOutcome } from './services/gayzeCooldown';
 import { initNativeAuthDeepLinks, isNativeApp } from './services/nativeAuth';
 import { describeAuthError, type AuthIssue } from './services/authMessages';
 /** How the go-live celebration describes a signal: its colour (gold for Later) and when it starts. */
@@ -3381,12 +3382,12 @@ export default function App() {
     await sendMissedCallNotification(call);
   };
 
-  const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => {
+  const sendGayzeTo = async (peerName: string, peerId?: string, intentId?: string): Promise<GayzeOutcome> => {
     triggerVibration([40, 70]);
     const validPeerId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(peerId || '');
     if (!isSupabaseConfigured || !isAuthenticated || !validPeerId) {
       showToast('Sign in to send a Gayze request.');
-      return false;
+      return { sent: false };
     }
 
     // Every control labelled GAYZE must create the same accept/decline gate.
@@ -3396,13 +3397,22 @@ export default function App() {
     );
     if (pulse) {
       const result = await handleSubmitInterest(pulse);
-      return result.sent;
+      const cooldownSeconds = !result.sent && result.errorCode === 'GAYZE_COOLDOWN' ? (result.retryAfterSeconds ?? COOLDOWN_FALLBACK_SECONDS) : undefined;
+      if (cooldownSeconds !== undefined) noteGayzeCooldown(cooldownSeconds);
+      return { sent: result.sent, cooldownSeconds };
     }
 
     const result = await submitInterest(peerId!, intentId);
     if (!result.sent) {
+      // One new Gayze per 24 hours is a rule, not a failure: say so, with the wait.
+      if (result.errorCode === 'GAYZE_COOLDOWN') {
+        const cooldownSeconds = result.retryAfterSeconds ?? COOLDOWN_FALLBACK_SECONDS;
+        noteGayzeCooldown(cooldownSeconds);
+        showToast(`You can send your next Gayze in ${formatCooldown(cooldownSeconds)}.`);
+        return { sent: false, cooldownSeconds };
+      }
       showToast('Gayze request could not be sent. Try again.');
-      return false;
+      return { sent: false };
     }
     if (result.mutual && result.conversation_id && isConversationId(result.conversation_id)) {
       await refreshConversationListRef.current();
@@ -3410,8 +3420,10 @@ export default function App() {
     } else {
       showToast(`Gayze request sent to ${peerName} — awaiting their response.`);
     }
-    return true;
+    return { sent: true };
   };
+
+  const handleGazeAtPeer = async (peerName: string, peerId?: string, intentId?: string): Promise<boolean> => (await sendGayzeTo(peerName, peerId, intentId)).sent;
 
   const handleSubmitInterest = async (pulse: Pulse, message?: string, sharedPhotoIds?: string[]) => {
     const account = supabaseUserIdRef.current;
@@ -4484,7 +4496,7 @@ export default function App() {
               onBlock={IS_LIVE_BACKEND ? (id) => { void handleBlockPeer(id, viewingPublicProfile.fallbackName || 'this user'); } : undefined}
               onReport={IS_LIVE_BACKEND ? (id) => handleReportPeer(id, viewingPublicProfile.fallbackName || 'this user') : undefined}
               onGayze={IS_LIVE_BACKEND && peerId && peerId !== supabaseUserId
-                ? () => handleGazeAtPeer(viewingPublicProfile.fallbackName || peerRoom?.peerName || 'them', peerId)
+                ? () => sendGayzeTo(viewingPublicProfile.fallbackName || peerRoom?.peerName || 'them', peerId)
                 : undefined}
               onPlan={peerRoom ? () => {
                 setViewingPublicProfile(null);
