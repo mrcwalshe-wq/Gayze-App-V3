@@ -39,8 +39,8 @@ const profile = async (page: Page) => { await nav(page, 'Profile').click(); awai
 export const SCREENS: Screen[] = [
   { name: 'right-now-map', setup: async (page) => { await ready(page, page.locator('.g-map-state')); } },
   { name: 'later', setup: async (page) => { await nav(page, 'Events').click(); await ready(page, page.getByRole('button', { name: /Host an event/ })); } },
-  { name: 'messages-chats', setup: async (page) => { await nav(page, 'Messages').click(); await ready(page, page.getByRole('button', { name: 'Chats' })); } },
-  { name: 'messages-notifications', setup: async (page) => { await nav(page, 'Messages').click(); await page.getByRole('button', { name: /^Notifications/ }).click(); await ready(page, page.getByRole('heading', { name: 'Notifications' })); } },
+  { name: 'messages-chats', setup: async (page) => { await nav(page, 'Messages').click(); await ready(page, page.getByRole('tab', { name: /^Chats/ })); } },
+  { name: 'messages-notifications', setup: async (page) => { await nav(page, 'Messages').click(); await page.getByRole('tab', { name: /^Notifications/ }).click(); await ready(page, page.getByRole('heading', { name: 'Notifications' })); } },
   { name: 'profile', setup: profile },
   { name: 'discover-interests', desktopOnly: true, setup: async (page) => { await nav(page, /^GAYZE$/).click(); await ready(page, page.getByRole('heading', { name: 'Discover' })); } },
   { name: 'set-intent-1-availability', setup: openSetIntent },
