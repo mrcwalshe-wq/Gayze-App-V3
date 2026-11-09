@@ -3945,11 +3945,11 @@ export default function App() {
               myInterests={currentUser.hobbies ?? []}
               onEditInterests={() => { setIsProfileEditOpen(true); setProfileEditSection('interests' as EditSectionKey); }}
               onOpenProfile={(userId, name) => openPublicProfile(userId, { name })}
-              onOpenChat={(userId) => {
+              onOpenChat={(userId, name) => {
                 const room = rooms.find((r) => r.type === 'direct' && r.peerUserId === userId);
-                if (!room) return false;
-                requestConversationOpen(room.id);
-                return true;
+                if (room) { requestConversationOpen(room.id); return; }
+                // Not in the chats loaded so far: ask the server for the conversation instead of doing nothing.
+                void handleOpenDirectChatFromPulse({ id: 'discover', peerId: userId, peerName: name, peerAvatar: '', neighborhood: '', title: '', intentMode: 'social' });
               }}
               showToast={showToast}
             />
