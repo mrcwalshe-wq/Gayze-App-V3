@@ -2971,3 +2971,7 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-peek__gayze { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 8px; border: 0; font-size: 15px; font-weight: 750; color: #1a1204; background: linear-gradient(135deg, #e7c46f, #c9a24d); box-shadow: 0 8px 22px rgba(201, 162, 77, .28), inset 0 1px 0 rgba(255, 255, 255, .35); }
 .g-peek__gayze:disabled { opacity: .85; }
 .g-peek__gayze.is-sent { color: #fff; background: rgba(110, 231, 183, .16); box-shadow: inset 0 0 0 1px rgba(110, 231, 183, .45); }
+
+/* People strip: the name is overflow:hidden, so as a shrinkable flex child it collapsed and its text was cut in half. */
+.ns__chip { align-self: flex-start; }
+.ns__name, .ns__dist { flex: none; line-height: 1.3; }
