@@ -16,7 +16,7 @@ import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode, VoiceNote } from '../types';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction, hapticMessageSent } from '../services/hapticService';
-import { playAppSound } from '../services/appSounds';
+import { playAppSound, FRESH_MESSAGE_MS } from '../services/appSounds';
 import {
   Lock,
   ShieldCheck,
@@ -490,7 +490,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       hapticMessageDecrypted();
       const last = currentMessages.at(-1);
       const mine = last ? (currentUserId ? last.senderKey === currentUserId : last.senderKey === currentUser.publicKey) : true;
-      if (last && !mine && !last.isSystem) playAppSound('messageIn');
+      if (last && !mine && !last.isSystem && Date.now() - last.timestamp < FRESH_MESSAGE_MS) playAppSound('messageIn');
     }
     previousTailRef.current = { room: activeRoomId, id: lastMessageId };
   }, [activeRoomId, lastMessageId, visibleCount]);

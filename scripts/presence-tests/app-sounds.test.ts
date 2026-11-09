@@ -28,3 +28,11 @@ test('sounds are short and the message sound is distinct from every other sound'
 test('app sounds never loop and stay quieter than a ringing call', () => {
   for (const k of Object.keys(APP_RECIPES) as AppSound[]) assert.ok(APP_RECIPES[k].volume <= RECIPES.incoming.volume, `${k} volume`);
 });
+
+test('arrival sounds are held back while loading, your own actions are not', async () => {
+  const { isHeldBack } = await import('../../src/services/appSounds.ts');
+  const until = 10_000;
+  for (const k of ['messageIn', 'gayze', 'matched'] as AppSound[]) assert.equal(isHeldBack(k, 5_000, until), true, `${k} held`);
+  for (const k of ['messageOut', 'notify', 'error', 'live'] as AppSound[]) assert.equal(isHeldBack(k, 5_000, until), false, `${k} plays`);
+  assert.equal(isHeldBack('messageIn', 10_000, until), false, 'plays once the window ends');
+});
