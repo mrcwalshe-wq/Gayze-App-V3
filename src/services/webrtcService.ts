@@ -82,13 +82,12 @@ function queueServerLog(event: string): void {
   if (!callId || !supabase) return;
   if (serverQueue.length < 60) serverQueue.push({ callId, event: event.slice(0, 160) });
   if (serverTimer) return;
+  // Next tick, not 1.5 s later: a phone that is about to be suspended (answered from the lock screen) never reaches a delayed timer.
   serverTimer = setTimeout(async () => {
     serverTimer = null;
     const batch = serverQueue.splice(0, serverQueue.length);
-    for (const item of batch) {
-      try { await supabase!.rpc('log_call_event', { p_call_id: item.callId, p_event: item.event }); } catch { /* diagnostics only */ }
-    }
-  }, 1500);
+    await Promise.all(batch.map((item) => Promise.resolve(supabase!.rpc('log_call_event', { p_call_id: item.callId, p_event: item.event })).catch(() => undefined)));
+  }, 0);
 }
 
 export function readCallLog(): string {

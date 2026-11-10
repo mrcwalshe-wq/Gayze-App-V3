@@ -82,3 +82,20 @@
 .g-calln__title { white-space: nowrap; }
 .g-calln__hint { display: flex; align-items: center; gap: 5px; }
 .g-chat-feed .g-bubble--mine { box-shadow: 0 5px 14px rgba(138, 63, 203, .2), inset 0 1px 0 rgba(255, 255, 255, .22); }
+
+/* ---- Round two, from the real app ---- */
+/* The viewport already ends above the tab bar (which covers the home-indicator area): no safe-area padding again. */
+.g-chat-shell > form { padding-bottom: 4px; }
+.g-chat-shell .g-chat-header__actions .g-icon-btn { width: 40px; height: 40px; min-width: 40px; }
+
+/* Messages list: a segmented pill instead of two blocks, and nothing hidden behind the setup strip. */
+.g-messages-subtabs {
+  margin: 8px 12px 6px; padding: 3px; gap: 2px; border: 0; border-radius: 999px;
+  background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
+}
+.g-messages-subtab { min-height: 36px; border: 0; border-radius: 999px; background: transparent; box-shadow: none; }
+.g-messages-subtab[data-active='true'] {
+  background: linear-gradient(120deg, rgba(111, 60, 195, .55), rgba(184, 64, 143, .4));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 4px 14px rgba(111, 60, 195, .3);
+}
+.g-messages-hub__content { padding-bottom: var(--g-setup-h, 0px); }

@@ -214,7 +214,7 @@ select {
   letter-spacing: -0.008em !important;
 }
 
-.g-icon-btn {
+.g-icon-btn:not(.g-chat-header__action):not(.g-icon-btn--send) {
   border-radius: 12px !important;
 }
 
