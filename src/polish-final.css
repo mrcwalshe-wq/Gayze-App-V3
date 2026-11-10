@@ -40,3 +40,11 @@
 }
 .g-mask-edge:active, .g-mask-edge:focus-visible { opacity: 1; width: 34px; }
 @media (hover: hover) { .g-mask-edge:hover { opacity: 1; } }
+
+/* Heat map (the Heat view): soft glow and a faint cell outline instead of hatching. No pulsing; calm. */
+.gayze-leaflet-map .gz-cell, .gayze-leaflet-map .gz-cell--hot { filter: none; animation: gz-cell-in .55s cubic-bezier(.2, .9, .3, 1) both; }
+.gayze-leaflet-map .gz-glow { animation: gz-cell-in .7s ease both; }
+.gz-legend__scale { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.gz-legend__scale i { flex: 0 1 120px; height: 6px; border-radius: 999px; background: linear-gradient(90deg, #7c4ddb, #c026d3 40%, #ea580c 72%, #fde68a); }
+.gz-legend__scale em { font-style: normal; font-size: 11px; color: rgba(255, 255, 255, .7); }
+@media (prefers-reduced-motion: reduce) { .gayze-leaflet-map .gz-glow, .gayze-leaflet-map .gz-cell { animation: none; } }
