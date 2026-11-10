@@ -76,7 +76,7 @@ export const GroupMembersSheet: React.FC<Props> = ({ isOpen, onClose, title, mem
             </li>
           ))}
         </ul>
-        <p className="gm-fine">Messaging someone sends them a private chat request. The chat opens when they accept, and anyone can say no.</p>
+        {members.length > 1 && <p className="gm-fine">Messaging someone sends them a private chat request. The chat opens when they accept, and anyone can say no.</p>}
       </div>
     </div>
   );
