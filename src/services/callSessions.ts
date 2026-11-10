@@ -28,3 +28,11 @@ export async function getRingingCall(): Promise<IncomingCall | null> {
     callType: r.call_type === 'audio' ? 'audio' : 'video', timestamp: Date.parse(r.started_at) || Date.now(), callId: r.call_id,
   };
 }
+
+/** Where a call stands on the server ('ringing' | 'answered' | 'ended'), or null if unknown. Used so a caller stops ringing when the live decline signal was missed. */
+export async function getCallStatus(callId: string | undefined): Promise<'ringing' | 'answered' | 'ended' | null> {
+  if (!supabase || !isCallSessionId(callId)) return null;
+  const { data, error } = await supabase.rpc('get_call_status', { p_call_id: callId });
+  if (error || (data !== 'ringing' && data !== 'answered' && data !== 'ended')) return null;
+  return data;
+}

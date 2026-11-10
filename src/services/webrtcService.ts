@@ -67,7 +67,30 @@ export function callLog(event: string): void {
     entries.push(`${new Date().toISOString().slice(11, 23)} ${event}`);
     localStorage.setItem(LOG_KEY, JSON.stringify(entries.slice(-120)));
   } catch { /* storage unavailable */ }
+  queueServerLog(event);
 }
+/**
+ * The same events are also sent to the server (call id, time, the short text above; no SDP, keys, names or messages), so a call that
+ * fails on someone's phone can be diagnosed without asking them to copy the log. At most ~200 events per call per person.
+ */
+let callIdSource: () => string | null = () => null;
+export function registerCallLogSource(fn: () => string | null): void { callIdSource = fn; }
+const serverQueue: { callId: string; event: string }[] = [];
+let serverTimer: ReturnType<typeof setTimeout> | null = null;
+function queueServerLog(event: string): void {
+  const callId = callIdSource();
+  if (!callId || !supabase) return;
+  if (serverQueue.length < 60) serverQueue.push({ callId, event: event.slice(0, 160) });
+  if (serverTimer) return;
+  serverTimer = setTimeout(async () => {
+    serverTimer = null;
+    const batch = serverQueue.splice(0, serverQueue.length);
+    for (const item of batch) {
+      try { await supabase!.rpc('log_call_event', { p_call_id: item.callId, p_event: item.event }); } catch { /* diagnostics only */ }
+    }
+  }, 1500);
+}
+
 export function readCallLog(): string {
   try { return (JSON.parse(localStorage.getItem(LOG_KEY) || '[]') as string[]).join('\n'); } catch { return ''; }
 }
@@ -105,6 +128,9 @@ export class WebRTCCallService {
   private currentCallType: CallType = 'video';
   private activeConversationId: string | null = null;
   private activeCallId: string | null = null;
+  public currentCallId(): string | null { return this.activeCallId; }
+  /** The other person ended or declined, learned from the server instead of the live signal. */
+  public remoteEnded(state: 'declined' | 'ended'): void { callLog(`call ${state} (learned from the server)`); this.cleanup(); this.setState(state); }
   private activeTargetUserId: string | null = null;
   private ringingTimeoutTimer: number | null = null;
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
@@ -598,6 +624,7 @@ export class WebRTCCallService {
     // Handle remote tracks
     pc.ontrack = (event) => {
       if (this.pc !== pc) return;
+      callLog(`remote ${event.track.kind} track arrived`);
       if (event.streams && event.streams[0]) {
         this.remoteStream = event.streams[0];
       } else {
@@ -621,16 +648,23 @@ export class WebRTCCallService {
       void this.broadcastSignal({ type: 'ice-candidates', conversationId, callerId: currentUserId, candidates, timestamp: Date.now() })
         .catch(() => this.scheduleRestart());
     };
+    const localTypes: Record<string, number> = {};
     pc.onicecandidate = (event) => {
       if (this.pc !== pc) return;
       if (event.candidate) {
+        const kind = / typ (\w+)/.exec(event.candidate.candidate || '')?.[1] ?? 'other';
+        localTypes[kind] = (localTypes[kind] ?? 0) + 1;
         outbox.push(event.candidate.toJSON());
         if (!outboxTimer) outboxTimer = setTimeout(flush, 200);
-      } else if (outboxTimer) { clearTimeout(outboxTimer); flush(); }
+      } else {
+        callLog(`local routes found: ${Object.entries(localTypes).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`);
+        if (outboxTimer) { clearTimeout(outboxTimer); flush(); }
+      }
     };
 
     pc.onconnectionstatechange = () => {
       if (this.pc !== pc) return;
+      callLog(`peer connection ${pc.connectionState}`);
       if (pc.connectionState === 'connected') this.recovered();
       else if (pc.connectionState === 'failed') {
         this.setState('connecting');
@@ -646,6 +680,7 @@ export class WebRTCCallService {
     };
     pc.oniceconnectionstatechange = () => {
       if (this.pc !== pc) return;
+      callLog(`ice ${pc.iceConnectionState}`);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') this.recovered();
       else if (pc.iceConnectionState === 'failed') this.scheduleRestart(500);
     };
@@ -803,12 +838,16 @@ export class WebRTCCallService {
           await this.flushCandidates(pc);
         }
         break;
-      case 'ice-candidates':
+      case 'ice-candidates': {
+        const remoteTypes: Record<string, number> = {};
+        for (const c of (signal.candidates ?? []).slice(0, 64)) { const k = / typ (\w+)/.exec(c.candidate || '')?.[1] ?? 'other'; remoteTypes[k] = (remoteTypes[k] ?? 0) + 1; }
+        callLog(`remote routes received: ${Object.entries(remoteTypes).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`);
         for (const candidate of (signal.candidates ?? []).slice(0, 64)) {
           if (this.candidateMatches(pc, candidate)) await pc.addIceCandidate(candidate).catch(() => undefined);
           else this.pendingIceCandidates = [...this.pendingIceCandidates, candidate].slice(-128);
         }
         break;
+      }
       case 'ice-candidate':
         if (signal.candidate) {
           if (this.candidateMatches(pc, signal.candidate)) await pc.addIceCandidate(signal.candidate);
@@ -959,6 +998,7 @@ export class WebRTCCallService {
       ? await early.promise.catch(() => navigator.mediaDevices.getUserMedia(this.mediaConstraints(callType)))
       : await navigator.mediaDevices.getUserMedia(this.mediaConstraints(callType));
     if (generation !== this.callGeneration) { stream.getTracks().forEach((track) => track.stop()); throw new Error('Call ended'); }
+    callLog(`got ${stream.getAudioTracks().length ? 'microphone' : 'no microphone'}${stream.getVideoTracks().length ? ' and camera' : ''}`);
     stream.getAudioTracks().forEach((track) => { track.enabled = this.audioEnabled; });
     stream.getVideoTracks().forEach((track) => { track.enabled = this.videoEnabled; });
     this.localStream = stream;
@@ -1268,3 +1308,4 @@ export class WebRTCCallService {
 }
 
 export const webrtcCallService = new WebRTCCallService();
+registerCallLogSource(() => webrtcCallService.currentCallId());
