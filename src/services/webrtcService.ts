@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { postCallSignal, fetchCallSignal } from './callMailbox';
 import { IceCredentialCache } from './iceCredentials';
 import { RealtimeRecovery, callRecoveryEnvironment, requireRealtimeSession } from './realtimeRecovery';
 import { analytics } from './analyticsService';
@@ -586,6 +587,8 @@ export class WebRTCCallService {
         callLog('no offer yet: telling the caller again that the call was answered');
         void this.broadcastSignal({ type: 'call-accept', conversationId: params.conversationId, callerId: params.userId, targetUserId: params.callerId, callType: params.callType, timestamp: Date.now() }).catch(() => undefined);
       }, delay));
+      // The live channel is the first route. If no offer has arrived by now, read it from the mailbox (see callMailbox.ts).
+      [1500, 3500, 6000, 9000, 13000, 18000, 25000].forEach((delay) => window.setTimeout(() => { void this.pollMailboxOffer(generation, params); }, delay));
       analytics.logEvent('call_started', { type: params.callType, direction: 'incoming' });
     } catch (err: any) {
       if (generation !== this.callGeneration) return;
@@ -850,6 +853,7 @@ export class WebRTCCallService {
           await pc.setLocalDescription(answer);
           await this.gatheringDone(pc);
           if (this.pc !== pc) return;
+          void postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer));
           await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, answer), timestamp: Date.now() });
         }
         break;
@@ -914,6 +918,39 @@ export class WebRTCCallService {
     } catch { /* Bounded retry below; no credentials/SDP logged. */ }
     if (pc === this.pc) this.scheduleRestart(12_000);
   }
+  private mailboxAnswerId = 0;
+  private mailboxBusy = false;
+
+  /** Callee: the offer never arrived over the live channel, so take it from the mailbox. */
+  private async pollMailboxOffer(generation: number, params: { conversationId: string; callerId: string; callType: CallType }): Promise<void> {
+    const pc = this.pc;
+    if (this.mailboxBusy || !pc || this.caller || generation !== this.callGeneration || this.state === 'connected' || pc.remoteDescription) return;
+    this.mailboxBusy = true;
+    try {
+      const message = await fetchCallSignal(this.activeCallId, 'offer');
+      if (!message || this.pc !== pc || generation !== this.callGeneration || pc.remoteDescription) return;
+      callLog('got offer (from the call mailbox)');
+      await this.handleCallSignal(pc, { type: 'offer', conversationId: params.conversationId, callerId: params.callerId, sdp: message.sdp, timestamp: Date.now() } as CallSignalPayload);
+    } catch (err) {
+      callLog(`mailbox offer failed: ${(err as Error)?.name || ''} ${(err as Error)?.message || err}`);
+    } finally { this.mailboxBusy = false; }
+  }
+
+  /** Caller: no answer over the live channel, so look for it in the mailbox. */
+  private async pollMailboxAnswer(pc: RTCPeerConnection): Promise<void> {
+    if (this.mailboxBusy || this.pc !== pc || !this.caller || pc.signalingState !== 'have-local-offer') return;
+    this.mailboxBusy = true;
+    try {
+      const message = await fetchCallSignal(this.activeCallId, 'answer', this.mailboxAnswerId);
+      if (!message || this.pc !== pc || pc.signalingState !== 'have-local-offer') return;
+      this.mailboxAnswerId = message.id;
+      callLog('got answer (from the call mailbox)');
+      await this.handleCallSignal(pc, { type: 'answer', conversationId: this.activeConversationId ?? '', callerId: message.senderId, sdp: message.sdp, timestamp: Date.now() } as CallSignalPayload);
+    } catch (err) {
+      callLog(`mailbox answer failed: ${(err as Error)?.name || ''} ${(err as Error)?.message || err}`);
+    } finally { this.mailboxBusy = false; }
+  }
+
   private async sendOffer(restart: boolean, renegotiation = false) {
     const pc = this.pc;
     const conversationId = this.activeConversationId;
@@ -932,6 +969,8 @@ export class WebRTCCallService {
       await pc.setLocalDescription(offer);
       await this.gatheringDone(pc);
       if (this.pc !== pc) return;
+      // Left in the mailbox first, so the other phone can still get it if the live channel is not delivering to it.
+      void postCallSignal(this.activeCallId, this.activeTargetUserId, 'offer', this.plainDescription(pc, offer));
       await this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, offer), timestamp: Date.now() });
       if (!restart && !renegotiation) this.scheduleRestart(12_000); // lost initial SDP/answer also recovers
       // The other phone may not have been listening yet (it was still waking, or its signalling channel was mid-join), so the
@@ -941,6 +980,7 @@ export class WebRTCCallService {
         [2500, 6000, 10000, 15000, 22000, 30000, 40000].forEach((delay) => setTimeout(() => {
           if (this.pc !== pc || generation !== this.callGeneration || pc.signalingState !== 'have-local-offer' || !pc.localDescription) return;
           callLog('no answer yet: sending the offer again');
+          void this.pollMailboxAnswer(pc);
           void this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, pc.localDescription), timestamp: Date.now() }).catch(() => undefined);
         }, delay));
       }
