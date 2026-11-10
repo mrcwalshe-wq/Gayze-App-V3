@@ -479,11 +479,6 @@ export class WebRTCCallService {
       media.catch((err) => {
         if (generation !== this.callGeneration) return;
         callLog(`microphone/camera unavailable: ${err?.name || ''} ${err?.message || err}`);
-        // The caller has been told the call was answered (or is about to be): tell them it is not going ahead, so they do not wait.
-        void this.sendDirectSignal(params.conversationId, {
-          type: 'call-decline', callId: params.callId, conversationId: params.conversationId,
-          callerId: params.userId, targetUserId: params.callerId, timestamp: Date.now(),
-        }).catch(() => undefined);
         this.setState('failed', this.parseMediaError(err));
         this.cleanup();
       });
@@ -571,6 +566,11 @@ export class WebRTCCallService {
       media.catch((err) => {
         if (generation !== this.callGeneration) return;
         callLog(`microphone/camera unavailable: ${err?.name || ''} ${err?.message || err}`);
+        // The caller has been told the call was answered (or is about to be): tell them it is not going ahead, so they do not wait.
+        void this.sendDirectSignal(params.conversationId, {
+          type: 'call-decline', callId: params.callId, conversationId: params.conversationId,
+          callerId: params.userId, targetUserId: params.callerId, timestamp: Date.now(),
+        }).catch(() => undefined);
         this.setState('failed', this.parseMediaError(err));
         this.cleanup();
       });
