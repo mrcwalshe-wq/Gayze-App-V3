@@ -6,7 +6,7 @@
  *   open        C5 > G5 > D6 soft rising bells, once, when the app opens
  *   messageIn   G5 > D6        the signature: a short two-note bell
  *   messageOut  soft tick      quiet, so sending never competes with the reply
- *   gayze       G B D G arpeggio, the signature opened up and held (someone sent you a Gayze)
+ *   gayze       a heartbeat (two low thumps), a rising gasp of air, then the G B D G arpeggio blooming: a pulse, a look, then the signature (someone sent you a Gayze)
  *   matched     G B D chord blooming (a request was accepted)
  *   live        rising sweep landing on the chord (your intent is live)
  *   notify      single bell (generic heads-up)
@@ -83,12 +83,35 @@ function reverseBell(buf: Float32Array, startS: number, freq: number, durS: numb
   }
 }
 
+/** A low thump with a falling pitch: one beat of the Gayze heartbeat. */
+function thump(buf: Float32Array, startS: number, freq: number, durS: number, level: number) {
+  const start = Math.floor(startS * RATE), len = Math.floor(durS * RATE);
+  let phase = 0;
+  for (let i = 0; i < len && start + i < buf.length; i += 1) {
+    const p = i / len;
+    phase += (2 * Math.PI * freq * (1 + 2.2 * Math.exp(-24 * p))) / RATE;
+    buf[start + i] += level * Math.sin(phase) * Math.exp(-6 * p) * Math.min(1, i / (RATE * 0.003));
+  }
+}
+
+/** A gasp: air that rises in brightness and volume into the downbeat. */
+function gasp(buf: Float32Array, startS: number, durS: number, level: number) {
+  const start = Math.floor(startS * RATE), len = Math.floor(durS * RATE);
+  let seed = 424242, lp = 0;
+  for (let i = 0; i < len && start + i < buf.length; i += 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const p = i / len;
+    lp += (0.05 + 0.55 * p * p) * ((seed / 2147483648 - 1) - lp);
+    buf[start + i] += lp * level * Math.pow(p, 1.8) * 3;
+  }
+}
+
 interface Recipe { seconds: number; volume: number; build: (buf: Float32Array) => void }
 export const APP_RECIPES: Record<AppSound, Recipe> = {
   open: { seconds: 2.1, volume: 0.5, build: (b) => { breath(b, 0, 0.55, 0.16); bell(b, 0.34, G5, 1.3, 0.2); bell(b, 0.5, D6, 1.5, 0.17); } },
   messageIn: { seconds: 0.7, volume: 0.8, build: (b) => { bell(b, 0, G5, 0.5, 0.34); bell(b, 0.11, D6, 0.55, 0.34); } },
   messageOut: { seconds: 0.18, volume: 0.45, build: (b) => { bell(b, 0, G6, 0.14, 0.3); } },
-  gayze: { seconds: 1.5, volume: 0.9, build: (b) => { [G5, B5, D6].forEach((f, i) => bell(b, i * 0.09, f, 0.5, 0.28)); bell(b, 0.27, G6, 1.1, 0.3); } },
+  gayze: { seconds: 2.0, volume: 0.9, build: (b) => { thump(b, 0, 62, 0.28, 0.7); thump(b, 0.19, 62, 0.34, 0.6); gasp(b, 0.12, 0.36, 0.24); [G5, B5, D6].forEach((f, i) => bell(b, 0.5 + i * 0.09, f, 0.5, 0.26)); bell(b, 0.77, G6, 1.1, 0.28); } },
   matched: { seconds: 1.4, volume: 0.85, build: (b) => { converge(b, 0, G5 / 2, D6 / 2, G5, 0.5, 0.16); bell(b, 0.42, G5, 0.9, 0.26); bell(b, 0.42, D6, 0.9, 0.2); bell(b, 0.48, G6, 0.9, 0.18); } },
   live: { seconds: 1.2, volume: 0.8, build: (b) => { sweep(b, 0, 392, 784, 0.45, 0.28); bell(b, 0.4, G5, 0.7, 0.28); bell(b, 0.4, D6, 0.7, 0.24); } },
   notify: { seconds: 0.6, volume: 0.7, build: (b) => { bell(b, 0, G5, 0.5, 0.36); } },
