@@ -3034,8 +3034,16 @@ export default function App() {
   const callLineSenderRef = useRef<(roomId: string, line: CallLine) => void>(() => {});
   callLineSenderRef.current = (roomId, line) => {
     const room = rooms.find((r) => r.id === roomId);
-    void handleSendMessage(roomId, callLineText(line), room?.ephemeralTtlSeconds, undefined, undefined, undefined, line)
-      .catch(() => showToast('The missed call could not be added to the chat.'));
+    // The line is an encrypted message, so it needs the chat's key. If the secure chat is still being set up on this device, try again a
+    // few times as it comes up, and only then say so (with the reason, not a bare failure).
+    const attempt = (n: number) => {
+      void handleSendMessage(roomId, callLineText(line), room?.ephemeralTtlSeconds, undefined, undefined, undefined, line)
+        .catch(() => {
+          if (n < 3) window.setTimeout(() => attempt(n + 1), [2500, 6000, 12000][n]);
+          else showToast("The missed call wasn't saved to the chat because secure chat isn't ready on this device yet.");
+        });
+    };
+    attempt(0);
   };
   useEffect(() => installCallSoundUnlock(), []);
   useEffect(() => installAppSoundUnlock(), []);

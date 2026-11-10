@@ -108,8 +108,13 @@ export async function loadOwnPhotoUrls(userId: string, albumId: string, photos: 
 }
 
 export async function addAlbumPhoto(userId: string, albumId: string, file: File, position: number): Promise<void> {
-  if (!supabase) throw new Error('offline');
   const dataUrl = await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = () => reject(new Error('The photo could not be read.')); r.readAsDataURL(file); });
+  await addAlbumPhotoData(userId, albumId, dataUrl, position);
+}
+
+/** Add a photo that is already a data URL (for example, one that came back from the Photo Studio). */
+export async function addAlbumPhotoData(userId: string, albumId: string, dataUrl: string, position: number): Promise<void> {
+  if (!supabase) throw new Error('offline');
   const small = await compressImageDataUrl(dataUrl, 1600, ALBUM_PHOTO_BYTES);
   const { bytes } = dataUrlToBytes(small);
   const key = await albumKey(userId, albumId);
@@ -170,4 +175,25 @@ export async function openSharedAlbum(share: AlbumShare): Promise<SharedAlbumRes
   photos.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   if (!photos.length) return { status: 'unavailable' };
   return { status: 'ok', name: r.name, expiresAt: r.expiresAt ? Date.parse(r.expiresAt) : null, photos };
+}
+
+/** After editing a photo: the edited copy takes the old one's place. The new one is saved first, so a failure never loses the original. */
+export async function replaceAlbumPhoto(userId: string, albumId: string, old: AlbumPhotoRow, editedDataUrl: string, position: number): Promise<void> {
+  await addAlbumPhotoData(userId, albumId, editedDataUrl, position);
+  await removeAlbumPhoto(old);
+}
+
+/** A blob URL back into a data URL, for the Photo Studio. */
+export async function blobUrlToDataUrl(url: string): Promise<string> {
+  const blob = await (await fetch(url)).blob();
+  return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = () => reject(new Error('The photo could not be read.')); r.readAsDataURL(blob); });
+}
+
+/** The owner's view of one share: is it still open? (The owner may read their own shares.) */
+export async function shareIsOpen(shareId: string): Promise<boolean> {
+  if (!supabase) return true;
+  const { data } = await supabase.from('album_shares').select('revoked_at,expires_at').eq('id', shareId).maybeSingle();
+  if (!data) return true;   // not readable (or not found): don't claim it ended
+  const r = data as { revoked_at: string | null; expires_at: string | null };
+  return !r.revoked_at && (!r.expires_at || Date.parse(r.expires_at) > Date.now());
 }
