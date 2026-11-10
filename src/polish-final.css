@@ -1,0 +1,28 @@
+/* Final polish: keep the colour, make it consistent. */
+
+/* 1. One title gradient for every screen header (the one the intent sheet already uses). */
+.g-title-grad,
+.g-discover-head__title strong,
+.g-msglist-head__title h2 {
+  background: linear-gradient(95deg, #fff 0%, #dcc8ff 38%, #f6c1cf 66%, #f2d58a 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  text-shadow: none; /* a shadow would show through the transparent fill and darken the title */
+}
+
+/* 2. The main action on each screen carries the sheen. Small controls stay still. */
+.g-chat-composer .g-icon-btn--send, .g-calln__retry--lead, .ss-more[aria-expanded='true'] { position: relative; overflow: hidden; isolation: isolate; }
+.g-chat-composer .g-icon-btn--send::after, .g-calln__retry--lead::after {
+  content: ""; position: absolute; top: -25%; bottom: -25%; left: 0; width: 36%; pointer-events: none; z-index: 1;
+  background: var(--gz-sheen, linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, .30) 50%, transparent 100%));
+  transform: translateX(-170%) skewX(-18deg); animation: gz-sheen 5.4s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-chat-composer .g-icon-btn--send::after, .g-calln__retry--lead::after { animation: none; opacity: 0; }
+}
+
+/* 4. Small text labels use the app font. Mono stays for digits (timers, distances). */
+.ss-eyebrow, .ss-summary, .g-golive__when, .g-live-card__mode { font-family: inherit; }
+
+/* 5. Map header: the existing top fade now reaches below the activity chips, so they read on any map. */
+.g-map-edge--top { height: 176px; background: linear-gradient(180deg, rgba(8, 9, 13, .92), rgba(8, 9, 13, .6) 50%, transparent); }
+.g-discover-head__title { text-shadow: none; }
