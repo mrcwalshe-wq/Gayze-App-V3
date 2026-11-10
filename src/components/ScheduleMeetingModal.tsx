@@ -47,6 +47,19 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
   const [custom, setCustom] = useState<{ name: string; address: string; lat: number; lng: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [timeOption, setTimeOption] = useState<string>(TIMES[0].label);
+  // "Pick a time": any date and time from now on (device clock, local time), shown to the other person as plain text.
+  const [pickedAt, setPickedAt] = useState('');
+  const customOn = timeOption !== '' && !TIMES.some((t) => t.label === timeOption);
+  const nowLocalInput = () => { const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); };
+  const labelForPicked = (value: string) => {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const today = new Date(); const tomorrow = new Date(Date.now() + 86400000);
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
+    if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+    return `${d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
+  };
   const [startLocalCheckin, setStartLocalCheckin] = useState(true);
   const [durationMinutes, setDurationMinutes] = useState(60);
 
@@ -57,7 +70,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
   // Changing a plan starts from what was agreed: same time and, when it is a known Safe Haven, the same place.
   useEffect(() => {
     if (!isOpen || !amend) return;
-    if (TIMES.some((t) => t.label === amend.timeStr)) setTimeOption(amend.timeStr);
+    setTimeOption(amend.timeStr);   // a preset, or a time picked earlier (shown as text; pick again to change it)
     const match = havens.find((h) => h.name === amend.venueName);
     if (match) { setSelectedId(match.id); setKind(null); setCustom(null); setSearch(''); }
     else if (PLACE_KINDS.some((k) => k.label === amend.venueName)) { setKind(amend.venueName); setSelectedId(null); setCustom(null); setSearch(''); }
@@ -158,6 +171,12 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
                 </button>
               ))}
             </div>
+            <label className={`g-plan__pick ${customOn ? 'is-on' : ''}`}>
+              <CalendarClock className="w-4 h-4" aria-hidden="true" />
+              <span>{customOn ? timeOption : 'Pick a date and time'}</span>
+              <input type="datetime-local" aria-label="Pick a date and time" min={nowLocalInput()} value={pickedAt}
+                onChange={(e) => { const v = e.target.value; setPickedAt(v); const label = labelForPicked(v); if (label) { hapticLight(); setTimeOption(label); } }} />
+            </label>
           </section>
 
           <section className={`g-plan__timer ${startLocalCheckin ? 'is-on' : ''}`}>

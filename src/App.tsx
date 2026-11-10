@@ -724,7 +724,9 @@ export default function App() {
   const [memberNotices, setMemberNotices] = useState<MemberNotice[]>([]);
   const memberUnreadCount = memberNotices.filter((n) => !n.read_at).length;
   const notificationRefreshRef = useRef<() => void>(() => {});
-  const unreadMessageCount = notificationInbox?.messageUnread ?? 0;
+  // A Gayze sent straight to you (not through a request) arrives as an inbox notice. It counts toward the chat badge like a message does.
+  const directGazeUnread = (notificationInbox?.rows ?? []).filter((n) => n.category === 'gaze' && !n.read_at && !n.event_key?.startsWith('interest:')).length;
+  const unreadMessageCount = (notificationInbox?.messageUnread ?? 0) + directGazeUnread;
   const toastTimeoutRef = useRef<number | null>(null);
 
   // Schedule Meeting Modal state
@@ -1595,6 +1597,27 @@ export default function App() {
       setNotificationToast(null);
     }, 4000);
   };
+
+  // A Gayze sent straight to this person arrives as an inbox notice, not as a request, so nothing told them it had landed. Give it the
+  // same arrival as a request: the heartbeat sound, a buzz and a toast naming who sent it. Only notices that appear after the inbox
+  // has loaded and are fresh count, so opening the app never replays old ones.
+  const seenGazeNoticesRef = useRef<Set<string> | null>(null);
+  useEffect(() => { seenGazeNoticesRef.current = null; }, [supabaseUserId]);
+  useEffect(() => {
+    const rows = notificationInbox?.rows;
+    if (!rows) return;
+    const gazes = rows.filter((n) => n.category === 'gaze' && !n.event_key?.startsWith('interest:'));
+    if (seenGazeNoticesRef.current === null) { seenGazeNoticesRef.current = new Set(gazes.map((n) => n.id)); return; }
+    const seen = seenGazeNoticesRef.current;
+    const fresh = gazes.filter((n) => !seen.has(n.id) && !n.read_at && Date.now() - Date.parse(n.created_at) < 120_000);
+    gazes.forEach((n) => seen.add(n.id));
+    if (!fresh.length) return;
+    const actor = fresh[0].actor_id;
+    const name = actor ? rooms.find((r) => r.type === 'direct' && r.peerUserId === actor)?.name : undefined;
+    triggerVibration([40, 60, 100]);
+    playAppSound('gayze');
+    showToast(fresh.length > 1 ? `${fresh.length} new Gayzes` : name ? `${name} sent you a Gayze` : 'Someone sent you a Gayze');
+  }, [notificationInbox]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => {
     if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
