@@ -1,4 +1,4 @@
-import { unlockElementSilently } from './audioUnlock';
+import { unlockElementSilently, rememberSource, ensureSource, releaseSource } from './audioUnlock';
 /**
  * Call sounds: ringing, connected, ended, not answered.
  *
@@ -64,8 +64,12 @@ function element(kind: CallSound): HTMLAudioElement | null {
   if (!el) {
     try {
       const wav = renderSound(kind);
-      el = new Audio(URL.createObjectURL(new Blob([wav as BlobPart], { type: 'audio/wav' })));
+      const url = URL.createObjectURL(new Blob([wav as BlobPart], { type: 'audio/wav' }));
+      el = new Audio(url);
+      rememberSource(el, url);
       el.preload = 'auto';
+      const own = el;
+      el.addEventListener('ended', () => releaseSource(own));   // a finished call sound must not stay on the lock screen as a player
       el.loop = RECIPES[kind].loop;
       el.volume = RECIPES[kind].volume;
       elements.set(kind, el);
@@ -76,7 +80,7 @@ function element(kind: CallSound): HTMLAudioElement | null {
 
 /** Stop and rewind every call sound. */
 export function stopCallSounds(except?: CallSound) {
-  elements.forEach((el, kind) => { if (kind !== except) { try { el.pause(); el.currentTime = 0; } catch { /* already stopped */ } } });
+  elements.forEach((el, kind) => { if (kind !== except) { try { el.pause(); el.currentTime = 0; } catch { /* already stopped */ } releaseSource(el); } });
 }
 
 export function playCallSound(kind: CallSound) {
@@ -84,6 +88,7 @@ export function playCallSound(kind: CallSound) {
   if (!el) return;
   if (RECIPES[kind].loop) stopCallSounds(kind);
   else stopCallSounds();
+  ensureSource(el);
   try { el.currentTime = 0; } catch { /* not seekable yet */ }
   void el.play().catch(() => undefined);   // blocked until the person has touched the page once
 }
