@@ -264,8 +264,8 @@ export const SwarmQRModal: React.FC<SwarmQRModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
-      <div className="relative w-full max-w-md bg-[#11131a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pb-[calc(var(--g-tabbar-h,68px)+env(safe-area-inset-bottom,0px)+12px)] bg-black/85 backdrop-blur-sm animate-in fade-in">
+      <div className="relative w-full max-w-md bg-[#11131a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-full">
         {/* Header */}
         <div className="p-4 border-b border-white/[0.08] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
