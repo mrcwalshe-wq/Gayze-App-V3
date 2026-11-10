@@ -11,11 +11,17 @@
  *   live        rising sweep landing on the chord (your intent is live)
  *   notify      single bell (generic heads-up)
  *   error       two low, soft notes falling
+ *   seal        a private album is sent: the bell closes like a lock (two notes fall into a low fifth)
+ *   unsend      access ended: the signature played backwards, a bell that is drawn back in
+ *
+ * The ideas that make it a suite rather than a list of beeps:
+ *   - open is an "iris": a breath of filtered air opens, then the signature rings out of it.
+ *   - matched is two voices that start a fifth apart and glide together into one note (two people meeting).
  */
 import { encodeWav } from './callSounds';
 import { unlockElementSilently } from './audioUnlock';
 
-export type AppSound = 'open' | 'messageIn' | 'messageOut' | 'gayze' | 'matched' | 'live' | 'notify' | 'error';
+export type AppSound = 'open' | 'messageIn' | 'messageOut' | 'gayze' | 'matched' | 'live' | 'notify' | 'error' | 'seal' | 'unsend';
 
 const RATE = 22050;
 const G5 = 783.99, B5 = 987.77, D6 = 1174.66, G6 = 1567.98;
@@ -43,15 +49,51 @@ function sweep(buf: Float32Array, startS: number, from: number, to: number, durS
   }
 }
 
+/** A breath of air: noise shaped by a rising band (a one-pole low-pass whose cutoff opens), faded in and out. Deterministic, so tests are stable. */
+function breath(buf: Float32Array, startS: number, durS: number, level: number) {
+  const start = Math.floor(startS * RATE), len = Math.floor(durS * RATE);
+  let seed = 1234567, lp = 0;
+  for (let i = 0; i < len && start + i < buf.length; i += 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const n = seed / 2147483648 - 1, p = i / len;
+    const k = 0.02 + 0.5 * p * p;
+    lp += k * (n - lp);
+    buf[start + i] += lp * level * Math.sin(Math.PI * p) * 3;
+  }
+}
+
+/** Two voices that glide from a fifth apart into the same note. */
+function converge(buf: Float32Array, startS: number, lowFrom: number, highFrom: number, to: number, durS: number, level: number) {
+  const start = Math.floor(startS * RATE), len = Math.floor(durS * RATE);
+  let pa = 0, pb = 0;
+  for (let i = 0; i < len && start + i < buf.length; i += 1) {
+    const p = i / len, e = 1 - Math.pow(1 - p, 3);
+    pa += (2 * Math.PI * (lowFrom + (to - lowFrom) * e)) / RATE;
+    pb += (2 * Math.PI * (highFrom + (to - highFrom) * e)) / RATE;
+    buf[start + i] += level * (Math.sin(pa) + Math.sin(pb)) * Math.min(1, i / (RATE * 0.03)) * Math.pow(1 - p * 0.5, 1.5);
+  }
+}
+
+/** A bell played backwards: it swells into its attack. */
+function reverseBell(buf: Float32Array, startS: number, freq: number, durS: number, level: number) {
+  const start = Math.floor(startS * RATE), len = Math.floor(durS * RATE);
+  for (let i = 0; i < len && start + i < buf.length; i += 1) {
+    const t = i / RATE, p = i / len, env = Math.pow(p, 2.2) * Math.min(1, (len - i) / (RATE * 0.012));
+    buf[start + i] += level * env * (Math.sin(2 * Math.PI * freq * t) + 0.18 * Math.sin(2 * Math.PI * freq * 2 * t));
+  }
+}
+
 interface Recipe { seconds: number; volume: number; build: (buf: Float32Array) => void }
 export const APP_RECIPES: Record<AppSound, Recipe> = {
-  open: { seconds: 2.1, volume: 0.5, build: (b) => { bell(b, 0, 523.25, 1.0, 0.2); bell(b, 0.17, G5, 1.3, 0.2); bell(b, 0.36, D6, 1.5, 0.15); } },
+  open: { seconds: 2.1, volume: 0.5, build: (b) => { breath(b, 0, 0.55, 0.16); bell(b, 0.34, G5, 1.3, 0.2); bell(b, 0.5, D6, 1.5, 0.17); } },
   messageIn: { seconds: 0.7, volume: 0.8, build: (b) => { bell(b, 0, G5, 0.5, 0.34); bell(b, 0.11, D6, 0.55, 0.34); } },
   messageOut: { seconds: 0.18, volume: 0.45, build: (b) => { bell(b, 0, G6, 0.14, 0.3); } },
   gayze: { seconds: 1.5, volume: 0.9, build: (b) => { [G5, B5, D6].forEach((f, i) => bell(b, i * 0.09, f, 0.5, 0.28)); bell(b, 0.27, G6, 1.1, 0.3); } },
-  matched: { seconds: 1.3, volume: 0.85, build: (b) => { [G5, B5, D6].forEach((f) => bell(b, 0, f, 0.9, 0.24)); bell(b, 0.12, G6, 1.1, 0.24); } },
+  matched: { seconds: 1.4, volume: 0.85, build: (b) => { converge(b, 0, G5 / 2, D6 / 2, G5, 0.5, 0.16); bell(b, 0.42, G5, 0.9, 0.26); bell(b, 0.42, D6, 0.9, 0.2); bell(b, 0.48, G6, 0.9, 0.18); } },
   live: { seconds: 1.2, volume: 0.8, build: (b) => { sweep(b, 0, 392, 784, 0.45, 0.28); bell(b, 0.4, G5, 0.7, 0.28); bell(b, 0.4, D6, 0.7, 0.24); } },
   notify: { seconds: 0.6, volume: 0.7, build: (b) => { bell(b, 0, G5, 0.5, 0.36); } },
+  seal: { seconds: 0.9, volume: 0.7, build: (b) => { bell(b, 0, D6, 0.35, 0.3); bell(b, 0.1, G5, 0.7, 0.3); bell(b, 0.1, G5 / 2, 0.7, 0.2); } },
+  unsend: { seconds: 0.8, volume: 0.6, build: (b) => { reverseBell(b, 0, D6, 0.28, 0.26); reverseBell(b, 0.12, G5, 0.3, 0.26); } },
   error: { seconds: 0.7, volume: 0.6, build: (b) => { bell(b, 0, 330, 0.3, 0.34); bell(b, 0.16, 262, 0.45, 0.34); } },
 };
 
