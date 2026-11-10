@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { AUTH_REDIRECT_PATHS, getAuthRedirectUrl, supabase } from '../services/supabaseClient';
 import { analytics } from '../services/analyticsService';
@@ -59,6 +59,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [busy, setBusy] = useState(false);
+  // Which sign-in button was pressed, so only that one shows the spinner (the others are just disabled).
+  const [busyProvider, setBusyProvider] = useState<'apple' | 'google' | null>(null);
+  const providerLock = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<'error' | 'success' | 'info'>('info');
   const [followUp, setFollowUp] = useState<AuthIssue['action'] | null>(null);
@@ -116,8 +119,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
   };
 
   const submitApple = async () => {
-    if (!supabase) return;
+    if (!supabase || providerLock.current) return;
     if (mode === 'signup' && !adultConfirmed) { setFeedback('Please confirm you are 18 or over to continue.', 'error'); return; }
+    providerLock.current = true;
+    setBusyProvider('apple');
     setBusy(true);
     setMessage(null);
     try {
@@ -131,19 +136,25 @@ export const AuthView: React.FC<AuthViewProps> = ({
         setFeedback('Sign in with Apple did not complete. Please try again, or use your email and password.', 'error');
       }
     } finally {
+      providerLock.current = false;
+      setBusyProvider(null);
       setBusy(false);
     }
   };
 
   const submitGoogle = async () => {
-    if (!supabase) return;
+    if (!supabase || providerLock.current) return;
     if (mode === 'signup' && !adultConfirmed) { setFeedback('Please confirm you are 18 or over to continue.', 'error'); return; }
+    providerLock.current = true;
+    setBusyProvider('google');
     setBusy(true);
     setMessage(null);
     try {
       if (isNativeApp()) {
         // Opens Google in the system browser; the gayze:// return link finishes sign-in.
         await startNativeGoogleSignIn();
+        providerLock.current = false;
+        setBusyProvider(null);
         setBusy(false);
         return;
       }
@@ -154,6 +165,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
       if (error) throw error;
     } catch (error) {
       fail(error, 'oauth');
+      providerLock.current = false;
+      setBusyProvider(null);
       setBusy(false);
     }
   };
@@ -483,7 +496,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
               disabled={busy}
               className="g-btn g-btn--primary w-full !h-12 !rounded-xl !text-sm font-semibold !gap-2"
             >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="w-4 h-4" aria-hidden="true" />}
+              {busy && busyProvider === null ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="w-4 h-4" aria-hidden="true" />}
               {mode === 'signin' && 'Sign in'}
               {mode === 'signup' && 'Create account'}
               {mode === 'forgot' && 'Send reset link'}
@@ -532,7 +545,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   onClick={() => void submitApple()}
                   className="mb-2.5 w-full h-12 rounded-xl bg-white text-black hover:bg-zinc-100 disabled:opacity-50 font-semibold text-sm flex items-center justify-center gap-2.5 transition-colors"
                 >
-                  {busy ? <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden="true" /> : <AppleMark />}
+                  {busyProvider === 'apple' ? <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden="true" /> : <AppleMark />}
                   {mode === 'signup' ? 'Sign up with Apple' : 'Sign in with Apple'}
                 </button>
               )}
@@ -543,7 +556,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 onClick={() => void submitGoogle()}
                 className="w-full h-12 rounded-xl bg-white text-[#1f1f1f] border border-[#747775] hover:bg-zinc-100 disabled:opacity-50 font-medium text-sm flex items-center justify-center gap-2.5 transition-colors"
               >
-                {busy ? <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden="true" /> : <GoogleG />}
+                {busyProvider === 'google' ? <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden="true" /> : <GoogleG />}
                 {mode === 'signup' ? 'Sign up with Google' : 'Sign in with Google'}
               </button>
               )}
