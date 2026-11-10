@@ -1,3 +1,4 @@
+import { playAppSound } from '../services/appSounds';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, Images, Lock, Pencil, Plus, Trash2, X } from 'lucide-react';
@@ -125,7 +126,7 @@ const AlbumDetail: React.FC<{ userId: string; album: AlbumSummary; onBack: () =>
     finally { setWorking(false); }
   };
   const remove = async (p: AlbumPhotoRow) => { setWorking(true); try { await removeAlbumPhoto(p); await load(); } catch { setError('Could not remove that photo.'); } finally { setWorking(false); } };
-  const stop = async (s: AlbumShareRow) => { try { await revokeShare(s.id); setShares(await listShares(album.id)); hapticLight(); } catch { setError('Could not end access. Try again.'); } };
+  const stop = async (s: AlbumShareRow) => { try { await revokeShare(s.id); playAppSound('unsend'); setShares(await listShares(album.id)); hapticLight(); } catch { setError('Could not end access. Try again.'); } };
   const del = async () => {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setWorking(true);

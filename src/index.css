@@ -4760,3 +4760,18 @@ body:has([data-gayze-call-screen="true"]) .g-desktop-header {
   box-shadow: 0 0 0 8px rgba(139, 92, 246, .22), 0 0 28px rgba(139, 92, 246, .75), 0 0 56px rgba(139, 92, 246, .35), 0 10px 24px rgba(0, 0, 0, .55);
 }
 .gm-self--private::after { border-color: rgba(190, 150, 255, .6); }
+
+/* Startup status: a hairline track with one violet-to-gold bead that glides across, and a quiet line of text. */
+.g-load-track { position: relative; width: 120px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,.08); }
+.g-load-bead {
+  position: absolute; top: 0; left: 0; width: 44px; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #8a3fcb 35%, #c9a24d 70%, transparent);
+  animation: g-load-glide 1.7s cubic-bezier(.45,0,.25,1) infinite;
+}
+@keyframes g-load-glide { 0% { transform: translateX(-48px); } 100% { transform: translateX(124px); } }
+.g-load-text { font-size: 11.5px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: rgba(228,222,245,.62); animation: g-load-in .5s ease both; }
+@keyframes g-load-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .g-load-bead { animation: none; left: 38px; }
+  .g-load-text { animation: none; }
+}

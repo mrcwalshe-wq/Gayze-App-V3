@@ -1648,7 +1648,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             if (!me) throw new Error('Please sign in again.');
             const { shareId, payload } = await createShare(me, album, currentRoom.id, expiresAt);
             const messageId = crypto.randomUUID();
-            try { await onSendAlbum(currentRoom.id, payload, messageId); }
+            try { await onSendAlbum(currentRoom.id, payload, messageId); playAppSound('seal'); }
             catch (error) { await revokeShare(shareId).catch(() => undefined); throw error; }
             await linkShareMessage(shareId, messageId);
           }}

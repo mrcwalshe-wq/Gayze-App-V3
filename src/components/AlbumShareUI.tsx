@@ -1,3 +1,4 @@
+import { playAppSound } from '../services/appSounds';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Clock, Images, Lock, X } from 'lucide-react';
@@ -83,7 +84,7 @@ export const AlbumCard: React.FC<{ share: AlbumShare; mine: boolean; peerName: s
   useEffect(() => { if (!mine) return; let live = true; void shareIsOpen(share.shareId).then((open) => { if (live && !open) setEnded(true); }); return () => { live = false; }; }, [mine, share.shareId]);
   const expired = !!share.expiresAt && share.expiresAt <= now;
   const over = ended || expired;
-  const stop = async () => { try { await revokeShare(share.shareId); setEnded(true); hapticLight(); } catch { /* stays active */ } };
+  const stop = async () => { try { await revokeShare(share.shareId); playAppSound('unsend'); setEnded(true); hapticLight(); } catch { /* stays active */ } };
   return (
     <article className={`g-albcard ${over ? 'is-over' : ''}`} aria-label={`Private album ${share.name}`}>
       <span className="g-albcard__ico" aria-hidden="true"><Lock className="w-4 h-4" /></span>
