@@ -784,7 +784,16 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
               >
               <button
                 type="button"
-                onClick={() => handleSelectRoom(room.id)}
+                onClick={(event) => {
+                  // The profile photo opens the profile card. Decided here, on the row, so it works whichever element the tap lands on.
+                  const onPhoto = !isGathering && room.peerUserId && (event.target as HTMLElement).closest('.g-chatrow__av');
+                  if (onPhoto && openPeek) {
+                    event.preventDefault();
+                    openPeek(room.peerUserId!, { name: room.peerName || room.name, photoUrl: room.peerAvatar && room.peerAvatar !== 'user' ? room.peerAvatar : undefined });
+                    return;
+                  }
+                  handleSelectRoom(room.id);
+                }}
                 className="g-chatrow"
                 data-cancelled={cancelled || undefined}
                 data-finished={finished || undefined}

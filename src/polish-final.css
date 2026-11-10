@@ -48,3 +48,18 @@
 .gz-legend__scale i { flex: 0 1 120px; height: 6px; border-radius: 999px; background: linear-gradient(90deg, #7c4ddb, #c026d3 40%, #ea580c 72%, #fde68a); }
 .gz-legend__scale em { font-style: normal; font-size: 11px; color: rgba(255, 255, 255, .7); }
 @media (prefers-reduced-motion: reduce) { .gayze-leaflet-map .gz-glow, .gayze-leaflet-map .gz-cell { animation: none; } }
+
+/* Profile card photo viewer: the close button must clear the status bar / Dynamic Island, or it cannot be tapped. */
+.g-peek__lightbox .g-peek__close {
+  top: calc(env(safe-area-inset-top, 0px) + 12px); right: max(14px, env(safe-area-inset-right, 0px)); z-index: 5;
+  width: 44px; height: 44px; background: rgba(20, 16, 32, .8);
+}
+.g-peek__lightbox::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc(env(safe-area-inset-bottom, 0px) + 56px); pointer-events: none;
+  background: linear-gradient(0deg, rgba(0, 0, 0, .55), transparent);
+}
+/* A second way out, at thumb height: tap anywhere, the corner button, or this one. */
+.g-peek__lightbox-done {
+  position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  min-height: 46px; padding: 0 28px; border-radius: 999px; border: 0; font-size: 15px; font-weight: 650; color: #fff; background: rgba(60, 46, 100, .85); cursor: pointer;
+}

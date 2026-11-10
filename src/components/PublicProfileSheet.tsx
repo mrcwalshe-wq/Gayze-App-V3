@@ -375,6 +375,7 @@ export const PublicProfileSheet: React.FC<PublicProfileSheetProps> = ({
             {gallery.map((url) => <div key={url} className="g-peek__lightbox-slide"><img src={url} alt="" draggable={false} /></div>)}
           </div>
           <button type="button" className="g-peek__close" aria-label="Close photos" onClick={(event) => { event.stopPropagation(); setLightbox(null); }}><X className="w-[18px] h-[18px]" /></button>
+          <button type="button" className="g-peek__lightbox-done" onClick={(event) => { event.stopPropagation(); setLightbox(null); }}>Close</button>
         </div>
       )}
     </div>,
