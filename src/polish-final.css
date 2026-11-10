@@ -116,3 +116,20 @@
 .g-cer__opt--safe { border-color: rgba(52, 211, 153, .5); background: rgba(16, 185, 129, .12); }
 .g-cer__opt--safe svg { color: #6ee7b7; }
 .g-cer__keep { min-height: 48px; border-radius: 999px; font-weight: 700; color: #fff; background: linear-gradient(120deg, #6f3cc3, #b24fd8 70%, #c9559b); border: 0; }
+
+/* Discover preview card: the same sheet language as Plan a meetup / Send a Gayze (lit top edge, glass, round ringed avatar, soft pill actions). */
+.g-preview {
+  border: 0; border-radius: 22px; padding: 18px 16px 16px;
+  background:
+    radial-gradient(90% 60% at 50% -10%, rgba(160, 110, 245, .34), transparent 72%),
+    radial-gradient(60% 40% at 100% 100%, rgba(201, 162, 77, .10), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .02)), rgba(12, 9, 24, .92);
+  box-shadow: 0 -10px 50px rgba(0, 0, 0, .5), 0 24px 60px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+.g-preview::before { content: ''; position: absolute; left: 14%; right: 14%; top: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(215, 185, 255, .9), transparent); }
+.g-preview .g-preview__av { width: 52px; height: 52px; border: 0; border-radius: 50%;
+  box-shadow: 0 0 0 2px #0c0b15, 0 0 0 3px rgba(190, 150, 255, .85), 0 0 18px rgba(150, 100, 235, .45); }
+.g-preview h3 { font-size: 17px; letter-spacing: -.02em; }
+.g-preview .g-discovery-actions > .g-btn { min-height: 46px; border-radius: 999px; font-weight: 700; }
+.g-preview .g-discovery-actions > .g-btn.g-discovery-secondary { background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .14); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1); }
