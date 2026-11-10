@@ -48,7 +48,7 @@ export const SafeHavenView: React.FC<SafeHavenViewProps> = ({
             <div>
               <div className="g-label">Trusted places</div>
               <h1 className="text-[25px] sm:text-[30px] font-semibold tracking-[-0.03em] text-white">
-                Verified Queer Safe Havens
+                Verified Safe Havens
               </h1>
             </div>
           </div>

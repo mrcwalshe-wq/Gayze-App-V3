@@ -664,7 +664,7 @@ export const LaterView: React.FC<LaterViewProps> = ({
                     type="text"
                     required
                     maxLength={80}
-                    placeholder={quick ? 'e.g. Anyone fancy a drink tonight?' : 'e.g. Queer sci-fi book club and wine'}
+                    placeholder={quick ? 'e.g. Anyone fancy a drink tonight?' : 'e.g. Sci-fi book club and wine'}
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     className="g-field g-iset__field mt-2.5"
