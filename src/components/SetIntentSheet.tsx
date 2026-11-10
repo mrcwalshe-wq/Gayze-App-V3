@@ -147,7 +147,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
       intent: activityLabel(picked[0]),
       activities: picked,
       connections: cleanConnections(connections),
-      description: description.trim() || `Up for ${picked.map(activityLabel).join(', ').toLowerCase()} in ${userNeighborhood}`,
+      description: description.trim() || `Up for ${picked.map(activityLabel).join(', ').toLowerCase()}${userNeighborhood && userNeighborhood !== 'Near you' ? ` in ${userNeighborhood}` : ' nearby'}`,
       when,
       duration,
       travelDistance: existingIntent?.travelDistance || 'Within 2 km',

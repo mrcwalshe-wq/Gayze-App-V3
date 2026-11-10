@@ -69,3 +69,7 @@
 .g-plan__kinds button { display: grid; justify-items: center; gap: 6px; padding: 12px 4px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); color: rgba(255, 255, 255, .8); font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .g-plan__kinds button.is-on { color: #fff; border-color: rgba(168, 121, 241, .85); background: rgba(123, 69, 214, .28); }
 .g-plan__sub { margin: 4px 0 8px; font-size: 12.5px; font-weight: 600; color: rgba(255, 255, 255, .6); }
+
+/* Group members sheet: a bottom sheet that clears the status bar (it was pinned to the top and overlapped the clock). */
+.g-overlay:has(> .gm-sheet) { display: flex; align-items: flex-end; justify-content: center; }
+.gm-sheet { padding-top: 20px; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px); width: 100%; }
