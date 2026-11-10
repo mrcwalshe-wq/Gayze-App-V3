@@ -51,7 +51,7 @@
 /* Call lines: one compact row, not a tall card. */
 .g-chat-feed > div:has(.g-calln) > .g-msg-meta { display: none; }
 .g-calln {
-  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 10px;
   width: 100%; max-width: 330px; min-height: 0; padding: 9px 12px 9px 10px; border-radius: 16px;
 }
 .g-calln__orb { width: 34px; height: 34px; }
@@ -60,7 +60,8 @@
 .g-calln__kind { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; opacity: .6; }
 .g-calln__hint { margin: 2px 0 0; font-size: 12px; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g-calln__sub { display: none; }
-.g-calln__actions { grid-column: auto; margin: 0; flex-direction: row; gap: 6px; }
+.g-calln__actions { grid-column: 1 / -1; margin: 2px 0 0; display: flex; flex-direction: row; gap: 6px; }
+.g-calln__actions .g-calln__retry { flex: 1 1 0; min-width: 0; justify-content: center; }
 .g-calln__retry { min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; width: auto; white-space: nowrap; }
 
 /* Messages: a little tighter, glow toned down. */
