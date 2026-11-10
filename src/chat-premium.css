@@ -35,7 +35,7 @@
 .g-chat-overlay { padding: 6px 0 14px; }
 .peer-intent-card--compact {
   margin: 0 12px !important; border: 0 !important; border-radius: 999px !important;
-  background: linear-gradient(100deg, rgba(var(--peer-accent-rgb), .24), rgba(20, 14, 38, .55) 70%) !important;
+  background: linear-gradient(100deg, rgba(var(--peer-accent-rgb), .24), rgba(20, 14, 38, .55) 70%), #0b0914 !important;
   box-shadow: inset 0 0 0 1px rgba(var(--peer-accent-rgb), .3), 0 6px 18px rgba(0, 0, 0, .3) !important;
 }
 .peer-intent-card--compact .peer-intent-card__row { padding: 5px 6px 5px 6px; gap: 8px; }

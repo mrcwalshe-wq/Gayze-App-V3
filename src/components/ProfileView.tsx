@@ -564,7 +564,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             void handleSetPrimaryPhoto(photo);
                           }}
                           disabled={photoBusy}
-                          className="h-7 px-2 rounded-lg bg-black/75 backdrop-blur-md border border-white/15 text-[10px] font-medium text-zinc-200 hover:text-white transition-colors cursor-pointer"
+                          className="h-7 px-2 rounded-lg bg-black/75 backdrop-blur-md border border-white/15 text-[11px] font-medium whitespace-nowrap text-zinc-200 hover:text-white transition-colors cursor-pointer"
                         >
                           Make profile
                         </button>
