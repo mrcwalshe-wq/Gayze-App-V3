@@ -1697,12 +1697,6 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-chat-feed .g-calln__actions { margin-top: 8px; }
 .g-chat-feed .g-calln__actions .g-calln__retry { height: 34px; font-size: 12.5px; }
 /* Header and composer slim down too */
-.gayze-chat-header { padding-top: 6px !important; padding-bottom: 6px !important; }
-.gayze-chat-header .g-chat-header__avatar { width: 36px !important; height: 36px !important; }
-.gayze-chat-header .g-icon-btn, .gayze-chat-header .g-chat-header__action { width: 38px !important; height: 38px !important; min-height: 0 !important; }
-.g-chat-composer { padding-top: 4px !important; padding-bottom: 4px !important; }
-.g-chat-composer > label, .g-chat-composer > button { width: 34px !important; height: 34px !important; }
-.g-chat-composer .g-icon-btn--send { width: 36px !important; height: 36px !important; }
 .g-intent-chip--private { --chip-rgb: 160, 112, 245; }
 
 /* ===================================================================================================

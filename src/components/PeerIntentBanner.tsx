@@ -29,7 +29,7 @@ export function PeerIntentBanner({ userId, peerId, peerName, now }: {
         <div className="peer-intent-card__details">
           <span className="peer-intent-card__category">
             <span className={`peer-intent-card__state-dot ${later ? 'is-later' : ''}`} />
-            {peerName} · {later ? 'LATER' : 'RIGHT NOW'}
+            {later ? 'Later' : 'Right now'}
           </span>
           <strong className="peer-intent-card__intent">{intentDisplayLabel(intent.intent)}</strong>
         </div>

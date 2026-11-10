@@ -1,0 +1,84 @@
+/* Chat room, premium. Flat and full-bleed (no card inside a card), one slim header, one slim intent line, compact call lines,
+   a capsule composer, and no dead space. Keeps the GAYZE violet / raspberry / gold hues. Loaded after the older chat styles. */
+
+/* The Chats / Notifications switcher is for the list. Inside a conversation it only costs height. */
+.g-messages-hub[data-chat-open='true'] > .g-messages-subtabs { display: none; }
+
+/* Flat, edge to edge. */
+.gayze-chat-shell { border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.g-chat-shell { background: transparent; }
+
+/* Header: one calm row. */
+.g-chat-shell .gayze-chat-header {
+  position: relative; min-height: 0; padding: 8px 12px 8px 6px; border-bottom: 0;
+  background: linear-gradient(180deg, rgba(36, 22, 66, .72), rgba(13, 11, 24, .35));
+  -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+}
+.g-chat-shell .gayze-chat-header::after {
+  content: ''; position: absolute; left: 14px; right: 14px; bottom: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(138, 63, 203, .5) 25%, rgba(201, 162, 77, .45) 70%, transparent);
+}
+.g-chat-shell .g-chat-header__avatar {
+  width: 40px; height: 40px; border-radius: 50%; border: 0;
+  box-shadow: 0 0 0 2px rgba(138, 63, 203, .55), 0 6px 16px rgba(0, 0, 0, .45);
+}
+.g-chat-shell .g-chat-header__identity { gap: 2px; }
+.g-chat-shell .g-chat-header__identity h2 { font-size: 16px; font-weight: 750; letter-spacing: -.005em; }
+.g-chat-shell .g-chat-header__actions { gap: 6px; }
+.g-chat-shell .g-chat-header__actions .g-icon-btn {
+  width: 38px; height: 38px; min-width: 38px; border-radius: 50%; border: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04)), rgba(24, 16, 44, .55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 4px 12px rgba(0, 0, 0, .3);
+}
+
+/* Intent line: a slim glass pill, not a framed card. */
+.g-chat-overlay { padding: 6px 0 14px; }
+.peer-intent-card--compact {
+  margin: 0 12px !important; border: 0 !important; border-radius: 999px !important;
+  background: linear-gradient(100deg, rgba(var(--peer-accent-rgb), .24), rgba(20, 14, 38, .55) 70%) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--peer-accent-rgb), .3), 0 6px 18px rgba(0, 0, 0, .3) !important;
+}
+.peer-intent-card--compact .peer-intent-card__row { padding: 5px 6px 5px 6px; gap: 8px; }
+.peer-intent-card--compact .peer-intent-card__icon { display: none; }
+.peer-intent-card--compact .peer-intent-card__details { flex-direction: row; align-items: center; gap: 9px; }
+.peer-intent-card--compact .peer-intent-card__category {
+  flex: none; padding: 3px 9px; border-radius: 999px; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+  background: rgba(var(--peer-accent-rgb), .2); color: #fff;
+}
+.peer-intent-card--compact .peer-intent-card__intent { font-size: 13.5px; font-weight: 650; }
+.peer-intent-card--compact .peer-intent-card__time { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .08); font-size: 11px; }
+
+/* Call lines: one compact row, not a tall card. */
+.g-chat-feed > div:has(.g-calln) > .g-msg-meta { display: none; }
+.g-calln {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  width: 100%; max-width: 330px; min-height: 0; padding: 9px 12px 9px 10px; border-radius: 16px;
+}
+.g-calln__orb { width: 34px; height: 34px; }
+.g-calln__body { min-width: 0; }
+.g-calln__title { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+.g-calln__kind { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; opacity: .6; }
+.g-calln__hint { margin: 2px 0 0; font-size: 12px; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-calln__sub { display: none; }
+.g-calln__actions { grid-column: auto; margin: 0; flex-direction: row; gap: 6px; }
+.g-calln__retry { min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; width: auto; white-space: nowrap; }
+
+/* Messages: a little tighter, glow toned down. */
+.g-chat-feed { gap: 6px; }
+.g-bubble--mine { box-shadow: 0 6px 16px rgba(138, 63, 203, .22), inset 0 1px 0 rgba(255, 255, 255, .2); }
+
+/* Composer: one capsule, and no dead space under it. */
+.g-chat-shell > form { padding: 6px 10px 6px; border-top: 0; background: transparent; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4px); }
+.g-chat-composer { border-radius: 999px; padding: 4px 5px; }
+.g-chat-composer > label, .g-chat-composer > button { border-radius: 50%; }
+.g-chat-composer .g-icon-btn--send { border-radius: 50%; background: linear-gradient(135deg, #6f3cc3, #b24fd8 60%, #c9559b); }
+.g-composer-note { margin: 4px 0 0; justify-content: center; font-size: 10px; opacity: .8; }
+@media (max-width: 1023px) { .g-composer-note { margin-bottom: 2px; } }
+
+/* The screen itself: no outer frame or padding around the chat. */
+.g-chat-viewport { padding: 0; }
+.g-calln__count { font-size: 12px; font-weight: 800; color: rgba(255, 255, 255, .75); }
+.g-calln { border-radius: 14px; }
+.g-calln__title { white-space: nowrap; }
+.g-calln__hint { display: flex; align-items: center; gap: 5px; }
+.g-chat-feed .g-bubble--mine { box-shadow: 0 5px 14px rgba(138, 63, 203, .2), inset 0 1px 0 rgba(255, 255, 255, .22); }

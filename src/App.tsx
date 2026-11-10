@@ -4108,7 +4108,7 @@ export default function App() {
           )}
 
           {activeTab === 'swarms' && (
-            <div className="g-messages-hub">
+            <div className="g-messages-hub" data-chat-open={visibleChatRoomId ? 'true' : 'false'}>
               <div className="g-messages-subtabs" role="tablist" aria-label="Messages sections">
                 <button
                   type="button"
