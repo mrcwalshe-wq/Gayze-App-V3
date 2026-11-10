@@ -72,7 +72,7 @@
 .g-chat-shell > form { padding: 6px 10px 6px; border-top: 0; background: transparent; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4px); }
 .g-chat-composer { border-radius: 999px; padding: 4px 5px; }
 .g-chat-composer > label, .g-chat-composer > button { border-radius: 50%; }
-.g-chat-composer .g-icon-btn--send { border-radius: 50%; background: #7b45d6; }
+.g-chat-composer .g-icon-btn--send { border-radius: 50%; background: linear-gradient(135deg, #6f3cc3, #b24fd8 60%, #c9559b); }
 .g-composer-note { margin: 4px 0 0; justify-content: center; font-size: 10px; opacity: .8; }
 @media (max-width: 1023px) { .g-composer-note { margin-bottom: 2px; } }
 
@@ -96,6 +96,6 @@
 }
 .g-messages-subtab { min-height: 36px; border: 0; border-radius: 999px; background: transparent; box-shadow: none; }
 .g-messages-subtab[data-active='true'] {
-  background: #7b45d6; box-shadow: none;
+  background: linear-gradient(120deg, #6f3cc3, #b24fd8 70%, #c9559b); box-shadow: 0 4px 14px rgba(111, 60, 195, .35);
 }
 .g-messages-hub__content { padding-bottom: var(--g-setup-h, 0px); }
