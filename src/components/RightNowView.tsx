@@ -2458,6 +2458,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
       {interestDraftPulse && (
         <div className="g-overlay g-overlay--above-nav flex items-end sm:items-center justify-center p-3" onClick={() => !interestComposerBusy && setInterestDraftPulse(null)}>
           <div className={`g-interest-composer g-gayze-menu-frame w-full max-w-md overflow-hidden ${/social/i.test(interestDraftPulse.title || interestDraftPulse.intent || '') ? 'is-social' : 'is-private'}`} onClick={(e) => e.stopPropagation()}>
+            <div className="g-interest-composer__grip" aria-hidden="true" />
             <div className="g-interest-composer__header px-5 py-4 flex items-center gap-3">
               <div className="relative w-12 h-12 shrink-0 rounded-2xl overflow-hidden border border-[#C9A24D]/45 bg-[#171922] shadow-[0_8px_20px_rgba(0,0,0,.35)]">
                 <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-white">{interestDraftPulse.peerName.slice(0,1).toUpperCase()}</span>
