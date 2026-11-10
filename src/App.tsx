@@ -115,6 +115,7 @@ const ProfileEditSheet = lazy(() => import('./components/ProfileEditSheet').then
 const ChatRoomView = lazy(() => import('./components/ChatRoomView').then((module) => ({ default: module.ChatRoomView })));
 const DiscoverView = lazy(() => import('./components/DiscoverView').then((module) => ({ default: module.DiscoverView })));
 const ProfileView = lazy(() => import('./components/ProfileView').then((module) => ({ default: module.ProfileView })));
+const PastMeetsSheet = lazy(() => import('./components/PastMeetsSheet').then((module) => ({ default: module.PastMeetsSheet })));
 const SwarmQRModal = lazy(() => import('./components/SwarmQRModal').then((module) => ({ default: module.SwarmQRModal })));
 const PublicProfileSheet = lazy(() => import('./components/PublicProfileSheet').then((module) => ({ default: module.PublicProfileSheet })));
 import {
@@ -699,6 +700,7 @@ export default function App() {
   const [messagesSubTab, setMessagesSubTab] = useState<'chats' | 'notifications'>('chats');
   const [isSafetyTimerOpen, setIsSafetyTimerOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isPastMeetsOpen, setIsPastMeetsOpen] = useState(false);
   const [qrTargetPeer, setQrTargetPeer] = useState<DatingProfile | null>(null);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ id: string; name: string; conversationId: string | null } | null>(null);
@@ -4172,6 +4174,7 @@ export default function App() {
               onWithdrawConsent={IS_LIVE_BACKEND ? handleWithdrawConsent : undefined}
               deletingAccount={isDeletingAccount}
               onOpenQR={() => handleOpenQRModal()}
+              onOpenPastMeets={IS_LIVE_BACKEND ? () => setIsPastMeetsOpen(true) : undefined}
               onAvatarUpdated={handleOwnAvatarUpdated}
               onOpenSafeHavens={() => setActiveTab('safe_havens')}
               onOpenDiscover={() => setActiveTab('dating')}
@@ -4751,6 +4754,10 @@ export default function App() {
         userNeighborhood={currentUser.neighborhood}
         activeIntentMode={intentThemeMode(activeUserIntent)}
       />
+
+      <Suspense fallback={null}>
+        <PastMeetsSheet isOpen={isPastMeetsOpen} onClose={() => setIsPastMeetsOpen(false)} onOpenPeer={(id, name) => { setIsPastMeetsOpen(false); setViewingPublicProfile({ userId: id, fallbackName: name } as typeof viewingPublicProfile); }} />
+      </Suspense>
 
       {/* Swarm QR Code Generator & Peer Key Exchange Modal */}
       <Suspense fallback={null}>
