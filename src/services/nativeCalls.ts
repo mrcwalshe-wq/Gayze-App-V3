@@ -22,24 +22,28 @@ const toCall = (e: CallEvent): Partial<IncomingCall> & { callId: string } => ({
   callId: e.callId, callerName: e.callerName, callType: e.callType, conversationId: e.conversationId, callerId: e.callerId,
 });
 
-async function saveToken(token: string, environment: 'sandbox' | 'production'): Promise<void> {
+let lastToken: string | null = null;
+
+async function saveToken(token: string, environment: 'sandbox' | 'production', deviceId?: string): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase.rpc('register_voip_token', { p_token: token, p_environment: environment });
+  lastToken = token;
+  const { error } = await supabase.rpc('register_voip_token', { p_token: token, p_environment: environment, p_device: deviceId || null });
   if (error) console.warn('[GAYZE] Could not save the call token:', error.message);
 }
 
 /** Starts listening. Returns a function that stops listening. */
-export async function startNativeCalls(handlers: NativeCallHandlers): Promise<() => void> {
+export async function startNativeCalls(handlers: NativeCallHandlers, userId?: string): Promise<() => void> {
   if (!isIos()) return () => undefined;
   try {
     const { GayzeCallKit } = await import('gayze-callkit');
+    if (userId) await GayzeCallKit.setUser({ userId });
     const subs = await Promise.all([
-      GayzeCallKit.addListener('voipToken', (e) => { void saveToken(e.token, e.environment); }),
+      GayzeCallKit.addListener('voipToken', (e) => { void saveToken(e.token, e.environment, e.deviceId); }),
       GayzeCallKit.addListener('callAnswered', (e) => handlers.onAnswered(toCall(e))),
       GayzeCallKit.addListener('callDeclined', (e) => handlers.onDeclined(toCall(e))),
     ]);
     const current = await GayzeCallKit.register();
-    if (current.token && current.environment) void saveToken(current.token, current.environment);
+    if (current.token && current.environment) void saveToken(current.token, current.environment, current.deviceId);
     return () => { subs.forEach((s) => { void s.remove(); }); };
   } catch (error) {
     console.warn('[GAYZE] Phone-call support is unavailable:', error);
@@ -51,4 +55,17 @@ export async function startNativeCalls(handlers: NativeCallHandlers): Promise<()
 export async function endNativeCalls(): Promise<void> {
   if (!isIos()) return;
   try { const { GayzeCallKit } = await import('gayze-callkit'); await GayzeCallKit.endAll(); } catch { /* nothing to end */ }
+}
+
+/** Signing out: stop this phone ringing for the account, and forget who is signed in. Bounded; never throws. */
+export async function releaseNativeCallToken(): Promise<void> {
+  if (!isIos()) return;
+  const work = (async () => {
+    try {
+      if (supabase && lastToken) await supabase.rpc('unregister_voip_token', { p_token: lastToken });
+      const { GayzeCallKit } = await import('gayze-callkit');
+      await GayzeCallKit.setUser({ userId: '' });
+    } catch { /* nothing to release */ }
+  })();
+  await Promise.race([work, new Promise<void>((resolve) => { window.setTimeout(resolve, 1500); })]);
 }

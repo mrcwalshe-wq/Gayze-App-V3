@@ -3,6 +3,7 @@ import Capacitor
 import PushKit
 import CallKit
 import AVFoundation
+import UIKit
 
 /// Shows an incoming GAYZE call as a real iPhone call: full screen on the lock screen, system ringtone,
 /// Answer / Decline. iOS wakes the app with a VoIP push (PushKit); the app MUST report the call to CallKit
@@ -13,6 +14,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     public let jsName = "GayzeCallKit"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setUser", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endCall", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endAll", returnType: CAPPluginReturnPromise)
     ]
@@ -34,6 +36,11 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     private let controller = CXCallController()
     private var calls: [UUID: Ringing] = [:]
     private var token: String?
+
+    /// Who is signed in on this phone. Kept on the device so a call push that arrives while the app is closed
+    /// can still tell that the phone belongs to the caller (never ring the person who is calling).
+    private static let userKey = "gayze.currentUserId"
+    private var deviceId: String { UIDevice.current.identifierForVendor?.uuidString.lowercased() ?? "" }
 
     #if DEBUG
     private let environment = "sandbox"
@@ -61,7 +68,15 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     @objc func register(_ call: CAPPluginCall) {
         var out: [String: Any] = [:]
         if let token = token { out["token"] = token; out["environment"] = environment }
+        out["deviceId"] = deviceId
         call.resolve(out)
+    }
+
+    @objc func setUser(_ call: CAPPluginCall) {
+        let id = (call.getString("userId") ?? "").lowercased()
+        if id.isEmpty { UserDefaults.standard.removeObject(forKey: Self.userKey) }
+        else { UserDefaults.standard.set(id, forKey: Self.userKey) }
+        call.resolve()
     }
 
     @objc func endCall(_ call: CAPPluginCall) {
@@ -80,7 +95,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         guard type == .voIP else { return }
         let hex = pushCredentials.token.map { String(format: "%02x", $0) }.joined()
         token = hex
-        notifyListeners("voipToken", data: ["token": hex, "environment": environment], retainUntilConsumed: true)
+        notifyListeners("voipToken", data: ["token": hex, "environment": environment, "deviceId": deviceId], retainUntilConsumed: true)
     }
 
     public func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
@@ -94,6 +109,9 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         let callType = (d["callType"] as? String) == "audio" ? "audio" : "video"
         let startedAt = (d["startedAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
         let stale = startedAt.map { Date().timeIntervalSince($0) > Self.staleSeconds } ?? false
+        // This phone is the caller's: iOS still needs the push reported, but it must not ring.
+        let mine = UserDefaults.standard.string(forKey: Self.userKey)
+        let ownCall = (mine != nil) && ((d["callerId"] as? String)?.lowercased() == mine)
 
         var uuid = (d["callId"] as? String).flatMap(UUID.init(uuidString:)) ?? UUID()
         let duplicate = calls[uuid] != nil
@@ -114,8 +132,8 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         provider?.reportNewIncomingCall(with: id, update: update) { [weak self] error in
             DispatchQueue.main.async {
                 guard let self = self else { completion(); return }
-                if error != nil || duplicate || stale {
-                    self.finish(id, reason: error != nil ? .failed : .unanswered)
+                if error != nil || duplicate || stale || ownCall {
+                    self.finish(id, reason: error != nil ? .failed : (ownCall ? .remoteEnded : .unanswered))
                 } else {
                     let item = DispatchWorkItem { [weak self] in
                         guard let self = self, let c = self.calls[id], !c.answered else { return }

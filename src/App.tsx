@@ -29,7 +29,7 @@ import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall } from './services/callSessions';
-import { startNativeCalls, endNativeCalls } from './services/nativeCalls';
+import { startNativeCalls, endNativeCalls, releaseNativeCallToken } from './services/nativeCalls';
 import { InterestDiscover } from './components/InterestDiscover';
 import { mergeOnlineIds } from './services/presenceLabel';
 import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
@@ -2789,6 +2789,7 @@ export default function App() {
     // Invalidate every in-flight auth/bootstrap operation immediately.
     // The UI must never wait for a network round-trip to show the signed-out state.
     authGenerationRef.current += 1;
+    await releaseNativeCallToken();
     clearChatAccount();
     locationWatchStopRef.current?.();
     locationWatchStopRef.current = null;
@@ -3393,7 +3394,7 @@ export default function App() {
     void startNativeCalls({
       onAnswered: (c) => nativeCallActionRef.current('answer', c),
       onDeclined: (c) => nativeCallActionRef.current('decline', c),
-    }).then((fn) => { if (cancelled) fn(); else stop = fn; });
+    }, supabaseUserId).then((fn) => { if (cancelled) fn(); else stop = fn; });
     return () => { cancelled = true; stop(); };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
   // When the call is over (or answered/declined inside the app), take the system call screen down.
