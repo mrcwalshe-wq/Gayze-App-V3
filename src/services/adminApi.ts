@@ -91,3 +91,21 @@ export interface Insights {
 export type AudienceScope = 'all' | 'active' | 'inactive' | 'intent' | 'push' | 'user';
 export interface Audience { scope: AudienceScope; days?: number; intent?: string; user?: string }
 export interface BroadcastRow { id: string; title: string; body: string; url: string; audience: Audience; recipient_count: number; created_at: string; read_count: number; pushed_count: number }
+
+/** Investor-grade management information: aggregate counts only, straight from the database. Anything not measured is null or absent. */
+export interface Frac { kept: number | null; eligible: number | null }
+export interface InvestorMI {
+  generatedAt: string; weeks: number; timezone: string;
+  dataQuality: { measuredFrom: string | null; measuredDays: number; inferredBefore: string; members: number };
+  benchmarks: { source: string; stickiness: Record<'ok' | 'good' | 'great', number>; d1: Record<'ok' | 'good' | 'great', number>; d7: Record<'ok' | 'good' | 'great', number>; d30: Record<'ok' | 'good' | 'great', number>; typicalApp: { d1: number; d7: number; d30: number; source: string } };
+  headline: { members: number; new7d: number; newPrev7d: number; new30d: number; dauToday: number; dauAvg7d: number | null; wau: number; mau: number; stickinessDauMau: number | null; stickinessWauMau: number | null };
+  dau30: { day: string; n: number }[];
+  weekly: { week: string; new: number; active: number; retained: number; resurrected: number; churned: number; quickRatio: number | null; partial: boolean }[];
+  cohorts: { week: string; size: number; d1: Frac; d7: Frac; d30: Frac }[];
+  retentionAll: { d1: Frac; d7: Frac; d30: Frac };
+  activation: { steps: { step: string; n: number }[]; medianHoursToFirstIntent: number | null; medianHoursToFirstMessage: number | null };
+  marketplace: Record<'liveIntentsNow' | 'activeToday' | 'membersWithIntentLast7d' | 'interestsSent30d' | 'interestsMutual30d' | 'gazesSent30d' | 'conversationsStarted30d' | 'conversationsReplied24h30d' | 'messages30d', number>;
+  adoption: Record<'intentsCreated30d' | 'callsStarted30d' | 'callsAnswered30d' | 'callUsers30d' | 'gatheringsCreated30d' | 'gatheringRsvps30d' | 'safetyCheckins30d' | 'albumsCreated' | 'albumShares30d' | 'pushEnabledMembers', number>;
+  safety: Record<'reports30d' | 'openReports' | 'blocks' | 'suspended', number>;
+  revenue: { status: 'not_monetised'; note: string };
+}
