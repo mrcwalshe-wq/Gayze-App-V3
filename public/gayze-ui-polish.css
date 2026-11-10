@@ -150,11 +150,11 @@ select {
 }
 
 .g-label {
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.105em !important;
-  text-transform: uppercase !important;
-  color: rgba(255,255,255,0.46) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: rgba(255,255,255,0.6) !important;
 }
 
 /* --------------------------------------------------------------------------
