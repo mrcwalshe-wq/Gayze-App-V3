@@ -577,9 +577,12 @@ export class WebRTCCallService {
       if (generation !== this.callGeneration) return;
       // Answered from the lock screen, this phone can still be waking up: the caller's first offer may go out before it listens. Say
       // "I'm here" again while no offer has arrived; the caller answers every accept with the offer.
-      [3000, 7000, 12000, 20000].forEach((delay) => window.setTimeout(() => {
+      [3000, 7000, 12000, 20000].forEach((delay, attempt) => window.setTimeout(() => {
         if (generation !== this.callGeneration || this.state === 'connected') return;
         if (this.pc && this.pc.remoteDescription) return;
+        // A phone that was asleep when it answered can believe its call channel is joined while the server no longer has it, so the
+        // caller's offers go nowhere. Joining again (it re-announces the accept by itself) is what fixes that.
+        if (attempt === 1 || attempt === 3) { callLog('no offer yet: joining the call channel again'); this.callRecovery?.refresh(); return; }
         callLog('no offer yet: telling the caller again that the call was answered');
         void this.broadcastSignal({ type: 'call-accept', conversationId: params.conversationId, callerId: params.userId, targetUserId: params.callerId, callType: params.callType, timestamp: Date.now() }).catch(() => undefined);
       }, delay));
