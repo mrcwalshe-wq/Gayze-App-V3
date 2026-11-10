@@ -1,6 +1,6 @@
 import { webrtcCallService } from './webrtcService';
 import { enqueueCallNotification } from './callNotificationService';
-import { endCallSession, startCallSession } from './callSessions';
+import { endCallSession, getCallStatus, startCallSession } from './callSessions';
 
 import { unlockCallSounds } from './callSounds';
 
@@ -44,6 +44,17 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
     const state = webrtcCallService.getState();
     if (state !== 'calling' && state !== 'ringing') void endCallSession(callId, 'ended');
     if (state === 'calling' || state === 'ringing') {
+      // If the other person declines (or hangs up on the ring) and the live decline signal never arrives, the server still knows.
+      const watch = window.setInterval(async () => {
+        const now = webrtcCallService.getState();
+        if (now !== 'calling' && now !== 'ringing') { window.clearInterval(watch); return; }
+        if (webrtcCallService.currentCallId() !== callId) { window.clearInterval(watch); return; }
+        if ((await getCallStatus(callId)) === 'ended') {
+          window.clearInterval(watch);
+          const again = webrtcCallService.getState();
+          if ((again === 'calling' || again === 'ringing') && webrtcCallService.currentCallId() === callId) webrtcCallService.remoteEnded('declined');
+        }
+      }, 2000);
       await enqueueCallNotification({
         conversationId: params.conversationId,
         targetUserId: params.targetUserId,
