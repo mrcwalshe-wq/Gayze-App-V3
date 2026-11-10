@@ -26,3 +26,6 @@
 /* 5. Map header: the existing top fade now reaches below the activity chips, so they read on any map. */
 .g-map-edge--top { height: 176px; background: linear-gradient(180deg, rgba(8, 9, 13, .92), rgba(8, 9, 13, .6) 50%, transparent); }
 .g-discover-head__title { text-shadow: none; }
+
+/* Chat "…" menu: solid, so messages behind it never show through the menu text. */
+.g-panel.g-gayze-menu-frame.absolute { background: #14111f !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
