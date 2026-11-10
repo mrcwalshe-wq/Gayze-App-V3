@@ -42,6 +42,17 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     private var calls: [UUID: Ringing] = [:]
     private var token: String?
     private var routePicker: AVRoutePickerView?
+    /// Asks iOS to keep the app running while a call is ringing or on, so answering from the lock screen is not followed by being suspended.
+    private var keepAlive: UIBackgroundTaskIdentifier = .invalid
+    private func beginKeepAlive() {
+        guard keepAlive == .invalid else { return }
+        keepAlive = UIApplication.shared.beginBackgroundTask(withName: "gayze-call") { [weak self] in self?.endKeepAlive() }
+    }
+    private func endKeepAlive() {
+        guard keepAlive != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(keepAlive)
+        keepAlive = .invalid
+    }
     /// Calls the app answered itself (from its own answer button): the system call screen is answered to match, without telling the app again.
     private var answeredByApp = Set<UUID>()
 
@@ -206,6 +217,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         update.supportsUngrouping = false
         update.supportsDTMF = false
 
+        beginKeepAlive()
         calls[uuid] = Ringing(callerName: name, callType: callType,
                               conversationId: d["conversationId"] as? String, callerId: d["callerId"] as? String)
         let id = uuid
@@ -233,6 +245,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         guard let c = calls[uuid] else { return }
         c.timeout?.cancel()
         calls[uuid] = nil
+        if calls.isEmpty { endKeepAlive() }
         provider?.reportCall(with: uuid, endedAt: Date(), reason: reason)
     }
 
@@ -265,6 +278,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         if let c = calls[action.callUUID] {
             c.timeout?.cancel()
             calls[action.callUUID] = nil
+            if calls.isEmpty { endKeepAlive() }
             event(c.answered ? "callEnded" : "callDeclined", action.callUUID, c)
         }
         action.fulfill()

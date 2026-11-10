@@ -3452,7 +3452,14 @@ export default function App() {
     return () => { cancelled = true; stop(); };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
   // When the call is over (or answered/declined inside the app), take the system call screen down.
-  useEffect(() => { if (!isCallModalOpen && !incomingCall) void endNativeCalls(); }, [isCallModalOpen, incomingCall]);
+  // Only when a call that was on screen has finished. (Doing this on start-up ended the ringing iOS call screen the moment the app
+  // woke for it, so the full-screen call dropped.)
+  const callWasActiveRef = useRef(false);
+  useEffect(() => {
+    const active = isCallModalOpen || Boolean(incomingCall);
+    if (callWasActiveRef.current && !active) void endNativeCalls();
+    callWasActiveRef.current = active;
+  }, [isCallModalOpen, incomingCall]);
 
   const sendGayzeTo = async (peerName: string, peerId?: string, intentId?: string): Promise<GayzeOutcome> => {
     triggerVibration([40, 70]);
