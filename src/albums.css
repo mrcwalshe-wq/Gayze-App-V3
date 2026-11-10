@@ -1,0 +1,46 @@
+/* Private albums: manager sheet, chat card, picker and viewer. Plain surfaces, one violet accent. */
+.g-alb__lead { margin-top: 0; }
+.g-alb__new { display: flex; gap: 8px; margin: 12px 0; }
+.g-alb__new input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .06); color: #fff; font: inherit; font-size: 15px; }
+.g-alb__new input:focus-visible { outline: 2px solid rgba(168, 121, 241, .8); outline-offset: 1px; }
+.g-alb__btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 650; color: #fff; background: linear-gradient(135deg, #6f3cc3, #b24fd8 80%); cursor: pointer; }
+.g-alb__btn:disabled { opacity: .45; cursor: default; }
+.g-alb__btn--quiet { background: rgba(255, 255, 255, .08); }
+.g-alb__btn--danger { width: 100%; margin-top: 16px; background: rgba(214, 80, 90, .16); color: #ff9aa2; }
+.g-alb__list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.g-alb__row { width: 100%; display: flex; align-items: center; text-align: left; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .05); color: #fff; cursor: pointer; }
+.g-alb__row[aria-checked='true'] { border-color: rgba(168, 121, 241, .8); background: rgba(123, 69, 214, .22); }
+.g-alb__row b, .g-alb__share b { display: block; font-size: 15px; }
+.g-alb__row small, .g-alb__share small { display: block; margin-top: 2px; font-size: 12.5px; color: rgba(255, 255, 255, .6); }
+.g-alb__empty { padding: 14px 4px; color: rgba(255, 255, 255, .6); font-size: 14px; }
+.g-alb__share { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
+.g-alb__back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 6px 2px; background: none; border: 0; color: #c9b0f5; font-size: 14px; font-weight: 600; cursor: pointer; }
+.g-alb__h { margin: 18px 0 6px; font-size: 14px; font-weight: 700; color: rgba(255, 255, 255, .85); }
+.g-alb__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.g-alb__tile { position: relative; margin: 0; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, .06); }
+.g-alb__tile img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-touch-callout: none; user-select: none; }
+.g-alb__tile button { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 0; color: #fff; background: rgba(0, 0, 0, .65); cursor: pointer; }
+.g-alb__ph { display: grid; place-items: center; width: 100%; height: 100%; color: rgba(255, 255, 255, .5); }
+.g-alb__add { aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 4px; border-radius: 10px; border: 1px dashed rgba(255, 255, 255, .22); color: rgba(255, 255, 255, .75); font-size: 13px; cursor: pointer; text-align: center; }
+.g-alb__dur { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.g-alb__dur button { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 0; font-size: 13.5px; font-weight: 600; color: rgba(255, 255, 255, .75); background: rgba(255, 255, 255, .07); cursor: pointer; }
+.g-alb__dur button[aria-checked='true'] { color: #fff; background: #7b45d6; }
+
+.g-albcard { display: flex; align-items: center; gap: 10px; width: min(100%, 300px); padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(168, 121, 241, .35); }
+.g-albcard.is-over { opacity: .6; border-color: rgba(255, 255, 255, .1); }
+.g-albcard__ico { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #d9c6f7; background: rgba(123, 69, 214, .28); }
+.g-albcard__body { flex: 1; min-width: 0; }
+.g-albcard__body b { display: block; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-albcard__body small { display: block; margin-top: 2px; font-size: 12px; color: rgba(255, 255, 255, .65); }
+
+.g-albview { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: #050409; color: #fff; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; padding-top: env(safe-area-inset-top, 0px); }
+.g-albview header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; font-size: 14.5px; font-weight: 650; }
+.g-albview header button, .g-albview footer button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 0; color: #fff; background: rgba(255, 255, 255, .1); cursor: pointer; }
+.g-albview footer button:disabled { opacity: .3; }
+.g-albview__stage { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; padding: 0 12px; text-align: center; }
+.g-albview__stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; pointer-events: none; -webkit-touch-callout: none; }
+.g-albview__stage.is-hidden img { filter: blur(40px); opacity: 0; }
+.g-albview__stage p { max-width: 28ch; color: rgba(255, 255, 255, .75); line-height: 1.5; }
+.g-albview__shield { position: absolute; }
+.g-albview footer { display: flex; justify-content: center; gap: 24px; padding: 10px; }
+.g-albview__note { margin: 0; padding: 6px 16px calc(14px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 12px; color: rgba(255, 255, 255, .5); }

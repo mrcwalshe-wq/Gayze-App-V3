@@ -17,6 +17,7 @@ import './chat-calm.css';
 import './discover-dock.css';
 import './chat-premium.css';
 import './polish-final.css';
+import './albums.css';
 
 installChunkReload();
 

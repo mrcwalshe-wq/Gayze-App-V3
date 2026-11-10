@@ -4,6 +4,7 @@ import {
   Shield,
   Eye,
   EyeOff,
+  Images,
   QrCode,
   KeyRound,
   ChevronRight,
@@ -41,6 +42,7 @@ import {
 import { usePushStatus } from '../hooks/usePushStatus';
 import { NotificationsCard } from './NotificationsCard';
 import { loadBlockedUsers, unblockUser, type BlockedUser } from '../services/blockService';
+import { AlbumsSheet } from './AlbumsSheet';
 
 interface ProfileViewProps {
   currentUser: UserProfile;
@@ -116,6 +118,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   deletingAccount = false,
 }) => {
   const [now, setNow] = useState(Date.now());
+  const [albumsOpen, setAlbumsOpen] = useState(false);
   const [photos, setPhotos] = useState<ProfilePhoto[]>([]);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
@@ -321,6 +324,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     },
     { key: 'havens', icon: <ShieldCheck className="w-4 h-4" />, label: 'Safe Havens', onClick: onOpenSafeHavens, tone: 'emerald' },
     { key: 'qr', icon: <QrCode className="w-4 h-4" />, label: 'QR verification', meta: `${currentUser.verifiedPeersCount} verified`, onClick: onOpenQR, tone: 'amber' },
+    { key: 'albums', icon: <Images className="w-4 h-4" />, label: 'Private albums', meta: 'Send, unsend or time-limit photos', onClick: () => setAlbumsOpen(true), tone: 'purple' as const },
     { key: 'mask', icon: <EyeOff className="w-4 h-4" />, label: 'Discreet mask', meta: 'Hold bottom-right to return', onClick: onOpenMask },
     ...(onOpenPrivacy ? [{ key: 'privacy', icon: <Eye className="w-4 h-4" />, label: 'Privacy & visibility', meta: 'Online status, who can message you', onClick: onOpenPrivacy, tone: 'purple' as const }] : []),
     { key: 'identity', icon: <KeyRound className="w-4 h-4" />, label: 'Identity & devices', meta: privacyLabel[currentUser.privacySetting] || currentUser.privacySetting, onClick: onOpenIdentity },
@@ -971,6 +975,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </div>
       )}
+      {albumsOpen && <AlbumsSheet onClose={() => setAlbumsOpen(false)} />}
     </div>
   );
 };
