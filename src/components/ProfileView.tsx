@@ -321,7 +321,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     },
     { key: 'havens', icon: <ShieldCheck className="w-4 h-4" />, label: 'Safe Havens', onClick: onOpenSafeHavens, tone: 'emerald' },
     { key: 'qr', icon: <QrCode className="w-4 h-4" />, label: 'QR verification', meta: `${currentUser.verifiedPeersCount} verified`, onClick: onOpenQR, tone: 'amber' },
-    { key: 'mask', icon: <EyeOff className="w-4 h-4" />, label: 'Discreet mask', meta: 'Instant camouflage', onClick: onOpenMask },
+    { key: 'mask', icon: <EyeOff className="w-4 h-4" />, label: 'Discreet mask', meta: 'Hold bottom-right to return', onClick: onOpenMask },
     ...(onOpenPrivacy ? [{ key: 'privacy', icon: <Eye className="w-4 h-4" />, label: 'Privacy & visibility', meta: 'Online status, who can message you', onClick: onOpenPrivacy, tone: 'purple' as const }] : []),
     { key: 'identity', icon: <KeyRound className="w-4 h-4" />, label: 'Identity & devices', meta: privacyLabel[currentUser.privacySetting] || currentUser.privacySetting, onClick: onOpenIdentity },
   ];
