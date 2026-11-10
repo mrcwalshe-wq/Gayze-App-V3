@@ -29,8 +29,8 @@ const Avatar: React.FC<{ name: string; path?: string }> = ({ name, path }) => {
 };
 
 const levelHint = (rel: Reliability) => rel.level === 'new'
-  ? `Meet ${Math.max(1, 3 - rel.people)} more ${3 - rel.people === 1 ? 'person' : 'people'} in real life and confirm with a scan to earn a score.`
-  : `${rel.verifiedMeets} confirmed ${rel.verifiedMeets === 1 ? 'meet' : 'meets'} with ${rel.people} ${rel.people === 1 ? 'person' : 'people'}.`;
+  ? `${Math.min(rel.counted, 3)} of 3 counted so far. Meet people in real life and confirm with a scan to earn a score.`
+  : `${rel.score}% of your last ${rel.counted} counted meetups were confirmed in person${rel.cancelledEnRoute ? `, ${rel.cancelledEnRoute} cancelled after setting off` : ''}. Safety cancellations never count against you.`;
 
 /** Past Meets: show your code, scan someone else's, and see who you have really met. A scan proves two signed-in people met. */
 export const PastMeetsSheet: React.FC<{ isOpen: boolean; onClose: () => void; onOpenPeer?: (id: string, name: string) => void }> = ({ isOpen, onClose, onOpenPeer }) => {
@@ -116,7 +116,7 @@ export const PastMeetsSheet: React.FC<{ isOpen: boolean; onClose: () => void; on
         </header>
 
         <div className="pm__score">
-          <Ring rel={mine ?? { verifiedMeets: 0, people: 0, score: null, level: 'new' }} />
+          <Ring rel={mine ?? { verifiedMeets: 0, people: 0, counted: 0, cancelledEnRoute: 0, score: null, level: 'new' }} />
           <div>
             <strong>{mine ? LEVEL_LABEL[mine.level] : 'Reliability'}</strong>
             <p>{mine ? levelHint(mine) : 'Loading…'}</p>

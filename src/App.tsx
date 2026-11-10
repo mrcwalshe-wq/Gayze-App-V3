@@ -41,6 +41,8 @@ import { JourneyBar } from './components/JourneyBar';
 import { useJourney } from './services/useJourney';
 import { FullScreenCallModal, FullScreenAudioCallModal } from './components/FullScreenCallModal';
 import { IncomingCallModal } from './components/IncomingCallModal';
+import { CancelEnRouteSheet } from './components/CancelEnRouteSheet';
+import { reportMeetCancel } from './services/pastMeetsService';
 import { ProfilePeekProvider, type PeekFallback } from './components/ProfilePeek';
 import { initEnhancedPresence, formatLastSeen, type UserPresence } from './services/presenceService';
 import { loadCallHistory, getUnreadCallCount, markCallRecordsAsRead, markCallAsMissed } from './services/callHistoryService';
@@ -739,6 +741,8 @@ export default function App() {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [serverPresenceById, setServerPresenceById] = useState<Map<string, ServerPresence>>(new Map());
   const [journeySheet, setJourneySheet] = useState<{ roomId: string; peerName: string } | null>(null);
+  // Cancelling a meetup after setting off asks why first: a safety reason never counts against the person's reliability.
+  const [cancelEnRoute, setCancelEnRoute] = useState<{ meeting: MeetingProposal; roomId: string; peerName: string; peerId?: string } | null>(null);
   const { journey, live: journeyLive, start: startJourney, stop: stopJourney, setShare: setJourneyShare } = useJourney(
     (roomId, text) => handleSendMessageRef.current(roomId, text, rooms.find((r) => r.id === roomId)?.ephemeralTtlSeconds),
   );
@@ -3235,6 +3239,16 @@ export default function App() {
     await handleSendMessage(roomId, meetingEventText(event, meeting.venueName, meeting.timeStr), room?.ephemeralTtlSeconds, meeting);
   };
 
+  const finishCancelEnRoute = async (reason: 'safety' | 'changed_plans') => {
+    const c = cancelEnRoute;
+    if (!c) return;
+    setCancelEnRoute(null);
+    stopJourney();
+    try { await sendMeetingEvent(c.roomId, 'cancelled', c.meeting); showToast('Meetup cancelled'); }
+    catch { showToast('The cancellation was not confirmed. Please try again.'); }
+    if (c.peerId) void reportMeetCancel(c.peerId, c.meeting.id, reason);
+  };
+
   const handleMeetingAction = async (action: 'accept' | 'decline' | 'cancel' | 'amend' | 'setoff' | 'compass' | 'resetjourney', meeting: MeetingProposal) => {
     const roomId = activeRoomId;
     const room = rooms.find((r) => r.id === roomId);
@@ -3254,11 +3268,14 @@ export default function App() {
       case 'decline':
         try { await sendMeetingEvent(roomId, 'declined', meeting); } catch { showToast('That was not confirmed. Please try again.'); }
         break;
-      case 'cancel':
-        if (journey?.roomId === roomId && journey.meetingId === meeting.id) stopJourney();
+      case 'cancel': {
+        const enRoute = journey?.roomId === roomId && journey.meetingId === meeting.id;
+        if (enRoute && room?.peerUserId && IS_LIVE_BACKEND) { setCancelEnRoute({ meeting, roomId, peerName, peerId: room.peerUserId }); break; }   // asks why first, then cancels
+        if (enRoute) stopJourney();
         try { await sendMeetingEvent(roomId, 'cancelled', meeting); showToast('Meetup cancelled'); }
         catch { showToast('The cancellation was not confirmed. Please try again.'); }
         break;
+      }
       case 'amend':
         setScheduleMeetingPeerName(peerName);
         setAmendingMeeting({ id: meeting.id, venueName: meeting.venueName, timeStr: meeting.timeStr });
@@ -4497,6 +4514,7 @@ export default function App() {
       )}
 
       {/* "I'm on my way": destination sheet and the live guide at the top of the screen */}
+      <CancelEnRouteSheet isOpen={Boolean(cancelEnRoute)} peerName={cancelEnRoute?.peerName ?? ''} venueName={cancelEnRoute?.meeting.venueName ?? ''} onChoose={(reason) => void finishCancelEnRoute(reason)} onKeepGoing={() => setCancelEnRoute(null)} />
       <JourneySheet
         isOpen={Boolean(journeySheet)}
         onClose={() => setJourneySheet(null)}
