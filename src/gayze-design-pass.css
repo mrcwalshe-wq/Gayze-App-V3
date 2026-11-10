@@ -1887,9 +1887,9 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 @media (prefers-reduced-motion: reduce) { .pk-stat { animation: none; } .pk-ring { transition: none; } }
 
 .pk-stats { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(66px, 1fr)); }
-.pk-stat b { white-space: nowrap; }
+.pk-stat b { white-space: nowrap; font-family: inherit; font-variant-numeric: tabular-nums; }
 .pk-stat--plain b { font-size: 16px; }
-.pk-stat small { font-size: 9px; letter-spacing: .08em; white-space: nowrap; }
+.pk-stat small { font-size: 12px; letter-spacing: 0; white-space: nowrap; }
 
 .g-peek__intent em { margin-left: auto; font-style: normal; font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px; color: #d5b8ff; }
 
