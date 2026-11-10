@@ -1346,8 +1346,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 />
                 <div className="text-[11px] pr-2">
                   <span className="text-zinc-200 font-semibold block">Photo attached</span>
-                  <span className="text-emerald-400/90 text-[10.5px]">Encrypted on send</span>
-                  <button type="button" onClick={() => setPhotoStudioSource(attachedMedia)} className="text-[#C9A24D] text-[10px] mt-1">Edit in Photo Studio</button>
+                  <span className="text-emerald-400/90 text-[11.5px] block">Encrypted on send</span>
+                  <button type="button" onClick={() => setPhotoStudioSource(attachedMedia)} className="block text-[#C9A24D] text-[12px] mt-1">Edit in Photo Studio</button>
                 </div>
                 <button
                   type="button"
