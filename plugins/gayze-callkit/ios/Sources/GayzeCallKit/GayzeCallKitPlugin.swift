@@ -16,6 +16,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setUser", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "answerCall", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "configureAudio", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAudioRoute", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showRoutePicker", returnType: CAPPluginReturnPromise),
@@ -41,6 +42,8 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     private var calls: [UUID: Ringing] = [:]
     private var token: String?
     private var routePicker: AVRoutePickerView?
+    /// Calls the app answered itself (from its own answer button): the system call screen is answered to match, without telling the app again.
+    private var answeredByApp = Set<UUID>()
 
     /// Who is signed in on this phone. Kept on the device so a call push that arrives while the app is closed
     /// can still tell that the phone belongs to the caller (never ring the person who is calling).
@@ -151,6 +154,16 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         call.resolve()
     }
 
+    /// The person answered inside the app. Answer the system call screen too: it switches the call audio on, and it stops ringing.
+    @objc func answerCall(_ call: CAPPluginCall) {
+        guard let id = call.getString("callId"), let uuid = UUID(uuidString: id), let c = calls[uuid], !c.answered else { call.resolve(); return }
+        answeredByApp.insert(uuid)
+        controller.request(CXTransaction(action: CXAnswerCallAction(call: uuid))) { [weak self] error in
+            if error != nil { DispatchQueue.main.async { self?.answeredByApp.remove(uuid) } }
+            call.resolve()
+        }
+    }
+
     @objc func endAll(_ call: CAPPluginCall) {
         for uuid in Array(calls.keys) { finish(uuid, reason: .remoteEnded) }
         call.resolve()
@@ -242,7 +255,8 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
             c.answered = true
             c.timeout?.cancel()
             calls[action.callUUID] = c
-            event("callAnswered", action.callUUID, c)
+            // Answered from the app already: the app knows, do not tell it again (that would restart the call).
+            if answeredByApp.remove(action.callUUID) == nil { event("callAnswered", action.callUUID, c) }
         }
         action.fulfill()
     }

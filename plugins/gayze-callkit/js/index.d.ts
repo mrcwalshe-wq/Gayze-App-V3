@@ -13,6 +13,8 @@ export interface GayzeCallKitPlugin {
   getAudioRoute(): Promise<AudioRoute>;
   /** Opens the iOS audio output picker. */
   showRoutePicker(): Promise<void>;
+  /** The call was answered inside the app: answer the system call screen to match (switches the call audio on, stops the ringing). */
+  answerCall(options: { callId: string }): Promise<void>;
   endCall(options: { callId: string }): Promise<void>;
   endAll(): Promise<void>;
   addListener(event: 'voipToken', fn: (e: VoipTokenEvent) => void): Promise<PluginListenerHandle>;
