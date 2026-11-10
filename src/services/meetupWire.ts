@@ -1,21 +1,22 @@
-import type { CallLine, MeetingEvent, MeetingProposal, VoiceNote } from '../types';
+import type { AlbumShare, CallLine, MeetingEvent, MeetingProposal, VoiceNote } from '../types';
 
 /**
  * What goes inside the encrypted message body. Plain text stays plain text. A photo or a meetup update is JSON:
  * {"text", "mediaUrl", "meeting"}. `mediaUrl` is always present (null when empty) so app versions that predate meetups
  * still show the text and ignore the rest, instead of showing raw JSON.
  */
-export interface DecodedPayload { text: string; mediaUrl?: string; meeting?: MeetingProposal; call?: CallLine; note?: VoiceNote }
+export interface DecodedPayload { text: string; mediaUrl?: string; meeting?: MeetingProposal; call?: CallLine; note?: VoiceNote; album?: AlbumShare }
 
 const EVENT_STATUS: Record<MeetingEvent, MeetingProposal['status']> = {
   proposed: 'proposed', amended: 'proposed', accepted: 'accepted', declined: 'declined', cancelled: 'cancelled',
 };
 const EVENTS = Object.keys(EVENT_STATUS) as MeetingEvent[];
 
-export function encodePayload(text: string, mediaUrl?: string, meeting?: MeetingProposal, call?: CallLine, note?: VoiceNote): string {
-  if (!mediaUrl && !meeting && !call && !note) return text;
+export function encodePayload(text: string, mediaUrl?: string, meeting?: MeetingProposal, call?: CallLine, note?: VoiceNote, album?: AlbumShare): string {
+  if (!mediaUrl && !meeting && !call && !note && !album) return text;
   return JSON.stringify({
     text, mediaUrl: mediaUrl ?? null,
+    ...(album ? { album: { shareId: album.shareId, name: album.name, count: album.count, key: album.key, ...(album.expiresAt ? { expiresAt: album.expiresAt } : {}) } } : {}),
     ...(note ? { note: { kind: note.kind, mime: note.mime, data: note.data, seconds: note.seconds } } : {}),
     ...(call ? { call: { id: call.id, callType: call.callType, outcome: call.outcome } } : {}),
     ...(meeting ? { meeting: {
@@ -73,17 +74,36 @@ export function noteLineText(note: VoiceNote): string {
   return note.kind === 'video' ? 'Video note' : 'Voice message';
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A peer's album reference is untrusted input: a real id, a short name, a sane count, and a key of exactly the right shape. */
+export function sanitizeAlbum(raw: unknown): AlbumShare | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const a = raw as Record<string, unknown>;
+  const shareId = typeof a.shareId === 'string' ? a.shareId.toLowerCase() : '';
+  const key = typeof a.key === 'string' ? a.key : '';
+  if (!UUID.test(shareId) || !/^[A-Za-z0-9_-]{43}$/.test(key)) return undefined;
+  const name = str(a.name, 60) || 'Private album';
+  const count = typeof a.count === 'number' && Number.isFinite(a.count) ? Math.max(1, Math.min(30, Math.round(a.count))) : 1;
+  const expiresAt = typeof a.expiresAt === 'number' && Number.isFinite(a.expiresAt) && a.expiresAt > 0 ? a.expiresAt : undefined;
+  return { shareId, name, count, key, ...(expiresAt ? { expiresAt } : {}) };
+}
+
+/** The line older app versions show for a shared album. */
+export function albumLineText(album: AlbumShare): string {
+  return `Private album: ${album.name} (${album.count} ${album.count === 1 ? 'photo' : 'photos'})`;
+}
+
 /** The line older app versions show for an unanswered call. */
 export function callLineText(call: CallLine): string {
   return `Unanswered ${call.callType} call`;
 }
 
 export function decodePayload(decrypted: string, at: number): DecodedPayload {
-  if (decrypted.startsWith('{"') && (decrypted.includes('"mediaUrl"') || decrypted.includes('"meeting"') || decrypted.includes('"call"') || decrypted.includes('"note"'))) {
+  if (decrypted.startsWith('{"') && (decrypted.includes('"mediaUrl"') || decrypted.includes('"meeting"') || decrypted.includes('"call"') || decrypted.includes('"note"') || decrypted.includes('"album"'))) {
     try {
       const parsed = JSON.parse(decrypted);
       if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
-        return { text: parsed.text, mediaUrl: typeof parsed.mediaUrl === 'string' && parsed.mediaUrl ? parsed.mediaUrl : undefined, meeting: sanitizeMeeting(parsed.meeting, at), call: sanitizeCall(parsed.call), note: sanitizeNote(parsed.note) };
+        return { text: parsed.text, mediaUrl: typeof parsed.mediaUrl === 'string' && parsed.mediaUrl ? parsed.mediaUrl : undefined, meeting: sanitizeMeeting(parsed.meeting, at), call: sanitizeCall(parsed.call), note: sanitizeNote(parsed.note), album: sanitizeAlbum(parsed.album) };
       }
     } catch { /* not ours: show as text */ }
   }

@@ -143,6 +143,9 @@ export interface MeetingProposal {
   lng?: number;
 }
 
+/** A private album carried by a chat message. `key` opens its encrypted photos; whether anyone may still fetch them is decided on the server. */
+export interface AlbumShare { shareId: string; name: string; count: number; key: string; expiresAt?: number }
+
 /** The call that went unanswered. The sender sees "Unanswered", the person who was called sees "Missed". */
 export interface CallLine { id: string; callType: 'audio' | 'video'; outcome: 'unanswered' | 'declined' }
 
@@ -168,6 +171,8 @@ export interface EncryptedMessage {
   callData?: CallLine;
   /** A voice message or video note. */
   noteData?: VoiceNote;
+  /** A private album the sender shared into this chat. */
+  albumData?: AlbumShare;
   mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'audio';
   scheduledFor?: number;

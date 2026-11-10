@@ -3,6 +3,8 @@ import { SharePlaceSheet } from './SharePlaceSheet';
 import { MeetupCard, type MeetupAction } from './MeetupCard';
 import { CallLineCard } from './CallLineCard';
 import { NoteRecorder } from './NoteRecorder';
+import { AlbumCard, AlbumPickerSheet } from './AlbumShareUI';
+import { createShare, linkShareMessage, revokeShare } from '../services/albumService';
 import { presenceLabel } from '../services/presenceLabel';
 import { compressImageDataUrl } from '../services/imageCompress';
 import { latestMeetups } from '../services/meetupState';
@@ -14,7 +16,7 @@ import { GroupMembersSheet, formatEventWhen, type GroupMember, type GroupEventIn
 import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace';
 import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode, VoiceNote } from '../types';
+import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode, VoiceNote, AlbumShare } from '../types';
 import { loadOutbox } from '../services/outbox';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction, hapticMessageSent } from '../services/hapticService';
 import { playAppSound, FRESH_MESSAGE_MS } from '../services/appSounds';
@@ -50,6 +52,7 @@ import {
   MapPin,
   Coffee,
   Image as ImageIcon,
+  Images,
   MoreHorizontal,
   Trash2,
   Ban,
@@ -57,6 +60,7 @@ import {
   Navigation,
 } from 'lucide-react';
 import { preparePhotoAttachment } from '../services/supabaseService';
+import { supabase } from '../services/supabaseClient';
 import { getProfilePhotoUrl } from '../services/profilePhotoService';
 import { PhotoStudio } from './PhotoStudio';
 import { buildChatTimeline, roomActivityAt } from '../services/chatTimeline';
@@ -78,6 +82,8 @@ interface ChatRoomViewProps {
   onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string, messageId?: string) => Promise<void | 'queued'>;
   /** Sends a recorded voice message or video note. */
   onSendNote?: (roomId: string, note: VoiceNote) => Promise<void>;
+  /** Send a private album into this chat. Resolves once the message is stored. */
+  onSendAlbum?: (roomId: string, share: AlbumShare, messageId: string) => Promise<void>;
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
   /** Removes only the current user's membership; resolves once the backend confirms. */
   onDeleteChat?: (roomId: string) => Promise<void>;
@@ -146,6 +152,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   onSendMessage,
   onUpdateRoomTtl,
   onSendNote,
+  onSendAlbum,
   onDeleteChat,
   onDeleteMessage,
   onUnsendMessage,
@@ -208,6 +215,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   // Photos other people send are hidden until you choose to look.
   const [revealedPhotos, setRevealedPhotos] = useState<Set<string>>(new Set());
   const [noteRecorder, setNoteRecorder] = useState<{ kind: 'audio' | 'video' } | null>(null);
+  const [showAlbumPicker, setShowAlbumPicker] = useState(false);
   const [showChatActions, setShowChatActions] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
@@ -1267,6 +1275,8 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         onRetry={(type) => onStartCall?.(currentRoom.peerName || currentRoom.name, type, currentRoom.peerUserId, currentRoom.peerAvatar)}
                         onLeaveNote={onSendNote ? (kind) => setNoteRecorder({ kind }) : undefined}
                       />
+                    ) : msg.albumData && !msg.deletedForEveryone ? (
+                      <AlbumCard share={msg.albumData} mine={isMe} peerName={currentRoom.peerName || currentRoom.name} />
                     ) : msg.noteData && !msg.deletedForEveryone ? (
                       <div className="g-notemsg">
                         {msg.noteData.kind === 'video'
@@ -1397,6 +1407,18 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                 placeholder={conversationKeyUnavailable ? 'Preparing secure chat…' : (currentRoom.ephemeralTtlSeconds > 0 ? `Message · ${getTtlLabel(currentRoom.ephemeralTtlSeconds).replace('Auto-delete: ', '')}` : 'Message…')}
                 className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none py-1"
               />
+
+              {currentRoom.type === 'direct' && onSendAlbum && (
+                <button
+                  type="button"
+                  onClick={() => setShowAlbumPicker(true)}
+                  className="w-8 h-8 rounded-lg bg-[#1c1f2b] hover:bg-[#252838] border border-white/10 text-[#c9b0f5] flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                  title="Send a private album"
+                  aria-label="Send a private album"
+                >
+                  <Images className="w-3.5 h-3.5" />
+                </button>
+              )}
 
               {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
                 <button
@@ -1591,6 +1613,22 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           peerName={currentRoom.peerName || currentRoom.name}
           userLocation={userLocation ?? null}
           onSend={async (text) => { await onSendMessage(currentRoom.id, text, currentRoom.ephemeralTtlSeconds); }}
+        />
+      )}
+      {currentRoom && currentRoom.type === 'direct' && onSendAlbum && (
+        <AlbumPickerSheet
+          isOpen={showAlbumPicker}
+          onClose={() => setShowAlbumPicker(false)}
+          peerName={currentRoom.peerName || currentRoom.name}
+          onSend={async (album, expiresAt) => {
+            const me = (await supabase?.auth.getSession())?.data.session?.user.id;
+            if (!me) throw new Error('Please sign in again.');
+            const { shareId, payload } = await createShare(me, album, currentRoom.id, expiresAt);
+            const messageId = crypto.randomUUID();
+            try { await onSendAlbum(currentRoom.id, payload, messageId); }
+            catch (error) { await revokeShare(shareId).catch(() => undefined); throw error; }
+            await linkShareMessage(shareId, messageId);
+          }}
         />
       )}
       {currentRoom && currentRoom.type === 'direct' && onSendNote && (
