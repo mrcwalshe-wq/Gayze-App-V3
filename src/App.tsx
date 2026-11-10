@@ -23,6 +23,7 @@ import { GayzeLoadingScreen } from './components/GayzeLoadingScreen';
 import { ConceptHoldingPage } from './components/ConceptHoldingPage';
 import { SafetyTimerModal } from './components/SafetyTimerModal';
 import { DiscreetMaskView } from './components/DiscreetMaskView';
+import { MaskEdgeButton } from './components/MaskEdgeButton';
 import { IdentityModal } from './components/IdentityModal';
 import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
@@ -4661,6 +4662,7 @@ export default function App() {
         onSignOut={handleSignOut}
       />
       </div>{/* /g-shell */}
+      <MaskEdgeButton onActivate={() => setIsMaskActive(true)} />
 
       {/* Navigation — five destinations (desktop top bar + mobile tab bar) */}
       <Navbar
