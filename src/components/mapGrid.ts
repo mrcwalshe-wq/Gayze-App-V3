@@ -1,8 +1,8 @@
 import L from 'leaflet';
 
 /**
- * The map's GRID view. The map is divided into square cells measured in metres. A cell where people are live is
- * hatched and counted; nobody's exact spot is ever drawn. The cell size never goes below 500 m (the precision members'
+ * The map's HEAT view. The map is divided into square cells measured in metres. A cell where people are live glows,
+ * from violet (one person) through magenta and orange to amber (five or more), and carries its head-count; nobody's exact spot is ever drawn. The cell size never goes below 500 m (the precision members'
  * positions are fogged to), so zooming in cannot suggest more accuracy than exists.
  *
  * Coordinates read like a chart: letters across the top, numbers down the side, and every occupied cell carries its
@@ -16,6 +16,14 @@ export interface GridOptions {
 }
 
 const NICE = [500, 1000, 2000, 5000, 10000, 20000];
+/** Colour by head-count: 1 violet, 2 magenta, 3-4 orange, 5+ amber. Cooler means quieter. */
+export const HEAT_TIERS = [
+  { core: '#a78bfa', mid: '#7c4ddb', line: '#b9a2ff' },
+  { core: '#e879f9', mid: '#c026d3', line: '#f0abfc' },
+  { core: '#fb923c', mid: '#ea580c', line: '#fdba74' },
+  { core: '#fde68a', mid: '#f59e0b', line: '#fde68a' },
+];
+export const heatTier = (n: number) => (n >= 5 ? 4 : n >= 3 ? 3 : n >= 2 ? 2 : 1);
 const colLetters = (n: number) => String.fromCharCode(65 + ((n % 26) + 26) % 26);
 const rowNumber = (n: number) => String(((n % 99) + 99) % 99 + 1);
 
@@ -39,7 +47,29 @@ export function createMapGrid(map: L.Map, opts: GridOptions) {
     svg.insertBefore(defs, svg.firstChild);
   }
 
+  // The heat glow sits just under the grid lines, so it reads as a soft wash and the cells stay crisp.
+  const heatPane = map.getPane('gayzeHeat') ?? map.createPane('gayzeHeat');
+  heatPane.style.zIndex = '345';
+  heatPane.style.pointerEvents = 'none';
+  heatPane.style.mixBlendMode = 'screen';
+  heatPane.style.opacity = '0.8';
+  const heatRenderer = L.svg({ pane: 'gayzeHeat', padding: 0.5 });
+  map.addLayer(heatRenderer);
+  const heatSvg = (heatRenderer as unknown as { _container: SVGElement })._container;
+  if (heatSvg && !heatSvg.querySelector('#gz-heat-1')) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const defs = document.createElementNS(ns, 'defs');
+    defs.innerHTML = HEAT_TIERS.map((t, i) => `
+      <radialGradient id="gz-heat-${i + 1}">
+        <stop offset="0%" stop-color="${t.core}" stop-opacity=".85"/>
+        <stop offset="45%" stop-color="${t.mid}" stop-opacity=".5"/>
+        <stop offset="100%" stop-color="${t.mid}" stop-opacity="0"/>
+      </radialGradient>`).join('');
+    heatSvg.insertBefore(defs, heatSvg.firstChild);
+  }
+
   const group = L.layerGroup().addTo(map);
+  const heatGroup = L.layerGroup().addTo(map);
   const labels = document.createElement('div');
   labels.className = 'gz-grid-labels';
   labels.setAttribute('aria-hidden', 'true');
@@ -66,6 +96,7 @@ export function createMapGrid(map: L.Map, opts: GridOptions) {
     raf = 0;
     if (destroyed) return;
     group.clearLayers();
+    heatGroup.clearLayers();
     labels.innerHTML = '';
     const size = cellSizeFor();
     const b = map.getBounds().pad(0.15);
@@ -98,19 +129,22 @@ export function createMapGrid(map: L.Map, opts: GridOptions) {
     const place = (k: string, i: number, j: number, n: number, mine: boolean, order: number) => {
       const bounds = L.latLngBounds(fromMeters(i * size, j * size), fromMeters((i + 1) * size, (j + 1) * size));
       const ref = `${colLetters(i)}${rowNumber(j)}`;
-      const hot = n >= 3;
       if (n > 0) {
-        const rect = L.rectangle(bounds, {
-          pane: 'gayzeGrid', renderer, interactive: false, className: `gz-cell${hot ? ' gz-cell--hot' : ''}`,
-          weight: 1.6, color: hot ? '#e6d8ff' : '#c4a8ff', opacity: 0.95, fill: true, fillOpacity: 1,
+        const tier = heatTier(n);
+        const t = HEAT_TIERS[tier - 1];
+        // A soft glow that spills a little into the neighbouring cells, and a faint cell outline on top of it.
+        const glow = L.circle(bounds.getCenter(), { pane: 'gayzeHeat', renderer: heatRenderer, interactive: false, radius: size * (0.62 + 0.07 * Math.min(n, 6)), weight: 0, fill: true, fillOpacity: 1, className: 'gz-glow' }).addTo(heatGroup);
+        const gel = (glow as unknown as { _path?: SVGPathElement })._path;
+        if (gel) { gel.style.fill = `url(#gz-heat-${tier})`; gel.style.animationDelay = `${Math.min(order * 70, 700)}ms`; }
+        L.rectangle(bounds, {
+          pane: 'gayzeGrid', renderer, interactive: false, className: 'gz-cell',
+          weight: 1, color: t.line, opacity: 0.5, fill: true, fillColor: t.mid, fillOpacity: 0.16,
         }).addTo(group);
-        const el = (rect as unknown as { _path?: SVGPathElement })._path;
-        if (el) { el.style.fill = `url(#${hot ? 'gz-hatch-hot' : 'gz-hatch'})`; el.style.animationDelay = `${Math.min(order * 70, 700)}ms`; }
       } else if (mine) {
         L.rectangle(bounds, { pane: 'gayzeGrid', renderer, interactive: false, className: 'gz-cell gz-cell--empty', weight: 1.2, color: '#e6d8ff', opacity: 0.55, fill: true, fillColor: '#b79cff', fillOpacity: 0.07 }).addTo(group);
       }
       const centre = bounds.getCenter();
-      const html = `<div class="gz-tag${mine ? ' gz-tag--me' : ''}" style="animation-delay:${Math.min(order * 70, 700) + 120}ms">${n > 0 ? `<b>${n}</b>` : ''}<span>${mine && n === 0 ? 'YOU' : ref}</span>${mine && n > 0 ? '<i>YOU</i>' : ''}</div>`;
+      const html = `<div class="gz-tag${mine ? ' gz-tag--me' : ''}" style="animation-delay:${Math.min(order * 70, 700) + 120}ms">${n > 0 ? `<b>${n}</b>` : ''}${mine ? '<i>You</i>' : ''}</div>`;
       const icon = L.divIcon({ className: 'gz-tag-wrap', html, iconSize: [0, 0] });
       const mk = L.marker(centre, { icon, interactive: n > 0, keyboard: false, zIndexOffset: 200 }).addTo(group);
       if (n > 0 && opts.onCellTap) mk.on('click', () => opts.onCellTap!({ ref, count: n, bounds }));
@@ -137,7 +171,9 @@ export function createMapGrid(map: L.Map, opts: GridOptions) {
       map.off('moveend zoomend resize', schedule);
       map.off('move', schedule);
       map.removeLayer(group);
+      map.removeLayer(heatGroup);
       map.removeLayer(renderer);
+      map.removeLayer(heatRenderer);
       labels.remove();
       sweep.remove();
     },

@@ -269,7 +269,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const toggleActivity = (id: string) => setActiveActivities((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
   const [selectedSubIntent, setSelectedSubIntent] = useState<string | null>(null);
   const [showJitterCircles, setShowJitterCircles] = useState<boolean>(true);
-  // GRID view: the map as a chart of square cells; people show as a hatched, counted cell, never a spot.
+  // GRID view: the map as a chart of square cells; people show as a glowing, counted cell, never a spot.
   const [gridMode, setGridMode] = useState<boolean>(() => { try { return localStorage.getItem('gayze_map_grid') === '1'; } catch { return false; } });
   // PEOPLE view: the same people the map shows, as a grid of cards.
   const [peopleView, setPeopleView] = useState<boolean>(false);
@@ -1449,7 +1449,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         <>
           <div className="mapmode" role="group" aria-label="How to see people">
             <button type="button" aria-pressed={!peopleView && !gridMode} onClick={() => { hapticLight(); setPeopleView(false); setGridMode(false); }}>Map</button>
-            <button type="button" aria-pressed={!peopleView && gridMode} onClick={() => { hapticLight(); setPeopleView(false); setGridMode(true); }}>Grid</button>
+            <button type="button" aria-pressed={!peopleView && gridMode} onClick={() => { hapticLight(); setPeopleView(false); setGridMode(true); }}>Heat</button>
             <button type="button" aria-pressed={peopleView} onClick={() => { hapticLight(); setPeopleView(true); }}>People{peopleTiles.length > 0 ? ` · ${peopleTiles.length}` : ''}</button>
           </div>
           {!peopleView && (
@@ -1477,7 +1477,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
         <div className="gz-legend" role="status">
           <span className="gz-legend__swatch" aria-hidden="true" />
           <div>
-            <strong>GRID · {gridInfo.size >= 1000 ? `${gridInfo.size / 1000} km` : `${gridInfo.size} m`} cells{gridInfo.occupied > 0 ? ` · ${gridInfo.occupied} live` : ''}</strong>
+            <strong>Heat map · {gridInfo.size >= 1000 ? `${gridInfo.size / 1000} km` : `${gridInfo.size} m`} areas{gridInfo.occupied > 0 ? ` · ${gridInfo.occupied} live` : ''}</strong>
+            <span className="gz-legend__scale" aria-hidden="true"><em>Fewer</em><i /><em>More</em></span>
             <small>{gridInfo.occupied > 0 ? `${gridInfo.occupied} ${gridInfo.occupied === 1 ? 'cell has' : 'cells have'} people live. Their exact spot is never shown.` : 'No one live in view. Cells fill in as people go live.'}</small>
           </div>
         </div>
