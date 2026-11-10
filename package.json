@@ -37,6 +37,7 @@
     "test:a11y": "playwright test e2e/a11y.spec.ts",
     "test:e2e:pin": "node scripts/check-playwright-pin.mjs",
     "test:privacy": "node --test scripts/privacy-tests/privacy.test.mjs",
+    "test:reliability": "node --test scripts/privacy-tests/reliability.test.mjs",
     "test:call-mailbox": "node --test scripts/privacy-tests/call-mailbox.test.mjs",
     "test:albums": "node --test scripts/privacy-tests/albums.test.mjs && tsx --test scripts/album-tests/crypto.test.ts scripts/album-tests/wire.test.ts"
   },

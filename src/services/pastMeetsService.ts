@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient';
 
 export type ReliabilityLevel = 'new' | 'building' | 'reliable' | 'highly_reliable';
-export interface Reliability { verifiedMeets: number; people: number; score: number | null; level: ReliabilityLevel; }
+export interface Reliability { verifiedMeets: number; people: number; counted: number; cancelledEnRoute: number; score: number | null; level: ReliabilityLevel; }
 export interface MeetQr { token: string; expiresAt: number; }
 export interface PastMeet { peerId: string; name: string; avatarPath?: string; lastMeetAt: number; meetCount: number; reliability: Reliability; }
 export interface RedeemResult { repeat: boolean; peerId: string; peerName: string; peerAvatarPath?: string; mine: Reliability; }
@@ -25,6 +25,8 @@ const rel = (v: unknown): Reliability => {
   return {
     verifiedMeets: typeof r.verified_meets === 'number' ? r.verified_meets : 0,
     people: typeof r.people === 'number' ? r.people : 0,
+    counted: typeof r.counted === 'number' ? r.counted : 0,
+    cancelledEnRoute: typeof r.cancelled_en_route === 'number' ? r.cancelled_en_route : 0,
     score: typeof r.score === 'number' ? r.score : null,
     level: level === 'building' || level === 'reliable' || level === 'highly_reliable' ? level : 'new',
   };
@@ -66,6 +68,15 @@ export async function revokePastMeet(peerId: string): Promise<boolean> {
   if (!supabase) return false;
   const { data, error } = await supabase.rpc('revoke_past_meet', { p_peer: peerId });
   return !error && data === true;
+}
+
+/**
+ * The person cancelled a meetup they had already set off for. 'safety' is never held against them (nothing is recorded);
+ * 'changed_plans' counts. Never throws: a failed report must not get in the way of the cancellation itself.
+ */
+export async function reportMeetCancel(peerId: string, meetingId: string, reason: 'safety' | 'changed_plans'): Promise<void> {
+  if (!supabase) return;
+  try { await supabase.rpc('report_meet_cancel', { p_peer: peerId, p_meeting: meetingId, p_reason: reason }); } catch { /* the cancellation still stands */ }
 }
 
 export const LEVEL_LABEL: Record<ReliabilityLevel, string> = { new: 'New', building: 'Building', reliable: 'Reliable', highly_reliable: 'Highly reliable' };

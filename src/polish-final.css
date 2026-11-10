@@ -107,6 +107,16 @@
 .g-overlay:has(> .g-interest-composer) { padding: 0; }
 .g-overlay .g-interest-composer > .p-5 { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 
+/* Cancel after setting off: two honest choices and a way back. */
+.g-cer__body { display: flex; flex-direction: column; gap: 10px; padding: 4px 20px calc(18px + env(safe-area-inset-bottom, 0px)); }
+.g-cer__body p { margin: 0 0 4px; font-size: 14px; line-height: 1.45; color: rgba(255, 255, 255, .75); }
+.g-cer__opt { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 12px 16px; border-radius: 16px; text-align: left; color: #fff;
+  border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .06); }
+.g-cer__opt strong { display: block; font-size: 15.5px; } .g-cer__opt small { display: block; margin-top: 2px; font-size: 12px; color: rgba(255, 255, 255, .6); }
+.g-cer__opt--safe { border-color: rgba(52, 211, 153, .5); background: rgba(16, 185, 129, .12); }
+.g-cer__opt--safe svg { color: #6ee7b7; }
+.g-cer__keep { min-height: 48px; border-radius: 999px; font-weight: 700; color: #fff; background: linear-gradient(120deg, #6f3cc3, #b24fd8 70%, #c9559b); border: 0; }
+
 /* Discover preview card: the same sheet language as Plan a meetup / Send a Gayze (lit top edge, glass, round ringed avatar, soft pill actions). */
 .g-preview {
   border: 0; border-radius: 22px; padding: 18px 16px 16px;
