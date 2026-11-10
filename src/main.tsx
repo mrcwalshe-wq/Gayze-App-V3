@@ -15,6 +15,7 @@ import './peek-premium.css';
 import './snack-premium.css';
 import './chat-calm.css';
 import './discover-dock.css';
+import './chat-premium.css';
 
 installChunkReload();
 

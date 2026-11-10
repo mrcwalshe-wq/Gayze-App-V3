@@ -16,6 +16,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setUser", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "answerCall", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "configureAudio", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAudioRoute", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showRoutePicker", returnType: CAPPluginReturnPromise),
@@ -41,6 +42,8 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     private var calls: [UUID: Ringing] = [:]
     private var token: String?
     private var routePicker: AVRoutePickerView?
+    /// Calls the app answered itself (from its own answer button): the system call screen is answered to match, without telling the app again.
+    private var answeredByApp = Set<UUID>()
 
     /// Who is signed in on this phone. Kept on the device so a call push that arrives while the app is closed
     /// can still tell that the phone belongs to the caller (never ring the person who is calling).
@@ -91,15 +94,20 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         return ["kind": kind, "name": out?.portName ?? ""]
     }
 
-    /// Phone-call audio: voice processing, Bluetooth headsets and car kits allowed, speaker by default for video.
+    /// Phone-call audio mode: voice processing, Bluetooth headsets and car kits allowed, speaker by default for video.
+    /// Only the category is set here. While iOS's call screen owns the call, iOS activates the session itself.
+    private func applyCallCategory(video: Bool) throws {
+        var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+        if video { options.insert(.defaultToSpeaker) }
+        try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: video ? .videoChat : .voiceChat, options: options)
+    }
+
     @objc func configureAudio(_ call: CAPPluginCall) {
         let video = call.getBool("video") ?? false
-        let session = AVAudioSession.sharedInstance()
         do {
-            var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
-            if video { options.insert(.defaultToSpeaker) }
-            try session.setCategory(.playAndRecord, mode: video ? .videoChat : .voiceChat, options: options)
-            try session.setActive(true)
+            try applyCallCategory(video: video)
+            // Activate it ourselves only when iOS's call screen is not in charge (in-app calls).
+            if calls.isEmpty { try AVAudioSession.sharedInstance().setActive(true) }
             call.resolve(routeInfo())
         } catch {
             call.reject("Could not set up the call audio.")
@@ -144,6 +152,16 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     @objc func endCall(_ call: CAPPluginCall) {
         if let id = call.getString("callId"), let uuid = UUID(uuidString: id) { finish(uuid, reason: .remoteEnded) }
         call.resolve()
+    }
+
+    /// The person answered inside the app. Answer the system call screen too: it switches the call audio on, and it stops ringing.
+    @objc func answerCall(_ call: CAPPluginCall) {
+        guard let id = call.getString("callId"), let uuid = UUID(uuidString: id), let c = calls[uuid], !c.answered else { call.resolve(); return }
+        answeredByApp.insert(uuid)
+        controller.request(CXTransaction(action: CXAnswerCallAction(call: uuid))) { [weak self] error in
+            if error != nil { DispatchQueue.main.async { self?.answeredByApp.remove(uuid) } }
+            call.resolve()
+        }
     }
 
     @objc func endAll(_ call: CAPPluginCall) {
@@ -232,10 +250,13 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         if var c = calls[action.callUUID] {
+            // Set the audio mode before the web layer opens the microphone; iOS activates the session for us.
+            try? applyCallCategory(video: c.callType == "video")
             c.answered = true
             c.timeout?.cancel()
             calls[action.callUUID] = c
-            event("callAnswered", action.callUUID, c)
+            // Answered from the app already: the app knows, do not tell it again (that would restart the call).
+            if answeredByApp.remove(action.callUUID) == nil { event("callAnswered", action.callUUID, c) }
         }
         action.fulfill()
     }
@@ -249,6 +270,9 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         action.fulfill()
     }
 
-    public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {}
+    public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        let video = calls.values.contains { $0.answered && $0.callType == "video" }
+        try? applyCallCategory(video: video)
+    }
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {}
 }

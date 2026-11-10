@@ -36,3 +36,9 @@ test('arrival sounds are held back while loading, your own actions are not', asy
   for (const k of ['messageOut', 'notify', 'error', 'live'] as AppSound[]) assert.equal(isHeldBack(k, 5_000, until), false, `${k} plays`);
   assert.equal(isHeldBack('messageIn', 10_000, until), false, 'plays once the window ends');
 });
+
+test('the opening sound is a soft chime: short, quiet and not the Gayze sound', () => {
+  assert.ok(APP_RECIPES.open.seconds <= 2.5, 'short');
+  assert.ok(APP_RECIPES.open.volume <= 0.55, 'quiet');
+  assert.notEqual(Array.from(renderAppSound('open')).join(','), Array.from(renderAppSound('gayze')).join(','));
+});

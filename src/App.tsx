@@ -29,7 +29,7 @@ import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall } from './services/callSessions';
-import { startNativeCalls, endNativeCalls, releaseNativeCallToken } from './services/nativeCalls';
+import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, declineNativeCall } from './services/nativeCalls';
 import { enqueueOutbox, drainOutbox, isNetworkFailure, loadOutbox } from './services/outbox';
 import { InterestDiscover } from './components/InterestDiscover';
 import { mergeOnlineIds } from './services/presenceLabel';
@@ -92,7 +92,7 @@ import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './se
 import { primeCallAudio } from './services/callAudioService';
 import { hapticCallConnected, hapticCallEnded } from './services/hapticService';
 import { installCallSoundUnlock, playCallSound, stopCallSounds } from './services/callSounds';
-import { installAppSoundUnlock, playAppSound, quietArrivalSounds } from './services/appSounds';
+import { installAppSoundUnlock, playAppSound, playOpenSound, quietArrivalSounds } from './services/appSounds';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
 import { blockUser, isBlockedBetween } from './services/blockService';
@@ -3018,6 +3018,8 @@ export default function App() {
   };
   useEffect(() => installCallSoundUnlock(), []);
   useEffect(() => installAppSoundUnlock(), []);
+  // One soft chime when the app opens (nothing else plays while the backlog loads).
+  useEffect(() => { const t = window.setTimeout(playOpenSound, 400); return () => window.clearTimeout(t); }, []);
   // Signing in loads old messages and Gayzes; those are not news, so keep arrival sounds quiet for a few seconds.
   useEffect(() => { if (supabaseUserId) quietArrivalSounds(); }, [supabaseUserId]);
   // An incoming call rings until it is answered, declined or hung up.
@@ -3368,6 +3370,9 @@ export default function App() {
   };
 
   const handleAcceptIncomingCall = async (call: IncomingCall) => {
+    // The same call can be answered from two places (the app and the iOS call screen). Once is enough: a second accept restarts it.
+    if (call.callId && webrtcCallService.currentCallId() === call.callId && webrtcCallService.getState() !== 'idle') return;
+    void answerNativeCall(call.callId);
     primeCallAudio();
     webrtcCallService.prewarmMedia(call.callType);   // inside the tap, before any waiting
     if (call.callerId) {
@@ -3406,6 +3411,7 @@ export default function App() {
   };
 
   const handleDeclineIncomingCall = async (call: IncomingCall) => {
+    void declineNativeCall(call.callId);
     setIncomingCall(null);
     await webrtcCallService.declineCall({
       conversationId: call.conversationId,
@@ -4150,7 +4156,7 @@ export default function App() {
           )}
 
           {activeTab === 'swarms' && (
-            <div className="g-messages-hub">
+            <div className="g-messages-hub" data-chat-open={visibleChatRoomId ? 'true' : 'false'}>
               <div className="g-messages-subtabs" role="tablist" aria-label="Messages sections">
                 <button
                   type="button"

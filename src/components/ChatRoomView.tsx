@@ -394,6 +394,21 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     [visibleMessages, roomGayzes, currentMessages.length, visibleCount],
   );
   // A run of messages this device has no key for collapses into one note instead of a wall of "can't decrypt" bubbles.
+  // Several unanswered calls in a row from the same person read as one line ("Missed call ×3"), on the newest one.
+  const callRuns = useMemo(() => {
+    const info = new Map<string, { hidden: boolean; count: number }>();
+    const flush = (run: string[]) => { run.forEach((key, i) => info.set(key, { hidden: i < run.length - 1, count: i === run.length - 1 ? run.length : 1 })); };
+    let run: string[] = []; let who = '';
+    for (const entry of timeline) {
+      const m = entry.kind === 'message' ? entry.message : null;
+      const unanswered = Boolean(m && m.callData && !m.deletedForEveryone);
+      if (m && unanswered && (run.length === 0 || who === m.senderKey)) { run.push(entry.key); who = m.senderKey; continue; }
+      flush(run); run = [];
+      if (m && unanswered) { run = [entry.key]; who = m.senderKey; }
+    }
+    flush(run);
+    return info;
+  }, [timeline]);
   const lockedRuns = useMemo(() => {
     const runs = new Map<string, number>();
     let first: string | null = null;
@@ -1156,6 +1171,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                   </div>
                 );
               }
+              if (callRuns.get(entry.key)?.hidden) return null;
               const lockedRun = lockedRuns.get(entry.key);
               if (lockedRun === 0) return null;
               if (lockedRun) {
@@ -1250,6 +1266,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                         isCaller={isMe}
                         peerName={currentRoom.peerName || currentRoom.name}
                         time={msg.timestamp}
+                        count={callRuns.get(entry.key)?.count ?? 1}
                         canRetry={currentRoom.type === 'direct' && Boolean(onStartCall) && msg.id === lastCallMsgId}
                         onRetry={(type) => onStartCall?.(currentRoom.peerName || currentRoom.name, type, currentRoom.peerUserId, currentRoom.peerAvatar)}
                         onLeaveNote={onSendNote ? (kind) => setNoteRecorder({ kind }) : undefined}

@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { IncomingCall } from './webrtcService';
+import { callLog, type IncomingCall } from './webrtcService';
 
 /**
  * Real phone-call experience on the iPhone app: iOS wakes the app with a VoIP push and shows the system call screen
@@ -39,8 +39,8 @@ export async function startNativeCalls(handlers: NativeCallHandlers, userId?: st
     if (userId) await GayzeCallKit.setUser({ userId });
     const subs = await Promise.all([
       GayzeCallKit.addListener('voipToken', (e) => { void saveToken(e.token, e.environment, e.deviceId); }),
-      GayzeCallKit.addListener('callAnswered', (e) => handlers.onAnswered(toCall(e))),
-      GayzeCallKit.addListener('callDeclined', (e) => handlers.onDeclined(toCall(e))),
+      GayzeCallKit.addListener('callAnswered', (e) => { callLog(`phone call screen: answered ${e.callId}`); handlers.onAnswered(toCall(e)); }),
+      GayzeCallKit.addListener('callDeclined', (e) => { callLog(`phone call screen: declined ${e.callId}`); handlers.onDeclined(toCall(e)); }),
     ]);
     const current = await GayzeCallKit.register();
     if (current.token && current.environment) void saveToken(current.token, current.environment, current.deviceId);
@@ -68,4 +68,16 @@ export async function releaseNativeCallToken(): Promise<void> {
     } catch { /* nothing to release */ }
   })();
   await Promise.race([work, new Promise<void>((resolve) => { window.setTimeout(resolve, 1500); })]);
+}
+
+/** The person answered in the app: answer the iOS call screen too, so it stops ringing and iOS switches the call audio on. */
+export async function answerNativeCall(callId: string | undefined): Promise<void> {
+  if (!isIos() || !callId) return;
+  try { const { GayzeCallKit } = await import('gayze-callkit'); await GayzeCallKit.answerCall({ callId }); } catch { /* no system call screen for this call */ }
+}
+
+/** The person declined in the app: take the iOS call screen down. */
+export async function declineNativeCall(callId: string | undefined): Promise<void> {
+  if (!isIos() || !callId) return;
+  try { const { GayzeCallKit } = await import('gayze-callkit'); await GayzeCallKit.endCall({ callId }); } catch { /* nothing to end */ }
 }

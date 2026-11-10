@@ -1420,7 +1420,7 @@ select:focus-visible {
 
   /* The top filter control uses exactly the same glass geometry. */
   .g-shell > .g-float.g-icon-btn,
-  .g-shell .g-icon-btn.shrink-0 {
+  .g-shell .g-icon-btn.shrink-0:not(.g-icon-btn--send) {
     border-radius: 8px !important;
   }
 
