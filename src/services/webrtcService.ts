@@ -479,6 +479,11 @@ export class WebRTCCallService {
       media.catch((err) => {
         if (generation !== this.callGeneration) return;
         callLog(`microphone/camera unavailable: ${err?.name || ''} ${err?.message || err}`);
+        // The caller has been told the call was answered (or is about to be): tell them it is not going ahead, so they do not wait.
+        void this.sendDirectSignal(params.conversationId, {
+          type: 'call-decline', callId: params.callId, conversationId: params.conversationId,
+          callerId: params.userId, targetUserId: params.callerId, timestamp: Date.now(),
+        }).catch(() => undefined);
         this.setState('failed', this.parseMediaError(err));
         this.cleanup();
       });
@@ -557,9 +562,19 @@ export class WebRTCCallService {
     this.targetUserNameForHistory = params.userId;
 
     try {
-      // 1+2. Acquire local media and load short-lived TURN credentials together; both are needed before the peer
-      // connection exists, and doing them one after the other made answering slower than it had to be.
-      await Promise.all([this.acquireLocalMedia(params.callType, generation), this.loadIceServers()]);
+      // 1+2. Start getting the microphone/camera, and load short-lived TURN credentials, but do NOT wait for the microphone before
+      // telling the caller the call was answered. Answered from the lock screen, the phone cannot use the microphone until it is
+      // unlocked, and the caller used to sit on "ringing" through the whole unlock. The accept goes out now; the tracks are attached
+      // (and the answer made) as soon as the microphone arrives, exactly as on the calling side.
+      const media = this.acquireLocalMedia(params.callType, generation);
+      this.localMediaPromise = media;
+      media.catch((err) => {
+        if (generation !== this.callGeneration) return;
+        callLog(`microphone/camera unavailable: ${err?.name || ''} ${err?.message || err}`);
+        this.setState('failed', this.parseMediaError(err));
+        this.cleanup();
+      });
+      await this.loadIceServers();
       if (generation !== this.callGeneration) return;
 
       // 3. Join signaling channel
@@ -842,6 +857,24 @@ export class WebRTCCallService {
         if (!this.caller && signal.sdp) {
           if (this.state !== 'connected') this.setState('connecting'); // a video upgrade renegotiates a live call; it does not "reconnect"
 
+          // Answered before the microphone was ready (lock screen): wait for it here, attach it, then answer. The same offer can arrive
+          // on the live channel and from the mailbox; only the first one is answered.
+          const first = !pc.remoteDescription;
+          if (first) {
+            if (this.answeringFirstOffer) break;
+            this.answeringFirstOffer = true;
+          }
+          try {
+          if (!this.localStream) {
+            const generation = this.callGeneration;
+            await (this.localMediaPromise ?? this.acquireLocalMedia(this.currentCallType, generation));
+            if (this.pc !== pc || generation !== this.callGeneration) return;
+          }
+          if (this.localStream) {
+            const attached = new Set(pc.getSenders().map((sender) => sender.track?.id).filter(Boolean));
+            this.localStream.getTracks().forEach((track) => { if (!attached.has(track.id)) pc.addTrack(track, this.localStream!); });
+          }
+
           // Refresh our relay credentials too before answering an ICE restart.
           const servers = await this.loadIceServers();
           if (this.pc !== pc) return;
@@ -855,6 +888,7 @@ export class WebRTCCallService {
           if (this.pc !== pc) return;
           void postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer));
           await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, answer), timestamp: Date.now() });
+          } finally { if (first) this.answeringFirstOffer = false; }
         }
         break;
       case 'answer':
@@ -918,6 +952,7 @@ export class WebRTCCallService {
     } catch { /* Bounded retry below; no credentials/SDP logged. */ }
     if (pc === this.pc) this.scheduleRestart(12_000);
   }
+  private answeringFirstOffer = false;
   private mailboxAnswerId = 0;
   private mailboxBusy = false;
 
