@@ -401,7 +401,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-white truncate">
+            <h1 className="g-title-grad text-[22px] font-bold tracking-[-0.02em] text-white truncate">
               {currentUser.displayName}
             </h1>
             {currentUser.safetyVerified && (
