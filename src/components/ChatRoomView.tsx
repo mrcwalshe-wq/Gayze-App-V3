@@ -714,10 +714,6 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
             <h2>Messages</h2>
             {rooms.length > 0 && <span className="g-msglist-head__count">{rooms.length}</span>}
           </div>
-          <span className="g-e2ee-chip" title="Messages are encrypted on your device and only readable by the people in the chat.">
-            <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-            End-to-end encrypted
-          </span>
         </div>
 
         {/* Room List */}
