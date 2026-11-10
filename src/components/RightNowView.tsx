@@ -1508,7 +1508,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               {selectedItem.type === 'profile' ? (
                 <div
                   {...peekTapProps(openPeek, selectedItem.item.id, { name: selectedItem.item.name, age: selectedItem.item.age, area: selectedItem.item.neighborhood, photoUrl: selectedItem.item.photoUrl })}
-                  className="relative w-11 h-11 rounded-[8px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
+                  className="g-preview__av relative w-11 h-11 rounded-[8px] overflow-hidden border border-white/15 bg-[#161822] shrink-0">
                   <span className="absolute inset-0 flex items-center justify-center text-sm text-white" aria-hidden="true">{selectedItem.item.name.charAt(0)}</span>
                   <img
                     src={selectedItem.item.photoUrl}
@@ -1523,7 +1523,7 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   )}
                 </div>
               ) : selectedItem.type === 'haven' ? (
-                <div className="w-11 h-11 rounded-[8px] bg-[#0f1f1a] border border-emerald-500/50 text-emerald-400 flex items-center justify-center shrink-0">
+                <div className="g-preview__av w-11 h-11 rounded-[8px] bg-[#0f1f1a] border border-emerald-500/50 text-emerald-400 flex items-center justify-center shrink-0">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
               ) : (
@@ -1575,11 +1575,11 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
                   <span className="font-mono shrink-0">
                     · {formatDistanceKm(itemDistanceKm(selectedItem))}
                   </span>
-                  <span className="truncate">
-                    · {selectedItem.type === 'haven'
-                      ? selectedItem.item.neighborhood
-                      : (selectedItem.item as any).venueName || userNeighborhood}
-                  </span>
+                  {(() => {
+                    const where = selectedItem.type === 'haven' ? selectedItem.item.neighborhood : (selectedItem.item as any).venueName || userNeighborhood;
+                    // "Near you" is only the placeholder for an unknown area; it adds nothing next to a distance.
+                    return where && where !== 'Near you' ? <span className="truncate">· {where}</span> : null;
+                  })()}
                 </div>
               </div>
             </button>
