@@ -43,7 +43,7 @@ export const ProfileOnboarding: React.FC<ProfileOnboardingProps> = ({ currentUse
     <div className="fixed inset-0 z-[120] bg-[#090a0f]/95 backdrop-blur-xl overflow-y-auto px-4 py-8">
       <div className="mx-auto w-full max-w-lg g-panel !rounded-[12px] p-5 sm:p-7">
         <div className="mb-6">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-[#C9A24D] font-semibold">Welcome to GAYZE</div>
+          <div className="text-[12px] text-[#C9A24D] font-semibold">Welcome to GAYZE</div>
           <h1 className="mt-2 text-2xl font-semibold">Build your profile</h1>
           <p className="mt-1.5 text-sm text-zinc-400">Set your identity and discovery preferences before you start appearing in live discovery.</p>
         </div>
