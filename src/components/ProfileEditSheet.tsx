@@ -510,7 +510,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
             ) : (
               INTEREST_CATEGORIES.map((cat) => (
                 <div key={cat.key} className="space-y-2">
-                  <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-zinc-500">{cat.label}</p>
+                  <p className="text-[12px] font-semibold text-zinc-400">{cat.label}</p>
                   <div className="flex flex-wrap gap-2">
                     {cat.items.map((option) => (
                       <Chip key={option} label={option} selected={hobbies.includes(option)} onClick={() => toggleInterest(option)} />
@@ -521,7 +521,7 @@ export const ProfileEditSheet: React.FC<ProfileEditSheetProps> = ({
             )}
             {hobbies.filter((value) => !ALL_INTERESTS.includes(value)).length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-zinc-500">Yours</p>
+                <p className="text-[12px] font-semibold text-zinc-400">Yours</p>
                 <div className="flex flex-wrap gap-2">
                   {hobbies.filter((value) => !ALL_INTERESTS.includes(value)).map((value) => (
                     <Chip key={value} label={value} selected onClick={() => toggleInterest(value)} />

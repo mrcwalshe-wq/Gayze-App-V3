@@ -533,7 +533,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
           {(mode === 'signin' || mode === 'signup') && (googleSignInAvailable() || appleSignInOffered()) && (
             <>
-              <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+              <div className="my-5 flex items-center gap-3 text-[12px] text-zinc-500">
                 <span className="h-px flex-1 bg-white/[0.07]" />
                 <span>or</span>
                 <span className="h-px flex-1 bg-white/[0.07]" />
