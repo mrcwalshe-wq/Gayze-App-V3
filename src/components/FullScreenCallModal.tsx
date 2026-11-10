@@ -19,7 +19,7 @@ import { webrtcCallService, CallState, type IncomingCall, type UpgradePhase } fr
 import { getCallAudioContext, closeCallAudio } from '../services/callAudioService';
 import {
   CallAura, CallDockButton, CallOrb, CallSecureChip, CallVoiceBars, DraggablePip,
-  callStatusLabel, formatCallDuration, isCallPending, useCallLevels,
+  callStatusLabel, formatCallDuration, isCallPending, useCallLevels, useSlowConnect,
 } from './callUi';
 import { CallOutputButton } from './CallOutputButton';
 import { useCallAudioRoute } from '../services/callAudioRoute';
@@ -61,6 +61,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   isIncoming = false,
 }) => {
   const [callState, setCallState] = useState<CallState>(isIncoming ? 'ringing' : 'calling');
+  const slowConnect = useSlowConnect(callState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -346,7 +347,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
           <CallOrb name={peerName} avatar={peerAvatar} state={callState} />
           <h3 className="g-call__name">{peerName}</h3>
           <p className={`g-call__status ${pending ? 'is-pending' : ''}`}>
-            {callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'video', peerName)}
+            {callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'video', peerName, { slow: slowConnect, incoming: isIncoming })}
           </p>
           {errorMessage && (
             <div className="g-call__error">
@@ -416,7 +417,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
       <div className="g-call__mini">
         <div className="g-call__mini-bar">
           <span className="g-call__mini-name">{peerName}</span>
-          <span className="g-call__mini-time">{callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'video', peerName)}</span>
+          <span className="g-call__mini-time">{callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'video', peerName, { slow: slowConnect, incoming: isIncoming })}</span>
           <button type="button" aria-label="End call" onClick={(e) => { e.stopPropagation(); handleEndCall(); }}><PhoneOff className="w-4 h-4" /></button>
         </div>
       </div>
@@ -438,6 +439,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   isIncoming = false,
 }) => {
   const [callState, setCallState] = useState<CallState>(isIncoming ? 'ringing' : 'calling');
+  const slowConnect = useSlowConnect(callState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -746,7 +748,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
         <CallOrb name={peerName} avatar={peerAvatar} state={callState} />
         <h3 className="g-call__name">{peerName}</h3>
         <p className={`g-call__status ${pending ? 'is-pending' : ''}`}>
-          {callState === 'connected' ? callStatusLabel(callState, 'audio', peerName) : callStatusLabel(callState, 'audio', peerName)}
+          {callState === 'connected' ? callStatusLabel(callState, 'audio', peerName, { slow: slowConnect, incoming: isIncoming }) : callStatusLabel(callState, 'audio', peerName, { slow: slowConnect, incoming: isIncoming })}
         </p>
         {callState === 'connected' && (
           <>
@@ -809,7 +811,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
         <CallOrb name={peerName} avatar={peerAvatar} state={callState} size="md" />
         <div className="g-call__mini-copy">
           <span className="g-call__mini-name">{peerName}</span>
-          <span className="g-call__mini-time">{callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'audio', peerName)}</span>
+          <span className="g-call__mini-time">{callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'audio', peerName, { slow: slowConnect, incoming: isIncoming })}</span>
         </div>
         <button type="button" aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'} className={isMuted ? 'is-off' : ''} onClick={(e) => { e.stopPropagation(); handleToggleMute(); }}>
           {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}

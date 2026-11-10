@@ -929,7 +929,33 @@ export class WebRTCCallService {
     this.pendingIceCandidates = this.pendingIceCandidates.filter((candidate) => !ready.includes(candidate));
     for (const candidate of ready) { if (this.pc === pc) await pc.addIceCandidate(candidate); }
   }
+  /**
+   * "Connected but no sound" cannot be told apart from the connection log alone, so when a call connects the audio is measured a few
+   * seconds in and written to the call log: whether sound is arriving, whether sound is leaving, and the state of both tracks.
+   */
+  private statsScheduledFor = -1;
+  private async logAudioStats(tag: string, generation: number) {
+    const pc = this.pc;
+    if (!pc || generation !== this.callGeneration) return;
+    try {
+      const report = await pc.getStats();
+      let inPk = -1, outPk = -1, inLevel: number | null = null;
+      report.forEach((r: any) => {
+        if (r.type === 'inbound-rtp' && r.kind === 'audio') { inPk = r.packetsReceived ?? -1; if (typeof r.audioLevel === 'number') inLevel = r.audioLevel; }
+        if (r.type === 'outbound-rtp' && r.kind === 'audio') outPk = r.packetsSent ?? -1;
+      });
+      const mine = this.localStream?.getAudioTracks()[0], theirs = this.remoteStream?.getAudioTracks()[0];
+      const track = (t: MediaStreamTrack | undefined) => (t ? `${t.readyState}${t.enabled ? '' : ' (switched off)'}${t.muted ? ' (no signal)' : ''}` : 'none');
+      callLog(`audio ${tag}: arriving ${inPk} packets, level ${inLevel ?? 'n/a'}; leaving ${outPk} packets; my mic ${track(mine)}; their voice ${track(theirs)}`);
+    } catch { /* stats unavailable */ }
+  }
+
   private recovered() {
+    if (this.state !== 'connected' && this.statsScheduledFor !== this.callGeneration) {
+      const generation = this.callGeneration;
+      this.statsScheduledFor = generation;
+      [3000, 9000].forEach((delay, i) => window.setTimeout(() => { void this.logAudioStats(i === 0 ? 'after 3 s' : 'after 9 s', generation); }, delay));
+    }
     this.restartAttempts = 0;
     if (this.restartTimer) clearTimeout(this.restartTimer);
     this.restartTimer = null;

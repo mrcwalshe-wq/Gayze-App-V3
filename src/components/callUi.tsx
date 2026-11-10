@@ -16,11 +16,28 @@ export const formatCallDuration = (secs: number) => {
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 };
 
-export const callStatusLabel = (state: CallState, kind: 'audio' | 'video', peerName: string): string => {
+/**
+ * True once a call has been "connecting" for a few seconds. A locked phone that was answered from the lock screen cannot finish
+ * setting the call up until it is unlocked (often 10 to 20 seconds), so the person calling is told to wait instead of hanging up.
+ */
+export function useSlowConnect(state: CallState, afterMs = 6000): boolean {
+  const [slow, setSlow] = React.useState(false);
+  useEffect(() => {
+    setSlow(false);
+    if (state !== 'connecting') return;
+    const t = window.setTimeout(() => setSlow(true), afterMs);
+    return () => window.clearTimeout(t);
+  }, [state, afterMs]);
+  return slow;
+}
+
+export const callStatusLabel = (state: CallState, kind: 'audio' | 'video', peerName: string, slowIncoming?: { slow: boolean; incoming: boolean }): string => {
   switch (state) {
     case 'calling': return 'Calling';
     case 'ringing': return 'Ringing';
-    case 'connecting': return 'Securing the line';
+    case 'connecting':
+      if (slowIncoming?.slow) return slowIncoming.incoming ? 'Still connecting' : `Waiting for ${peerName}'s phone to wake up`;
+      return 'Securing the line';
     case 'connected': return kind === 'video' ? 'Video call' : 'Voice call';
     case 'declined': return `${peerName} is unavailable`;
     case 'missed': return 'No answer';
