@@ -11,6 +11,3 @@
 .g-shell[data-active-tab='right_now'] .g-locate-fab { width: 46px; height: 46px; }
 .g-shell[data-active-tab='right_now'] .mapmode { height: 46px; }
 
-/* Header: a quiet label and a live count, not a loud title. */
-.g-discover-head__title strong { font-size: 14px; letter-spacing: .01em; text-transform: none; font-weight: 750; }
-.g-discover-head__title span { font-size: 12px; opacity: .8; }

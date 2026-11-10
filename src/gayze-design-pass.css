@@ -2362,8 +2362,8 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-discover-head > * { pointer-events: auto; }
 .g-discover-head__title { display: flex; align-items: center; gap: 8px; min-width: 0; text-shadow: 0 1px 4px rgba(0, 0, 0, .9), 0 0 14px rgba(0, 0, 0, .7); }
 .g-discover-head__title i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #a879f1; box-shadow: 0 0 10px #a879f1; animation: peer-intent-pulse 1.8s ease-in-out infinite; }
-.g-discover-head__title strong { font-size: 15px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #fff; white-space: nowrap; }
-.g-discover-head__title span { font-family: var(--font-mono, ui-monospace, monospace); font-size: 11.5px; font-weight: 600; color: rgba(255, 255, 255, .75); white-space: nowrap; }
+.g-discover-head__title strong { font-size: 17px; font-weight: 750; letter-spacing: -.01em; text-transform: none; color: #fff; white-space: nowrap; }
+.g-discover-head__title span { font-size: 13px; font-weight: 500; color: rgba(255, 255, 255, .7); white-space: nowrap; }
 .g-discover-head__seg { display: flex; padding: 2px; border-radius: 6px; background: rgba(10, 8, 20, .66); box-shadow: 0 4px 14px rgba(0, 0, 0, .4); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 .g-discover-head__seg button { min-height: 32px; padding: 0 12px; border-radius: 4px; font-size: 12.5px; font-weight: 700; color: rgba(255, 255, 255, .62); background: none; border: 0; }
 .g-discover-head__seg button[aria-pressed='true'] { color: #fff; background: rgba(255, 255, 255, .18); }
@@ -2477,9 +2477,9 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 .g-discover-head { height: auto !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 4px !important; }
 .g-discover-head__title { height: 36px; }
 .g-discover-head__chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 4px; margin-inline: -12px; padding-inline: 12px; scroll-snap-type: x proximity; scroll-padding-inline: 12px; pointer-events: auto; }
-.g-discover-head__chips button { flex: none; scroll-snap-align: start; min-height: 32px; padding: 0 12px; border: 0; border-radius: 4px; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: rgba(255, 255, 255, .78); background: rgba(10, 8, 20, .66); box-shadow: 0 3px 10px rgba(0, 0, 0, .35); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: background .2s, color .2s, transform .18s cubic-bezier(.3, 1.5, .5, 1); }
+.g-discover-head__chips button { flex: none; scroll-snap-align: start; min-height: 34px; padding: 0 14px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; color: rgba(255, 255, 255, .72); background: rgba(255, 255, 255, .07); box-shadow: none; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: background .2s, color .2s, transform .18s cubic-bezier(.3, 1.5, .5, 1); }
 .g-discover-head__chips button:active { transform: scale(.95); }
-.g-discover-head__chips button[aria-pressed='true'] { color: #fff; background: linear-gradient(135deg, rgba(111, 60, 195, .95), rgba(178, 79, 216, .9)); box-shadow: 0 4px 14px rgba(111, 60, 195, .5); }
+.g-discover-head__chips button[aria-pressed='true'] { color: #fff; background: #7b45d6; box-shadow: none; }
 .g-status-strip { top: calc(var(--hud-top, 10px) + 5px) !important; max-width: 46% !important; }
 .g-shell[data-active-tab='right_now'] .g-toast--map-status { top: calc(var(--hud-top) + 88px) !important; }
 
@@ -2557,7 +2557,7 @@ div.g-bubble--peer { border-radius: 12px 12px 12px 3px; }
 
 /* The empty status on the map is now an action, not a second "Right now" */
 .g-status-set { cursor: pointer; }
-.g-status-set .g-map-state__empty-label { font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: #fff; }
+.g-status-set .g-map-state__empty-label { font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 650; color: #fff; }
 
 /* ===================================================================================================
    GO-LIVE, second pass: the full-colour brand mark, a radar that sweeps, quiet tone-coloured blips, "live." warming to gold,
