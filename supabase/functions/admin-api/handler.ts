@@ -48,7 +48,7 @@ export const RPC_ALLOWLIST = new Set([
   'admin_dashboard_metrics', 'admin_list_accounts_v2', 'admin_account_detail', 'admin_set_suspension',
   'admin_delivery_failures', 'admin_failed_jobs', 'admin_revoke_sessions', 'admin_list_reports',
   'admin_update_report', 'admin_audit_search', 'admin_profile_photo_problems', 'admin_auth_events', 'admin_cron_status',
-  'admin_insights', 'admin_audience_count', 'admin_send_broadcast', 'admin_list_broadcasts',
+  'admin_insights', 'admin_investor_metrics', 'admin_audience_count', 'admin_send_broadcast', 'admin_list_broadcasts',
 ]);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -278,6 +278,14 @@ const ACTIONS: Record<string, ActionDef> = {
       const days = intParam(params, 'days', 30, 1, 365);
       const tz = textParam(params, 'timezone', 64) ?? 'Europe/London';
       return { data: await rpc(store, 'admin_insights', { p_days: days, p_tz: tz }), meta: { days, tz } };
+    },
+  },
+
+  'investor.metrics': {
+    kind: 'read',
+    run: async ({ store, params }) => {
+      const weeks = intParam(params, 'weeks', 12, 4, 52);
+      return { data: await rpc(store, 'admin_investor_metrics', { p_weeks: weeks }), meta: { weeks } };
     },
   },
 

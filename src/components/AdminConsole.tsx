@@ -5,14 +5,16 @@ import {
   AdminApiError, adminCall, type AccountDetail, type AccountRow, type AuditRow, type Metrics, type Page, type ReportRow,
 } from '../services/adminApi';
 import { Insights } from './admin/Insights';
+import { InvestorMIView } from './admin/InvestorMI';
 import { Broadcasts, Composer } from './admin/Broadcasts';
 import { ReportBuilder } from './admin/ReportBuilder';
 import { Dialog, Empty, ErrorState, Pill, ReauthBar, Spinner, Stat, fmt, humanise, num, useAsync } from './admin/ui';
 import '../admin.css';
 
-type Tab = 'dashboard' | 'insights' | 'accounts' | 'broadcasts' | 'investor' | 'reports' | 'health' | 'audit';
+type Tab = 'dashboard' | 'mi' | 'insights' | 'accounts' | 'broadcasts' | 'investor' | 'reports' | 'health' | 'audit';
 const TABS: { id: Tab; label: string; icon: LucideIcon; blurb: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, blurb: 'The state of GAYZE right now' },
+  { id: 'mi', label: 'Investor MI', icon: TrendingUp, blurb: 'Retention, growth and engagement, built for investors' },
   { id: 'insights', label: 'Insights', icon: TrendingUp, blurb: 'Growth, activity and what people do' },
   { id: 'accounts', label: 'Accounts', icon: Users, blurb: 'Find a member and take action' },
   { id: 'broadcasts', label: 'Broadcasts', icon: Megaphone, blurb: 'Send a notice to members' },
@@ -485,6 +487,7 @@ export const AdminConsole: React.FC = () => {
             <span className="ga-live" title="Connected to the production database"><i aria-hidden="true" />Live</span>
           </header>
           {tab === 'dashboard' && <Dashboard go={setTab} />}
+          {tab === 'mi' && <InvestorMIView />}
           {tab === 'insights' && <Insights />}
           {tab === 'accounts' && <Accounts />}
           {tab === 'broadcasts' && <Broadcasts />}
