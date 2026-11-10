@@ -85,3 +85,12 @@ export async function declineNativeCall(callId: string | undefined): Promise<voi
   if (!isIos() || !callId) return;
   try { const { GayzeCallKit } = await import('gayze-callkit'); await GayzeCallKit.endCall({ callId }); } catch { /* nothing to end */ }
 }
+
+/** Is the iPhone's own call screen showing this call? Always false off the iPhone app, or if it cannot tell. */
+export async function systemCallRinging(callId: string | undefined): Promise<boolean> {
+  if (!isIos() || !callId) return false;
+  try { const { GayzeCallKit } = await import('gayze-callkit'); return (await GayzeCallKit.systemCallRinging({ callId })).ringing === true; } catch { return false; }
+}
+
+/** True in the iPhone app, where a phone-call screen can stand in for the in-app one. */
+export const hasSystemCallScreen = (): boolean => isIos();

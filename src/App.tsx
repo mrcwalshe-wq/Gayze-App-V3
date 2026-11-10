@@ -30,7 +30,7 @@ import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall, getCallStatus } from './services/callSessions';
-import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, declineNativeCall } from './services/nativeCalls';
+import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, declineNativeCall, systemCallRinging, hasSystemCallScreen } from './services/nativeCalls';
 import { enqueueOutbox, drainOutbox, isNetworkFailure, loadOutbox } from './services/outbox';
 import { InterestDiscover } from './components/InterestDiscover';
 import { mergeOnlineIds } from './services/presenceLabel';
@@ -747,6 +747,21 @@ export default function App() {
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
   const [callTargetUserId, setCallTargetUserId] = useState<string | undefined>(undefined);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  // iPhone app: when iOS is already showing its own call screen for this call, the in-app one would be a second, identical Answer / Decline.
+  // The app waits a moment for iOS's screen to appear. If it does, only that one rings (and it stays that way for the call, so answering never flashes the in-app screen); if it never does, the in-app screen takes over.
+  const [systemShowsCall, setSystemShowsCall] = useState(false);
+  const [systemGraceOver, setSystemGraceOver] = useState(false);
+  useEffect(() => {
+    setSystemShowsCall(false);
+    setSystemGraceOver(false);
+    const id = incomingCall?.callId;
+    if (!id || !hasSystemCallScreen()) return;
+    let live = true;
+    const grace = window.setTimeout(() => { if (live) setSystemGraceOver(true); }, 1500);
+    const poll = window.setInterval(() => { void systemCallRinging(id).then((ringing) => { if (live && ringing) setSystemShowsCall(true); }); }, 400);
+    return () => { live = false; window.clearTimeout(grace); window.clearInterval(poll); };
+  }, [incomingCall?.callId]);
+  const inAppIncomingCall = incomingCall && hasSystemCallScreen() && (systemShowsCall || !systemGraceOver) ? null : incomingCall;
   const [isIncomingCallActive, setIsIncomingCallActive] = useState(false);
   const [inboxConnection, setInboxConnection] = useState<ChatConnectionState>('connecting');
   const [chatConnection, setChatConnection] = useState<{ roomId: string; state: ChatConnectionState }>({ roomId: '', state: 'connecting' });
@@ -3053,8 +3068,8 @@ export default function App() {
   useEffect(() => { if (supabaseUserId) quietArrivalSounds(); }, [supabaseUserId]);
   // An incoming call rings until it is answered, declined or hung up.
   useEffect(() => {
-    if (incomingCall) { playCallSound('incoming'); return () => { stopCallSounds(); }; }
-  }, [incomingCall]);
+    if (inAppIncomingCall) { playCallSound('incoming'); return () => { stopCallSounds(); }; }
+  }, [inAppIncomingCall]);
   useEffect(() => () => stopCallSounds(), []);
   const callContextRef = useRef({ roomId: '', callType: 'audio' as 'audio' | 'video', incoming: false });
   callContextRef.current = { roomId: activeRoomId, callType, incoming: isIncomingCallActive };
@@ -4522,7 +4537,7 @@ export default function App() {
 
       {/* Incoming Call Notification Modal */}
       <IncomingCallModal
-        incomingCall={incomingCall}
+        incomingCall={inAppIncomingCall}
         onAccept={handleAcceptIncomingCall}
         onDecline={handleDeclineIncomingCall}
       />

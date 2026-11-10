@@ -17,6 +17,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setUser", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "answerCall", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "systemCallRinging", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "configureAudio", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAudioRoute", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showRoutePicker", returnType: CAPPluginReturnPromise),
@@ -172,6 +173,15 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         controller.request(CXTransaction(action: CXAnswerCallAction(call: uuid))) { [weak self] error in
             if error != nil { DispatchQueue.main.async { self?.answeredByApp.remove(uuid) } }
             call.resolve()
+        }
+    }
+
+    /// Is iOS's own call screen (or banner) showing this call right now? The app uses it to avoid putting up a second, identical
+    /// Answer / Decline screen on top of the system one.
+    @objc func systemCallRinging(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let id = call.getString("callId"), let uuid = UUID(uuidString: id), let c = self.calls[uuid] else { call.resolve(["ringing": false]); return }
+            call.resolve(["ringing": !c.answered])
         }
     }
 
