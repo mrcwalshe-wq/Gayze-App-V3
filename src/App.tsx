@@ -30,6 +30,7 @@ import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall } from './services/callSessions';
 import { startNativeCalls, endNativeCalls, releaseNativeCallToken } from './services/nativeCalls';
+import { enqueueOutbox, drainOutbox, isNetworkFailure, loadOutbox } from './services/outbox';
 import { InterestDiscover } from './components/InterestDiscover';
 import { mergeOnlineIds } from './services/presenceLabel';
 import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
@@ -1182,6 +1183,42 @@ export default function App() {
     const poll = window.setInterval(refresh, 10_000);
     document.addEventListener('visibilitychange', refresh);
     return () => { disposed = true; window.clearInterval(poll); document.removeEventListener('visibilitychange', refresh); };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+
+  // Messages written without a connection are sent, oldest first, as soon as the connection is back.
+  useEffect(() => {
+    if (!IS_LIVE_BACKEND || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    const uid = supabaseUserId;
+    let running = false;
+    const run = async () => {
+      if (running || document.visibilityState !== 'visible' || navigator.onLine === false) return;
+      if (loadOutbox(localStorage, uid).length === 0) return;
+      running = true;
+      try {
+        const result = await drainOutbox(localStorage, uid, async (e) => {
+          await persistConversationMessage(e.roomId, e.cipherHex, e.nonceHex, e.expiresAt, e.id, uid, e.keyVersion);
+        });
+        if (result.sent.length > 0) void refreshConversationListRef.current();
+        if (result.sent.length + result.failed.length + result.expired.length > 0) {
+          window.dispatchEvent(new CustomEvent('gayze:outbox-result', { detail: result }));
+          if (result.failed.length > 0) showToast('A message could not be sent. Tap Retry on it.');
+        }
+      } finally { running = false; }
+    };
+    const kick = () => { void run(); };
+    kick();
+    const timer = window.setInterval(kick, 15_000);
+    window.addEventListener('online', kick);
+    window.addEventListener('focus', kick);
+    window.addEventListener('gayze:outbox-changed', kick);
+    document.addEventListener('visibilitychange', kick);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', kick);
+      window.removeEventListener('focus', kick);
+      window.removeEventListener('gayze:outbox-changed', kick);
+      document.removeEventListener('visibilitychange', kick);
+    };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
   // Global message stream: the inbox receives messages even when the user is
@@ -2598,7 +2635,7 @@ export default function App() {
     messageId?: string,
     callData?: CallLine,
     noteData?: VoiceNote,
-  ) => {
+  ): Promise<void | 'queued'> => {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
     const sendingUserId = supabaseUserIdRef.current;
@@ -2689,6 +2726,17 @@ export default function App() {
           : candidate));
         hapticMessageDecrypted();
       } catch (error) {
+        // No connection: keep the already-encrypted message and send it when the connection returns.
+        // Calls and notes are not queued (a call cannot wait), and neither is anything with a photo or voice note.
+        if (sendingUserId && !callData && !noteData && !mediaUrl && isNetworkFailure(error)) {
+          const queuedId = messageId ?? crypto.randomUUID();
+          enqueueOutbox(localStorage, sendingUserId, {
+            id: queuedId, roomId, cipherHex, nonceHex, keyVersion, createdAt: Date.now(),
+            expiresAt: ephemeralTtlSeconds && ephemeralTtlSeconds > 0 ? new Date(Date.now() + ephemeralTtlSeconds * 1000).toISOString() : null,
+          });
+          window.dispatchEvent(new Event('gayze:outbox-changed'));
+          return 'queued';
+        }
         console.error('[GAYZE] Failed to persist encrypted message', error);
         showToast('Message delivery not confirmed — your draft is kept');
         throw error;
@@ -2957,7 +3005,7 @@ export default function App() {
     showToast(ttl === 0 ? 'Auto-delete turned off (messages will be kept)' : `Messages will auto-delete after ${ttl >= 3600 ? ttl / 3600 + 'h' : ttl / 60 + 'm'}`);
   };
 
-  handleSendMessageRef.current = (roomId, text, ttl) => handleSendMessage(roomId, text, ttl);
+  handleSendMessageRef.current = async (roomId, text, ttl) => { await handleSendMessage(roomId, text, ttl); };
 
   // A call nobody picked up leaves a line in the chat for both people, with a Try again button. Only the caller
   // writes it (once per call), so a missed call is never duplicated.
@@ -4238,7 +4286,7 @@ export default function App() {
                     currentUser={currentUser}
                     currentUserId={supabaseUserId}
                     onSendMessage={handleSendMessage}
-                    onSendNote={(roomId, note) => handleSendMessage(roomId, note.kind === 'video' ? 'Video note' : 'Voice message', undefined, undefined, undefined, undefined, undefined, note)}
+                    onSendNote={async (roomId, note) => { await handleSendMessage(roomId, note.kind === 'video' ? 'Video note' : 'Voice message', undefined, undefined, undefined, undefined, undefined, note); }}
                     onUpdateRoomTtl={handleUpdateRoomTtl}
                     onDeleteChat={IS_LIVE_BACKEND ? handleDeleteChat : undefined}
                     onBlockPeer={IS_LIVE_BACKEND ? handleBlockPeer : undefined}
