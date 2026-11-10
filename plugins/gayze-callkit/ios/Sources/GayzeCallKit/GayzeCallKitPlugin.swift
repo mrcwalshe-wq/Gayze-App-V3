@@ -91,15 +91,20 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         return ["kind": kind, "name": out?.portName ?? ""]
     }
 
-    /// Phone-call audio: voice processing, Bluetooth headsets and car kits allowed, speaker by default for video.
+    /// Phone-call audio mode: voice processing, Bluetooth headsets and car kits allowed, speaker by default for video.
+    /// Only the category is set here. While iOS's call screen owns the call, iOS activates the session itself.
+    private func applyCallCategory(video: Bool) throws {
+        var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+        if video { options.insert(.defaultToSpeaker) }
+        try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: video ? .videoChat : .voiceChat, options: options)
+    }
+
     @objc func configureAudio(_ call: CAPPluginCall) {
         let video = call.getBool("video") ?? false
-        let session = AVAudioSession.sharedInstance()
         do {
-            var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
-            if video { options.insert(.defaultToSpeaker) }
-            try session.setCategory(.playAndRecord, mode: video ? .videoChat : .voiceChat, options: options)
-            try session.setActive(true)
+            try applyCallCategory(video: video)
+            // Activate it ourselves only when iOS's call screen is not in charge (in-app calls).
+            if calls.isEmpty { try AVAudioSession.sharedInstance().setActive(true) }
             call.resolve(routeInfo())
         } catch {
             call.reject("Could not set up the call audio.")
@@ -232,6 +237,8 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         if var c = calls[action.callUUID] {
+            // Set the audio mode before the web layer opens the microphone; iOS activates the session for us.
+            try? applyCallCategory(video: c.callType == "video")
             c.answered = true
             c.timeout?.cancel()
             calls[action.callUUID] = c
@@ -249,6 +256,9 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         action.fulfill()
     }
 
-    public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {}
+    public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        let video = calls.values.contains { $0.answered && $0.callType == "video" }
+        try? applyCallCategory(video: video)
+    }
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {}
 }

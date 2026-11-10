@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { callLog } from './webrtcService';
 
 /** Where the call sound is going, and a way to change it. Only inside the iPhone app; elsewhere `available` is false. */
 export interface AudioRoute { kind: 'speaker' | 'receiver' | 'bluetooth' | 'headphones' | 'car' | 'other'; name: string }
@@ -37,8 +38,10 @@ export function useCallAudioRoute(active: boolean, video: boolean): { available:
         const handle = await GayzeCallKit.addListener('audioRoute', (e) => { if (!cancelled) setRoute(e); });
         remove = () => { void handle.remove(); };
         const first = await GayzeCallKit.configureAudio({ video });
+        callLog(`call audio ready: ${first.kind} ${first.name}`);
         if (!cancelled) setRoute(first);
       } catch (error) {
+        callLog(`call audio setup failed: ${String((error as { message?: string })?.message ?? error)}`);
         console.warn('[GAYZE] Call audio setup failed:', error);
       }
     })();
