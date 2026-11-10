@@ -290,7 +290,10 @@ export class WebRTCCallService {
       // Which phone and how the app is running (a Home Screen app and a browser tab behave very differently when a call starts).
       const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
       const standalone = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
-      callLog(`environment: ${/iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : 'desktop'} ${/CriOS/.test(ua) ? 'Chrome' : /FxiOS/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : 'other'} ${standalone ? 'Home Screen app' : 'browser tab'}`);
+      // The installed GAYZE iPhone app is a web view with no Safari or Chrome in its user agent, so it used to be logged as "other browser tab".
+      const nativeApp = typeof window !== 'undefined' && Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+      const platform = /iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : 'desktop';
+      callLog(nativeApp ? `environment: ${platform} installed GAYZE app` : `environment: ${platform} ${/CriOS/.test(ua) ? 'Chrome' : /FxiOS/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : 'other'} ${standalone ? 'Home Screen app' : 'browser tab'}`);
     }
     callLog(`state ${this.state} -> ${newState}${error ? ` (${error})` : ''}`);
     if (newState === 'connecting' && this.state !== 'connecting') this.armConnectWatchdog();
