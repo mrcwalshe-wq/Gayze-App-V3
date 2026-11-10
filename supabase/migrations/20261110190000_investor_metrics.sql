@@ -38,7 +38,7 @@ begin
   insert into public.member_daily_activity(user_id, day, source)
   values (uid, (now() at time zone 'Europe/London')::date, 'heartbeat')
   on conflict (user_id, day) do update set source = 'heartbeat' where public.member_daily_activity.source = 'events';
-end $function$;
+end $$;
 
 create or replace function public.admin_investor_metrics(p_weeks integer default 12)
 returns jsonb language plpgsql stable security definer set search_path to 'public', 'auth', 'pg_temp' as $$
