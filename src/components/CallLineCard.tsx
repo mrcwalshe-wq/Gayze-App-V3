@@ -14,14 +14,16 @@ interface CallLineCardProps {
   onRetry: (callType: 'audio' | 'video') => void;
   /** Offered to the caller of an unanswered call: record a voice message or video note instead. */
   onLeaveNote?: (kind: 'audio' | 'video') => void;
+  /** How many calls in a row this line stands for (a run of the same missed call is shown once). */
+  count?: number;
 }
 
 /** "Unanswered call" for the person who rang, "Missed call" for the person who was rung, with a way back in. */
-export const CallLineCard: React.FC<CallLineCardProps> = ({ call, isCaller, peerName, time, canRetry, onRetry, onLeaveNote }) => {
+export const CallLineCard: React.FC<CallLineCardProps> = ({ call, isCaller, peerName, time, canRetry, onRetry, onLeaveNote, count = 1 }) => {
   const kind = call.callType === 'video' ? 'video' : 'voice';
   const declined = call.outcome === 'declined';
   const title = isCaller ? (declined ? 'Call declined' : 'Unanswered call') : 'Missed call';
-  const sub = isCaller
+  const _sub = isCaller
     ? (declined ? `${peerName} couldn't pick up` : `${peerName} didn't pick up`)
     : `${peerName} tried to reach you`;
   const Icon = isCaller && declined ? PhoneOff : PhoneMissed;
@@ -32,9 +34,8 @@ export const CallLineCard: React.FC<CallLineCardProps> = ({ call, isCaller, peer
     <article className={`g-calln ${isCaller ? 'g-calln--out' : 'g-calln--in'}`} aria-label={`${title}, ${kind} call, ${when}`}>
       <span className="g-calln__orb" aria-hidden="true"><Icon className="w-5 h-5" /></span>
       <div className="g-calln__body">
-        <p className="g-calln__title">{title}</p>
-        <p className="g-calln__sub"><Kind className="w-3 h-3" aria-hidden="true" />{kind === 'video' ? 'Video' : 'Voice'} · {when}</p>
-        <p className="g-calln__hint">{sub}</p>
+        <p className="g-calln__title">{title}{count > 1 && <span className="g-calln__count">×{count}</span>}</p>
+        <p className="g-calln__hint"><Kind className="w-3 h-3" aria-hidden="true" />{kind === 'video' ? 'Video' : 'Voice'} · {when}</p>
       </div>
       {canRetry && (
         <div className="g-calln__actions">
