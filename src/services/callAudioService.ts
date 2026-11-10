@@ -49,7 +49,10 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
         const now = webrtcCallService.getState();
         if (now !== 'calling' && now !== 'ringing') { window.clearInterval(watch); return; }
         if (webrtcCallService.currentCallId() !== callId) { window.clearInterval(watch); return; }
-        if ((await getCallStatus(callId)) === 'ended') {
+        const status = await getCallStatus(callId);
+        // Answered on the server but still ringing here: the live accept was missed (phone answered from the lock screen).
+        if (status === 'answered') webrtcCallService.remoteAnswered();
+        if (status === 'ended') {
           window.clearInterval(watch);
           const again = webrtcCallService.getState();
           if ((again === 'calling' || again === 'ringing') && webrtcCallService.currentCallId() === callId) webrtcCallService.remoteEnded('declined');
