@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, MessageCircle, Radar, Clock, Vibrate, Volume2, X } from 'lucide-react';
+import { Eye, MessageCircle, Radar, Clock, Vibrate, Volume2, X, LogOut } from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
+import { thisDeviceId } from '../services/nativeCalls';
 import { areSoundsEnabled, playAppSound, setSoundsEnabled } from '../services/appSounds';
 import { readCallLog } from '../services/webrtcService';
 import { areHapticsEnabled, hapticLight, setHapticsEnabled } from '../services/hapticService';
@@ -24,6 +26,18 @@ export const PrivacySheet: React.FC<PrivacySheetProps> = ({ isOpen, onClose, use
   const [haptics, setHaptics] = useState(areHapticsEnabled);
   const [sounds, setSounds] = useState(areSoundsEnabled);
   const [diagCopied, setDiagCopied] = useState(false);
+  const [othersState, setOthersState] = useState<'idle' | 'confirm' | 'working' | 'done' | 'error'>('idle');
+  const signOutOthers = async () => {
+    if (!supabase) return;
+    setOthersState('working');
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'others' });
+      if (error) throw error;
+      // Also stop those phones ringing for calls. Fire-and-forget: it only matters for the iPhone app.
+      await Promise.resolve(supabase.rpc('drop_other_voip_tokens', { p_keep_device: thisDeviceId() })).catch(() => undefined);
+      setOthersState('done');
+    } catch { setOthersState('error'); }
+  };
 
   useEffect(() => {
     if (!isOpen || !userId) return;
@@ -75,6 +89,14 @@ export const PrivacySheet: React.FC<PrivacySheetProps> = ({ isOpen, onClose, use
               const text = readCallLog() || 'No call events recorded on this device yet.';
               try { await navigator.clipboard.writeText(text); setDiagCopied(true); window.setTimeout(() => setDiagCopied(false), 2500); } catch { window.prompt('Copy this call log', text); }
             }}>{diagCopied ? 'Copied: paste it to support' : 'Copy call diagnostics'}</button>
+            <div className="g-priv__row">
+              <span className="g-priv__icon" aria-hidden="true"><LogOut className="w-4 h-4" /></span>
+              <div><strong>Sign out other devices</strong><p>Signs you out everywhere else (other phones, tablets, the website, a Home Screen copy) and keeps this one. Do this if calls ring in the wrong place.</p></div>
+              <button type="button" className="g-priv__diag" disabled={othersState === 'working'}
+                onClick={() => { if (othersState === 'confirm') void signOutOthers(); else setOthersState('confirm'); }}>
+                {othersState === 'confirm' ? 'Tap again to confirm' : othersState === 'working' ? 'Signing out…' : othersState === 'done' ? 'Done' : othersState === 'error' ? 'Try again' : 'Sign out'}
+              </button>
+            </div>
             {saveError && <p className="g-plan__note g-plan__note--warn">That change wasn't saved. Please try again.</p>}
           </>)}
         </div>

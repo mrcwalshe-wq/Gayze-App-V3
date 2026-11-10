@@ -28,7 +28,7 @@ import { ScheduleMeetingModal } from './components/ScheduleMeetingModal';
 import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
-import { getRingingCall } from './services/callSessions';
+import { getRingingCall, getCallStatus } from './services/callSessions';
 import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, declineNativeCall } from './services/nativeCalls';
 import { enqueueOutbox, drainOutbox, isNetworkFailure, loadOutbox } from './services/outbox';
 import { InterestDiscover } from './components/InterestDiscover';
@@ -1410,6 +1410,9 @@ export default function App() {
     if (!call) {
       const shown = incomingCallRef.current;
       if (shown && shown.callId && shown.callId === recoveredCallIdRef.current) { recoveredCallIdRef.current = null; setIncomingCall(null); }
+      // Nothing is ringing for this account any more (it was answered or ended elsewhere): take a lingering iOS call screen down,
+      // unless a call of ours is under way.
+      if (!shown && webrtcCallService.getState() === 'idle') void endNativeCalls();
       return;
     }
     if (busy || incomingCallRef.current) return;
@@ -3425,6 +3428,17 @@ export default function App() {
     await markCallAsMissed(call.conversationId, call.callerId, call.callType);
     await sendMissedCallNotification(call);
   };
+
+  // Answered or ended somewhere else (another phone, the website, a Home Screen copy, or the caller hung up): stop ringing here too.
+  useEffect(() => {
+    const id = incomingCall?.callId;
+    if (!id) return;
+    const timer = window.setInterval(async () => {
+      const status = await getCallStatus(id);
+      if (status && status !== 'ringing') setIncomingCall((current) => (current?.callId === id ? null : current));
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [incomingCall?.callId]);
 
   // iPhone: an incoming call arrives as a real phone call. Answer / Decline on that screen land here.
   const nativeCallActionRef = useRef<(action: 'answer' | 'decline', partial: Partial<IncomingCall> & { callId: string }) => void>(() => undefined);

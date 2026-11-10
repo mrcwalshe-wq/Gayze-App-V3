@@ -23,10 +23,14 @@ const toCall = (e: CallEvent): Partial<IncomingCall> & { callId: string } => ({
 });
 
 let lastToken: string | null = null;
+let lastDeviceId: string | null = null;
+/** This phone's call-registration id (iPhone app only), so "sign out other devices" can keep it. */
+export const thisDeviceId = (): string | null => lastDeviceId;
 
 async function saveToken(token: string, environment: 'sandbox' | 'production', deviceId?: string): Promise<void> {
   if (!supabase) return;
   lastToken = token;
+  if (deviceId) lastDeviceId = deviceId;
   const { error } = await supabase.rpc('register_voip_token', { p_token: token, p_environment: environment, p_device: deviceId || null });
   if (error) console.warn('[GAYZE] Could not save the call token:', error.message);
 }
