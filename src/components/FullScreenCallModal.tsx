@@ -21,6 +21,8 @@ import {
   CallAura, CallDockButton, CallOrb, CallSecureChip, CallVoiceBars, DraggablePip,
   callStatusLabel, formatCallDuration, isCallPending, useCallLevels,
 } from './callUi';
+import { CallOutputButton } from './CallOutputButton';
+import { useCallAudioRoute } from '../services/callAudioRoute';
 
 /** Point a media element at a stream only when it changed. Re-assigning the same stream restarts the element (a flash, or a
  * shrunken picture on phones) and happened on every camera flip. */
@@ -79,6 +81,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   const startAttemptRef = useRef<string | null>(null);
 
   const levelRef = useCallLevels<HTMLDivElement>(isOpen && callState === 'connected');
+  const audioRoute = useCallAudioRoute(isOpen && callState === 'connected', initialCallType === 'video');
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -393,13 +396,17 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
           {initialCallType === 'video' && isVideoEnabled && (
             <CallDockButton label="Flip" ariaLabel="Flip camera" icon={<RefreshCw className="w-[22px] h-[22px]" />} onClick={handleFlipCamera} />
           )}
-          <CallDockButton
-            label={isSpeakerOn ? 'Speaker' : 'Speaker off'}
-            ariaLabel="Toggle speaker"
-            off={!isSpeakerOn}
-            icon={isSpeakerOn ? <Volume2 className="w-[22px] h-[22px]" /> : <VolumeX className="w-[22px] h-[22px]" />}
-            onClick={() => setIsSpeakerOn((current) => !current)}
-          />
+          {audioRoute.available ? (
+            <CallOutputButton route={audioRoute.route} />
+          ) : (
+            <CallDockButton
+              label={isSpeakerOn ? 'Speaker' : 'Speaker off'}
+              ariaLabel="Toggle speaker"
+              off={!isSpeakerOn}
+              icon={isSpeakerOn ? <Volume2 className="w-[22px] h-[22px]" /> : <VolumeX className="w-[22px] h-[22px]" />}
+              onClick={() => setIsSpeakerOn((current) => !current)}
+            />
+          )}
         </div>
         <button type="button" className="g-call__end" onClick={(e) => { e.stopPropagation(); handleEndCall(); }} aria-label="End call">
           <PhoneOff className="w-6 h-6" /> <span>End call</span>
@@ -453,6 +460,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   const startAttemptRef = useRef<string | null>(null);
 
   const levelRef = useCallLevels<HTMLDivElement>(isOpen && callState === 'connected');
+  const audioRoute = useCallAudioRoute(isOpen && callState === 'connected', false);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -780,13 +788,17 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
               onClick={handleToggleCamera}
             />
           )}
-          <CallDockButton
-            label={isSpeakerOn ? 'Speaker' : 'Speaker off'}
-            ariaLabel="Toggle speaker"
-            off={!isSpeakerOn}
-            icon={isSpeakerOn ? <Volume2 className="w-[22px] h-[22px]" /> : <VolumeX className="w-[22px] h-[22px]" />}
-            onClick={() => setIsSpeakerOn((current) => !current)}
-          />
+          {audioRoute.available ? (
+            <CallOutputButton route={audioRoute.route} />
+          ) : (
+            <CallDockButton
+              label={isSpeakerOn ? 'Speaker' : 'Speaker off'}
+              ariaLabel="Toggle speaker"
+              off={!isSpeakerOn}
+              icon={isSpeakerOn ? <Volume2 className="w-[22px] h-[22px]" /> : <VolumeX className="w-[22px] h-[22px]" />}
+              onClick={() => setIsSpeakerOn((current) => !current)}
+            />
+          )}
         </div>
         <button type="button" className="g-call__end" onClick={(e) => { e.stopPropagation(); handleEndCall(); }} aria-label="End call">
           <PhoneOff className="w-6 h-6" /> <span>End call</span>

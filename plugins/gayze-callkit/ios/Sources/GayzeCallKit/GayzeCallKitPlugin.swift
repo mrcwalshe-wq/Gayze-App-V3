@@ -3,6 +3,7 @@ import Capacitor
 import PushKit
 import CallKit
 import AVFoundation
+import AVKit
 import UIKit
 
 /// Shows an incoming GAYZE call as a real iPhone call: full screen on the lock screen, system ringtone,
@@ -15,6 +16,9 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setUser", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "configureAudio", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getAudioRoute", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showRoutePicker", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endCall", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endAll", returnType: CAPPluginReturnPromise)
     ]
@@ -36,6 +40,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     private let controller = CXCallController()
     private var calls: [UUID: Ringing] = [:]
     private var token: String?
+    private var routePicker: AVRoutePickerView?
 
     /// Who is signed in on this phone. Kept on the device so a call push that arrives while the app is closed
     /// can still tell that the phone belongs to the caller (never ring the person who is calling).
@@ -63,6 +68,63 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         r.delegate = self
         r.desiredPushTypes = [.voIP]
         registry = r
+
+        // Tell the web layer when the call audio moves (AirPods connect, car takes over, speaker chosen).
+        NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self else { return }
+            self.notifyListeners("audioRoute", data: self.routeInfo())
+        }
+    }
+
+    /// Where the sound is going right now.
+    private func routeInfo() -> [String: Any] {
+        let out = AVAudioSession.sharedInstance().currentRoute.outputs.first
+        var kind = "other"
+        switch out?.portType {
+        case .builtInSpeaker?: kind = "speaker"
+        case .builtInReceiver?: kind = "receiver"
+        case .bluetoothA2DP?, .bluetoothHFP?, .bluetoothLE?: kind = "bluetooth"
+        case .headphones?, .usbAudio?: kind = "headphones"
+        case .carAudio?: kind = "car"
+        default: kind = "other"
+        }
+        return ["kind": kind, "name": out?.portName ?? ""]
+    }
+
+    /// Phone-call audio: voice processing, Bluetooth headsets and car kits allowed, speaker by default for video.
+    @objc func configureAudio(_ call: CAPPluginCall) {
+        let video = call.getBool("video") ?? false
+        let session = AVAudioSession.sharedInstance()
+        do {
+            var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+            if video { options.insert(.defaultToSpeaker) }
+            try session.setCategory(.playAndRecord, mode: video ? .videoChat : .voiceChat, options: options)
+            try session.setActive(true)
+            call.resolve(routeInfo())
+        } catch {
+            call.reject("Could not set up the call audio.")
+        }
+    }
+
+    @objc func getAudioRoute(_ call: CAPPluginCall) {
+        call.resolve(routeInfo())
+    }
+
+    /// Opens iOS's own audio output picker (iPhone, Speaker, AirPods, car...).
+    @objc func showRoutePicker(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let host = self.bridge?.viewController?.view else { call.resolve(); return }
+            self.routePicker?.removeFromSuperview()
+            let picker = AVRoutePickerView(frame: CGRect(x: -200, y: -200, width: 44, height: 44))
+            picker.alpha = 0.02
+            host.addSubview(picker)
+            self.routePicker = picker
+            picker.subviews.compactMap { $0 as? UIButton }.first?.sendActions(for: .touchUpInside)
+            call.resolve()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in
+                if self?.routePicker === picker { picker.removeFromSuperview(); self?.routePicker = nil }
+            }
+        }
     }
 
     @objc func register(_ call: CAPPluginCall) {
