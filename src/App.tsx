@@ -91,7 +91,7 @@ import { getCurrentLocation, watchCurrentLocation, type GeoLocation } from './se
 import { primeCallAudio } from './services/callAudioService';
 import { hapticCallConnected, hapticCallEnded } from './services/hapticService';
 import { installCallSoundUnlock, playCallSound, stopCallSounds } from './services/callSounds';
-import { installAppSoundUnlock, playAppSound, quietArrivalSounds } from './services/appSounds';
+import { installAppSoundUnlock, playAppSound, playOpenSound, quietArrivalSounds } from './services/appSounds';
 import { webrtcCallService, type IncomingCall } from './services/webrtcService';
 import { analytics } from './services/analyticsService';
 import { blockUser, isBlockedBetween } from './services/blockService';
@@ -2970,6 +2970,8 @@ export default function App() {
   };
   useEffect(() => installCallSoundUnlock(), []);
   useEffect(() => installAppSoundUnlock(), []);
+  // One soft chime when the app opens (nothing else plays while the backlog loads).
+  useEffect(() => { const t = window.setTimeout(playOpenSound, 400); return () => window.clearTimeout(t); }, []);
   // Signing in loads old messages and Gayzes; those are not news, so keep arrival sounds quiet for a few seconds.
   useEffect(() => { if (supabaseUserId) quietArrivalSounds(); }, [supabaseUserId]);
   // An incoming call rings until it is answered, declined or hung up.
