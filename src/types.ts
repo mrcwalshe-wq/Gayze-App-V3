@@ -176,7 +176,7 @@ export interface EncryptedMessage {
   mediaDurationSeconds?: number;
   albumId?: string;
   /** Local-only delivery state for optimistic outgoing messages. */
-  sendState?: 'sending' | 'sent' | 'failed';
+  sendState?: 'sending' | 'queued' | 'sent' | 'failed';
   /**
    * Set when this device cannot open the message: 'no_key' (the key version was
    * never shared with this device) or 'tampered_or_wrong_key' (authentication failed).

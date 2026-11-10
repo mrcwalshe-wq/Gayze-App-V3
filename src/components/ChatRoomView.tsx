@@ -15,6 +15,7 @@ import { beginChatTrace, traceChat, countChatWork } from '../services/chatTrace'
 import type { ChatConnectionState } from '../services/realtimeRecovery';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { SwarmRoom, EncryptedMessage, UserProfile, MeetingProposal, TopLevelIntentMode, VoiceNote } from '../types';
+import { loadOutbox } from '../services/outbox';
 import { hapticMessageDecrypted, hapticLight, hapticSensitiveAction, hapticMessageSent } from '../services/hapticService';
 import { playAppSound, FRESH_MESSAGE_MS } from '../services/appSounds';
 import {
@@ -74,7 +75,7 @@ interface ChatRoomViewProps {
   currentUser: UserProfile;
   /** Authenticated Supabase user id; live message sender_id values use this, not the device public-key fingerprint. */
   currentUserId?: string | null;
-  onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string, messageId?: string) => Promise<void>;
+  onSendMessage: (roomId: string, plainText: string, ephemeralTtlSeconds?: number, meetingData?: MeetingProposal, mediaUrl?: string, messageId?: string) => Promise<void | 'queued'>;
   /** Sends a recorded voice message or video note. */
   onSendNote?: (roomId: string, note: VoiceNote) => Promise<void>;
   onUpdateRoomTtl: (roomId: string, ttl: number) => void;
@@ -338,6 +339,37 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
       .sort((a, b) => a.timestamp - b.timestamp);
   }, [messages, optimisticMessages, currentRoom?.id, now]);
 
+  // Messages waiting for a connection: show them after a reload too (text is not stored, so a placeholder), and follow
+  // the outcome when the connection returns.
+  useEffect(() => {
+    if (!currentUserId) return;
+    const showQueued = () => {
+      const queued = loadOutbox(localStorage, currentUserId);
+      setOptimisticMessages((prev) => {
+        const have = new Set(prev.map((m) => m.id));
+        const extra = queued.filter((q) => !have.has(q.id)).map((q): EncryptedMessage => ({
+          id: q.id, roomId: q.roomId, senderKey: currentUserId, senderName: 'You', timestamp: q.createdAt, cipherText: '', nonceHex: '',
+          plainText: 'Waiting to send…', ephemeralTtlSeconds: 0, sendState: 'queued',
+        }));
+        return extra.length ? [...prev, ...extra] : prev;
+      });
+    };
+    const onResult = (event: Event) => {
+      const r = (event as CustomEvent<{ sent: string[]; failed: string[]; expired: string[] }>).detail;
+      if (!r) return;
+      const gone = new Set(r.expired);
+      const failed = new Set(r.failed);
+      const sent = new Set(r.sent);
+      setOptimisticMessages((prev) => prev
+        .filter((m) => !gone.has(m.id))
+        .map((m) => failed.has(m.id) ? { ...m, sendState: 'failed' as const } : sent.has(m.id) ? { ...m, sendState: 'sent' as const } : m));
+    };
+    showQueued();
+    window.addEventListener('gayze:outbox-changed', showQueued);
+    window.addEventListener('gayze:outbox-result', onResult);
+    return () => { window.removeEventListener('gayze:outbox-changed', showQueued); window.removeEventListener('gayze:outbox-result', onResult); };
+  }, [currentUserId]);
+
   // Once the authoritative database row arrives, remove its local optimistic twin.
   useEffect(() => {
     if (!optimisticMessages.length) return;
@@ -597,9 +629,14 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
     setAttachedMedia(null);
 
     try {
-      await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend, messageId);
+      const outcome = await onSendMessage(currentRoom.id, textToSend, currentRoom.ephemeralTtlSeconds, undefined, mediaToSend, messageId);
       pendingSends.current.delete(draft);
-      setOptimisticMessages((prev) => prev.filter((message) => message.id !== messageId));
+      if (outcome === 'queued') {
+        // No connection: the message waits and is sent by itself when the connection returns.
+        setOptimisticMessages((prev) => prev.map((message) => message.id === messageId ? { ...message, sendState: 'queued' } : message));
+      } else {
+        setOptimisticMessages((prev) => prev.filter((message) => message.id !== messageId));
+      }
     } catch {
       setSendError('Send not confirmed. Your message is safe to retry.');
       setOptimisticMessages((prev) => prev.map((message) => message.id === messageId ? { ...message, sendState: 'failed' } : message));
@@ -1164,6 +1201,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                     )}
                     <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     {msg.sendState === 'sending' && <span>· Sending…</span>}
+                    {msg.sendState === 'queued' && <span className="inline-flex items-center gap-1 text-amber-200/90"><Clock className="w-3 h-3" aria-hidden="true" />Waiting to send</span>}
                     {msg.sendState === 'failed' && <span className="text-amber-300">· Not confirmed</span>}
                     <div className="relative">
                       <button
@@ -1556,7 +1594,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           onClose={() => setShowSharePlace(false)}
           peerName={currentRoom.peerName || currentRoom.name}
           userLocation={userLocation ?? null}
-          onSend={(text) => onSendMessage(currentRoom.id, text, currentRoom.ephemeralTtlSeconds)}
+          onSend={async (text) => { await onSendMessage(currentRoom.id, text, currentRoom.ephemeralTtlSeconds); }}
         />
       )}
       {currentRoom && currentRoom.type === 'direct' && onSendNote && (
