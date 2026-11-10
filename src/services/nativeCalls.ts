@@ -69,3 +69,15 @@ export async function releaseNativeCallToken(): Promise<void> {
   })();
   await Promise.race([work, new Promise<void>((resolve) => { window.setTimeout(resolve, 1500); })]);
 }
+
+/** The person answered in the app: answer the iOS call screen too, so it stops ringing and iOS switches the call audio on. */
+export async function answerNativeCall(callId: string | undefined): Promise<void> {
+  if (!isIos() || !callId) return;
+  try { const { GayzeCallKit } = await import('gayze-callkit'); await GayzeCallKit.answerCall({ callId }); } catch { /* no system call screen for this call */ }
+}
+
+/** The person declined in the app: take the iOS call screen down. */
+export async function declineNativeCall(callId: string | undefined): Promise<void> {
+  if (!isIos() || !callId) return;
+  try { const { GayzeCallKit } = await import('gayze-callkit'); await GayzeCallKit.endCall({ callId }); } catch { /* nothing to end */ }
+}

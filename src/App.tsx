@@ -29,7 +29,7 @@ import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall } from './services/callSessions';
-import { startNativeCalls, endNativeCalls, releaseNativeCallToken } from './services/nativeCalls';
+import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, declineNativeCall } from './services/nativeCalls';
 import { InterestDiscover } from './components/InterestDiscover';
 import { mergeOnlineIds } from './services/presenceLabel';
 import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
@@ -3322,6 +3322,9 @@ export default function App() {
   };
 
   const handleAcceptIncomingCall = async (call: IncomingCall) => {
+    // The same call can be answered from two places (the app and the iOS call screen). Once is enough: a second accept restarts it.
+    if (call.callId && webrtcCallService.currentCallId() === call.callId && webrtcCallService.getState() !== 'idle') return;
+    void answerNativeCall(call.callId);
     primeCallAudio();
     webrtcCallService.prewarmMedia(call.callType);   // inside the tap, before any waiting
     if (call.callerId) {
@@ -3360,6 +3363,7 @@ export default function App() {
   };
 
   const handleDeclineIncomingCall = async (call: IncomingCall) => {
+    void declineNativeCall(call.callId);
     setIncomingCall(null);
     await webrtcCallService.declineCall({
       conversationId: call.conversationId,
