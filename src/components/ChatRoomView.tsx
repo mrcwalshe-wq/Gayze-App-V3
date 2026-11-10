@@ -4,6 +4,7 @@ import { MeetupCard, type MeetupAction } from './MeetupCard';
 import { CallLineCard } from './CallLineCard';
 import { NoteRecorder } from './NoteRecorder';
 import { AlbumCard, AlbumPickerSheet } from './AlbumShareUI';
+import { AlbumsSheet } from './AlbumsSheet';
 import { createShare, linkShareMessage, revokeShare } from '../services/albumService';
 import { presenceLabel } from '../services/presenceLabel';
 import { compressImageDataUrl } from '../services/imageCompress';
@@ -216,6 +217,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
   const [revealedPhotos, setRevealedPhotos] = useState<Set<string>>(new Set());
   const [noteRecorder, setNoteRecorder] = useState<{ kind: 'audio' | 'video' } | null>(null);
   const [showAlbumPicker, setShowAlbumPicker] = useState(false);
+  const [showAlbumManager, setShowAlbumManager] = useState(false);
   const [showChatActions, setShowChatActions] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
@@ -1037,6 +1039,17 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
                       <MapPin className="w-4 h-4 text-[#7be0a8]" />
                       <span className="text-[12px]">Share a place</span>
                     </button>
+                    {currentRoom.type === 'direct' && onSendAlbum && (
+                      <button
+                        type="button"
+                        aria-label="Private albums"
+                        className="g-row !min-h-[42px] !rounded-xl"
+                        onClick={() => { setShowChatActions(false); setShowAlbumPicker(true); }}
+                      >
+                        <Images className="w-4 h-4 text-[#c9b0f5]" />
+                        <span className="text-[12px]">Private albums</span>
+                      </button>
+                    )}
                     {currentRoom.type === 'direct' && onOpenScheduleMeeting && (
                       <button
                         type="button"
@@ -1628,6 +1641,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
         <AlbumPickerSheet
           isOpen={showAlbumPicker}
           onClose={() => setShowAlbumPicker(false)}
+          onManage={() => setShowAlbumManager(true)}
           peerName={currentRoom.peerName || currentRoom.name}
           onSend={async (album, expiresAt) => {
             const me = (await supabase?.auth.getSession())?.data.session?.user.id;
@@ -1640,6 +1654,7 @@ export const ChatRoomView: React.FC<ChatRoomViewProps> = ({
           }}
         />
       )}
+      {showAlbumManager && <AlbumsSheet onClose={() => setShowAlbumManager(false)} />}
       {currentRoom && currentRoom.type === 'direct' && onSendNote && (
         <NoteRecorder
           isOpen={noteRecorder !== null}

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Clock, Images, Lock, X } from 'lucide-react';
 import type { AlbumShare } from '../types';
-import { albumErrorMessage, listAlbums, openSharedAlbum, revokeShare, type AlbumSummary, type SharedAlbumResult } from '../services/albumService';
+import { albumErrorMessage, listAlbums, openSharedAlbum, revokeShare, shareIsOpen, type AlbumSummary, type SharedAlbumResult } from '../services/albumService';
 import { hapticLight } from '../services/hapticService';
 
 const DURATIONS: { label: string; ms: number | null }[] = [
@@ -10,7 +10,7 @@ const DURATIONS: { label: string; ms: number | null }[] = [
 ];
 
 /** Chat: choose an album and how long they can open it. */
-export const AlbumPickerSheet: React.FC<{ isOpen: boolean; onClose: () => void; peerName: string; onSend: (album: AlbumSummary, expiresAt: Date | null) => Promise<void> }> = ({ isOpen, onClose, peerName, onSend }) => {
+export const AlbumPickerSheet: React.FC<{ isOpen: boolean; onClose: () => void; peerName: string; onSend: (album: AlbumSummary, expiresAt: Date | null) => Promise<void>; onManage?: () => void }> = ({ isOpen, onClose, peerName, onSend, onManage }) => {
   const [albums, setAlbums] = useState<AlbumSummary[] | null>(null);
   const [pick, setPick] = useState<string>('');
   const [dur, setDur] = useState(1);
@@ -42,6 +42,7 @@ export const AlbumPickerSheet: React.FC<{ isOpen: boolean; onClose: () => void; 
           <button type="button" className="g-plan__close" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></button>
         </header>
         <div className="g-plan__body">
+          {onManage && <button type="button" className="g-alb__back" onClick={() => { onClose(); onManage(); }}><Images className="w-4 h-4" aria-hidden="true" />Manage my albums: add photos, edit, end access</button>}
           {albums === null && <p className="g-plan__note">Loading…</p>}
           {albums && albums.length === 0 && <p className="g-plan__note">You have no albums with photos yet. Make one in Profile, under Private albums.</p>}
           {albums && albums.length > 0 && (<>
@@ -78,6 +79,8 @@ export const AlbumCard: React.FC<{ share: AlbumShare; mine: boolean; peerName: s
   const [ended, setEnded] = useState(false);
   const [now, setNow] = useState(Date.now());
   useEffect(() => { if (!share.expiresAt) return; const t = window.setInterval(() => setNow(Date.now()), 30000); return () => window.clearInterval(t); }, [share.expiresAt]);
+  // The sender's card follows the server: ending access from the album screen, or by unsending, shows here too.
+  useEffect(() => { if (!mine) return; let live = true; void shareIsOpen(share.shareId).then((open) => { if (live && !open) setEnded(true); }); return () => { live = false; }; }, [mine, share.shareId]);
   const expired = !!share.expiresAt && share.expiresAt <= now;
   const over = ended || expired;
   const stop = async () => { try { await revokeShare(share.shareId); setEnded(true); hapticLight(); } catch { /* stays active */ } };
@@ -89,7 +92,8 @@ export const AlbumCard: React.FC<{ share: AlbumShare; mine: boolean; peerName: s
         <small>{share.count} {share.count === 1 ? 'photo' : 'photos'} · {over ? 'No longer available' : share.expiresAt ? <><Clock className="inline w-3 h-3" aria-hidden="true" /> {leftText(share.expiresAt - now)}</> : 'Open until stopped'}</small>
       </div>
       {!over && !mine && <button type="button" className="g-alb__btn" onClick={() => { hapticLight(); setViewing(true); }}>View</button>}
-      {!over && mine && <button type="button" className="g-alb__btn g-alb__btn--quiet" onClick={() => void stop()}>End access</button>}
+      {!over && mine && <button type="button" className="g-alb__btn g-alb__btn--quiet" onClick={() => void stop()} aria-label={`End access to ${share.name}`}>End access</button>}
+      {over && mine && <small className="g-albcard__ended">Access ended</small>}
       {viewing && <AlbumViewer share={share} from={peerName} onClose={() => setViewing(false)} />}
     </article>
   );

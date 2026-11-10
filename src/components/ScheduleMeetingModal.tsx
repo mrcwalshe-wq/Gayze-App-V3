@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SafeHaven } from '../types';
-import { ArrowRight, CalendarClock, Check, Clock, MapPin, Moon, ShieldCheck, Sun, Timer, X, Zap } from 'lucide-react';
+import { ArrowRight, CalendarClock, Check, Clock, Coffee, House, MapPin, Moon, ShieldCheck, Sun, Timer, TreePine, Wine, X, Zap } from 'lucide-react';
 import { hapticLight, hapticSensitiveAction } from '../services/hapticService';
 import { PlacePicker } from './PlacePicker';
 import { withDistances } from '../services/havenDistance';
@@ -34,23 +34,24 @@ const TIMES = [
   { label: 'Tomorrow afternoon', short: 'Tomorrow', hint: 'Afternoon', Icon: Sun },
 ] as const;
 
-const FALLBACK_HAVEN: SafeHaven = {
-  id: 'default_sh', name: 'Timberyard Community Cafe', address: '7 Upper St Martin’s Ln', neighborhood: 'Seven Dials',
-  safetyScore: 9.7, features: [], lat: 51.5126, lng: -0.1268, openHours: '08:00 - 20:00', approxDistanceKm: 0.3, staffTrained: true, type: 'cafe',
-};
+/** The usual places people meet. Nothing is chosen for you: pick one, a verified Safe Haven, or search for somewhere else. */
+const PLACE_KINDS = [
+  { label: 'Café', Icon: Coffee }, { label: 'Bar', Icon: Wine }, { label: 'Park', Icon: TreePine }, { label: 'Home', Icon: House },
+] as const;
 
 /** A meetup proposal: where, when, and an optional safety timer. A bottom sheet above the tab bar. */
 export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onClose, peerName, safeHavens, userLocation, onConfirmMeeting, amend }) => {
-  const havens = useMemo(() => withDistances(safeHavens.length > 0 ? safeHavens : [FALLBACK_HAVEN], userLocation), [safeHavens, userLocation?.lat, userLocation?.lng]);
+  const havens = useMemo(() => withDistances(safeHavens, userLocation), [safeHavens, userLocation?.lat, userLocation?.lng]);
+  const [kind, setKind] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [custom, setCustom] = useState<{ name: string; address: string; lat: number; lng: number } | null>(null);
-  const [selectedId, setSelectedId] = useState<string>(havens[0].id);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [timeOption, setTimeOption] = useState<string>(TIMES[0].label);
   const [startLocalCheckin, setStartLocalCheckin] = useState(true);
   const [durationMinutes, setDurationMinutes] = useState(60);
 
   useEffect(() => {
-    if (!havens.some((h) => h.id === selectedId)) setSelectedId(havens[0].id);
+    if (selectedId && !havens.some((h) => h.id === selectedId)) setSelectedId(null);
   }, [havens, selectedId]);
 
   // Changing a plan starts from what was agreed: same time and, when it is a known Safe Haven, the same place.
@@ -58,7 +59,8 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
     if (!isOpen || !amend) return;
     if (TIMES.some((t) => t.label === amend.timeStr)) setTimeOption(amend.timeStr);
     const match = havens.find((h) => h.name === amend.venueName);
-    if (match) { setSelectedId(match.id); setCustom(null); setSearch(''); }
+    if (match) { setSelectedId(match.id); setKind(null); setCustom(null); setSearch(''); }
+    else if (PLACE_KINDS.some((k) => k.label === amend.venueName)) { setKind(amend.venueName); setSelectedId(null); setCustom(null); setSearch(''); }
   }, [isOpen, amend?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -69,19 +71,20 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
-  const selected = havens.find((h) => h.id === selectedId) ?? havens[0];
-  const venueLabel = custom ? custom.name : selected.name;
+  const selected = custom ? null : havens.find((h) => h.id === selectedId) ?? null;
+  const venueLabel = custom ? custom.name : selected ? selected.name : kind ?? '';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!venueLabel) return;
     hapticSensitiveAction();
     onConfirmMeeting({
       venueName: venueLabel,
-      address: custom ? custom.address : `${selected.address}, ${selected.neighborhood}`,
+      address: custom ? custom.address : selected ? `${selected.address}, ${selected.neighborhood}` : '',
       timeStr: timeOption,
-      isSafeHaven: !custom,
-      lat: custom ? custom.lat : selected.lat,
-      lng: custom ? custom.lng : selected.lng,
+      isSafeHaven: Boolean(selected),
+      lat: custom ? custom.lat : selected?.lat,
+      lng: custom ? custom.lng : selected?.lng,
       durationMinutes,
       startLocalCheckin,
     });
@@ -105,11 +108,20 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
         <div className="g-plan__body">
           <section aria-labelledby="plan-where">
             <h4 id="plan-where"><MapPin className="w-3.5 h-3.5" aria-hidden="true" />Where</h4>
+            <div className="g-plan__kinds" role="radiogroup" aria-label="Kind of place">
+              {PLACE_KINDS.map(({ label, Icon }) => (
+                <button key={label} type="button" role="radio" aria-checked={!custom && !selected && kind === label} className={!custom && !selected && kind === label ? 'is-on' : ''}
+                  onClick={() => { hapticLight(); setKind(label); setSelectedId(null); setCustom(null); setSearch(''); }}>
+                  <Icon className="w-5 h-5" aria-hidden="true" /><span>{label}</span>
+                </button>
+              ))}
+            </div>
+            {havens.length > 0 && <h5 className="g-plan__sub">Or a verified Safe Haven</h5>}
             <div className="g-plan__venues" role="radiogroup" aria-label="Verified Safe Havens">
               {havens.map((haven) => {
-                const on = !custom && haven.id === selected.id;
+                const on = !custom && selected?.id === haven.id;
                 return (
-                  <button key={haven.id} type="button" role="radio" aria-checked={on} className={`g-plan__venue ${on ? 'is-on' : ''}`} onClick={() => { hapticLight(); setCustom(null); setSearch(''); setSelectedId(haven.id); }}>
+                  <button key={haven.id} type="button" role="radio" aria-checked={on} className={`g-plan__venue ${on ? 'is-on' : ''}`} onClick={() => { hapticLight(); setCustom(null); setSearch(''); setKind(null); setSelectedId(haven.id); }}>
                     <span className="g-plan__score" aria-label={`Safety score ${haven.safetyScore}`} style={{ ['--p' as string]: Math.max(0, Math.min(1, haven.safetyScore / 10)) }}>
                       <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" className="g-plan__ring-bg" /><circle cx="24" cy="24" r="20" className="g-plan__ring" pathLength={1} /></svg>
                       <b>{haven.safetyScore}</b><small>safety</small>
@@ -123,13 +135,13 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
                 );
               })}
             </div>
-            <p className="g-plan__note"><ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />Verified Safe Havens are public places with trained staff.</p>
+            {havens.length > 0 && <p className="g-plan__note"><ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />Verified Safe Havens are public places with trained staff.</p>}
             <div className="g-plan__else">
               <PlacePicker
                 value={search} near={userLocation ?? null} placeholder="Or search for another place"
                 className="g-field g-iset__field"
                 onTextChange={(t) => { setSearch(t); if (custom && t !== custom.name) setCustom(null); }}
-                onPick={(p) => { setSearch(p.name); setCustom({ name: p.name, address: [p.address, p.area].filter(Boolean).join(', ') || p.name, lat: p.lat, lng: p.lng }); }}
+                onPick={(p) => { setSearch(p.name); setKind(null); setSelectedId(null); setCustom({ name: p.name, address: [p.address, p.area].filter(Boolean).join(', ') || p.name, lat: p.lat, lng: p.lng }); }}
               />
               {custom && <p className="g-plan__note g-plan__note--warn"><MapPin className="w-3.5 h-3.5" aria-hidden="true" />Not a verified Safe Haven. Choose a public, busy place and tell a friend.</p>}
             </div>
@@ -168,8 +180,8 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOp
         </div>
 
         <footer className="g-plan__foot">
-          <p className="g-plan__sum"><span><MapPin className="w-3 h-3" aria-hidden="true" />{venueLabel}</span><span><Clock className="w-3 h-3" aria-hidden="true" />{timeOption}</span>{startLocalCheckin && <span><Timer className="w-3 h-3" aria-hidden="true" />{durationMinutes} min</span>}</p>
-          <button type="submit" className="g-plan__send"><span>{amend ? 'Send update' : 'Send proposal'}</span><ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
+          <p className="g-plan__sum"><span><MapPin className="w-3 h-3" aria-hidden="true" />{venueLabel || 'Choose a place'}</span><span><Clock className="w-3 h-3" aria-hidden="true" />{timeOption}</span>{startLocalCheckin && <span><Timer className="w-3 h-3" aria-hidden="true" />{durationMinutes} min</span>}</p>
+          <button type="submit" className="g-plan__send" disabled={!venueLabel}><span>{amend ? 'Send update' : 'Send proposal'}</span><ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
         </footer>
       </form>
     </div>,

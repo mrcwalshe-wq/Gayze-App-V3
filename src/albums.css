@@ -19,7 +19,7 @@
 .g-alb__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .g-alb__tile { position: relative; margin: 0; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, .06); }
 .g-alb__tile img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-touch-callout: none; user-select: none; }
-.g-alb__tile button { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 0; color: #fff; background: rgba(0, 0, 0, .65); cursor: pointer; }
+.g-alb__tile .g-alb__x-legacy { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 0; color: #fff; background: rgba(0, 0, 0, .65); cursor: pointer; }
 .g-alb__ph { display: grid; place-items: center; width: 100%; height: 100%; color: rgba(255, 255, 255, .5); }
 .g-alb__add { aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 4px; border-radius: 10px; border: 1px dashed rgba(255, 255, 255, .22); color: rgba(255, 255, 255, .75); font-size: 13px; cursor: pointer; text-align: center; }
 .g-alb__dur { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -44,3 +44,9 @@
 .g-albview__shield { position: absolute; }
 .g-albview footer { display: flex; justify-content: center; gap: 24px; padding: 10px; }
 .g-albview__note { margin: 0; padding: 6px 16px calc(14px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 12px; color: rgba(255, 255, 255, .5); }
+
+/* Tiles open the photo; the remove cross is its own button. */
+.g-alb__open { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+.g-alb__tile .g-alb__x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 0; color: #fff; background: rgba(0, 0, 0, .65); cursor: pointer; }
+.g-albview__acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 10px 16px; }
+.g-albcard__ended { color: rgba(255,255,255,.6); font-size: 12px; }

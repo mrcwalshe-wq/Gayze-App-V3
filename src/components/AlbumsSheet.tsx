@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Images, Lock, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Images, Lock, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { PhotoStudio } from './PhotoStudio';
 import { supabase } from '../services/supabaseClient';
 import {
   addAlbumPhoto, albumErrorMessage, albumsAvailable, createAlbum, deleteAlbum, listAlbumPhotos, listAlbums, listShares,
-  loadOwnPhotoUrls, removeAlbumPhoto, revokeShare, MAX_ALBUMS, MAX_ALBUM_PHOTOS,
+  loadOwnPhotoUrls, removeAlbumPhoto, replaceAlbumPhoto, blobUrlToDataUrl, revokeShare, MAX_ALBUMS, MAX_ALBUM_PHOTOS,
   type AlbumPhotoRow, type AlbumShareRow, type AlbumSummary,
 } from '../services/albumService';
 import { hapticLight } from '../services/hapticService';
@@ -94,6 +95,8 @@ const AlbumDetail: React.FC<{ userId: string; album: AlbumSummary; onBack: () =>
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
+  const [studio, setStudio] = useState<{ photo: AlbumPhotoRow; source: string } | null>(null);
   const made = useRef<string[]>([]);
 
   const load = useCallback(async () => {
@@ -137,8 +140,10 @@ const AlbumDetail: React.FC<{ userId: string; album: AlbumSummary; onBack: () =>
       <div className="g-alb__grid">
         {photos.map((p) => (
           <figure key={p.id} className="g-alb__tile">
-            {urls[p.id] ? <img src={urls[p.id]} alt="" draggable={false} /> : <span className="g-alb__ph" aria-label="Photo loading">…</span>}
-            <button type="button" aria-label="Remove photo" onClick={() => void remove(p)} disabled={working}><X className="w-3.5 h-3.5" /></button>
+            <button type="button" className="g-alb__open" aria-label="Open photo" onClick={() => setViewId(p.id)}>
+              {urls[p.id] ? <img src={urls[p.id]} alt="" draggable={false} /> : <span className="g-alb__ph">…</span>}
+            </button>
+            <button type="button" className="g-alb__x" aria-label="Remove photo" onClick={() => void remove(p)} disabled={working}><X className="w-3.5 h-3.5" /></button>
           </figure>
         ))}
         {photos.length < MAX_ALBUM_PHOTOS && (
@@ -148,6 +153,36 @@ const AlbumDetail: React.FC<{ userId: string; album: AlbumSummary; onBack: () =>
           </label>
         )}
       </div>
+      {viewId && urls[viewId] && (() => {
+        const idx = photos.findIndex((x) => x.id === viewId);
+        const photo = photos[idx];
+        if (!photo) return null;
+        return createPortal(
+          <div className="g-albview" role="dialog" aria-modal="true" aria-label="Photo">
+            <header><span>{idx + 1} of {photos.length}</span><button type="button" onClick={() => setViewId(null)} aria-label="Close"><X className="w-5 h-5" /></button></header>
+            <div className="g-albview__stage"><img src={urls[viewId]} alt={`Photo ${idx + 1} of ${photos.length}`} draggable={false} /></div>
+            <div className="g-albview__acts">
+              <button type="button" className="g-alb__btn" onClick={async () => { try { setStudio({ photo, source: await blobUrlToDataUrl(urls[viewId]) }); } catch { setError('Could not open the Photo Studio for this photo.'); } }}><Pencil className="w-4 h-4" aria-hidden="true" />Edit in Photo Studio</button>
+              <button type="button" className="g-alb__btn g-alb__btn--quiet" onClick={() => { setViewId(null); void remove(photo); }}><Trash2 className="w-4 h-4" aria-hidden="true" />Remove</button>
+            </div>
+            {photos.length > 1 && (
+              <footer>
+                <button type="button" disabled={idx === 0} onClick={() => setViewId(photos[idx - 1].id)} aria-label="Previous photo">‹</button>
+                <button type="button" disabled={idx === photos.length - 1} onClick={() => setViewId(photos[idx + 1].id)} aria-label="Next photo">›</button>
+              </footer>
+            )}
+          </div>,
+          document.body,
+        );
+      })()}
+      {studio && (
+        <PhotoStudio source={studio.source} onCancel={() => setStudio(null)} onDone={async (edited) => {
+          const target = studio.photo; setStudio(null); setViewId(null); setWorking(true); setError('');
+          try { await replaceAlbumPhoto(userId, album.id, target, edited, Math.max(0, photos.findIndex((x) => x.id === target.id))); await load(); }
+          catch (e) { setError(albumErrorMessage(e)); }
+          finally { setWorking(false); }
+        }} />
+      )}
       <p className="g-plan__note">{photos.length} of {MAX_ALBUM_PHOTOS} photos. Send this album from any chat with the pictures button next to the message box.</p>
 
       <h4 className="g-alb__h">Who can see this</h4>
