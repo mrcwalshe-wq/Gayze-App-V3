@@ -130,6 +130,17 @@ export class WebRTCCallService {
   public currentCallId(): string | null { return this.activeCallId; }
   /** The other person ended or declined, learned from the server instead of the live signal. */
   public remoteEnded(state: 'declined' | 'ended'): void { callLog(`call ${state} (learned from the server)`); this.cleanup(); this.setState(state); }
+  /**
+   * The server says the other person answered, but the live "accept" never reached this phone (it was still ringing here, or the
+   * call channel was mid-join). Carry on exactly as if the accept had arrived. Safe to call at any time: it only acts while this
+   * phone is the caller and still shows calling / ringing.
+   */
+  public remoteAnswered(): void {
+    const pc = this.pc;
+    if (!pc || !this.caller || (this.state !== 'calling' && this.state !== 'ringing')) return;
+    callLog('call answered (learned from the server)');
+    void this.handleCallSignal(pc, { type: 'call-accept', conversationId: this.activeConversationId ?? '', callerId: this.activeTargetUserId ?? '', timestamp: Date.now() } as CallSignalPayload).catch(() => undefined);
+  }
   private activeTargetUserId: string | null = null;
   private ringingTimeoutTimer: number | null = null;
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
@@ -564,6 +575,14 @@ export class WebRTCCallService {
         timestamp: Date.now(),
       });
       if (generation !== this.callGeneration) return;
+      // Answered from the lock screen, this phone can still be waking up: the caller's first offer may go out before it listens. Say
+      // "I'm here" again while no offer has arrived; the caller answers every accept with the offer.
+      [3000, 7000, 12000, 20000].forEach((delay) => window.setTimeout(() => {
+        if (generation !== this.callGeneration || this.state === 'connected') return;
+        if (this.pc && this.pc.remoteDescription) return;
+        callLog('no offer yet: telling the caller again that the call was answered');
+        void this.broadcastSignal({ type: 'call-accept', conversationId: params.conversationId, callerId: params.userId, targetUserId: params.callerId, callType: params.callType, timestamp: Date.now() }).catch(() => undefined);
+      }, delay));
       analytics.logEvent('call_started', { type: params.callType, direction: 'incoming' });
     } catch (err: any) {
       if (generation !== this.callGeneration) return;
@@ -916,7 +935,7 @@ export class WebRTCCallService {
       // offer is delivered to nobody and the call sits on "Securing the line". Say it again, same offer, until an answer arrives.
       if (!restart) {
         const generation = this.callGeneration;
-        [2500, 6000, 10000].forEach((delay) => setTimeout(() => {
+        [2500, 6000, 10000, 15000, 22000, 30000, 40000].forEach((delay) => setTimeout(() => {
           if (this.pc !== pc || generation !== this.callGeneration || pc.signalingState !== 'have-local-offer' || !pc.localDescription) return;
           callLog('no answer yet: sending the offer again');
           void this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, pc.localDescription), timestamp: Date.now() }).catch(() => undefined);
