@@ -59,11 +59,15 @@ export async function loadPrivacySettings(userId: string): Promise<PrivacySettin
   };
 }
 
+/** Fired after a successful save, so the rest of the app (e.g. live presence) can follow the new settings straight away. */
+export const PRIVACY_CHANGED_EVENT = 'gayze:privacy-changed';
+
 export async function savePrivacySettings(userId: string, s: PrivacySettings): Promise<boolean> {
   if (!supabase) return false;
   const { error } = await supabase.from('user_privacy_settings').upsert({
     user_id: userId, show_online_status: s.showOnlineStatus, show_last_seen: s.showLastSeen,
     who_can_message: s.whoCanMessage, discoverable: s.discoverable, updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' });
+  if (!error && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PRIVACY_CHANGED_EVENT, { detail: s }));
   return !error;
 }

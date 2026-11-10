@@ -139,7 +139,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
     const meetPlace = !useSafeHaven ? place : null;
     const areaText = useSafeHaven && selectedHaven
       ? `${selectedHaven.name} (Safe Haven, ${userNeighborhood})`
-      : meetPlace ? `${meetPlace.name}${meetPlace.area ? ` (${meetPlace.area})` : ''}` : `${userNeighborhood} (Approximate ±300m)`;
+      : meetPlace ? `${meetPlace.name}${meetPlace.area ? ` (${meetPlace.area})` : ''}` : `${userNeighborhood} (Approximate ±500m)`;
     const picked = cleanActivities(activities);
     const data: UserActiveIntent = {
       remoteId: existingIntent?.remoteId,
@@ -305,7 +305,7 @@ export const SetIntentSheet: React.FC<SetIntentSheetProps> = ({
                   </div>
                   <button type="button" role="switch" aria-checked={openMore} aria-label="Open to more" className="ss-sw" onClick={() => { hapticLight(); setOpenMore((v) => !v); }}><i /></button>
                 </div>
-                <p className="ss-fine"><ShieldCheck className="inline w-3.5 h-3.5 mr-1" aria-hidden="true" />Your position stays approximate (±300 m) and the signal ends when it expires. Precise GPS never leaves this device.</p>
+                <p className="ss-fine"><ShieldCheck className="inline w-3.5 h-3.5 mr-1" aria-hidden="true" />Your position stays approximate (±500 m) and the signal ends when it expires. Precise GPS never leaves this device.</p>
               </>
             )}
             {errorMessage && <div className="ss-error" role="alert">{errorMessage}</div>}
