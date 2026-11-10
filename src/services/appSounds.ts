@@ -19,7 +19,7 @@
  *   - matched is two voices that start a fifth apart and glide together into one note (two people meeting).
  */
 import { encodeWav } from './callSounds';
-import { unlockElementSilently } from './audioUnlock';
+import { unlockElementSilently, rememberSource, ensureSource, releaseSource } from './audioUnlock';
 
 export type AppSound = 'open' | 'messageIn' | 'messageOut' | 'gayze' | 'matched' | 'live' | 'notify' | 'error' | 'seal' | 'unsend';
 
@@ -142,9 +142,13 @@ function element(kind: AppSound): HTMLAudioElement | null {
   let el = elements.get(kind);
   if (!el) {
     try {
-      el = new Audio(URL.createObjectURL(new Blob([renderAppSound(kind) as BlobPart], { type: 'audio/wav' })));
+      const url = URL.createObjectURL(new Blob([renderAppSound(kind) as BlobPart], { type: 'audio/wav' }));
+      el = new Audio(url);
+      rememberSource(el, url);
       el.preload = 'auto';
       el.volume = APP_RECIPES[kind].volume;
+      const own = el;
+      el.addEventListener('ended', () => releaseSource(own));   // never leave a player on the lock screen
       elements.set(kind, el);
     } catch { return null; }
   }
@@ -187,6 +191,7 @@ export function playAppSound(kind: AppSound): void {
   lastPlayed.set(kind, now);
   const el = element(kind);
   if (!el) return;
+  ensureSource(el);
   try { el.currentTime = 0; } catch { /* not seekable yet */ }
   void el.play().catch(() => undefined);
 }
@@ -196,6 +201,7 @@ export function playOpenSound(): void {
   if (openPlayed || !areSoundsEnabled() || inCall()) return;
   const el = element('open');
   if (!el) return;
+  ensureSource(el);
   try { el.currentTime = 0; } catch { /* not seekable yet */ }
   void el.play().then(() => { openPlayed = true; openPending = false; }, () => { openPending = true; });
 }
