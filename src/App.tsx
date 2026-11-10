@@ -34,7 +34,7 @@ import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeC
 import { enqueueOutbox, drainOutbox, isNetworkFailure, loadOutbox } from './services/outbox';
 import { InterestDiscover } from './components/InterestDiscover';
 import { mergeOnlineIds } from './services/presenceLabel';
-import { fetchPresence, startPresenceHeartbeat, type ServerPresence } from './services/serverPresence';
+import { fetchPresence, startPresenceHeartbeat, loadPrivacySettings, PRIVACY_CHANGED_EVENT, type PrivacySettings, type ServerPresence } from './services/serverPresence';
 import { latestMeetups } from './services/meetupState';
 import { callLineText, decodePayload, encodePayload, meetingEventText } from './services/meetupWire';
 import { JourneyBar } from './components/JourneyBar';
@@ -1439,10 +1439,21 @@ export default function App() {
     };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
 
+  // "Show when I'm online": when it is off we stop announcing ourselves on the live presence channel too, not just on the server.
+  const [showOnlineStatus, setShowOnlineStatus] = useState(true);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || !supabaseUserId) return;
+    let live = true;
+    void loadPrivacySettings(supabaseUserId).then((s) => { if (live) setShowOnlineStatus(s.showOnlineStatus); }, () => undefined);
+    const onChange = (e: Event) => setShowOnlineStatus((e as CustomEvent<PrivacySettings>).detail.showOnlineStatus);
+    window.addEventListener(PRIVACY_CHANGED_EVENT, onChange);
+    return () => { live = false; window.removeEventListener(PRIVACY_CHANGED_EVENT, onChange); };
+  }, [isAuthenticated, supabaseUserId]);
+
   useEffect(() => {
     if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
     // Use enhanced presence system for both online status and last seen
-    const visible = presenceProfileUserId === supabaseUserId && !currentUser.presenceIncognito && currentUser.privacySetting !== 'ghost';
+    const visible = presenceProfileUserId === supabaseUserId && !currentUser.presenceIncognito && currentUser.privacySetting !== 'ghost' && showOnlineStatus;
     
     const unsubPresence = initEnhancedPresence(
       supabaseUserId, 
@@ -1466,7 +1477,7 @@ export default function App() {
       setOnlineUserIds(new Set());
       setPresenceMap(new Map());
     };
-  }, [supabaseUserId, currentUser.displayName, currentUser.presenceIncognito, currentUser.privacySetting, presenceProfileUserId, isAuthenticated, isSigningOut]);
+  }, [supabaseUserId, currentUser.displayName, currentUser.presenceIncognito, currentUser.privacySetting, presenceProfileUserId, isAuthenticated, isSigningOut, showOnlineStatus]);
 
   // Local persistence is limited to local/demo mode (no Supabase configured).
   // In live mode Supabase is the source of truth: nothing here is written from

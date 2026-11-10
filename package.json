@@ -35,7 +35,8 @@
     "test:visual": "bash scripts/e2e-docker.sh",
     "test:visual:update": "bash scripts/e2e-docker.sh --update-snapshots",
     "test:a11y": "playwright test e2e/a11y.spec.ts",
-    "test:e2e:pin": "node scripts/check-playwright-pin.mjs"
+    "test:e2e:pin": "node scripts/check-playwright-pin.mjs",
+    "test:privacy": "node --test scripts/privacy-tests/privacy.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
