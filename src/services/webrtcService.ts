@@ -613,7 +613,7 @@ export class WebRTCCallService {
         void this.broadcastSignal({ type: 'call-accept', conversationId: params.conversationId, callerId: params.userId, targetUserId: params.callerId, callType: params.callType, timestamp: Date.now() }).catch(() => undefined);
       }, delay));
       // The live channel is the first route. If no offer has arrived by now, read it from the mailbox (see callMailbox.ts).
-      [1500, 3500, 6000, 9000, 13000, 18000, 25000].forEach((delay) => window.setTimeout(() => { void this.pollMailboxOffer(generation, params); }, delay));
+      [750, 1500, 2000, 2500, 3500, 5000, 8000, 12000, 18000, 25000].forEach((delay) => window.setTimeout(() => { void this.pollMailboxOffer(generation, params); }, delay));
       analytics.logEvent('call_started', { type: params.callType, direction: 'incoming' });
     } catch (err: any) {
       if (generation !== this.callGeneration) return;
@@ -865,6 +865,11 @@ export class WebRTCCallService {
         break;
       case 'offer':
         if (!this.caller && signal.sdp) {
+          const incomingSdp = signal.sdp.sdp || '';
+          if (incomingSdp && pc.remoteDescription?.type === 'offer' && pc.remoteDescription.sdp === incomingSdp) {
+            callLog('ignored duplicate offer');
+            break;
+          }
           if (this.state !== 'connected') this.setState('connecting'); // a video upgrade renegotiates a live call; it does not "reconnect"
 
           // Answered before the microphone was ready (lock screen): wait for it here, attach it, then answer. The same offer can arrive
@@ -896,7 +901,7 @@ export class WebRTCCallService {
           await pc.setLocalDescription(answer);
           await this.gatheringDone(pc);
           if (this.pc !== pc) return;
-          void postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer));
+          await postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer));
           await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, answer), timestamp: Date.now() });
           } finally { if (first) this.answeringFirstOffer = false; }
         }
@@ -990,16 +995,19 @@ export class WebRTCCallService {
   }
   private answeringFirstOffer = false;
   private mailboxAnswerId = 0;
+  private mailboxOfferId = 0;
   private mailboxBusy = false;
 
   /** Callee: the offer never arrived over the live channel, so take it from the mailbox. */
   private async pollMailboxOffer(generation: number, params: { conversationId: string; callerId: string; callType: CallType }): Promise<void> {
     const pc = this.pc;
-    if (this.mailboxBusy || !pc || this.caller || generation !== this.callGeneration || this.state === 'connected' || pc.remoteDescription) return;
+    if (this.mailboxBusy || !pc || this.caller || generation !== this.callGeneration || ['ended', 'declined', 'missed', 'failed', 'idle'].includes(this.state)) return;
     this.mailboxBusy = true;
     try {
-      const message = await fetchCallSignal(this.activeCallId, 'offer');
-      if (!message || this.pc !== pc || generation !== this.callGeneration || pc.remoteDescription) return;
+      const message = await fetchCallSignal(this.activeCallId, 'offer', this.mailboxOfferId, (error) => callLog(`mailbox offer read failed: ${error}`));
+      if (!message || this.pc !== pc || generation !== this.callGeneration) return;
+      this.mailboxOfferId = Math.max(this.mailboxOfferId, message.id);
+      if (message.senderId !== this.activeTargetUserId) { callLog('ignored mailbox offer from unexpected participant'); return; }
       callLog('got offer (from the call mailbox)');
       await this.handleCallSignal(pc, { type: 'offer', conversationId: params.conversationId, callerId: params.callerId, sdp: message.sdp, timestamp: Date.now() } as CallSignalPayload);
     } catch (err) {
@@ -1041,7 +1049,7 @@ export class WebRTCCallService {
       await this.gatheringDone(pc);
       if (this.pc !== pc) return;
       // Left in the mailbox first, so the other phone can still get it if the live channel is not delivering to it.
-      void postCallSignal(this.activeCallId, this.activeTargetUserId, 'offer', this.plainDescription(pc, offer));
+      await postCallSignal(this.activeCallId, this.activeTargetUserId, 'offer', this.plainDescription(pc, offer));
       await this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, offer), timestamp: Date.now() });
       if (!restart && !renegotiation) this.scheduleRestart(12_000); // lost initial SDP/answer also recovers
       // The other phone may not have been listening yet (it was still waking, or its signalling channel was mid-join), so the
@@ -1289,6 +1297,8 @@ export class WebRTCCallService {
     this.callRecovery = null;
     this.callChannel = null;
     this.pendingIceCandidates = [];
+    this.mailboxOfferId = 0;
+    this.mailboxAnswerId = 0;
     this.activeTargetUserId = null;
     if (this.activeCallId) { this.lastCallId = this.activeCallId; this.lastCallEndedAt = Date.now(); }
     this.activeCallId = null;
