@@ -2,7 +2,15 @@ import type { PluginListenerHandle } from '@capacitor/core';
 export interface VoipTokenEvent { token: string; environment: 'sandbox' | 'production'; deviceId?: string }
 export interface AudioRoute { kind: 'speaker' | 'receiver' | 'bluetooth' | 'headphones' | 'car' | 'other'; name: string }
 export interface CallKitCallEvent { callId: string; callerName?: string; callType?: 'audio' | 'video'; conversationId?: string; callerId?: string }
+export interface NativeIceServer { urls: string[]; username?: string; credential?: string }
+/** An audio call carried by native code (answered on the iPhone call screen, possibly while locked). */
+export interface NativeCallInfo { active: boolean; callId?: string; callerName?: string; callerId?: string; conversationId?: string; state?: 'connecting' | 'connected' | 'ended' | 'failed'; muted?: boolean }
 export interface GayzeCallKitPlugin {
+  /** Hands native code what it needs to set a call up with the web view asleep. An empty callKey clears it. */
+  setNativeCallConfig(options: { supabaseUrl: string; apiKey: string; callKey: string; iceServers: NativeIceServer[] }): Promise<void>;
+  /** The native call in progress, if any. */
+  getNativeCall(): Promise<NativeCallInfo>;
+  setNativeMuted(options: { muted: boolean }): Promise<void>;
   /** Starts listening for call pushes. Resolves with the current token if iOS already issued one. */
   register(): Promise<{ token?: string; environment?: 'sandbox' | 'production'; deviceId?: string }>;
   /** Remembers who is signed in on this phone (empty string clears it), so a call you make never rings your own phone. */
@@ -21,6 +29,7 @@ export interface GayzeCallKitPlugin {
   endAll(): Promise<void>;
   addListener(event: 'voipToken', fn: (e: VoipTokenEvent) => void): Promise<PluginListenerHandle>;
   addListener(event: 'audioRoute', fn: (e: AudioRoute) => void): Promise<PluginListenerHandle>;
+  addListener(event: 'nativeCall', fn: (e: NativeCallInfo) => void): Promise<PluginListenerHandle>;
   addListener(event: 'callAnswered' | 'callDeclined' | 'callEnded', fn: (e: CallKitCallEvent) => void): Promise<PluginListenerHandle>;
 }
 export declare const GayzeCallKit: GayzeCallKitPlugin;

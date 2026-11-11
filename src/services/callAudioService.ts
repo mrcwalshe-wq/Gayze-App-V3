@@ -47,8 +47,13 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
       // If the other person declines (or hangs up on the ring) and the live decline signal never arrives, the server still knows.
       const watch = window.setInterval(async () => {
         const now = webrtcCallService.getState();
-        if (now !== 'calling' && now !== 'ringing') { window.clearInterval(watch); return; }
-        if (webrtcCallService.currentCallId() !== callId) { window.clearInterval(watch); return; }
+        if (webrtcCallService.currentCallId() !== callId || now === 'idle' || now === 'ended' || now === 'declined' || now === 'failed' || now === 'missed') { window.clearInterval(watch); return; }
+        if (now === 'connecting' || now === 'connected') {
+          // The other phone may be carrying the call natively (answered on its lock screen) and cannot send the live "call ended"
+          // signal, so an answered call that was hung up there is learned from the server.
+          if ((await getCallStatus(callId)) === 'ended' && webrtcCallService.currentCallId() === callId) { window.clearInterval(watch); webrtcCallService.remoteEnded('ended'); }
+          return;
+        }
         const status = await getCallStatus(callId);
         // Answered on the server but still ringing here: the live accept was missed (phone answered from the lock screen).
         if (status === 'answered') webrtcCallService.remoteAnswered();
