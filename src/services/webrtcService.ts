@@ -169,6 +169,8 @@ export class WebRTCCallService {
   private callRecovery: RealtimeRecovery | null = null;
   private userRecovery: RealtimeRecovery | null = null;
   private callGeneration = 0;
+  /** Prevent overlapping local/UI teardown paths from ending the same call twice. */
+  private endingCallGeneration: number | null = null;
   private transientSignals = new Set<() => void>();
   private audioEnabled = true;
   private videoEnabled = true;
@@ -1200,8 +1202,20 @@ export class WebRTCCallService {
    * End the call and cleanly stop all tracks and close connections
    */
   public async endCall(explicitState: CallState = 'ended'): Promise<void> {
+    // A button press can close the modal while its close/unmount effect also
+    // requests teardown. Make this operation idempotent before the first await.
+    if (this.state === 'idle' || this.state === 'ended' || this.state === 'declined' || this.state === 'missed' || this.state === 'failed') {
+      callLog(`ignored duplicate endCall (${explicitState}) while ${this.state}`);
+      return;
+    }
+    const generation = this.callGeneration;
+    if (this.endingCallGeneration === generation) {
+      callLog(`ignored overlapping endCall (${explicitState})`);
+      return;
+    }
+    this.endingCallGeneration = generation;
     callLog(`endCall requested here (${explicitState}) while ${this.state}`);
-    const generation = this.callGeneration, callerId = this.localUserId;
+    const callerId = this.localUserId;
     const conversationId = this.activeConversationId;
     const callId = this.activeCallId;
     const targetUserId = this.activeTargetUserId;
