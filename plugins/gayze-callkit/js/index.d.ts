@@ -8,7 +8,7 @@ export interface GayzeCallKitPlugin {
   /** Remembers who is signed in on this phone (empty string clears it), so a call you make never rings your own phone. */
   setUser(options: { userId: string }): Promise<void>;
   /** Dismisses the system call screen for one call (when the call ends inside the app). */
-  /** Puts the phone in phone-call audio mode (Bluetooth and car kits allowed). Call when a call connects. */
+  /** Reports where the call sound is going. It no longer changes the audio session: the web view owns the call audio. */
   configureAudio(options: { video: boolean }): Promise<AudioRoute>;
   getAudioRoute(): Promise<AudioRoute>;
   /** Opens the iOS audio output picker. */

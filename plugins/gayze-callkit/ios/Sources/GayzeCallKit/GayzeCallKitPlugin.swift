@@ -106,24 +106,26 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         return ["kind": kind, "name": out?.portName ?? ""]
     }
 
-    /// Phone-call audio mode: voice processing, Bluetooth headsets and car kits allowed, speaker by default for video.
-    /// Only the category is set here. While iOS's call screen owns the call, iOS activates the session itself.
-    private func applyCallCategory(video: Bool) throws {
-        var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
-        if video { options.insert(.defaultToSpeaker) }
-        try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: video ? .videoChat : .voiceChat, options: options)
+    /// WHO OWNS THE CALL AUDIO
+    ///
+    /// The call itself (microphone capture, WebRTC, playback) runs inside the web view, and WebKit runs that audio in its own
+    /// process with its own audio session. This app process therefore must never take the audio for itself: every time it set a
+    /// non-mixable play-and-record category or activated its own session (which it used to do when a call connected, when the
+    /// system call screen was answered, and again when CallKit activated the session) it interrupted WebKit's session, and the
+    /// call stayed "connected" with no sound in one or both directions.
+    ///
+    /// So the app's own session is only ever made MIXABLE. CallKit still activates it when a call is answered from the system
+    /// call screen (that cannot be prevented), but a mixable session does not interrupt another one, so WebKit keeps the
+    /// microphone and the speaker. The app never calls setActive(true) itself.
+    private func yieldAudioToWebView() {
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP])
     }
 
+    /// Reports where the call sound is going. It used to switch the app's own audio session into call mode and activate it here,
+    /// at the moment the call connected, which silenced the call (see yieldAudioToWebView). It now touches nothing and only reports.
     @objc func configureAudio(_ call: CAPPluginCall) {
-        let video = call.getBool("video") ?? false
-        do {
-            try applyCallCategory(video: video)
-            // Activate it ourselves only when iOS's call screen is not in charge (in-app calls).
-            if calls.isEmpty { try AVAudioSession.sharedInstance().setActive(true) }
-            call.resolve(routeInfo())
-        } catch {
-            call.reject("Could not set up the call audio.")
-        }
+        call.resolve(routeInfo())
     }
 
     @objc func getAudioRoute(_ call: CAPPluginCall) {
@@ -273,8 +275,9 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         if var c = calls[action.callUUID] {
-            // Set the audio mode before the web layer opens the microphone; iOS activates the session for us.
-            try? applyCallCategory(video: c.callType == "video")
+            // CallKit is about to activate this app's audio session. Make sure it is mixable first, so that activation does not
+            // take the microphone and speaker away from the web view, where the call audio actually runs.
+            yieldAudioToWebView()
             c.answered = true
             c.timeout?.cancel()
             calls[action.callUUID] = c
@@ -295,8 +298,8 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        let video = calls.values.contains { $0.answered && $0.callType == "video" }
-        try? applyCallCategory(video: video)
+        // Do not reconfigure or claim the session here: the web view owns the call audio (see yieldAudioToWebView).
+        yieldAudioToWebView()
     }
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {}
 }

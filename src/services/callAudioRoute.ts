@@ -24,7 +24,7 @@ export async function showAudioOutputPicker(): Promise<void> {
   try { const { GayzeCallKit } = await import('gayze-callkit'); await GayzeCallKit.showRoutePicker(); } catch { /* picker unavailable */ }
 }
 
-/** While a call is on: puts the phone in call-audio mode and follows the output as it changes. */
+/** While a call is on: follows where the sound is going. It does not change the audio session; the web view owns the call audio. */
 export function useCallAudioRoute(active: boolean, video: boolean): { available: boolean; route: AudioRoute | null } {
   const [route, setRoute] = useState<AudioRoute | null>(null);
   const available = isIos();
@@ -38,7 +38,7 @@ export function useCallAudioRoute(active: boolean, video: boolean): { available:
         const handle = await GayzeCallKit.addListener('audioRoute', (e) => { if (!cancelled) setRoute(e); });
         remove = () => { void handle.remove(); };
         const first = await GayzeCallKit.configureAudio({ video });
-        callLog(`call audio ready: ${first.kind} ${first.name}`);
+        callLog(`call audio route: ${first.kind} ${first.name}`);
         if (!cancelled) setRoute(first);
       } catch (error) {
         callLog(`call audio setup failed: ${String((error as { message?: string })?.message ?? error)}`);
