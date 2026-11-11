@@ -149,3 +149,7 @@
 /* The page only ever scrolls up and down. A row a few pixels wider than the screen (the Quick plans rail on Events) made the whole
    page draggable sideways when held. Rows that are meant to scroll sideways (Quick plans, category chips) keep their own scrolling. */
 .g-main-viewport { overflow-x: hidden; overflow-x: clip; overscroll-behavior-x: none; }
+
+/* Tab bar: no coloured patch behind the GAYZE emblem. A blurred purple disc sat behind it and read as a wrong background inside the
+   arch; the emblem keeps only its own soft glow. (The emblem image itself is untouched.) */
+nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after { content: none !important; display: none !important; animation: none !important; }
