@@ -18,7 +18,7 @@ test('both call screens use the shared HTML audio ringtone service', () => {
 
 test('call-screen hangup does not independently close and trigger a second teardown', () => {
   assert.doesNotMatch(modal, /webrtcCallService\.endCall\(\);\s*onClose\(\)/);
-  assert.equal((modal.match(/void webrtcCallService\.endCall\(\);/g) || []).length, 2, 'both call screens delegate closure to the service state transition');
+  assert.equal((modal.match(/void webrtcCallService\.endCall\(\);/g) || []).length, 4, 'each call screen has one hangup action and one close/unmount safety cleanup');
 });
 
 test('WebRTC teardown is guarded before its first asynchronous operation', () => {
