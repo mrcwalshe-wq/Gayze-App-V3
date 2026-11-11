@@ -13,6 +13,7 @@
     "test:setup": "npm install --no-save @electric-sql/pglite jsdom @testing-library/react @testing-library/dom",
     "test:push-sql": "node scripts/push-tests/sql.test.mjs",
     "test:push-sw": "node scripts/push-tests/sw.test.mjs",
+    "test:call-webrtc": "tsx --test scripts/call-tests/voip.test.ts",
     "test:profile-migration": "node scripts/profile-tests/migration.test.mjs",
     "test:profile": "tsx --import ./scripts/profile-tests/register-hooks.mjs scripts/profile-tests/profile.test.tsx",
     "test": "npm run test:push-sql && npm run test:push-e2e && npm run test:push-sw && npm run test:e2ee && npm run test:messaging && npm run test:icons && npm run test:discovery && npm run test:inspect-script && npm run test:interaction && npm run test:profile-migration && npm run test:profile",
