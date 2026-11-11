@@ -1041,6 +1041,10 @@ export class WebRTCCallService {
       // offer is delivered to nobody and the call sits on "Securing the line". Say it again, same offer, until an answer arrives.
       if (!restart) {
         const generation = this.callGeneration;
+        // A phone that answered on its lock screen replies only through the mailbox: look there every second at first.
+        [1000, 2000, 3000, 4000, 5000, 7000, 9000, 12000].forEach((delay) => setTimeout(() => {
+          if (this.pc === pc && generation === this.callGeneration && pc.signalingState === 'have-local-offer') void this.pollMailboxAnswer(pc);
+        }, delay));
         [2500, 6000, 10000, 15000, 22000, 30000, 40000].forEach((delay) => setTimeout(() => {
           if (this.pc !== pc || generation !== this.callGeneration || pc.signalingState !== 'have-local-offer' || !pc.localDescription) return;
           callLog('no answer yet: sending the offer again');

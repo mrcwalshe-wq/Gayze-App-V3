@@ -18,6 +18,9 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         CAPPluginMethod(name: "setUser", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "answerCall", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "systemCallRinging", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setNativeCallConfig", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getNativeCall", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setNativeMuted", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "configureAudio", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAudioRoute", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showRoutePicker", returnType: CAPPluginReturnPromise),
@@ -32,6 +35,10 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         var callerId: String?
         var answered = false
         var timeout: DispatchWorkItem?
+        /// Carried by native code (answered on the system call screen), not by the web view.
+        var native = false
+        var nativeState = "connecting"
+        var muted = false
     }
 
     private static let ringSeconds: TimeInterval = 45
@@ -41,6 +48,9 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     private var provider: CXProvider?
     private let controller = CXCallController()
     private var calls: [UUID: Ringing] = [:]
+    /// Audio calls answered on the system call screen run natively, because the web view cannot run on a locked phone.
+    private var nativeCalls: [UUID: NativeAudioCall] = [:]
+    private var nativeAudioUsed = false
     private var token: String?
     private var routePicker: AVRoutePickerView?
     /// Asks iOS to keep the app running while a call is ringing or on, so answering from the lock screen is not followed by being suspended.
@@ -187,8 +197,73 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         }
     }
 
+    /// The web layer hands over what native code needs to set a call up by itself (server address, public key, this phone's call
+    /// key, relay servers). An empty call key clears it (signed out).
+    @objc func setNativeCallConfig(_ call: CAPPluginCall) {
+        let key = call.getString("callKey") ?? ""
+        let base = call.getString("supabaseUrl") ?? ""
+        let api = call.getString("apiKey") ?? ""
+        if key.isEmpty || base.isEmpty || api.isEmpty {
+            NativeCallSettings.clear()
+            call.resolve()
+            return
+        }
+        var servers: [[String: Any]] = []
+        if let list = call.getArray("iceServers") {
+            for item in list { if let server = item as? [String: Any] { servers.append(server) } }
+        }
+        NativeCallSettings.save(baseURL: base, apiKey: api, callKey: key, iceServers: servers)
+        call.resolve()
+    }
+
+    private func nativeCallInfo(_ uuid: UUID, _ c: Ringing) -> [String: Any] {
+        var data: [String: Any] = ["active": true, "callId": uuid.uuidString.lowercased(), "callerName": c.callerName, "state": c.nativeState, "muted": c.muted]
+        if let v = c.conversationId { data["conversationId"] = v }
+        if let v = c.callerId { data["callerId"] = v }
+        return data
+    }
+
+    /// The native call in progress, if any, so the app can show it when it is opened during the call.
+    @objc func getNativeCall(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            for (uuid, c) in self.calls where c.native { call.resolve(self.nativeCallInfo(uuid, c)); return }
+            call.resolve(["active": false])
+        }
+    }
+
+    @objc func setNativeMuted(_ call: CAPPluginCall) {
+        let muted = call.getBool("muted") ?? false
+        DispatchQueue.main.async {
+            for (uuid, c) in self.calls where c.native {
+                // Through CallKit, so the system call screen shows the same mute state.
+                self.controller.request(CXTransaction(action: CXSetMutedCallAction(call: uuid, muted: muted))) { _ in }
+            }
+            call.resolve()
+        }
+    }
+
+    private func startNativeCall(_ uuid: UUID, settings: NativeCallSettings) {
+        let native = NativeAudioCall(callId: uuid, settings: settings)
+        nativeCalls[uuid] = native
+        native.onState = { [weak self] state in
+            guard let self = self else { return }
+            if var c = self.calls[uuid] {
+                c.nativeState = state.rawValue
+                self.calls[uuid] = c
+                var data = self.nativeCallInfo(uuid, c)
+                if state == .ended || state == .failed { data["active"] = false }
+                self.notifyListeners("nativeCall", data: data, retainUntilConsumed: true)
+            }
+            if state == .ended { self.finish(uuid, reason: .remoteEnded) }
+            if state == .failed { self.finish(uuid, reason: .failed) }
+        }
+        if let c = calls[uuid] { notifyListeners("nativeCall", data: nativeCallInfo(uuid, c), retainUntilConsumed: true) }
+        native.start()
+    }
+
     @objc func endAll(_ call: CAPPluginCall) {
-        for uuid in Array(calls.keys) { finish(uuid, reason: .remoteEnded) }
+        // "The call inside the app is over": never a native call, which the web layer does not run and must not end by accident.
+        for uuid in Array(calls.keys) where calls[uuid]?.native != true { finish(uuid, reason: .remoteEnded) }
         call.resolve()
     }
 
@@ -257,6 +332,7 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         guard let c = calls[uuid] else { return }
         c.timeout?.cancel()
         calls[uuid] = nil
+        if let native = nativeCalls.removeValue(forKey: uuid) { native.hangUp() }
         if calls.isEmpty { endKeepAlive() }
         provider?.reportCall(with: uuid, endedAt: Date(), reason: reason)
     }
@@ -271,18 +347,41 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     public func providerDidReset(_ provider: CXProvider) {
         for (_, c) in calls { c.timeout?.cancel() }
         calls.removeAll()
+        for (_, native) in nativeCalls { native.hangUp() }
+        nativeCalls.removeAll()
     }
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         if var c = calls[action.callUUID] {
-            // CallKit is about to activate this app's audio session. Make sure it is mixable first, so that activation does not
-            // take the microphone and speaker away from the web view, where the call audio actually runs.
-            yieldAudioToWebView()
             c.answered = true
             c.timeout?.cancel()
-            calls[action.callUUID] = c
             // Answered from the app already: the app knows, do not tell it again (that would restart the call).
-            if answeredByApp.remove(action.callUUID) == nil { event("callAnswered", action.callUUID, c) }
+            let answeredInApp = answeredByApp.remove(action.callUUID) != nil
+            if !answeredInApp, c.callType == "audio", let settings = NativeCallSettings.load() {
+                // Answered on the system call screen (possibly on a locked phone): native code carries the call. The web layer is
+                // NOT told to answer; it only shows the call if the app is opened.
+                c.native = true
+                calls[action.callUUID] = c
+                nativeAudioUsed = true
+                NativeAudioCall.prepareAudioSession()
+                startNativeCall(action.callUUID, settings: settings)
+            } else {
+                calls[action.callUUID] = c
+                // CallKit is about to activate this app's audio session. Make sure it is mixable first, so that activation does
+                // not take the microphone and speaker away from the web view, where this call's audio runs.
+                yieldAudioToWebView()
+                if !answeredInApp { event("callAnswered", action.callUUID, c) }
+            }
+        }
+        action.fulfill()
+    }
+
+    public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+        if var c = calls[action.callUUID], c.native {
+            c.muted = action.isMuted
+            calls[action.callUUID] = c
+            nativeCalls[action.callUUID]?.setMuted(action.isMuted)
+            notifyListeners("nativeCall", data: nativeCallInfo(action.callUUID, c), retainUntilConsumed: true)
         }
         action.fulfill()
     }
@@ -291,15 +390,32 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         if let c = calls[action.callUUID] {
             c.timeout?.cancel()
             calls[action.callUUID] = nil
+            if let native = nativeCalls.removeValue(forKey: action.callUUID) {
+                native.hangUp()
+                var data = nativeCallInfo(action.callUUID, c)
+                data["active"] = false
+                data["state"] = "ended"
+                notifyListeners("nativeCall", data: data, retainUntilConsumed: true)
+            } else if !c.answered, let settings = NativeCallSettings.load() {
+                // Declined on the system call screen: tell the server now, so the caller stops ringing even if the web view is asleep.
+                NativeAudioCall.tellServerEnded(callId: action.callUUID, settings: settings)
+            }
             if calls.isEmpty { endKeepAlive() }
-            event(c.answered ? "callEnded" : "callDeclined", action.callUUID, c)
+            if !c.native { event(c.answered ? "callEnded" : "callDeclined", action.callUUID, c) }
         }
         action.fulfill()
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        // Do not reconfigure or claim the session here: the web view owns the call audio (see yieldAudioToWebView).
-        yieldAudioToWebView()
+        if nativeCalls.isEmpty {
+            // The web view owns this call's audio: do not claim the session (see yieldAudioToWebView).
+            yieldAudioToWebView()
+        } else {
+            // A native call: this is the moment the microphone and speaker may start.
+            NativeAudioCall.audioSessionActivated(audioSession)
+        }
     }
-    public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {}
+    public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        if nativeAudioUsed { NativeAudioCall.audioSessionDeactivated(audioSession) }
+    }
 }

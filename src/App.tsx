@@ -30,7 +30,8 @@ import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall, getCallStatus } from './services/callSessions';
-import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, declineNativeCall, systemCallRinging, hasSystemCallScreen } from './services/nativeCalls';
+import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, declineNativeCall, systemCallRinging, hasSystemCallScreen, endNativeAudioCall, setNativeAudioMuted, type NativeCallInfo } from './services/nativeCalls';
+import { NativeCallBar } from './components/NativeCallBar';
 import { enqueueOutbox, drainOutbox, isNetworkFailure, loadOutbox } from './services/outbox';
 import { InterestDiscover } from './components/InterestDiscover';
 import { mergeOnlineIds } from './services/presenceLabel';
@@ -3545,12 +3546,18 @@ export default function App() {
     void startNativeCalls({
       onAnswered: (c) => nativeCallActionRef.current('answer', c),
       onDeclined: (c) => nativeCallActionRef.current('decline', c),
+      // A voice call answered on the iPhone call screen is carried by the phone, not by this page: just show it.
+      onNativeCall: (info) => {
+        setNativeCall(info.active ? info : null);
+        if (info.active && info.callId) setIncomingCall((current) => (current?.callId === info.callId ? null : current));
+      },
     }, supabaseUserId).then((fn) => { if (cancelled) fn(); else stop = fn; });
     return () => { cancelled = true; stop(); };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
   // When the call is over (or answered/declined inside the app), take the system call screen down.
   // Only when a call that was on screen has finished. (Doing this on start-up ended the ringing iOS call screen the moment the app
   // woke for it, so the full-screen call dropped.)
+  const [nativeCall, setNativeCall] = useState<NativeCallInfo | null>(null);
   const callWasActiveRef = useRef(false);
   useEffect(() => {
     const active = isCallModalOpen || Boolean(incomingCall);
@@ -4514,6 +4521,7 @@ export default function App() {
       )}
 
       {/* "I'm on my way": destination sheet and the live guide at the top of the screen */}
+      <NativeCallBar call={nativeCall} onEnd={() => { void endNativeAudioCall(nativeCall?.callId); setNativeCall(null); }} onToggleMute={(muted) => { void setNativeAudioMuted(muted); }} />
       <CancelEnRouteSheet isOpen={Boolean(cancelEnRoute)} peerName={cancelEnRoute?.peerName ?? ''} venueName={cancelEnRoute?.meeting.venueName ?? ''} onChoose={(reason) => void finishCancelEnRoute(reason)} onKeepGoing={() => setCancelEnRoute(null)} />
       <JourneySheet
         isOpen={Boolean(journeySheet)}
