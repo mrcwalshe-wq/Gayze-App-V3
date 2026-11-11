@@ -28,6 +28,63 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
   const originalAcceptCall = webrtcCallService.acceptCall.bind(webrtcCallService);
   const originalDeclineCall = webrtcCallService.declineCall.bind(webrtcCallService);
   const activeCall = new Map<string, { callId: string; targetUserId: string; callType: 'audio' | 'video' }>();
+  const statusWatches = new Map<string, number>();
+  const terminalStates = new Set(['idle', 'ended', 'declined', 'missed', 'failed']);
+
+  const persistCallStatus = (callId: string | undefined, status: 'answered' | 'ended') =>
+    endCallSession(callId, status).catch((error) => {
+      console.warn('[GAYZE] Could not persist call status:', error);
+    });
+
+  const stopCallStatusWatch = (callId: string) => {
+    const timer = statusWatches.get(callId);
+    if (timer !== undefined) window.clearInterval(timer);
+    statusWatches.delete(callId);
+  };
+
+  const watchCallStatus = (callId: string) => {
+    stopCallStatusWatch(callId);
+    let checking = false;
+    const timer = window.setInterval(async () => {
+      const currentState = webrtcCallService.getState();
+      if (webrtcCallService.currentCallId() !== callId || terminalStates.has(currentState)) {
+        stopCallStatusWatch(callId);
+        return;
+      }
+      if (checking) return;
+      checking = true;
+      try {
+        const status = await getCallStatus(callId);
+        if (webrtcCallService.currentCallId() !== callId) return;
+        const state = webrtcCallService.getState();
+        if (status === 'ended') {
+          stopCallStatusWatch(callId);
+          webrtcCallService.remoteEnded(state === 'calling' || state === 'ringing' ? 'declined' : 'ended');
+        } else if (status === 'answered' && (state === 'calling' || state === 'ringing')) {
+          webrtcCallService.remoteAnswered();
+        }
+      } catch (error) {
+        console.warn('[GAYZE] Call status check failed:', error);
+      } finally {
+        checking = false;
+      }
+    }, 2000);
+    statusWatches.set(callId, timer);
+  };
+
+  // Clear durable-call tracking when the WebRTC service reaches any terminal state.
+  // This also covers remote call-end signals and media failures that bypass endCall().
+  webrtcCallService.subscribeState((state) => {
+    if (!terminalStates.has(state)) return;
+    const endedCallId = webrtcCallService.recentCallId();
+    if (!endedCallId) return;
+    stopCallStatusWatch(endedCallId);
+    for (const [conversationId, call] of activeCall) {
+      if (call.callId !== endedCallId) continue;
+      activeCall.delete(conversationId);
+      if (state !== 'idle') void persistCallStatus(call.callId, 'ended');
+    }
+  });
 
   webrtcCallService.startCall = async (params) => {
     const callId = crypto.randomUUID();
@@ -37,53 +94,71 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
       callType: params.callType,
     });
 
-    // Recorded first, so the person called can answer even if their app wakes up after the live signal.
-    void startCallSession(callId, params.conversationId, params.targetUserId, params.callType);
+    // Persist the call session before signalling starts. The offer mailbox and VoIP push trigger both depend on this row existing.
+    try {
+      await startCallSession(callId, params.conversationId, params.targetUserId, params.callType);
+    } catch (error) {
+      console.warn('[GAYZE] Could not create the durable call session:', error);
+    }
+    // The user may have cancelled while the session write was in flight.
+    if (activeCall.get(params.conversationId)?.callId !== callId) return;
+
     await originalStartCall({ ...params, callId });
 
     const state = webrtcCallService.getState();
-    if (state !== 'calling' && state !== 'ringing') void endCallSession(callId, 'ended');
-    if (state === 'calling' || state === 'ringing') {
-      // If the other person declines (or hangs up on the ring) and the live decline signal never arrives, the server still knows.
-      const watch = window.setInterval(async () => {
-        const now = webrtcCallService.getState();
-        if (webrtcCallService.currentCallId() !== callId || now === 'idle' || now === 'ended' || now === 'declined' || now === 'failed' || now === 'missed') { window.clearInterval(watch); return; }
-        if (now === 'connecting' || now === 'connected') {
-          // The other phone may be carrying the call natively (answered on its lock screen) and cannot send the live "call ended"
-          // signal, so an answered call that was hung up there is learned from the server.
-          if ((await getCallStatus(callId)) === 'ended' && webrtcCallService.currentCallId() === callId) { window.clearInterval(watch); webrtcCallService.remoteEnded('ended'); }
-          return;
-        }
-        const status = await getCallStatus(callId);
-        // Answered on the server but still ringing here: the live accept was missed (phone answered from the lock screen).
-        if (status === 'answered') webrtcCallService.remoteAnswered();
-        if (status === 'ended') {
-          window.clearInterval(watch);
-          const again = webrtcCallService.getState();
-          if ((again === 'calling' || again === 'ringing') && webrtcCallService.currentCallId() === callId) webrtcCallService.remoteEnded('declined');
-        }
-      }, 2000);
-      await enqueueCallNotification({
-        conversationId: params.conversationId,
-        targetUserId: params.targetUserId,
-        callId,
-        callType: params.callType,
-        kind: 'call',
-      });
+    if (state === 'calling' || state === 'ringing' || state === 'connecting' || state === 'connected') {
+      // Keep checking for the full call, not only while ringing. A quick answer can arrive before startCall resolves;
+      // native CallKit calls also need server-side hang-up recovery when the web view is asleep.
+      watchCallStatus(callId);
+      if (state === 'calling' || state === 'ringing') {
+        await enqueueCallNotification({
+          conversationId: params.conversationId,
+          targetUserId: params.targetUserId,
+          callId,
+          callType: params.callType,
+          kind: 'call',
+        });
+      }
     } else {
       activeCall.delete(params.conversationId);
+      await persistCallStatus(callId, 'ended');
     }
   };
 
   webrtcCallService.acceptCall = async (params) => {
-    void endCallSession(params.callId, 'answered');
+    // Track incoming calls too, so a hang-up from this device updates the durable
+    // session and the caller can recover even if the live call-end broadcast is lost.
+    const initialCallId = params.callId || webrtcCallService.currentCallId();
+    if (initialCallId) {
+      activeCall.set(params.conversationId, {
+        callId: initialCallId,
+        targetUserId: params.callerId,
+        callType: params.callType,
+      });
+    }
+
     await originalAcceptCall(params);
+
+    const callId = params.callId || webrtcCallService.currentCallId();
+    const state = webrtcCallService.getState();
+    if (callId && (state === 'connecting' || state === 'connected')) {
+      activeCall.set(params.conversationId, {
+        callId,
+        targetUserId: params.callerId,
+        callType: params.callType,
+      });
+      watchCallStatus(callId);
+      await persistCallStatus(callId, 'answered');
+    } else if (callId) {
+      await persistCallStatus(callId, 'ended');
+    }
     await markCallNotificationReadByConversation(params.conversationId);
   };
 
   webrtcCallService.declineCall = async (params) => {
-    void endCallSession(params.callId, 'ended');
+    const sessionUpdate = persistCallStatus(params.callId, 'ended');
     await originalDeclineCall(params);
+    await sessionUpdate;
     await markCallNotificationReadByConversation(params.conversationId);
   };
 
@@ -108,8 +183,9 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
     const call = conversationId ? activeCall.get(conversationId) : undefined;
 
     const wasRinging = webrtcCallService.getState() === 'calling' || webrtcCallService.getState() === 'ringing';
-    if (call) void endCallSession(call.callId, 'ended');
+    const sessionUpdate = call ? persistCallStatus(call.callId, 'ended') : Promise.resolve();
     await originalEndCall(explicitState);
+    await sessionUpdate;
 
     // Unanswered however it ended: it timed out, the caller hung up while it rang, or it was declined.
     if (wasRinging && (explicitState === 'missed' || explicitState === 'ended' || explicitState === 'declined') && conversationId && call) {
