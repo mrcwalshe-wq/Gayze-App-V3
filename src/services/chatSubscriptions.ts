@@ -4,6 +4,24 @@ import type { SupabaseMessageRow } from './supabaseService';
 import { RealtimeRecovery, requireRealtimeSession, type ChatConnectionState, type RecoveryEnvironment } from './realtimeRecovery';
 
 const MESSAGE_COLUMNS = 'id,conversation_id,sender_id,ciphertext,nonce,created_at,expires_at,burned_at,unsent_at,key_version';
+/**
+ * Everything except the message body. Catch-up scans run on every reconnect AND every 30 seconds while a chat is open; reading the
+ * bodies each time meant every photo in every chat was downloaded again and again (megabytes per scan), which is what used up the
+ * project's data-transfer allowance. A scan now reads only these small columns, and a body is downloaded once: when the row is new
+ * to this session or has changed.
+ */
+const SCAN_COLUMNS = 'id,conversation_id,sender_id,nonce,created_at,expires_at,burned_at,unsent_at,key_version';
+/** A row's body can only change together with these, so they identify a version without holding the body. */
+export const rowVersionKey = (row: Pick<SupabaseMessageRow, 'nonce' | 'burned_at' | 'expires_at' | 'unsent_at'>): string =>
+  `${row.nonce}|${row.burned_at}|${row.expires_at}|${row.unsent_at}`;
+export interface ReconcileOptions {
+  /** Whole rows this session already holds, by id. Rows found here unchanged are not downloaded again. */
+  cache?: Map<string, SupabaseMessageRow>;
+  /** The inbox only needs each chat's newest message (for the preview) and anything that arrived since it started. */
+  latestOnly?: boolean;
+  /** With latestOnly: rows created at or after this time (ms) are always included. */
+  since?: number;
+}
 export interface MessageDelivery {
   /** False for old history on initial load, expired rows and duplicate delivery. */
   notify: boolean;
@@ -54,7 +72,9 @@ export async function reconcileMessages(
   progress: () => void = () => {},
   userId?: string,
   historyLimit = Infinity,
+  options: ReconcileOptions = {},
 ) {
+  const latestSeen = new Set<string>();
   let ids = conversationId ? [conversationId] : [];
   if (!conversationId) {
     // Defence in depth: restrict REST catch-up to the existing membership-scoped
@@ -71,7 +91,7 @@ export async function reconcileMessages(
     let delivered = 0;
     while (!signal.aborted && delivered < historyLimit) {
       const pageLimit = Math.min(cursor ? 200 : 50, historyLimit - delivered);
-      let query = client.from('messages').select(MESSAGE_COLUMNS)
+      let query = client.from('messages').select(SCAN_COLUMNS)
         .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(pageLimit);
       query = group.length === 1 ? query.eq('conversation_id', group[0]) : query.in('conversation_id', group);
       if (cursor) {
@@ -87,10 +107,34 @@ export async function reconcileMessages(
       const rows = (data ?? []) as SupabaseMessageRow[];
       if (conversationId) countChatWork(conversationId, 'rows', rows.length);
       if (!rows.length) break;
+      // Which of these rows does the caller need, and which bodies are not held yet?
+      const wanted = rows.filter((row) => {
+        if (!options.latestOnly) return true;
+        const fresh = options.since !== undefined && Date.parse(row.created_at) >= options.since;
+        const newest = !latestSeen.has(row.conversation_id);
+        latestSeen.add(row.conversation_id);
+        return newest || fresh;
+      });
+      const whole = new Map<string, SupabaseMessageRow>();
+      const missing: string[] = [];
+      for (const row of wanted) {
+        const held = options.cache?.get(row.id);
+        if (typeof row.ciphertext === 'string') whole.set(row.id, row);                       // the server sent the body anyway
+        else if (row.unsent_at) whole.set(row.id, { ...row, ciphertext: '' });                 // unsent rows have no body
+        else if (held && rowVersionKey(held) === rowVersionKey(row)) whole.set(row.id, held);  // already downloaded, unchanged
+        else missing.push(row.id);
+      }
+      for (let offset = 0; offset < missing.length && !signal.aborted; offset += 20) {
+        const { data: bodies, error: bodyError } = await client.from('messages').select(MESSAGE_COLUMNS).in('id', missing.slice(offset, offset + 20)).abortSignal(signal);
+        if (signal.aborted) return;
+        if (bodyError) throw bodyError;
+        for (const row of (bodies ?? []) as SupabaseMessageRow[]) whole.set(row.id, row);
+      }
+      const ready = wanted.map((row) => whole.get(row.id)).filter((row): row is SupabaseMessageRow => Boolean(row));
       // Recent page first; bounded parallel crypto/key work, with a task yield
       // between batches so React/scroll/input are not starved by old history.
-      for (let offset = 0; offset < rows.length && !signal.aborted; offset += 8) {
-        await Promise.all(rows.slice(offset, offset + 8).map(accept));
+      for (let offset = 0; offset < ready.length && !signal.aborted; offset += 8) {
+        await Promise.all(ready.slice(offset, offset + 8).map(accept));
         progress();
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
@@ -146,11 +190,14 @@ export function subscribeToRecoveredMessages(
     const startedAt = environment?.now() ?? Date.now();
     const observers = new Set<Observer>();
     const tails = new Map<string, Promise<void>>();
+    // Whole rows already downloaded in this session, so catch-up scans never download a message body twice.
+    const held = new Map<string, SupabaseMessageRow>();
     let liveTail = Promise.resolve();
     const deliver = (row: SupabaseMessageRow, current: () => boolean, realtime: boolean, signal: AbortSignal) => {
       // Serialize versions of the SAME ID, not every message in the account.
       const work = (tails.get(row.id) ?? Promise.resolve()).then(async () => {
         if (!current() || !row.id || !row.conversation_id) return;
+        if (typeof row.ciphertext === 'string') held.set(row.id, row);
         const version = `${row.nonce}|${row.ciphertext}|${row.burned_at}|${row.expires_at}`;
         for (const consumer of observers) {
           if (!current() || !consumer.live || consumer.seen.get(row.id) === version) continue;
@@ -198,7 +245,8 @@ export function subscribeToRecoveredMessages(
           .catch(() => { if (current()) entry.recovery.resync(); });
       }),
       reconcile: (signal, current, progress) => reconcileMessages(client, conversationId, signal, (row) => deliver(row, current, false, signal), progress, userId,
-        conversationId && observers.size && [...observers].every((consumer) => consumer.recentOnly?.() === true) ? 50 : Infinity),
+        conversationId && observers.size && [...observers].every((consumer) => consumer.recentOnly?.() === true) ? 50 : Infinity,
+        { cache: held, latestOnly: !conversationId, since: startedAt }),
       status: (state) => {
         if (state === 'connected' && conversationId) traceChat(conversationId, 'history-complete');
         entry.state = state;
