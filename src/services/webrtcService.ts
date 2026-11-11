@@ -1020,7 +1020,7 @@ export class WebRTCCallService {
     if (this.mailboxBusy || this.pc !== pc || !this.caller || pc.signalingState !== 'have-local-offer') return;
     this.mailboxBusy = true;
     try {
-      const message = await fetchCallSignal(this.activeCallId, 'answer', this.mailboxAnswerId);
+      const message = await fetchCallSignal(this.activeCallId, 'answer', this.mailboxAnswerId, (error) => callLog(`mailbox answer read failed: ${error}`));
       if (!message || this.pc !== pc || pc.signalingState !== 'have-local-offer') return;
       this.mailboxAnswerId = message.id;
       callLog('got answer (from the call mailbox)');
