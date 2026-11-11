@@ -145,3 +145,7 @@
 .g-ncall__btn { width: 44px; height: 44px; border: 0; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(255, 255, 255, .18); flex: none; }
 .g-ncall__btn[aria-pressed='true'] { background: #fff; color: #0f5132; }
 .g-ncall__btn--end { background: #e5484d; }
+
+/* The page only ever scrolls up and down. A row a few pixels wider than the screen (the Quick plans rail on Events) made the whole
+   page draggable sideways when held. Rows that are meant to scroll sideways (Quick plans, category chips) keep their own scrolling. */
+.g-main-viewport { overflow-x: hidden; overflow-x: clip; overscroll-behavior-x: none; }
