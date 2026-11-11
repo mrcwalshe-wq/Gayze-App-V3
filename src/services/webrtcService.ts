@@ -1215,18 +1215,16 @@ export class WebRTCCallService {
     const targetUserId = this.activeTargetUserId;
     const wasRinging = this.state === 'calling' || this.state === 'ringing';
 
-    if (this.callChannel && conversationId) {
-      try {
-        await this.broadcastSignal({
-          type: 'call-end',
-          conversationId,
-          callerId: this.localUserId,
-          timestamp: Date.now(),
-        });
-      } catch (e) {
-        console.warn('[GAYZE WebRTC] Error sending call-end signal', e);
-      }
-    }
+    // Local teardown must never wait for a Realtime acknowledgement. A slow or disconnected
+    // channel used to leave the microphone/camera alive while endCall waited up to five seconds.
+    const callEndSignal: CallSignalPayload = {
+      type: 'call-end',
+      conversationId: conversationId || '',
+      callerId,
+      targetUserId: targetUserId || undefined,
+      callId: callId || undefined,
+      timestamp: Date.now(),
+    };
 
     // Save call record to history
     const callEndTime = Date.now();
@@ -1259,12 +1257,14 @@ export class WebRTCCallService {
     if (generation !== this.callGeneration) return;
     this.cleanup();
     this.setState(explicitState);
-    // Send the ringing cancellation after local teardown, so closing media is
-    // immediate and a subsequent call/account teardown can cancel this one-shot.
+
+    // Best-effort end signals use short-lived channels after local media has already stopped.
+    // The durable call-session status is the recovery path if either broadcast is unavailable.
+    if (conversationId) {
+      void this.sendTransientSignal(`gayze-call-${conversationId}`, callEndSignal).catch(() => undefined);
+    }
     if (targetUserId && conversationId && wasRinging) {
-      void this.sendTransientSignal(`gayze-user-${targetUserId}`, {
-        type: 'call-end', conversationId, callerId, targetUserId, callId: callId || undefined, timestamp: Date.now(),
-      }).catch(() => undefined);
+      void this.sendTransientSignal(`gayze-user-${targetUserId}`, callEndSignal).catch(() => undefined);
     }
 
     // Reset call tracking for next call
