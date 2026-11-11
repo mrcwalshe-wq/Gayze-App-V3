@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { hapticSensitiveAction, triggerVibration } from '../services/hapticService';
 import { webrtcCallService, CallState, type IncomingCall, type UpgradePhase } from '../services/webrtcService';
-import { getCallAudioContext, closeCallAudio } from '../services/callAudioService';
+import { playCallSound, stopCallSounds } from '../services/callSounds';
 import {
   CallAura, CallDockButton, CallOrb, CallSecureChip, CallVoiceBars, DraggablePip,
   callStatusLabel, formatCallDuration, isCallPending, useCallLevels, useSlowConnect,
@@ -113,71 +113,36 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
     }
   };
 
-  // Branded GAYZE call alert
+  // Ringtones use the shared HTMLAudioElement sound service. Web Audio is deliberately
+  // not used during calls: iOS can otherwise suspend or interrupt the microphone route.
   const stopRingtone = () => {
     if (ringtoneTimerRef.current !== null) {
       window.clearInterval(ringtoneTimerRef.current);
       ringtoneTimerRef.current = null;
     }
-    closeCallAudio();
-  };
-
-  const playRingtoneBurst = () => {
-    const ctx = getCallAudioContext();
-    if (!ctx || ctx.state !== 'running') return;
-    const now = ctx.currentTime;
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.025);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
-    gain.connect(ctx.destination);
-    [523.25, 659.25, 783.99].forEach((frequency, index) => {
-      const oscillator = ctx.createOscillator();
-      oscillator.type = index === 2 ? 'triangle' : 'sine';
-      oscillator.frequency.setValueAtTime(frequency, now);
-      oscillator.connect(gain);
-      oscillator.start(now + index * 0.10);
-      oscillator.stop(now + 0.49);
-    });
+    stopCallSounds();
   };
 
   useEffect(() => {
-    if (!isOpen || (callState !== 'calling' && callState !== 'ringing')) {
+    if (!isOpen) {
       stopRingtone();
       return;
     }
-
-    // Outgoing uses the ascending GAYZE ringback. Incoming uses a different
-    // two-stage chime so the recipient can distinguish an incoming call.
-    const play = isIncoming ? () => {
-      const ctx = getCallAudioContext();
-      if (!ctx || ctx.state !== 'running') return;
-      const now = ctx.currentTime;
-      const tones = [
-        [392, 0, 0.34, 0.055],
-        [493.88, 0.09, 0.42, 0.05],
-        [587.33, 0.18, 0.52, 0.045],
-        [783.99, 0.34, 0.58, 0.032],
-      ];
-      tones.forEach(([frequency, offset, duration, level]) => {
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-        oscillator.type = frequency === 783.99 ? 'sine' : 'triangle';
-        oscillator.frequency.setValueAtTime(frequency, now);
-        gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(level, now + offset + 0.025);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + duration);
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.start(now + offset);
-        oscillator.stop(now + offset + duration + 0.02);
-      });
-    } : playRingtoneBurst;
-    play();
-    ringtoneTimerRef.current = window.setInterval(play, isIncoming ? 1900 : 1700);
-
+    if (callState === 'calling' || callState === 'ringing') {
+      const sound = isIncoming ? 'incoming' : 'outgoing';
+      playCallSound(sound);
+      ringtoneTimerRef.current = window.setInterval(() => playCallSound(sound), isIncoming ? 2600 : 2400);
+    } else if (callState === 'connected') {
+      stopRingtone();
+      playCallSound('connected');
+    } else if (callState === 'ended' || callState === 'declined' || callState === 'missed' || callState === 'failed') {
+      stopRingtone();
+      playCallSound(callState === 'ended' ? 'ended' : 'unanswered');
+    } else {
+      stopRingtone();
+    }
     return () => stopRingtone();
-  }, [isOpen, callState]);
+  }, [isOpen, callState, isIncoming]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -286,7 +251,6 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   const handleEndCall = () => {
     hapticSensitiveAction();
     void webrtcCallService.endCall();
-    onClose();
   };
 
   const handleToggleMute = () => {
@@ -491,12 +455,14 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     }
   };
 
+  // Ringtones use the shared HTMLAudioElement sound service. Web Audio is deliberately
+  // not used during calls: iOS can otherwise suspend or interrupt the microphone route.
   const stopRingtone = () => {
     if (ringtoneTimerRef.current !== null) {
       window.clearInterval(ringtoneTimerRef.current);
       ringtoneTimerRef.current = null;
     }
-    closeCallAudio();
+    stopCallSounds();
   };
 
   useEffect(() => {
@@ -504,51 +470,19 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
       stopRingtone();
       return;
     }
-
-    const play = isIncoming ? () => {
-      const ctx = getCallAudioContext();
-      if (!ctx || ctx.state !== 'running') return;
-      const now = ctx.currentTime;
-      const tones = [
-        [392, 0, 0.34, 0.055],
-        [493.88, 0.09, 0.42, 0.05],
-        [587.33, 0.18, 0.52, 0.045],
-        [783.99, 0.34, 0.58, 0.032],
-      ];
-      tones.forEach(([frequency, offset, duration, level]) => {
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-        oscillator.type = frequency === 783.99 ? 'sine' : 'triangle';
-        oscillator.frequency.setValueAtTime(frequency, now);
-        gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(level, now + offset + 0.025);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + duration);
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.start(now + offset);
-        oscillator.stop(now + offset + duration + 0.02);
-      });
-    } : () => {
-      const ctx = getCallAudioContext();
-      if (!ctx || ctx.state !== 'running') return;
-      const now = ctx.currentTime;
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.08, now + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
-      gain.connect(ctx.destination);
-      [523.25, 659.25, 783.99].forEach((frequency, index) => {
-        const oscillator = ctx.createOscillator();
-        oscillator.type = index === 2 ? 'triangle' : 'sine';
-        oscillator.frequency.setValueAtTime(frequency, now);
-        oscillator.connect(gain);
-        oscillator.start(now + index * 0.10);
-        oscillator.stop(now + 0.49);
-      });
-    };
-    play();
-    ringtoneTimerRef.current = window.setInterval(play, isIncoming ? 1900 : 1700);
-
+    if (callState === 'calling' || callState === 'ringing') {
+      const sound = isIncoming ? 'incoming' : 'outgoing';
+      playCallSound(sound);
+      ringtoneTimerRef.current = window.setInterval(() => playCallSound(sound), isIncoming ? 2600 : 2400);
+    } else if (callState === 'connected') {
+      stopRingtone();
+      playCallSound('connected');
+    } else if (callState === 'ended' || callState === 'declined' || callState === 'missed' || callState === 'failed') {
+      stopRingtone();
+      playCallSound(callState === 'ended' ? 'ended' : 'unanswered');
+    } else {
+      stopRingtone();
+    }
     return () => stopRingtone();
   }, [isOpen, callState, isIncoming]);
 
@@ -674,7 +608,6 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   const handleEndCall = () => {
     hapticSensitiveAction();
     void webrtcCallService.endCall();
-    onClose();
   };
 
   const handleToggleMute = () => {
