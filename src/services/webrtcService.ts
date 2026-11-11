@@ -613,7 +613,7 @@ export class WebRTCCallService {
         void this.broadcastSignal({ type: 'call-accept', conversationId: params.conversationId, callerId: params.userId, targetUserId: params.callerId, callType: params.callType, timestamp: Date.now() }).catch(() => undefined);
       }, delay));
       // The live channel is the first route. If no offer has arrived by now, read it from the mailbox (see callMailbox.ts).
-      [750, 1500, 2000, 2500, 3500, 5000, 8000, 12000, 18000, 25000].forEach((delay) => window.setTimeout(() => { void this.pollMailboxOffer(generation, params); }, delay));
+      [750, 1500, 2000, 2500, 3500, 5000, 8000, 12000, 18000, 25000].forEach((delay, index) => window.setTimeout(() => { void this.pollMailboxOffer(generation, params, index === 9); }, delay));
       analytics.logEvent('call_started', { type: params.callType, direction: 'incoming' });
     } catch (err: any) {
       if (generation !== this.callGeneration) return;
@@ -901,7 +901,7 @@ export class WebRTCCallService {
           await pc.setLocalDescription(answer);
           await this.gatheringDone(pc);
           if (this.pc !== pc) return;
-          await postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer));
+          await postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer), (error) => callLog(`mailbox answer write failed: ${error}`));
           await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, answer), timestamp: Date.now() });
           } finally { if (first) this.answeringFirstOffer = false; }
         }
@@ -999,13 +999,17 @@ export class WebRTCCallService {
   private mailboxBusy = false;
 
   /** Callee: the offer never arrived over the live channel, so take it from the mailbox. */
-  private async pollMailboxOffer(generation: number, params: { conversationId: string; callerId: string; callType: CallType }): Promise<void> {
+  private async pollMailboxOffer(generation: number, params: { conversationId: string; callerId: string; callType: CallType }, finalPoll = false): Promise<void> {
     const pc = this.pc;
-    if (this.mailboxBusy || !pc || this.caller || generation !== this.callGeneration || ['ended', 'declined', 'missed', 'failed', 'idle'].includes(this.state)) return;
+    if (this.mailboxBusy || !pc || this.caller || generation !== this.callGeneration || ['ended', 'declined', 'missed', 'failed', 'idle'].includes(this.state)) {
+      if (finalPoll && !this.caller && this.state !== 'connected') callLog('call mailbox final poll skipped before offer recovery completed');
+      return;
+    }
     this.mailboxBusy = true;
     try {
       const message = await fetchCallSignal(this.activeCallId, 'offer', this.mailboxOfferId, (error) => callLog(`mailbox offer read failed: ${error}`));
-      if (!message || this.pc !== pc || generation !== this.callGeneration) return;
+      if (!message) { if (finalPoll) callLog('call mailbox: no offer was available after 25 seconds'); return; }
+      if (this.pc !== pc || generation !== this.callGeneration) return;
       this.mailboxOfferId = Math.max(this.mailboxOfferId, message.id);
       if (message.senderId !== this.activeTargetUserId) { callLog('ignored mailbox offer from unexpected participant'); return; }
       callLog('got offer (from the call mailbox)');
@@ -1049,7 +1053,7 @@ export class WebRTCCallService {
       await this.gatheringDone(pc);
       if (this.pc !== pc) return;
       // Left in the mailbox first, so the other phone can still get it if the live channel is not delivering to it.
-      await postCallSignal(this.activeCallId, this.activeTargetUserId, 'offer', this.plainDescription(pc, offer));
+      await postCallSignal(this.activeCallId, this.activeTargetUserId, 'offer', this.plainDescription(pc, offer), (error) => callLog(`mailbox offer write failed: ${error}`));
       await this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, offer), timestamp: Date.now() });
       if (!restart && !renegotiation) this.scheduleRestart(12_000); // lost initial SDP/answer also recovers
       // The other phone may not have been listening yet (it was still waking, or its signalling channel was mid-join), so the
