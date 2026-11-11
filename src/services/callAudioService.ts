@@ -28,6 +28,7 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
   const originalAcceptCall = webrtcCallService.acceptCall.bind(webrtcCallService);
   const originalDeclineCall = webrtcCallService.declineCall.bind(webrtcCallService);
   const activeCall = new Map<string, { callId: string; targetUserId: string; callType: 'audio' | 'video' }>();
+  const endingCallIds = new Set<string>();
 
   webrtcCallService.startCall = async (params) => {
     const callId = crypto.randomUUID();
@@ -106,8 +107,13 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
   webrtcCallService.endCall = async (explicitState = 'ended') => {
     const conversationId = Array.from(activeCall.keys()).pop();
     const call = conversationId ? activeCall.get(conversationId) : undefined;
+    // This wrapper also writes call-session and missed-call records. Guard it
+    // separately so overlapping UI teardown paths cannot duplicate those writes.
+    if (call && endingCallIds.has(call.callId)) return;
+    if (call) endingCallIds.add(call.callId);
 
-    const wasRinging = webrtcCallService.getState() === 'calling' || webrtcCallService.getState() === 'ringing';
+    try {
+      const wasRinging = webrtcCallService.getState() === 'calling' || webrtcCallService.getState() === 'ringing';
     if (call) void endCallSession(call.callId, 'ended');
     await originalEndCall(explicitState);
 
@@ -122,6 +128,9 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
       });
     }
 
-    if (conversationId) activeCall.delete(conversationId);
+    } finally {
+      if (conversationId) activeCall.delete(conversationId);
+      if (call) endingCallIds.delete(call.callId);
+    }
   };
 }
