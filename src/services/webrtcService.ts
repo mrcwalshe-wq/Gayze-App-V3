@@ -876,8 +876,8 @@ export class WebRTCCallService {
           // on the live channel and from the mailbox; only the first one is answered.
           const first = !pc.remoteDescription;
           if (first) {
-            if (this.answeringFirstOffer) break;
-            this.answeringFirstOffer = true;
+            if (this.answeringOfferPc === pc) break;
+            this.answeringOfferPc = pc;
           }
           try {
           if (!this.localStream) {
@@ -903,7 +903,7 @@ export class WebRTCCallService {
           if (this.pc !== pc) return;
           await postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer), (error) => callLog(`mailbox answer write failed: ${error}`));
           await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, answer), timestamp: Date.now() });
-          } finally { if (first) this.answeringFirstOffer = false; }
+          } finally { if (first && this.answeringOfferPc === pc) this.answeringOfferPc = null; }
         }
         break;
       case 'answer':
@@ -993,19 +993,19 @@ export class WebRTCCallService {
     } catch { /* Bounded retry below; no credentials/SDP logged. */ }
     if (pc === this.pc) this.scheduleRestart(12_000);
   }
-  private answeringFirstOffer = false;
+  private answeringOfferPc: RTCPeerConnection | null = null;
   private mailboxAnswerId = 0;
   private mailboxOfferId = 0;
-  private mailboxBusy = false;
+  private mailboxBusyGeneration: number | null = null;
 
   /** Callee: the offer never arrived over the live channel, so take it from the mailbox. */
   private async pollMailboxOffer(generation: number, params: { conversationId: string; callerId: string; callType: CallType }, finalPoll = false): Promise<void> {
     const pc = this.pc;
-    if (this.mailboxBusy || !pc || this.caller || generation !== this.callGeneration || ['ended', 'declined', 'missed', 'failed', 'idle'].includes(this.state)) {
+    if (this.mailboxBusyGeneration === generation || !pc || this.caller || generation !== this.callGeneration || ['ended', 'declined', 'missed', 'failed', 'idle'].includes(this.state)) {
       if (finalPoll && !this.caller && this.state !== 'connected') callLog('call mailbox final poll skipped before offer recovery completed');
       return;
     }
-    this.mailboxBusy = true;
+    this.mailboxBusyGeneration = generation;
     try {
       const message = await fetchCallSignal(this.activeCallId, 'offer', this.mailboxOfferId, (error) => callLog(`mailbox offer read failed: ${error}`));
       if (!message) { if (finalPoll) callLog('call mailbox: no offer was available after 25 seconds'); return; }
@@ -1016,13 +1016,14 @@ export class WebRTCCallService {
       await this.handleCallSignal(pc, { type: 'offer', conversationId: params.conversationId, callerId: params.callerId, sdp: message.sdp, timestamp: Date.now() } as CallSignalPayload);
     } catch (err) {
       callLog(`mailbox offer failed: ${(err as Error)?.name || ''} ${(err as Error)?.message || err}`);
-    } finally { this.mailboxBusy = false; }
+    } finally { if (this.mailboxBusyGeneration === generation) this.mailboxBusyGeneration = null; }
   }
 
   /** Caller: no answer over the live channel, so look for it in the mailbox. */
   private async pollMailboxAnswer(pc: RTCPeerConnection): Promise<void> {
-    if (this.mailboxBusy || this.pc !== pc || !this.caller || pc.signalingState !== 'have-local-offer') return;
-    this.mailboxBusy = true;
+    const generation = this.callGeneration;
+    if (this.mailboxBusyGeneration === generation || this.pc !== pc || !this.caller || pc.signalingState !== 'have-local-offer') return;
+    this.mailboxBusyGeneration = generation;
     try {
       const message = await fetchCallSignal(this.activeCallId, 'answer', this.mailboxAnswerId, (error) => callLog(`mailbox answer read failed: ${error}`));
       if (!message || this.pc !== pc || pc.signalingState !== 'have-local-offer') return;
@@ -1031,7 +1032,7 @@ export class WebRTCCallService {
       await this.handleCallSignal(pc, { type: 'answer', conversationId: this.activeConversationId ?? '', callerId: message.senderId, sdp: message.sdp, timestamp: Date.now() } as CallSignalPayload);
     } catch (err) {
       callLog(`mailbox answer failed: ${(err as Error)?.name || ''} ${(err as Error)?.message || err}`);
-    } finally { this.mailboxBusy = false; }
+    } finally { if (this.mailboxBusyGeneration === generation) this.mailboxBusyGeneration = null; }
   }
 
   private async sendOffer(restart: boolean, renegotiation = false) {
@@ -1301,6 +1302,8 @@ export class WebRTCCallService {
     this.callRecovery = null;
     this.callChannel = null;
     this.pendingIceCandidates = [];
+    this.answeringOfferPc = null;
+    this.mailboxBusyGeneration = null;
     this.mailboxOfferId = 0;
     this.mailboxAnswerId = 0;
     this.activeTargetUserId = null;
