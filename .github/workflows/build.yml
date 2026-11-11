@@ -25,6 +25,9 @@ jobs:
       - name: TypeScript check
         run: npm run lint
 
+      - name: Call audio regression tests
+        run: npm run test:call-audio
+
       - name: Production build
         run: npm run build
 
