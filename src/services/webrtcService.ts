@@ -874,11 +874,11 @@ export class WebRTCCallService {
 
           // Answered before the microphone was ready (lock screen): wait for it here, attach it, then answer. The same offer can arrive
           // on the live channel and from the mailbox; only the first one is answered.
-          const first = !pc.remoteDescription;
-          if (first) {
-            if (this.answeringOfferPc === pc) break;
-            this.answeringOfferPc = pc;
+          if (this.answeringOfferPc === pc) {
+            callLog('ignored concurrent offer while answer negotiation is in progress');
+            break;
           }
+          this.answeringOfferPc = pc;
           try {
           if (!this.localStream) {
             const generation = this.callGeneration;
@@ -903,7 +903,7 @@ export class WebRTCCallService {
           if (this.pc !== pc) return;
           await postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer), (error) => callLog(`mailbox answer write failed: ${error}`));
           await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, answer), timestamp: Date.now() });
-          } finally { if (first && this.answeringOfferPc === pc) this.answeringOfferPc = null; }
+          } finally { if (this.answeringOfferPc === pc) this.answeringOfferPc = null; }
         }
         break;
       case 'answer':
