@@ -192,8 +192,9 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     /// Answer / Decline screen on top of the system one.
     @objc func systemCallRinging(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-            guard let id = call.getString("callId"), let uuid = UUID(uuidString: id), let c = self.calls[uuid] else { call.resolve(["ringing": false]); return }
-            call.resolve(["ringing": !c.answered])
+            guard let id = call.getString("callId"), let uuid = UUID(uuidString: id), let c = self.calls[uuid] else { call.resolve(["ringing": false, "known": false]); return }
+            // known: iOS has this call (ringing or already answered on its call screen), so the app must not show a second one.
+            call.resolve(["ringing": !c.answered, "known": true, "answered": c.answered])
         }
     }
 

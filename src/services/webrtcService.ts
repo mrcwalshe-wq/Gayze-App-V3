@@ -129,6 +129,13 @@ export class WebRTCCallService {
   private activeConversationId: string | null = null;
   private activeCallId: string | null = null;
   public currentCallId(): string | null { return this.activeCallId; }
+  /**
+   * The call that just finished, for two minutes. Without it, everything logged while a call is torn down (who ended it, and
+   * why) was dropped, because the call id is cleared first, and a failed call's log simply stopped.
+   */
+  private lastCallId: string | null = null;
+  private lastCallEndedAt = 0;
+  public recentCallId(): string | null { return this.lastCallId && Date.now() - this.lastCallEndedAt < 120_000 ? this.lastCallId : null; }
   /** The other person ended or declined, learned from the server instead of the live signal. */
   public remoteEnded(state: 'declined' | 'ended'): void { callLog(`call ${state} (learned from the server)`); this.cleanup(); this.setState(state); }
   /**
@@ -1264,6 +1271,7 @@ export class WebRTCCallService {
    * Complete teardown of all media and network resources
    */
   public cleanup() {
+    if (this.activeCallId && this.state !== 'idle') callLog(`call torn down while ${this.state}: ${(new Error().stack ?? '').split('\n').slice(2, 4).map((l) => l.trim().replace(/^at /, '').replace(/\(.*\)/, '').trim()).join(' < ')}`.slice(0, 160));
     ++this.callGeneration;
     this.clearConnectWatchdog();
     this.transientSignals.forEach((cancel) => cancel());
@@ -1282,6 +1290,7 @@ export class WebRTCCallService {
     this.callChannel = null;
     this.pendingIceCandidates = [];
     this.activeTargetUserId = null;
+    if (this.activeCallId) { this.lastCallId = this.activeCallId; this.lastCallEndedAt = Date.now(); }
     this.activeCallId = null;
     this.audioEnabled = true;
     this.videoEnabled = true;
@@ -1437,4 +1446,4 @@ export class WebRTCCallService {
 }
 
 export const webrtcCallService = new WebRTCCallService();
-registerCallLogSource(() => webrtcCallService.currentCallId());
+registerCallLogSource(() => webrtcCallService.currentCallId() ?? webrtcCallService.recentCallId());

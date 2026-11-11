@@ -770,7 +770,10 @@ export default function App() {
     const poll = window.setInterval(() => { void systemCallRinging(id).then((ringing) => { if (live && ringing) setSystemShowsCall(true); }); }, 400);
     return () => { live = false; window.clearTimeout(grace); window.clearInterval(poll); };
   }, [incomingCall?.callId]);
-  const inAppIncomingCall = incomingCall && hasSystemCallScreen() && (systemShowsCall || !systemGraceOver) ? null : incomingCall;
+  const [nativeCall, setNativeCall] = useState<NativeCallInfo | null>(null);
+  const alreadyAnswering = Boolean(incomingCall?.callId && webrtcCallService.currentCallId() === incomingCall.callId && webrtcCallService.getState() !== 'idle')
+    || Boolean(incomingCall?.callId && nativeCall?.callId === incomingCall.callId);
+  const inAppIncomingCall = !incomingCall || alreadyAnswering || (hasSystemCallScreen() && (systemShowsCall || !systemGraceOver)) ? null : incomingCall;
   const [isIncomingCallActive, setIsIncomingCallActive] = useState(false);
   const [inboxConnection, setInboxConnection] = useState<ChatConnectionState>('connecting');
   const [chatConnection, setChatConnection] = useState<{ roomId: string; state: ChatConnectionState }>({ roomId: '', state: 'connecting' });
@@ -3458,7 +3461,12 @@ export default function App() {
 
   const handleAcceptIncomingCall = async (call: IncomingCall) => {
     // The same call can be answered from two places (the app and the iOS call screen). Once is enough: a second accept restarts it.
-    if (call.callId && webrtcCallService.currentCallId() === call.callId && webrtcCallService.getState() !== 'idle') return;
+    if (call.callId && webrtcCallService.currentCallId() === call.callId && webrtcCallService.getState() !== 'idle') {
+      // Already being answered (the iPhone call screen got there first): just make sure the call screen is the one showing.
+      setIncomingCall((current) => (current?.callId === call.callId ? null : current));
+      setIsCallModalOpen(true);
+      return;
+    }
     void answerNativeCall(call.callId);
     primeCallAudio();
     webrtcCallService.prewarmMedia(call.callType);   // inside the tap, before any waiting
@@ -3557,7 +3565,6 @@ export default function App() {
   // When the call is over (or answered/declined inside the app), take the system call screen down.
   // Only when a call that was on screen has finished. (Doing this on start-up ended the ringing iOS call screen the moment the app
   // woke for it, so the full-screen call dropped.)
-  const [nativeCall, setNativeCall] = useState<NativeCallInfo | null>(null);
   const callWasActiveRef = useRef(false);
   useEffect(() => {
     const active = isCallModalOpen || Boolean(incomingCall);
