@@ -100,8 +100,12 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
     } catch (error) {
       console.warn('[GAYZE] Could not create the durable call session:', error);
     }
-    // The user may have cancelled while the session write was in flight.
-    if (activeCall.get(params.conversationId)?.callId !== callId) return;
+    // The user may have cancelled while the session write was in flight. Mark the row ended
+    // again after the insert resolves, so a late insert cannot leave a phantom ringing call.
+    if (activeCall.get(params.conversationId)?.callId !== callId) {
+      await persistCallStatus(callId, 'ended');
+      return;
+    }
 
     await originalStartCall({ ...params, callId });
 
