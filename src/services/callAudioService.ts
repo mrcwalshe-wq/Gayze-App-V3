@@ -1,4 +1,4 @@
-import { webrtcCallService } from './webrtcService';
+import { registerCallLogSource, webrtcCallService } from './webrtcService';
 import { enqueueCallNotification } from './callNotificationService';
 import { endCallSession, getCallStatus, startCallSession } from './callSessions';
 
@@ -19,6 +19,12 @@ export const closeCallAudio = (): void => undefined;
 // This keeps provider/database notification details outside the WebRTC service.
 const bridgeKey = '__gayzeCallNotificationBridgeInstalled__';
 type WindowWithGayzeBridge = Window & { [bridgeKey]?: boolean };
+
+if (typeof window !== 'undefined') {
+  // The call diagnostics RPC needs the active/recent call ID; without this registration,
+  // web call logs remain only in localStorage and cannot be inspected after a failed call.
+  registerCallLogSource(() => webrtcCallService.currentCallId() || webrtcCallService.recentCallId());
+}
 
 if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKey]) {
   (window as WindowWithGayzeBridge)[bridgeKey] = true;
