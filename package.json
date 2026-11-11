@@ -15,7 +15,7 @@
     "test:push-sw": "node scripts/push-tests/sw.test.mjs",
     "test:profile-migration": "node scripts/profile-tests/migration.test.mjs",
     "test:profile": "tsx --import ./scripts/profile-tests/register-hooks.mjs scripts/profile-tests/profile.test.tsx",
-    "test": "npm run test:push-sql && npm run test:push-e2e && npm run test:push-sw && npm run test:e2ee && npm run test:messaging && npm run test:icons && npm run test:discovery && npm run test:inspect-script && npm run test:interaction && npm run test:profile-migration && npm run test:profile",
+    "test": "npm run test:call-audio && npm run test:push-sql && npm run test:push-e2e && npm run test:push-sw && npm run test:e2ee && npm run test:messaging && npm run test:icons && npm run test:discovery && npm run test:inspect-script && npm run test:interaction && npm run test:profile-migration && npm run test:profile",
     "test:push-e2e": "node scripts/push-tests/e2e.test.mjs",
     "test:e2ee": "tsx scripts/e2ee-tests/e2ee.test.mjs && node --test scripts/e2ee-tests/pipeline.test.mjs",
     "test:icons": "node --test scripts/icon-tests/icons.test.mjs",
@@ -41,6 +41,7 @@
     "test:native-call": "node --test scripts/privacy-tests/native-call.test.mjs",
     "test:egress": "tsx --test scripts/chat-tests/egress.test.ts",
     "test:call-mailbox": "node --test scripts/privacy-tests/call-mailbox.test.mjs",
+    "test:call-audio": "node --test scripts/call-tests/audio-wiring.test.mjs",
     "test:albums": "node --test scripts/privacy-tests/albums.test.mjs && tsx --test scripts/album-tests/crypto.test.ts scripts/album-tests/wire.test.ts"
   },
   "dependencies": {
