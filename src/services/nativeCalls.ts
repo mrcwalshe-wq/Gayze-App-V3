@@ -141,7 +141,12 @@ export async function declineNativeCall(callId: string | undefined): Promise<voi
 /** Is the iPhone's own call screen showing this call? Always false off the iPhone app, or if it cannot tell. */
 export async function systemCallRinging(callId: string | undefined): Promise<boolean> {
   if (!isIos() || !callId) return false;
-  try { const { GayzeCallKit } = await import('gayze-callkit'); return (await GayzeCallKit.systemCallRinging({ callId })).ringing === true; } catch { return false; }
+  try {
+    // Ringing OR already answered there: either way iOS's call screen owns this call, and a second in-app Answer screen is wrong.
+    // (An older app build reports only `ringing`.)
+    const r = await (await import('gayze-callkit')).GayzeCallKit.systemCallRinging({ callId });
+    return r.ringing === true || r.known === true;
+  } catch { return false; }
 }
 
 /** True in the iPhone app, where a phone-call screen can stand in for the in-app one. */

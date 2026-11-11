@@ -24,7 +24,7 @@ export interface GayzeCallKitPlugin {
   /** The call was answered inside the app: answer the system call screen to match (switches the call audio on, stops the ringing). */
   answerCall(options: { callId: string }): Promise<void>;
   /** True while iOS's own call screen or banner is showing this call (not yet answered). */
-  systemCallRinging(options: { callId: string }): Promise<{ ringing: boolean }>;
+  systemCallRinging(options: { callId: string }): Promise<{ ringing: boolean; known?: boolean; answered?: boolean }>;
   endCall(options: { callId: string }): Promise<void>;
   endAll(): Promise<void>;
   addListener(event: 'voipToken', fn: (e: VoipTokenEvent) => void): Promise<PluginListenerHandle>;
