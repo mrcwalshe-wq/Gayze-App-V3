@@ -22,3 +22,19 @@ test('ringing-call recovery independently rechecks mutual acceptance and members
   assert.match(recovery, /caller_member\.conversation_id\s*=\s*s\.conversation_id/);
   assert.match(recovery, /callee_member\.user_id\s*=\s*s\.callee_id/);
 });
+
+test('call session persistence is fail-closed before WebRTC signalling', () => {
+  const callAudio = readFileSync(new URL('../../src/services/callAudioService.ts', import.meta.url), 'utf8');
+  const sessions = readFileSync(new URL('../../src/services/callSessions.ts', import.meta.url), 'utf8');
+  assert.match(sessions, /if \(!supabase\) throw new Error/);
+  assert.match(sessions, /if \(error\) throw new Error/);
+  assert.match(callAudio, /Call blocked because an accepted GAYZE session could not be verified/);
+  assert.match(callAudio, /await originalEndCall\('failed'\)/);
+});
+
+test('live incoming call signals require both conversation membership and mutual acceptance', () => {
+  const webrtc = readFileSync(new URL('../../src/services/webrtcService.ts', import.meta.url), 'utf8');
+  assert.match(webrtc, /\.from\('interests'\)[\s\S]*?\.eq\('status', 'mutual'\)/);
+  assert.match(webrtc, /if \(!current\(\) \|\| memberError \|\| acceptedError/);
+  assert.match(webrtc, /\|\| !accepted\?\.length\) return/);
+});
