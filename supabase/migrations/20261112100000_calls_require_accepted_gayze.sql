@@ -54,7 +54,7 @@ end $$;
 -- finishes joining Realtime. Allow either participant to end an already-answered
 -- session as well as a ringing one.
 create or replace function public.end_call_session(p_call_id uuid, p_status text default 'ended')
-returns void language plpgsql security definer set search_path = public, pg_temp as $
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
 declare uid uuid := auth.uid();
 begin
   if uid is null then raise exception 'not authenticated'; end if;
@@ -64,7 +64,7 @@ begin
    where id = p_call_id
      and status in ('ringing', 'answered')
      and uid in (caller_id, callee_id);
-end $;
+end $$;
 
 create or replace function public.get_ringing_call()
 returns table (call_id uuid, conversation_id uuid, caller_id uuid, caller_name text, call_type text, started_at timestamptz)

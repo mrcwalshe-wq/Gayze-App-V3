@@ -16,6 +16,8 @@ const RELOAD_FLAG = 'gayze_error_reload_at';
 /** A stale tab after a new release can't load its old script files. One automatic reload gets the new version. */
 export function installChunkReload() {
   if (typeof window === 'undefined') return;
+  // index.html has its own early handler for the same event; it asks here before reloading.
+  (window as unknown as { __gayzeCallInProgress?: () => boolean }).__gayzeCallInProgress = callInProgress;
   window.addEventListener('vite:preloadError', (event) => {
     event.preventDefault();
     try {

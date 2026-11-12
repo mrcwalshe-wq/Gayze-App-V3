@@ -44,7 +44,7 @@
     "test:egress": "tsx --test scripts/chat-tests/egress.test.ts",
     "test:call-mailbox": "node --test scripts/privacy-tests/call-mailbox.test.mjs",
     "test:albums": "node --test scripts/privacy-tests/albums.test.mjs && tsx --test scripts/album-tests/crypto.test.ts scripts/album-tests/wire.test.ts",
-    "test:call-acceptance": "node --test scripts/call-tests/accepted-gayze-migration.test.mjs"
+    "test:call-acceptance": "node --test scripts/call-tests/accepted-gayze-migration.test.mjs scripts/privacy-tests/call-gating.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
