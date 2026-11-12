@@ -330,6 +330,10 @@ final class NativeAudioCall: NSObject, RTCPeerConnectionDelegate {
         request.timeoutInterval = 10
         request.httpBody = body
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // Name the schema. Without these the server looks in its first exposed schema (graphql_public on this project), answers
+        // "function not found" to every request, and the call fails the moment it is answered on the system call screen.
+        request.setValue("public", forHTTPHeaderField: "Content-Profile")
+        request.setValue("public", forHTTPHeaderField: "Accept-Profile")
         request.setValue(settings.apiKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer " + settings.apiKey, forHTTPHeaderField: "Authorization")
         let task = URLSession.shared.dataTask(with: request) { data, response, _ in
