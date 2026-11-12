@@ -1363,10 +1363,11 @@ export default function App() {
           // Fail closed: don't show an incoming call if block status cannot be checked.
         });
       },
-      (conversationId, callId) => {
+      (conversationId, callId, fromUserId) => {
         setIncomingCall((current) => (
           current
           && current.conversationId === conversationId
+          && (!fromUserId || fromUserId === current.callerId || fromUserId === supabaseUserId)
           && (!callId || !current.callId || current.callId === callId)
             ? null
             : current

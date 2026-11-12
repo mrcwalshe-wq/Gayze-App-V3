@@ -16,6 +16,7 @@ const C = '00000000-0000-4000-8000-00000000000c'; // shares a chat with A, no ac
 const D = '00000000-0000-4000-8000-00000000000d'; // accepted GAYZE with A, no shared chat
 const CONV = '22222222-2222-4222-8222-222222222222';
 const CONV_AC = '33333333-3333-4333-8333-333333333333';
+const hardening = readFileSync(new URL('../../supabase/migrations/20261112130000_call_security_hardening.sql', import.meta.url), 'utf8');
 const call = (n) => `11111111-1111-4111-8111-${String(n).padStart(12, '0')}`;
 
 const SCHEMA = `
@@ -131,4 +132,26 @@ test('starting a new call ends the caller\'s earlier unanswered one', async () =
   await start(db, A, call(2), CONV, B);
   assert.equal(await status(db, call(1)), 'ended');
   assert.equal(await status(db, call(2)), 'ringing');
+});
+
+test('nobody can record an accepted GAYZE for themselves by writing the table directly', async () => {
+  const db = await createDb();
+  // Production before the fix: table grants plus an insert policy that only checks the sender.
+  await db.exec(`
+    alter table public.interests enable row level security;
+    grant select, insert, update, delete on public.interests to authenticated, anon;
+    create policy interests_participant_select on public.interests for select to authenticated using (auth.uid() in (from_user_id, to_user_id));
+    create policy interests_sender_insert on public.interests for insert to authenticated with check (auth.uid() = from_user_id);
+  `);
+  await q(db, A, "insert into public.interests(from_user_id, to_user_id, status) values ($1,$2,'mutual')", [A, C]);
+  await start(db, A, call(1), CONV_AC, C); // the bypass, as it stood
+  await db.query('delete from public.interests where from_user_id = $1 and to_user_id = $2', [A, C]);
+  await db.query('delete from public.call_sessions');
+
+  await db.exec(hardening);
+  await assert.rejects(q(db, A, "insert into public.interests(from_user_id, to_user_id, status) values ($1,$2,'mutual')", [A, C]), /permission denied/);
+  await assert.rejects(q(db, A, "update public.interests set status = 'mutual' where from_user_id = $1", [A]), /permission denied/);
+  await assert.rejects(start(db, A, call(2), CONV_AC, C), /accepted Gayze required/);
+  // Reading your own rows still works.
+  assert.equal((await q(db, A, 'select 1 from public.interests')).length, 1);
 });

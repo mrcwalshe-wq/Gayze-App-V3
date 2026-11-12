@@ -92,6 +92,14 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
     }
   });
 
+  // Say why a call was not placed, instead of a bare "Connection failed".
+  const callBlockedReason = (error: unknown): string => {
+    const text = error instanceof Error ? error.message : String(error);
+    if (/accepted Gayze required/i.test(text)) return 'You can call each other once a GAYZE between you has been accepted.';
+    if (/blocked|not a conversation member|invalid callee/i.test(text)) return 'This call cannot be placed.';
+    return 'The call could not be started. Check your connection and try again.';
+  };
+
   webrtcCallService.startCall = async (params) => {
     const callId = crypto.randomUUID();
     activeCall.set(params.conversationId, {
@@ -106,7 +114,7 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
     } catch (error) {
       console.warn('[GAYZE] Call blocked because an accepted GAYZE session could not be verified:', error);
       activeCall.delete(params.conversationId);
-      await originalEndCall('failed');
+      await originalEndCall('failed', callBlockedReason(error));
       return;
     }
     // The user may have cancelled while the session write was in flight. Mark the row ended
@@ -199,13 +207,13 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
     }
   }
 
-  webrtcCallService.endCall = async (explicitState = 'ended') => {
+  webrtcCallService.endCall = async (explicitState = 'ended', reason = null) => {
     const conversationId = Array.from(activeCall.keys()).pop();
     const call = conversationId ? activeCall.get(conversationId) : undefined;
 
     const wasRinging = webrtcCallService.getState() === 'calling' || webrtcCallService.getState() === 'ringing';
     const sessionUpdate = call ? persistCallStatus(call.callId, 'ended') : Promise.resolve();
-    await originalEndCall(explicitState);
+    await originalEndCall(explicitState, reason);
     await sessionUpdate;
 
     // Unanswered however it ended: it timed out, the caller hung up while it rang, or it was declined.

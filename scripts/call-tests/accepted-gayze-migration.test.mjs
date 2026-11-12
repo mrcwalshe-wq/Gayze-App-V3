@@ -29,7 +29,7 @@ test('call session persistence is fail-closed before WebRTC signalling', () => {
   assert.match(sessions, /if \(!supabase\) throw new Error/);
   assert.match(sessions, /if \(error\) throw new Error/);
   assert.match(callAudio, /Call blocked because an accepted GAYZE session could not be verified/);
-  assert.match(callAudio, /await originalEndCall\('failed'\)/);
+  assert.match(callAudio, /await originalEndCall\('failed', callBlockedReason\(error\)\)/);
 });
 
 test('live incoming call signals require both conversation membership and mutual acceptance', () => {

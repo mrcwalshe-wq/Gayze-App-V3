@@ -60,7 +60,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
   targetUserId,
   isIncoming = false,
 }) => {
-  const [callState, setCallState] = useState<CallState>(isIncoming ? 'ringing' : 'calling');
+  const [callState, setCallState] = useState<CallState>(isIncoming ? 'connecting' : 'calling');
   const slowConnect = useSlowConnect(callState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
@@ -403,7 +403,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
   targetUserId,
   isIncoming = false,
 }) => {
-  const [callState, setCallState] = useState<CallState>(isIncoming ? 'ringing' : 'calling');
+  const [callState, setCallState] = useState<CallState>(isIncoming ? 'connecting' : 'calling');
   const slowConnect = useSlowConnect(callState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);

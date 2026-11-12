@@ -2,7 +2,7 @@ name: GAYZE build
 
 on:
   push:
-    branches: [main, fix/call-audio-ringtones-current, fix/calls-require-accepted-gayze]
+    branches: [main]
   pull_request:
     branches: [main]
 
