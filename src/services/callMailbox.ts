@@ -7,6 +7,7 @@ import { isCallSessionId } from './callSessions';
  * live channel stays the first route and a failure here must never get in a call's way.
  */
 export type MailboxKind = 'offer' | 'answer';
+export const MAILBOX_WRITE_MS = 2500;
 
 export async function postCallSignal(
   callId: string | null | undefined,
@@ -17,8 +18,15 @@ export async function postCallSignal(
 ): Promise<void> {
   if (!supabase || !callId || !toUserId || !isCallSessionId(callId)) return;
   try {
-    const { error } = await supabase.rpc('post_call_signal', { p_call_id: callId, p_to: toUserId, p_kind: kind, p_payload: { sdp } });
-    if (error) onError?.(error.message || 'mailbox RPC failed');
+    // Bounded: the live channel sends the same message straight after this, and must not wait on a request that never returns.
+    const write = Promise.resolve(supabase.rpc('post_call_signal', { p_call_id: callId, p_to: toUserId, p_kind: kind, p_payload: { sdp } }));
+    const result = await Promise.race([write, new Promise<'slow'>((resolve) => { setTimeout(() => resolve('slow'), MAILBOX_WRITE_MS); })]);
+    if (result === 'slow') {
+      onError?.(`mailbox write still pending after ${MAILBOX_WRITE_MS} ms; sending live meanwhile`);
+      void write.then(({ error }) => { if (error) onError?.(error.message || 'mailbox RPC failed'); }, () => undefined);
+      return;
+    }
+    if (result.error) onError?.(result.error.message || 'mailbox RPC failed');
   } catch (error) {
     onError?.(error instanceof Error ? error.message : 'mailbox request failed');
   }

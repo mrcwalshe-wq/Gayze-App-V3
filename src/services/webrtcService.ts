@@ -354,7 +354,7 @@ export class WebRTCCallService {
   public initUserSignaling(
     userId: string,
     onIncomingCall: (call: IncomingCall) => void,
-    onCallCancelled?: (conversationId: string, callId?: string) => void,
+    onCallCancelled?: (conversationId: string, callId?: string, fromUserId?: string) => void,
   ): () => void {
     if (!supabase) return () => undefined;
 
@@ -430,7 +430,7 @@ export class WebRTCCallService {
             }).catch(() => undefined);
           })();
         } else if (signal.type === 'call-end' || signal.type === 'call-decline') {
-          onCallCancelled?.(signal.conversationId, signal.callId);
+          onCallCancelled?.(signal.conversationId, signal.callId, signal.callerId);
         }
       }),
       reconcile: async () => undefined,
@@ -529,8 +529,9 @@ export class WebRTCCallService {
       media.catch((err) => {
         if (generation !== this.callGeneration) return;
         callLog(`microphone/camera unavailable: ${err?.name || ''} ${err?.message || err}`);
-        this.setState('failed', this.parseMediaError(err));
+        const reason = this.parseMediaError(err);
         this.cleanup();
+        this.setState('failed', reason);
       });
       await this.loadIceServers();
       if (generation !== this.callGeneration) return;
@@ -621,8 +622,9 @@ export class WebRTCCallService {
           type: 'call-decline', callId: params.callId, conversationId: params.conversationId,
           callerId: params.userId, targetUserId: params.callerId, timestamp: Date.now(),
         }).catch(() => undefined);
-        this.setState('failed', this.parseMediaError(err));
+        const reason = this.parseMediaError(err);
         this.cleanup();
+        this.setState('failed', reason);
       });
       await this.loadIceServers();
       if (generation !== this.callGeneration) return;
@@ -1252,7 +1254,7 @@ export class WebRTCCallService {
   /**
    * End the call and cleanly stop all tracks and close connections
    */
-  public async endCall(explicitState: CallState = 'ended'): Promise<void> {
+  public async endCall(explicitState: CallState = 'ended', reason: string | null = null): Promise<void> {
     callLog(`endCall requested here (${explicitState}) while ${this.state}`);
     const generation = this.callGeneration, callerId = this.localUserId;
     const conversationId = this.activeConversationId;
@@ -1301,7 +1303,7 @@ export class WebRTCCallService {
 
     if (generation !== this.callGeneration) return;
     this.cleanup();
-    this.setState(explicitState);
+    this.setState(explicitState, reason);
 
     // Best-effort end signals use short-lived channels after local media has already stopped.
     // The durable call-session status is the recovery path if either broadcast is unavailable.
