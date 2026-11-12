@@ -613,7 +613,7 @@ export class WebRTCCallService {
         void this.broadcastSignal({ type: 'call-accept', conversationId: params.conversationId, callerId: params.userId, targetUserId: params.callerId, callType: params.callType, timestamp: Date.now() }).catch(() => undefined);
       }, delay));
       // The live channel is the first route. If no offer has arrived by now, read it from the mailbox (see callMailbox.ts).
-      [1500, 3500, 6000, 9000, 13000, 18000, 25000].forEach((delay) => window.setTimeout(() => { void this.pollMailboxOffer(generation, params); }, delay));
+      [750, 1500, 2000, 2500, 3500, 5000, 8000, 12000, 18000, 25000].forEach((delay, index) => window.setTimeout(() => { void this.pollMailboxOffer(generation, params, index === 9); }, delay));
       analytics.logEvent('call_started', { type: params.callType, direction: 'incoming' });
     } catch (err: any) {
       if (generation !== this.callGeneration) return;
@@ -865,15 +865,20 @@ export class WebRTCCallService {
         break;
       case 'offer':
         if (!this.caller && signal.sdp) {
+          const incomingSdp = signal.sdp.sdp || '';
+          if (incomingSdp && pc.remoteDescription?.type === 'offer' && pc.remoteDescription.sdp === incomingSdp) {
+            callLog('ignored duplicate offer');
+            break;
+          }
           if (this.state !== 'connected') this.setState('connecting'); // a video upgrade renegotiates a live call; it does not "reconnect"
 
           // Answered before the microphone was ready (lock screen): wait for it here, attach it, then answer. The same offer can arrive
           // on the live channel and from the mailbox; only the first one is answered.
-          const first = !pc.remoteDescription;
-          if (first) {
-            if (this.answeringFirstOffer) break;
-            this.answeringFirstOffer = true;
+          if (this.answeringOfferPc === pc) {
+            callLog('ignored concurrent offer while answer negotiation is in progress');
+            break;
           }
+          this.answeringOfferPc = pc;
           try {
           if (!this.localStream) {
             const generation = this.callGeneration;
@@ -896,9 +901,9 @@ export class WebRTCCallService {
           await pc.setLocalDescription(answer);
           await this.gatheringDone(pc);
           if (this.pc !== pc) return;
-          void postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer));
+          await postCallSignal(this.activeCallId, this.activeTargetUserId, 'answer', this.plainDescription(pc, answer), (error) => callLog(`mailbox answer write failed: ${error}`));
           await this.broadcastSignal({ type: 'answer', conversationId: signal.conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, answer), timestamp: Date.now() });
-          } finally { if (first) this.answeringFirstOffer = false; }
+          } finally { if (this.answeringOfferPc === pc) this.answeringOfferPc = null; }
         }
         break;
       case 'answer':
@@ -988,38 +993,46 @@ export class WebRTCCallService {
     } catch { /* Bounded retry below; no credentials/SDP logged. */ }
     if (pc === this.pc) this.scheduleRestart(12_000);
   }
-  private answeringFirstOffer = false;
+  private answeringOfferPc: RTCPeerConnection | null = null;
   private mailboxAnswerId = 0;
-  private mailboxBusy = false;
+  private mailboxOfferId = 0;
+  private mailboxBusyGeneration: number | null = null;
 
   /** Callee: the offer never arrived over the live channel, so take it from the mailbox. */
-  private async pollMailboxOffer(generation: number, params: { conversationId: string; callerId: string; callType: CallType }): Promise<void> {
+  private async pollMailboxOffer(generation: number, params: { conversationId: string; callerId: string; callType: CallType }, finalPoll = false): Promise<void> {
     const pc = this.pc;
-    if (this.mailboxBusy || !pc || this.caller || generation !== this.callGeneration || this.state === 'connected' || pc.remoteDescription) return;
-    this.mailboxBusy = true;
+    if (this.mailboxBusyGeneration === generation || !pc || this.caller || generation !== this.callGeneration || ['ended', 'declined', 'missed', 'failed', 'idle'].includes(this.state)) {
+      if (finalPoll && !this.caller && this.state !== 'connected') callLog('call mailbox final poll skipped before offer recovery completed');
+      return;
+    }
+    this.mailboxBusyGeneration = generation;
     try {
-      const message = await fetchCallSignal(this.activeCallId, 'offer');
-      if (!message || this.pc !== pc || generation !== this.callGeneration || pc.remoteDescription) return;
+      const message = await fetchCallSignal(this.activeCallId, 'offer', this.mailboxOfferId, (error) => callLog(`mailbox offer read failed: ${error}`));
+      if (!message) { if (finalPoll) callLog('call mailbox: no offer was available after 25 seconds'); return; }
+      if (this.pc !== pc || generation !== this.callGeneration) return;
+      this.mailboxOfferId = Math.max(this.mailboxOfferId, message.id);
+      if (message.senderId !== this.activeTargetUserId) { callLog('ignored mailbox offer from unexpected participant'); return; }
       callLog('got offer (from the call mailbox)');
       await this.handleCallSignal(pc, { type: 'offer', conversationId: params.conversationId, callerId: params.callerId, sdp: message.sdp, timestamp: Date.now() } as CallSignalPayload);
     } catch (err) {
       callLog(`mailbox offer failed: ${(err as Error)?.name || ''} ${(err as Error)?.message || err}`);
-    } finally { this.mailboxBusy = false; }
+    } finally { if (this.mailboxBusyGeneration === generation) this.mailboxBusyGeneration = null; }
   }
 
   /** Caller: no answer over the live channel, so look for it in the mailbox. */
   private async pollMailboxAnswer(pc: RTCPeerConnection): Promise<void> {
-    if (this.mailboxBusy || this.pc !== pc || !this.caller || pc.signalingState !== 'have-local-offer') return;
-    this.mailboxBusy = true;
+    const generation = this.callGeneration;
+    if (this.mailboxBusyGeneration === generation || this.pc !== pc || !this.caller || pc.signalingState !== 'have-local-offer') return;
+    this.mailboxBusyGeneration = generation;
     try {
-      const message = await fetchCallSignal(this.activeCallId, 'answer', this.mailboxAnswerId);
+      const message = await fetchCallSignal(this.activeCallId, 'answer', this.mailboxAnswerId, (error) => callLog(`mailbox answer read failed: ${error}`));
       if (!message || this.pc !== pc || pc.signalingState !== 'have-local-offer') return;
       this.mailboxAnswerId = message.id;
       callLog('got answer (from the call mailbox)');
       await this.handleCallSignal(pc, { type: 'answer', conversationId: this.activeConversationId ?? '', callerId: message.senderId, sdp: message.sdp, timestamp: Date.now() } as CallSignalPayload);
     } catch (err) {
       callLog(`mailbox answer failed: ${(err as Error)?.name || ''} ${(err as Error)?.message || err}`);
-    } finally { this.mailboxBusy = false; }
+    } finally { if (this.mailboxBusyGeneration === generation) this.mailboxBusyGeneration = null; }
   }
 
   private async sendOffer(restart: boolean, renegotiation = false) {
@@ -1041,7 +1054,7 @@ export class WebRTCCallService {
       await this.gatheringDone(pc);
       if (this.pc !== pc) return;
       // Left in the mailbox first, so the other phone can still get it if the live channel is not delivering to it.
-      void postCallSignal(this.activeCallId, this.activeTargetUserId, 'offer', this.plainDescription(pc, offer));
+      await postCallSignal(this.activeCallId, this.activeTargetUserId, 'offer', this.plainDescription(pc, offer), (error) => callLog(`mailbox offer write failed: ${error}`));
       await this.broadcastSignal({ type: 'offer', conversationId, callerId: this.localUserId, sdp: this.plainDescription(pc, offer), timestamp: Date.now() });
       if (!restart && !renegotiation) this.scheduleRestart(12_000); // lost initial SDP/answer also recovers
       // The other phone may not have been listening yet (it was still waking, or its signalling channel was mid-join), so the
@@ -1207,18 +1220,16 @@ export class WebRTCCallService {
     const targetUserId = this.activeTargetUserId;
     const wasRinging = this.state === 'calling' || this.state === 'ringing';
 
-    if (this.callChannel && conversationId) {
-      try {
-        await this.broadcastSignal({
-          type: 'call-end',
-          conversationId,
-          callerId: this.localUserId,
-          timestamp: Date.now(),
-        });
-      } catch (e) {
-        console.warn('[GAYZE WebRTC] Error sending call-end signal', e);
-      }
-    }
+    // Local teardown must never wait for a Realtime acknowledgement. A slow or disconnected
+    // channel used to leave the microphone/camera alive while endCall waited up to five seconds.
+    const callEndSignal: CallSignalPayload = {
+      type: 'call-end',
+      conversationId: conversationId || '',
+      callerId,
+      targetUserId: targetUserId || undefined,
+      callId: callId || undefined,
+      timestamp: Date.now(),
+    };
 
     // Save call record to history
     const callEndTime = Date.now();
@@ -1251,12 +1262,14 @@ export class WebRTCCallService {
     if (generation !== this.callGeneration) return;
     this.cleanup();
     this.setState(explicitState);
-    // Send the ringing cancellation after local teardown, so closing media is
-    // immediate and a subsequent call/account teardown can cancel this one-shot.
+
+    // Best-effort end signals use short-lived channels after local media has already stopped.
+    // The durable call-session status is the recovery path if either broadcast is unavailable.
+    if (conversationId) {
+      void this.sendTransientSignal(`gayze-call-${conversationId}`, callEndSignal).catch(() => undefined);
+    }
     if (targetUserId && conversationId && wasRinging) {
-      void this.sendTransientSignal(`gayze-user-${targetUserId}`, {
-        type: 'call-end', conversationId, callerId, targetUserId, callId: callId || undefined, timestamp: Date.now(),
-      }).catch(() => undefined);
+      void this.sendTransientSignal(`gayze-user-${targetUserId}`, callEndSignal).catch(() => undefined);
     }
 
     // Reset call tracking for next call
@@ -1289,6 +1302,10 @@ export class WebRTCCallService {
     this.callRecovery = null;
     this.callChannel = null;
     this.pendingIceCandidates = [];
+    this.answeringOfferPc = null;
+    this.mailboxBusyGeneration = null;
+    this.mailboxOfferId = 0;
+    this.mailboxAnswerId = 0;
     this.activeTargetUserId = null;
     if (this.activeCallId) { this.lastCallId = this.activeCallId; this.lastCallEndedAt = Date.now(); }
     this.activeCallId = null;

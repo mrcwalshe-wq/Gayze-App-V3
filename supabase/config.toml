@@ -1,5 +1,9 @@
 project_id = "gayze"
 
+[functions.voip-call-push]
+# Database-triggered dispatch authenticates with x-gayze-dispatch-secret, not a user JWT.
+verify_jwt = false
+
 [functions.send-push]
 # This function authenticates callers itself: either a verified user JWT (for
 # the self-targeted test push) or the shared x-gayze-dispatch-secret header

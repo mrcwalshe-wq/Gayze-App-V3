@@ -1,4 +1,4 @@
-// Mirror of the deployed `webrtc-ice-servers` function (v6), committed for traceability.
+// Mirror of the deployed `webrtc-ice-servers` function (v9), committed for traceability.
 // It was previously only in the Supabase project. Behaviour is unchanged.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 

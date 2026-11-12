@@ -240,11 +240,11 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
     }
   }, [isSpeakerOn]);
 
-  // Ensure media tracks are cleanly stopped if modal closes or unmounts unexpectedly
-    useEffect(() => {
+  // The close effect is the single owner of call teardown for both call-screen variants.
+  useEffect(() => {
     if (!isOpen) {
       const state = webrtcCallService.getState();
-      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
+      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed' && state !== 'failed') {
         void webrtcCallService.endCall();
       }
     }
@@ -285,7 +285,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
 
   const handleEndCall = () => {
     hapticSensitiveAction();
-    void webrtcCallService.endCall();
+    // onClose flips isOpen; the close effect above performs teardown exactly once.
     onClose();
   };
 
@@ -620,11 +620,11 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
     }
   }, [isSpeakerOn]);
 
-  // Ensure media tracks are cleanly stopped if modal closes or unmounts unexpectedly
-    useEffect(() => {
+  // The close effect is the single owner of call teardown for both call-screen variants.
+  useEffect(() => {
     if (!isOpen) {
       const state = webrtcCallService.getState();
-      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed') {
+      if (state !== 'idle' && state !== 'ended' && state !== 'declined' && state !== 'missed' && state !== 'failed') {
         void webrtcCallService.endCall();
       }
     }
@@ -673,7 +673,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
 
   const handleEndCall = () => {
     hapticSensitiveAction();
-    void webrtcCallService.endCall();
+    // onClose flips isOpen; the close effect above performs teardown exactly once.
     onClose();
   };
 

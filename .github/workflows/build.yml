@@ -31,5 +31,8 @@ jobs:
       - name: E2EE regression tests
         run: npm run test:e2ee
 
+      - name: Calling and signalling regression tests
+        run: npm run test:call-voip && npm run test:call-mailbox && npm run test:native-call
+
       - name: Place search and journey tests
         run: npm run test:places
