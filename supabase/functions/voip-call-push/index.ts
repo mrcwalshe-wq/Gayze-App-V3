@@ -21,12 +21,21 @@ function pemToPkcs8(pem: string): Uint8Array {
   return Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
 }
 
+// Apple refuses a provider token that changes more than once every 20 minutes (429 TooManyProviderTokenUpdates), and each
+// short-lived function instance used to mint its own with the current second as `iat`. Every instance now uses the same
+// half-hour `iat`, and an instance reuses the token it already made.
+const TOKEN_WINDOW_S = 30 * 60;
+let cachedJwt: { jwt: string; iat: number; id: string } | null = null;
 async function apnsJwt(keyPem: string, keyId: string, teamId: string): Promise<string> {
+  const iat = Math.floor(Date.now() / 1000 / TOKEN_WINDOW_S) * TOKEN_WINDOW_S;
+  const id = `${keyId}:${teamId}`;
+  if (cachedJwt && cachedJwt.iat === iat && cachedJwt.id === id) return cachedJwt.jwt;
   const key = await crypto.subtle.importKey('pkcs8', pemToPkcs8(keyPem), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
   const head = b64url(JSON.stringify({ alg: 'ES256', kid: keyId, typ: 'JWT' }));
-  const claims = b64url(JSON.stringify({ iss: teamId, iat: Math.floor(Date.now() / 1000) }));
+  const claims = b64url(JSON.stringify({ iss: teamId, iat }));
   const sig = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, new TextEncoder().encode(`${head}.${claims}`)));
-  return `${head}.${claims}.${b64url(sig)}`;
+  cachedJwt = { jwt: `${head}.${claims}.${b64url(sig)}`, iat, id };
+  return cachedJwt.jwt;
 }
 
 Deno.serve(async (req: Request) => {
