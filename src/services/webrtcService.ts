@@ -91,6 +91,34 @@ function queueServerLog(event: string): void {
   }, 0);
 }
 
+/**
+ * A call whose page is reloaded or killed part-way leaves no trace: its log simply stops. The call in progress is noted on the
+ * device, and the next time the app starts it reports that the previous page went away mid-call (call id and state only).
+ */
+const LIVE_KEY = 'gayze_call_live';
+function rememberLiveCall(callId: string | null, state: CallState): void {
+  try {
+    if (callId && (state === 'calling' || state === 'ringing' || state === 'connecting' || state === 'connected')) localStorage.setItem(LIVE_KEY, JSON.stringify({ id: callId, state, at: Date.now() }));
+    else localStorage.removeItem(LIVE_KEY);
+  } catch { /* storage unavailable */ }
+}
+export function reportInterruptedCall(): void {
+  let live: { id?: string; state?: string; at?: number } | null = null;
+  let preloadAt = 0;
+  try {
+    live = JSON.parse(localStorage.getItem(LIVE_KEY) || 'null');
+    preloadAt = Number(localStorage.getItem('gayze_preload_reload_at') || 0);
+    localStorage.removeItem(LIVE_KEY);
+    localStorage.removeItem('gayze_preload_reload_at');
+  } catch { return; }
+  if (!live?.id || !live.at || Date.now() - live.at > 10 * 60_000 || !supabase) return;
+  const seconds = Math.round((Date.now() - live.at) / 1000);
+  const why = preloadAt && Math.abs(preloadAt - live.at) < 60_000 ? ' (reloaded for an out-of-date script file)' : '';
+  const event = `app started again ${seconds}s after this call was ${live.state}: the page was reloaded or closed mid-call${why}`.slice(0, 160);
+  // The sign-in session may not be restored yet when the app starts, so it is sent twice; the server keeps both, which is harmless.
+  [4000, 12000].forEach((delay) => setTimeout(() => { void Promise.resolve(supabase!.rpc('log_call_event', { p_call_id: live!.id, p_event: event })).catch(() => undefined); }, delay));
+}
+
 export function readCallLog(): string {
   try { return (JSON.parse(localStorage.getItem(LOG_KEY) || '[]') as string[]).join('\n'); } catch { return ''; }
 }
@@ -229,6 +257,7 @@ export class WebRTCCallService {
       window.addEventListener('pagehide', (event) => {
         if (!event.persisted) this.cleanup();
       });
+      reportInterruptedCall();
     }
   }
 
@@ -307,6 +336,7 @@ export class WebRTCCallService {
     else if (newState !== 'connecting') this.clearConnectWatchdog();
     this.state = newState;
     this.errorMessage = error;
+    rememberLiveCall(this.activeCallId, newState);
     for (const listener of this.stateListeners) {
       listener(newState, error);
     }

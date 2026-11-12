@@ -49,6 +49,9 @@
       window.addEventListener('vite:preloadError', function (event) {
         event.preventDefault();
         var key = 'gayze-vite-preload-recovered';
+        // Never reload in the middle of a call: that silently ends it on this phone while the other person keeps waiting.
+        try { if (window.__gayzeCallInProgress && window.__gayzeCallInProgress()) return; } catch (e) {}
+        try { localStorage.setItem('gayze_preload_reload_at', String(Date.now())); } catch (e) {}
         if (!sessionStorage.getItem(key)) {
           sessionStorage.setItem(key, '1');
           window.location.reload();
