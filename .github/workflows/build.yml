@@ -2,7 +2,7 @@ name: GAYZE build
 
 on:
   push:
-    branches: [main, fix/call-audio-ringtones-current]
+    branches: [main, fix/call-audio-ringtones-current, fix/calls-require-accepted-gayze]
   pull_request:
     branches: [main]
 
@@ -27,6 +27,9 @@ jobs:
 
       - name: Call audio regression tests
         run: npm run test:call-audio
+
+      - name: Accepted GAYZE call authorization tests
+        run: npm run test:call-acceptance
 
       - name: Production build
         run: npm run build

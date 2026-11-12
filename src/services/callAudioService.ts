@@ -104,7 +104,10 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
     try {
       await startCallSession(callId, params.conversationId, params.targetUserId, params.callType);
     } catch (error) {
-      console.warn('[GAYZE] Could not create the durable call session:', error);
+      console.warn('[GAYZE] Call blocked because an accepted GAYZE session could not be verified:', error);
+      activeCall.delete(params.conversationId);
+      await originalEndCall('failed');
+      return;
     }
     // The user may have cancelled while the session write was in flight. Mark the row ended
     // again after the insert resolves, so a late insert cannot leave a phantom ringing call.
@@ -147,7 +150,15 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
       });
     }
 
+    // Persist the tap immediately, before waiting for the callee's phone to finish waking,
+    // load TURN credentials, or join Realtime. The caller polls this durable status and can
+    // send its offer even if the live call-accept broadcast is delayed or lost.
+    const acceptancePersisted = initialCallId
+      ? persistCallStatus(initialCallId, 'answered')
+      : Promise.resolve();
+
     await originalAcceptCall(params);
+    await acceptancePersisted;
 
     const callId = params.callId || webrtcCallService.currentCallId();
     const state = webrtcCallService.getState();

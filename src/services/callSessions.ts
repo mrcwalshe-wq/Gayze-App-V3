@@ -6,9 +6,10 @@ export const isCallSessionId = (id: unknown): id is string => typeof id === 'str
 
 /** Record that a call is ringing, so the person called can still answer it if their app was asleep when the live signal went out. */
 export async function startCallSession(callId: string, conversationId: string, calleeId: string, callType: 'audio' | 'video'): Promise<void> {
-  if (!supabase || !isCallSessionId(callId)) return;
+  if (!supabase) throw new Error('Calling is unavailable until the secure connection is ready.');
+  if (!isCallSessionId(callId)) throw new Error('Invalid call session identifier.');
   const { error } = await supabase.rpc('start_call_session', { p_call_id: callId, p_conversation: conversationId, p_callee: calleeId, p_call_type: callType });
-  if (error) console.warn('[GAYZE] Could not record the ringing call:', error.message);
+  if (error) throw new Error(error.message || 'The accepted GAYZE connection could not be verified.');
 }
 
 export async function endCallSession(callId: string | undefined, status: 'answered' | 'ended'): Promise<void> {
