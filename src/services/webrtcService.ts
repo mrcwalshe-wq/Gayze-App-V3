@@ -344,12 +344,22 @@ export class WebRTCCallService {
           // showing an incoming call or replying on its signalling topic.
           if (!/^[0-9a-f-]{36}$/i.test(signal.conversationId) || !/^[0-9a-f-]{36}$/i.test(signal.callerId)) return;
           void (async () => {
-            const { data: members, error } = await supabase!
-              .from('conversation_members')
-              .select('user_id')
-              .eq('conversation_id', signal.conversationId)
-              .in('user_id', [userId, signal.callerId]);
-            if (!current() || error || new Set((members || []).map((member: { user_id: string }) => member.user_id)).size !== 2) return;
+            const [{ data: members, error: memberError }, { data: accepted, error: acceptedError }] = await Promise.all([
+              supabase!
+                .from('conversation_members')
+                .select('user_id')
+                .eq('conversation_id', signal.conversationId)
+                .in('user_id', [userId, signal.callerId]),
+              supabase!
+                .from('interests')
+                .select('id')
+                .eq('status', 'mutual')
+                .or(`and(from_user_id.eq.${userId},to_user_id.eq.${signal.callerId}),and(from_user_id.eq.${signal.callerId},to_user_id.eq.${userId})`)
+                .limit(1),
+            ]);
+            if (!current() || memberError || acceptedError
+              || new Set((members || []).map((member: { user_id: string }) => member.user_id)).size !== 2
+              || !accepted?.length) return;
 
             // The same ring can reach us twice (the live signal and the server's ringing record, or the signal sent on both
             // channels). A repeat of a call we are already answering, or have already dealt with, is not a second call and
