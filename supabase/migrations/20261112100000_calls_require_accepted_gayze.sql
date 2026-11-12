@@ -50,6 +50,22 @@ end $$;
 
 -- Re-check the acceptance relationship when recovering a ringing call. This prevents stale
 -- call-session rows from surfacing to a recipient after the underlying connection has ended.
+-- Acceptance is recorded as soon as the callee taps Accept, before their phone
+-- finishes joining Realtime. Allow either participant to end an already-answered
+-- session as well as a ringing one.
+create or replace function public.end_call_session(p_call_id uuid, p_status text default 'ended')
+returns void language plpgsql security definer set search_path = public, pg_temp as $
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  update public.call_sessions
+     set status = case when p_status = 'answered' then 'answered' else 'ended' end,
+         ended_at = case when p_status = 'answered' then null else now() end
+   where id = p_call_id
+     and status in ('ringing', 'answered')
+     and uid in (caller_id, callee_id);
+end $;
+
 create or replace function public.get_ringing_call()
 returns table (call_id uuid, conversation_id uuid, caller_id uuid, caller_name text, call_type text, started_at timestamptz)
 language sql stable security definer set search_path = public, pg_temp as $$
