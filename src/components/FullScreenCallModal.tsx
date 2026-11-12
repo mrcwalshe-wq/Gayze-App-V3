@@ -167,7 +167,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
         triggerVibration([80, 100]);
       } else if (state === 'connected') {
         triggerVibration([40, 60, 120]);
-      } else if (state === 'ended' || state === 'declined' || state === 'missed' || state === 'failed') {
+      } else if (state === 'ended' || state === 'declined' || state === 'missed') {
         triggerVibration([100, 50, 100]);
         if (terminalCloseTimerRef.current !== null) window.clearTimeout(terminalCloseTimerRef.current);
         terminalCloseTimerRef.current = window.setTimeout(() => {
@@ -511,7 +511,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
         triggerVibration([80, 100]);
       } else if (state === 'connected') {
         triggerVibration([40, 60, 120]);
-      } else if (state === 'ended' || state === 'declined' || state === 'failed') {
+      } else if (state === 'ended' || state === 'declined' || state === 'missed') {
         triggerVibration([100, 50, 100]);
         if (terminalCloseTimerRef.current !== null) window.clearTimeout(terminalCloseTimerRef.current);
         terminalCloseTimerRef.current = window.setTimeout(() => {
