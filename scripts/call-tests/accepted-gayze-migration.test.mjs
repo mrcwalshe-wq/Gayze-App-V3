@@ -38,3 +38,12 @@ test('live incoming call signals require both conversation membership and mutual
   assert.match(webrtc, /if \(!current\(\) \|\| memberError \|\| acceptedError/);
   assert.match(webrtc, /\|\| !accepted\?\.length\) return/);
 });
+
+test('callee acceptance is persisted before waiting for media and Realtime setup', () => {
+  const callAudio = readFileSync(new URL('../../src/services/callAudioService.ts', import.meta.url), 'utf8');
+  const acceptWrapper = callAudio.slice(callAudio.indexOf('webrtcCallService.acceptCall = async'), callAudio.indexOf('webrtcCallService.declineCall = async'));
+  assert.match(acceptWrapper, /persistCallStatus\(initialCallId, 'answered'\)/);
+  assert.ok(acceptWrapper.indexOf("persistCallStatus(initialCallId, 'answered')") < acceptWrapper.indexOf('await originalAcceptCall(params)'));
+  assert.match(migration, /status in \('ringing', 'answered'\)/);
+  assert.match(migration, /ended_at = case when p_status = 'answered' then null else now\(\) end/);
+});
