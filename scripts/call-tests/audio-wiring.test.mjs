@@ -22,3 +22,14 @@ test('the call screen delegates hangup to its close effect exactly once', () => 
     assert.doesNotMatch(handler, /webrtcCallService\.endCall/);
   }
 });
+
+test('failed calls retain the full-screen call UI so the error is readable and can be dismissed', () => {
+  const listeners = modal.match(/const unsubState = webrtcCallService\.subscribeState\([\s\S]*?\n    \}\);/g) || [];
+  assert.equal(listeners.length, 2, 'audio and video screens both subscribe to call state');
+  for (const listener of listeners) {
+    assert.match(listener, /state === 'ended' \|\| state === 'declined' \|\| state === 'missed'/);
+    assert.doesNotMatch(listener, /state === 'failed'/, 'a failed call must not auto-close back to the map');
+    assert.match(listener, /onCloseRef\.current\(\)/, 'normal terminal states still close after the short transition');
+  }
+  assert.equal((modal.match(/<span>\{errorMessage\}<\/span>/g) || []).length, 2, 'both full-screen variants show the failure explanation');
+});
