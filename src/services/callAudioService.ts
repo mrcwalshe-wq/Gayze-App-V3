@@ -150,7 +150,15 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
       });
     }
 
+    // Persist the tap immediately, before waiting for the callee's phone to finish waking,
+    // load TURN credentials, or join Realtime. The caller polls this durable status and can
+    // send its offer even if the live call-accept broadcast is delayed or lost.
+    const acceptancePersisted = initialCallId
+      ? persistCallStatus(initialCallId, 'answered')
+      : Promise.resolve();
+
     await originalAcceptCall(params);
+    await acceptancePersisted;
 
     const callId = params.callId || webrtcCallService.currentCallId();
     const state = webrtcCallService.getState();
