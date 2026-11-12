@@ -60,10 +60,17 @@ workflows:
         script: keychain add-certificates
       - name: Set up code signing
         script: xcode-project use-profiles
-      - name: Set build number from TestFlight
+      - name: Set build number
         script: |
           cd ios/App
-          agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID") + 1))
+          # TestFlight only reports a build once Apple has finished processing it. An upload that is still processing (or was
+          # rejected) is invisible here but its number is already used, so "latest + 1" collided with it. Codemagic's own
+          # build counter always moves forward, so take whichever is higher.
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          NEXT=$((LATEST + 1))
+          if [ "${PROJECT_BUILD_NUMBER:-0}" -gt "$NEXT" ]; then NEXT=$PROJECT_BUILD_NUMBER; fi
+          echo "Build number: $NEXT (TestFlight latest $LATEST, Codemagic build ${PROJECT_BUILD_NUMBER:-unknown})"
+          agvtool new-version -all "$NEXT"
       - name: Build signed IPA
         script: |
           xcode-project build-ipa \
