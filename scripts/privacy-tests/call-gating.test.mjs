@@ -17,6 +17,7 @@ const D = '00000000-0000-4000-8000-00000000000d'; // accepted GAYZE with A, no s
 const CONV = '22222222-2222-4222-8222-222222222222';
 const CONV_AC = '33333333-3333-4333-8333-333333333333';
 const hardening = readFileSync(new URL('../../supabase/migrations/20261112130000_call_security_hardening.sql', import.meta.url), 'utf8');
+const answeredAt = readFileSync(new URL('../../supabase/migrations/20261113090000_call_answered_at.sql', import.meta.url), 'utf8');
 const call = (n) => `11111111-1111-4111-8111-${String(n).padStart(12, '0')}`;
 
 const SCHEMA = `
@@ -154,4 +155,17 @@ test('nobody can record an accepted GAYZE for themselves by writing the table di
   await assert.rejects(start(db, A, call(2), CONV_AC, C), /accepted Gayze required/);
   // Reading your own rows still works.
   assert.equal((await q(db, A, 'select 1 from public.interests')).length, 1);
+});
+
+test('an answered call stays counted as answered after it is hung up', async () => {
+  const db = await createDb();
+  await db.exec(answeredAt);
+  await setInterest(db, A, B, 'mutual');
+  await start(db, A, call(1), CONV, B);
+  await start(db, B, call(2), CONV, A);
+  await q(db, B, 'select public.end_call_session($1,$2)', [call(1), 'answered']);
+  await q(db, A, 'select public.end_call_session($1,$2)', [call(1), 'ended']);
+  await q(db, A, 'select public.end_call_session($1,$2)', [call(2), 'ended']); // declined, never answered
+  const rows = (await db.query('select id, status, answered_at is not null answered from public.call_sessions order by id')).rows;
+  assert.deepEqual(rows.map((r) => [r.status, r.answered]), [['ended', true], ['ended', false]]);
 });
