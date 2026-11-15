@@ -18,6 +18,7 @@ const CONV = '22222222-2222-4222-8222-222222222222';
 const CONV_AC = '33333333-3333-4333-8333-333333333333';
 const hardening = readFileSync(new URL('../../supabase/migrations/20261112130000_call_security_hardening.sql', import.meta.url), 'utf8');
 const answeredAt = readFileSync(new URL('../../supabase/migrations/20261113090000_call_answered_at.sql', import.meta.url), 'utf8');
+const ringReach = readFileSync(new URL('../../supabase/migrations/20261115210000_call_ring_reach.sql', import.meta.url), 'utf8');
 const call = (n) => `11111111-1111-4111-8111-${String(n).padStart(12, '0')}`;
 
 const SCHEMA = `
@@ -168,4 +169,25 @@ test('an answered call stays counted as answered after it is hung up', async () 
   await q(db, A, 'select public.end_call_session($1,$2)', [call(2), 'ended']); // declined, never answered
   const rows = (await db.query('select id, status, answered_at is not null answered from public.call_sessions order by id')).rows;
   assert.deepEqual(rows.map((r) => [r.status, r.answered]), [['ended', true], ['ended', false]]);
+});
+
+test('a caller is told how the other phone can be reached, and only for someone they may call', async () => {
+  const db = await createDb();
+  await db.exec(`create table public.voip_tokens(user_id uuid, token text); create table public.push_subscriptions(user_id uuid, endpoint text);`);
+  await db.exec(ringReach);
+  await setInterest(db, A, B, 'mutual');
+  const reach = async (user, callee) => (await q(db, user, 'select public.call_ring_reach($1) r', [callee]))[0].r;
+  assert.equal(await reach(A, B), 'none');
+  await db.query("insert into public.push_subscriptions values ($1,'https://push.example/1')", [B]);
+  assert.equal(await reach(A, B), 'notification');
+  await db.query("insert into public.voip_tokens values ($1,'abc')", [B]);
+  assert.equal(await reach(A, B), 'rings');
+  // No accepted GAYZE, no shared chat, yourself, or a blocked pair: nothing is revealed.
+  await db.query("insert into public.voip_tokens values ($1,'c'),($2,'d')", [C, D]);
+  assert.equal(await reach(A, C), null);
+  assert.equal(await reach(A, D), null);
+  assert.equal(await reach(A, A), null);
+  await db.query('insert into public.blocks values ($1,$2)', [B, A]);
+  assert.equal(await reach(A, B), null);
+  await assert.rejects(q(db, null, 'select public.call_ring_reach($1)', [B]), /permission denied/);
 });

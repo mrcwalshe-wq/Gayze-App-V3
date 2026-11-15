@@ -19,7 +19,7 @@ import { webrtcCallService, CallState, type IncomingCall, type UpgradePhase } fr
 import { playCallSound, stopCallSounds } from '../services/callSounds';
 import {
   CallAura, CallDockButton, CallOrb, CallSecureChip, CallVoiceBars, DraggablePip,
-  callStatusLabel, formatCallDuration, isCallPending, useCallLevels, useSlowConnect,
+  callStatusLabel, formatCallDuration, isCallPending, useCallLevels, useRingReach, useSlowConnect,
 } from './callUi';
 import { CallOutputButton } from './CallOutputButton';
 import { useCallAudioRoute } from '../services/callAudioRoute';
@@ -62,6 +62,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
 }) => {
   const [callState, setCallState] = useState<CallState>(isIncoming ? 'connecting' : 'calling');
   const slowConnect = useSlowConnect(callState);
+  const ringReach = useRingReach();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -312,7 +313,7 @@ export const FullScreenCallModal: React.FC<FullScreenCallModalProps> = ({
           <CallOrb name={peerName} avatar={peerAvatar} state={callState} />
           <h3 className="g-call__name">{peerName}</h3>
           <p className={`g-call__status ${pending ? 'is-pending' : ''}`}>
-            {callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'video', peerName, { slow: slowConnect, incoming: isIncoming })}
+            {callState === 'connected' ? formatCallDuration(durationSeconds) : callStatusLabel(callState, 'video', peerName, { slow: slowConnect, incoming: isIncoming, reach: ringReach })}
           </p>
           {errorMessage && (
             <div className="g-call__error">
@@ -405,6 +406,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
 }) => {
   const [callState, setCallState] = useState<CallState>(isIncoming ? 'connecting' : 'calling');
   const slowConnect = useSlowConnect(callState);
+  const ringReach = useRingReach();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -683,7 +685,7 @@ export const FullScreenAudioCallModal: React.FC<FullScreenCallModalProps> = ({
         <CallOrb name={peerName} avatar={peerAvatar} state={callState} />
         <h3 className="g-call__name">{peerName}</h3>
         <p className={`g-call__status ${pending ? 'is-pending' : ''}`}>
-          {callState === 'connected' ? callStatusLabel(callState, 'audio', peerName, { slow: slowConnect, incoming: isIncoming }) : callStatusLabel(callState, 'audio', peerName, { slow: slowConnect, incoming: isIncoming })}
+          {callState === 'connected' ? callStatusLabel(callState, 'audio', peerName, { slow: slowConnect, incoming: isIncoming, reach: ringReach }) : callStatusLabel(callState, 'audio', peerName, { slow: slowConnect, incoming: isIncoming, reach: ringReach })}
         </p>
         {callState === 'connected' && (
           <>

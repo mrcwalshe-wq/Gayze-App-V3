@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Lock, ShieldCheck } from 'lucide-react';
-import { webrtcCallService, type CallState } from '../services/webrtcService';
+import { webrtcCallService, type CallState, type RingReach } from '../services/webrtcService';
 
 /**
  * Shared presentation for audio, video and incoming calls. Nothing in here touches
@@ -31,9 +31,20 @@ export function useSlowConnect(state: CallState, afterMs = 6000): boolean {
   return slow;
 }
 
-export const callStatusLabel = (state: CallState, kind: 'audio' | 'video', peerName: string, slowIncoming?: { slow: boolean; incoming: boolean }): string => {
+/** How the other phone can be reached for the call being placed. Null until the server has answered, or when it cannot say. */
+export function useRingReach(): RingReach | null {
+  const [reach, setReach] = React.useState<RingReach | null>(() => webrtcCallService.getRingReach());
+  useEffect(() => { setReach(webrtcCallService.getRingReach()); return webrtcCallService.subscribeRingReach(setReach); }, []);
+  return reach;
+}
+
+export const callStatusLabel = (state: CallState, kind: 'audio' | 'video', peerName: string, slowIncoming?: { slow: boolean; incoming: boolean; reach?: RingReach | null }): string => {
   switch (state) {
-    case 'calling': return 'Calling';
+    case 'calling':
+      // Only while nothing has answered from the other phone. Once it reports "ringing" it is open, and the plain word is right.
+      if (slowIncoming?.reach === 'notification') return `Sent ${peerName} a notification. They need to open GAYZE to answer`;
+      if (slowIncoming?.reach === 'none') return `${peerName} will only see this call with GAYZE open`;
+      return 'Calling';
     case 'ringing': return 'Ringing';
     case 'connecting':
       if (slowIncoming?.slow) return slowIncoming.incoming ? 'Still connecting' : `Waiting for ${peerName}'s phone to wake up`;

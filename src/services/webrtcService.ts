@@ -18,6 +18,7 @@ export type CallState =
   | 'failed';
 
 export type CallType = 'audio' | 'video';
+export type RingReach = 'rings' | 'notification' | 'none';
 export type UpgradePhase = 'idle' | 'requesting' | 'incoming' | 'active' | 'declined' | 'failed';
 
 export interface IncomingCall {
@@ -1345,6 +1346,7 @@ export class WebRTCCallService {
     this.callChannel = null;
     this.pendingIceCandidates = [];
     this.answeringOfferPc = null;
+    this.setRingReach(null);
     this.mailboxBusyGeneration = null;
     this.mailboxOfferId = 0;
     this.mailboxAnswerId = 0;
@@ -1407,6 +1409,20 @@ export class WebRTCCallService {
 
   // ---- Switching an audio call to video ----
   private upgrade: UpgradePhase = 'idle';
+  /** How the other person's phone can be reached for the call being placed (see call_ring_reach); null until known. */
+  private ringReach: RingReach | null = null;
+  private reachListeners = new Set<(reach: RingReach | null) => void>();
+  public getRingReach(): RingReach | null { return this.ringReach; }
+  public setRingReach(reach: RingReach | null): void {
+    if (this.ringReach === reach) return;
+    this.ringReach = reach;
+    if (reach) callLog(`other phone: ${reach === 'rings' ? 'iPhone app registered, it can ring' : reach === 'notification' ? 'web notifications only, it cannot ring when closed' : 'no notifications registered'}`);
+    for (const listener of this.reachListeners) listener(reach);
+  }
+  public subscribeRingReach(listener: (reach: RingReach | null) => void): () => void {
+    this.reachListeners.add(listener);
+    return () => this.reachListeners.delete(listener);
+  }
   private upgradeListeners = new Set<(phase: UpgradePhase, callType: CallType) => void>();
   private pendingCamera: Promise<MediaStream> | null = null;
   private upgradeTimer: ReturnType<typeof setTimeout> | null = null;
