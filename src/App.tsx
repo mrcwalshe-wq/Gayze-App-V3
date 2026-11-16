@@ -30,7 +30,7 @@ import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall, getCallStatus } from './services/callSessions';
-import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, declineNativeCall, systemCallRinging, hasSystemCallScreen, endNativeAudioCall, setNativeAudioMuted, type NativeCallInfo } from './services/nativeCalls';
+import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, handVideoCallToApp, declineNativeCall, systemCallRinging, hasSystemCallScreen, endNativeAudioCall, setNativeAudioMuted, type NativeCallInfo } from './services/nativeCalls';
 import { NativeCallBar } from './components/NativeCallBar';
 import { enqueueOutbox, drainOutbox, isNetworkFailure, loadOutbox } from './services/outbox';
 import { InterestDiscover } from './components/InterestDiscover';
@@ -3468,7 +3468,8 @@ export default function App() {
       setIsCallModalOpen(true);
       return;
     }
-    void answerNativeCall(call.callId);
+    // Voice: answer the iPhone call screen too. Video: the app carries it, so the iPhone call screen has to let go (see handVideoCallToApp).
+    if (call.callType === 'video') void handVideoCallToApp(call.callId); else void answerNativeCall(call.callId);
     primeCallAudio();
     webrtcCallService.prewarmMedia(call.callType);   // inside the tap, before any waiting
     if (call.callerId) {
