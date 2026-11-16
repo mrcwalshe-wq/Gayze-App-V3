@@ -1,6 +1,6 @@
 import { registerCallLogSource, webrtcCallService } from './webrtcService';
 import { enqueueCallNotification } from './callNotificationService';
-import { endCallSession, getCallStatus, startCallSession } from './callSessions';
+import { endCallSession, getCallRingReach, getCallStatus, startCallSession } from './callSessions';
 
 import { unlockCallSounds } from './callSounds';
 
@@ -124,6 +124,10 @@ if (typeof window !== 'undefined' && !(window as WindowWithGayzeBridge)[bridgeKe
       return;
     }
 
+    // Asked alongside placing the call, never ahead of it: it only changes the wording on the caller's screen.
+    void getCallRingReach(params.targetUserId).then((reach) => {
+      if (reach && webrtcCallService.currentCallId() === callId) webrtcCallService.setRingReach(reach);
+    });
     await originalStartCall({ ...params, callId });
 
     const state = webrtcCallService.getState();

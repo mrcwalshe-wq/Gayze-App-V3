@@ -153,3 +153,6 @@
 /* Tab bar: no coloured patch behind the GAYZE emblem. A blurred purple disc sat behind it and read as a wrong background inside the
    arch; the emblem keeps only its own soft glow. (The emblem image itself is untouched.) */
 nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after { content: none !important; display: none !important; animation: none !important; }
+
+/* Call status can now be a short sentence ("Sent Sam a notification…"): keep it to a tidy centred block. */
+.g-call__status { max-width: 30ch; margin-inline: auto; text-align: center; text-wrap: balance; }

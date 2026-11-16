@@ -37,3 +37,12 @@ export async function getCallStatus(callId: string | undefined): Promise<'ringin
   if (error || (data !== 'ringing' && data !== 'answered' && data !== 'ended')) return null;
   return data;
 }
+
+/** How the other person's phone can be reached right now, or null if unknown (older server, not allowed to call them). */
+export async function getCallRingReach(calleeId: string): Promise<'rings' | 'notification' | 'none' | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc('call_ring_reach', { p_callee: calleeId });
+    return !error && (data === 'rings' || data === 'notification' || data === 'none') ? data : null;
+  } catch { return null; }
+}
