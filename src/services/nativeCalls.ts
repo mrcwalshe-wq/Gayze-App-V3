@@ -132,6 +132,29 @@ export async function answerNativeCall(callId: string | undefined): Promise<void
   try { const { GayzeCallKit } = await import('gayze-callkit'); await GayzeCallKit.answerCall({ callId }); } catch { /* no system call screen for this call */ }
 }
 
+/**
+ * A video call is carried by the app itself (the camera needs it on screen). While the iOS call screen still holds the call it also
+ * holds the phone's audio, and the app's microphone and camera start "live" but silent: the other person sees and hears nothing.
+ * So once the app is on screen the system call is ended and the app takes over. Waiting for "on screen" matters when the call was
+ * answered on a locked phone: ending it earlier would just drop the person back to the lock screen.
+ */
+export async function handVideoCallToApp(callId: string | undefined): Promise<void> {
+  if (!isIos() || !callId) return;
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+    await new Promise<void>((resolve) => {
+      const done = () => { document.removeEventListener('visibilitychange', onChange); window.clearTimeout(timer); resolve(); };
+      const onChange = () => { if (document.visibilityState === 'visible') done(); };
+      const timer = window.setTimeout(done, 60_000);
+      document.addEventListener('visibilitychange', onChange);
+    });
+  }
+  try {
+    const { GayzeCallKit } = await import('gayze-callkit');
+    await GayzeCallKit.endCall({ callId });
+    callLog('phone call screen: handed the video call to the app');
+  } catch { /* no system call screen for this call */ }
+}
+
 /** The person declined in the app: take the iOS call screen down. */
 export async function declineNativeCall(callId: string | undefined): Promise<void> {
   if (!isIos() || !callId) return;

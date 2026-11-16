@@ -1002,6 +1002,15 @@ export class WebRTCCallService {
       const mine = this.localStream?.getAudioTracks()[0], theirs = this.remoteStream?.getAudioTracks()[0];
       const track = (t: MediaStreamTrack | undefined) => (t ? `${t.readyState}${t.enabled ? '' : ' (switched off)'}${t.muted ? ' (no signal)' : ''}` : 'none');
       callLog(`audio ${tag}: arriving ${inPk} packets, level ${inLevel ?? 'n/a'}; leaving ${outPk} packets; my mic ${track(mine)}; their voice ${track(theirs)}`);
+      const myCam = this.localStream?.getVideoTracks()[0], theirCam = this.remoteStream?.getVideoTracks()[0];
+      if (myCam || theirCam) {
+        let inFrames = -1, outFrames = -1;
+        report.forEach((r: any) => {
+          if (r.type === 'inbound-rtp' && r.kind === 'video') inFrames = r.framesDecoded ?? r.framesReceived ?? -1;
+          if (r.type === 'outbound-rtp' && r.kind === 'video') outFrames = r.framesEncoded ?? r.framesSent ?? -1;
+        });
+        callLog(`video ${tag}: arriving ${inFrames} frames; leaving ${outFrames} frames; my camera ${track(myCam)}; their camera ${track(theirCam)}`);
+      }
     } catch { /* stats unavailable */ }
   }
 
@@ -1195,7 +1204,55 @@ export class WebRTCCallService {
     stream.getVideoTracks().forEach((track) => { track.enabled = this.videoEnabled; });
     this.localStream = stream;
     this.notifyStreams();
+    this.watchLocalCapture(stream, generation);
     return stream;
+  }
+
+  /**
+   * iOS can hand a page a microphone and camera that are "live" but carry nothing (the track is muted): another owner of the
+   * phone's audio, such as the system call screen, was holding it when they started. Nothing is sent, and the other person sees
+   * and hears nothing although the call is connected. If a track is still silent a moment later, the devices are started again
+   * and swapped into the call. Bounded to three tries per call; only while the page is visible (iOS will not start them otherwise).
+   */
+  private captureRecoveries = 0;
+  private watchLocalCapture(stream: MediaStream, generation: number): void {
+    const check = (delay: number) => setTimeout(() => {
+      if (generation !== this.callGeneration || this.localStream !== stream) return;
+      if (!stream.getTracks().some((track) => track.readyState === 'live' && track.muted)) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') { check(1500); return; }
+      void this.recoverLocalCapture(stream, generation);
+    }, delay);
+    stream.getTracks().forEach((track) => track.addEventListener?.('mute', () => check(1500)));
+    check(2500);
+  }
+  private async recoverLocalCapture(old: MediaStream, generation: number): Promise<void> {
+    if (this.captureRecoveries >= 3) return;
+    const attempt = ++this.captureRecoveries;
+    const silent = old.getTracks().filter((track) => track.muted).map((track) => (track.kind === 'audio' ? 'microphone' : 'camera')).join(' and ');
+    callLog(`${silent || 'microphone'} giving no signal: starting again (attempt ${attempt} of 3)`);
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia(this.mediaConstraints(old.getVideoTracks().length ? 'video' : 'audio'));
+      if (generation !== this.callGeneration || this.localStream !== old) { fresh.getTracks().forEach((track) => track.stop()); return; }
+      fresh.getAudioTracks().forEach((track) => { track.enabled = this.audioEnabled; });
+      fresh.getVideoTracks().forEach((track) => { track.enabled = this.videoEnabled; });
+      const pc = this.pc;
+      if (pc) {
+        for (const sender of pc.getSenders()) {
+          const kind = sender.track?.kind;
+          const next = kind === 'audio' ? fresh.getAudioTracks()[0] : kind === 'video' ? fresh.getVideoTracks()[0] : undefined;
+          if (next) await sender.replaceTrack(next);
+        }
+      }
+      if (generation !== this.callGeneration) { fresh.getTracks().forEach((track) => track.stop()); return; }
+      old.getTracks().forEach((track) => track.stop());
+      this.localStream = fresh;
+      this.notifyStreams();
+      const still = fresh.getTracks().filter((track) => track.muted).length;
+      callLog(still ? `started again, ${still} still giving no signal` : 'started again: microphone and camera have signal');
+      this.watchLocalCapture(fresh, generation);
+    } catch (err) {
+      callLog(`could not start them again: ${(err as Error)?.name || ''} ${(err as Error)?.message || err}`);
+    }
   }
 
   /**
@@ -1346,6 +1403,7 @@ export class WebRTCCallService {
     this.callChannel = null;
     this.pendingIceCandidates = [];
     this.answeringOfferPc = null;
+    this.captureRecoveries = 0;
     this.setRingReach(null);
     this.mailboxBusyGeneration = null;
     this.mailboxOfferId = 0;
