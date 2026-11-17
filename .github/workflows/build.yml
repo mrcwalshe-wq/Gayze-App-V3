@@ -31,6 +31,9 @@ jobs:
       - name: Accepted GAYZE call authorization tests
         run: npm run test:call-acceptance
 
+      - name: Database advisor hygiene migration tests
+        run: npm run test:advisor-hygiene
+
       - name: Production build
         run: npm run build
 
