@@ -1,0 +1,121 @@
+/* Opening a received Gayze: charge → burst → the eye whooshes past and the screen opens onto the chat. */
+.g-arrive {
+  position: fixed; inset: 0; z-index: 2147483050;
+  display: grid; place-items: center;
+  color: #fff; overflow: hidden; touch-action: manipulation; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The dark field. On the whoosh it blows outward and fades, revealing the chat behind (transform + opacity only). */
+.g-arrive__veil {
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 50% 42%, #1a0f2e 0%, #0b0716 55%, #050309 100%);
+  animation: ga-veil-in .35s ease-out both;
+}
+.g-arrive.is-whoosh .g-arrive__veil { animation: ga-veil-out .5s .3s cubic-bezier(.5, 0, .2, 1) forwards; }
+@keyframes ga-veil-out { to { opacity: 0; transform: scale(1.35); } }
+/* Light bloom as the eye passes the viewer. */
+.g-arrive__flash {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .95) 0%, rgba(217, 194, 255, .7) 18%, rgba(236, 61, 187, .35) 40%, transparent 70%);
+}
+.g-arrive.is-whoosh .g-arrive__flash { animation: ga-flash .6s .28s ease-out forwards; }
+@keyframes ga-flash { 0% { opacity: 0; transform: scale(.6); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.8); } }
+@keyframes ga-veil-in { from { opacity: 0; } }
+
+.g-arrive__aurora {
+  position: absolute; inset: -20%;
+  background:
+    radial-gradient(40% 30% at 30% 35%, rgba(139, 92, 246, .35), transparent 70%),
+    radial-gradient(35% 28% at 72% 48%, rgba(236, 61, 187, .28), transparent 70%),
+    radial-gradient(30% 24% at 50% 70%, rgba(255, 158, 32, .16), transparent 70%);
+  filter: blur(20px);
+  animation: ga-aurora 3s ease-in-out infinite alternate;
+}
+@keyframes ga-aurora { to { transform: rotate(8deg) scale(1.06); } }
+
+.g-arrive__stage {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 30px;
+  transform: translateY(-4vh);
+  pointer-events: none;
+}
+
+/* The eye: arrives from deep space, pulses on the burst, then rushes through the viewer. */
+.g-arrive__eye {
+  position: relative; will-change: transform, opacity; display: grid; place-items: center;
+  width: 200px; height: 200px;
+  animation: ga-eye-arrive .65s cubic-bezier(.16, 1, .3, 1) both;
+}
+.g-arrive.is-burst .g-arrive__eye { animation: ga-eye-pulse .9s cubic-bezier(.34, 1.56, .64, 1) both; }
+.g-arrive.is-whoosh .g-arrive__eye { animation: ga-eye-whoosh .55s cubic-bezier(.6, 0, 1, 1) forwards; }
+@keyframes ga-eye-arrive {
+  from { transform: scale(.05); opacity: 0; }
+  60% { opacity: 1; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes ga-eye-pulse { 0% { transform: scale(1); } 35% { transform: scale(1.18); } 100% { transform: scale(1.04); } }
+@keyframes ga-eye-whoosh {
+  /* Transform and opacity only: a blur filter on an 18x layer is too costly to animate smoothly on a phone. */
+  0% { transform: scale(1.04); opacity: 1; }
+  12% { transform: scale(.9); }               /* tiny wind-up before the rush */
+  60% { opacity: 1; }
+  100% { transform: scale(18); opacity: 0; }
+}
+
+.g-arrive__logo {
+  position: relative; z-index: 2; width: 168px; height: auto;
+  filter: drop-shadow(0 0 18px rgba(196, 168, 255, .75)) drop-shadow(0 0 42px rgba(236, 61, 187, .45));
+}
+.g-arrive__halo {
+  position: absolute; inset: 8%; border-radius: 50%;
+  background: radial-gradient(circle, rgba(196, 168, 255, .55), rgba(139, 92, 246, .18) 45%, transparent 70%);
+  filter: blur(10px);
+  animation: ga-halo 1.4s ease-in-out infinite alternate;
+}
+@keyframes ga-halo { from { opacity: .65; transform: scale(.92); } to { opacity: 1; transform: scale(1.08); } }
+
+.g-arrive__ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid rgba(217, 204, 255, .8);
+  box-shadow: 0 0 22px rgba(139, 92, 246, .7), inset 0 0 18px rgba(236, 61, 187, .4);
+  animation: ga-ring 1.1s cubic-bezier(.16, 1, .3, 1) forwards;
+}
+.g-arrive__ring--b { border-color: rgba(255, 196, 120, .75); animation-delay: .14s; }
+@keyframes ga-ring { from { transform: scale(.55); opacity: 1; } to { transform: scale(2.6); opacity: 0; } }
+
+/* Copy lands on the burst and lifts away on the whoosh. */
+.g-arrive__copy { text-align: center; opacity: 0; }
+.g-arrive.is-burst .g-arrive__copy { opacity: 1; }
+.g-arrive.is-whoosh .g-arrive__copy { opacity: 1; animation: ga-copy-out .35s ease-in forwards; }
+@keyframes ga-copy-out { to { opacity: 0; transform: translateY(-14px) scale(.96); } }
+
+.g-arrive__title {
+  margin: 0; font-size: clamp(26px, 7.4vw, 34px); font-weight: 750; letter-spacing: -.02em; line-height: 1.1;
+  text-shadow: 0 0 24px rgba(139, 92, 246, .55);
+}
+.g-arrive__ch { display: inline-block; opacity: 0; }
+.g-arrive.is-burst .g-arrive__ch, .g-arrive.is-whoosh .g-arrive__ch { animation: ga-ch .5s cubic-bezier(.34, 1.56, .64, 1) both; }
+@keyframes ga-ch { from { opacity: 0; transform: translateY(14px) scale(.8); } to { opacity: 1; transform: none; } }
+
+.g-arrive__sub {
+  margin: 10px 0 0; font-size: 16px; font-weight: 600;
+  background: linear-gradient(90deg, #d9c2ff, #f6a8c0 55%, #f2d58a);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: ga-sub .5s .7s ease-out both;
+}
+.g-arrive__sub span { color: rgba(255, 255, 255, .55); -webkit-text-fill-color: rgba(255, 255, 255, .55); font-weight: 500; }
+@keyframes ga-sub { from { opacity: 0; transform: translateY(6px); } }
+
+/* Reduced motion: no zoom, no warp, no iris – a calm fade in and out. */
+.g-arrive.is-reduced .g-arrive__veil,
+.g-arrive.is-reduced .g-arrive__eye,
+.g-arrive.is-reduced .g-arrive__ch,
+.g-arrive.is-reduced .g-arrive__sub,
+.g-arrive.is-reduced .g-arrive__ring,
+.g-arrive.is-reduced .g-arrive__halo,
+.g-arrive.is-reduced .g-arrive__aurora,
+.g-arrive.is-reduced .g-arrive__flash { animation: none !important; }
+.g-arrive.is-reduced .g-arrive__ch { opacity: 1; }
+.g-arrive.is-reduced { animation: ga-reduced .9s ease both; }
+@keyframes ga-reduced { 0% { opacity: 0; } 20%, 70% { opacity: 1; } 100% { opacity: 0; } }

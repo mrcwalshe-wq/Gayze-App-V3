@@ -52,6 +52,7 @@ import type { EditSectionKey } from './config/profileOptions';
 import type { ProfileSavePayload } from './components/ProfileEditSheet';
 import { SetIntentSheet, UserActiveIntent } from './components/SetIntentSheet';
 import { LiveActivationOverlay } from './components/LiveActivationOverlay';
+import { GayzeArrival } from './components/GayzeArrival';
 import { AuthView, type AuthMode } from './components/AuthView';
 import { completeAuthCallback, consumeAuthCallbackOnce, type PendingLink } from './services/authCallback';
 import { COOLDOWN_FALLBACK_SECONDS, formatCooldown, noteGayzeCooldown, type GayzeOutcome } from './services/gayzeCooldown';
@@ -791,6 +792,8 @@ export default function App() {
   const [intentHubMode, setIntentHubMode] = useState<TopLevelIntentMode | null>(null);
   const [intentBusy, setIntentBusy] = useState(false);
   const [liveActivation, setLiveActivation] = useState<{ stage: 'connecting' | 'live'; mode: TopLevelIntentMode; intent: string; later: boolean; detail: string; chips?: string[] } | null>(null);
+  /** Plays over the chat when a received Gayze is opened. `key` restarts it if another Gayze is opened mid-animation. */
+  const [gayzeArrival, setGayzeArrival] = useState<{ key: string; peerName?: string } | null>(null);
   const [secureChatRetryNonce, setSecureChatRetryNonce] = useState(0);
   const [conversationKeyState, setConversationKeyState] = useState<{
     roomId: string;
@@ -1839,6 +1842,11 @@ export default function App() {
       if (notice.category === 'intent_expiring') { setActiveTab('right_now'); replacePath('/right-now'); return; }
       const conversationId = route.conversationId || roomForActor?.id;
       if (conversationId) {
+        // A received Gayze earns its moment: the eye whooshes past and opens onto the chat, which loads underneath.
+        if (notice.category === 'gaze') {
+          const room = rooms.find((r) => r.id === conversationId) ?? roomForActor;
+          setGayzeArrival({ key: notice.id, peerName: room?.type === 'direct' ? room.name : undefined });
+        }
         requestConversationOpen(conversationId);
         replacePath(`/messages/${conversationId}`);
         return;
@@ -4645,6 +4653,10 @@ export default function App() {
           chips={liveActivation.chips}
           onComplete={() => setLiveActivation(null)}
         />
+      )}
+
+      {gayzeArrival && (
+        <GayzeArrival key={gayzeArrival.key} peerName={gayzeArrival.peerName} onDone={() => setGayzeArrival(null)} />
       )}
 
       {/* Sectioned "About you" profile editor */}
