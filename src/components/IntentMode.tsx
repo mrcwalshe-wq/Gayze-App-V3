@@ -51,7 +51,7 @@ export const IntentMode: React.FC<IntentModeProps> = ({
         />
 
         {/* Two Native Touch Target Buttons (min 44px height) */}
-        <div className="relative grid grid-cols-2 gap-1 z-10">
+        <div className="relative grid grid-cols-2 gap-1 z-10" role="group" aria-label="Intent Timing Mode">
           {/* RIGHT NOW */}
           <button
             type="button"
