@@ -30,6 +30,7 @@ import { JourneySheet } from './components/JourneySheet';
 import { DirectionsSheet } from './components/DirectionsSheet';
 import { PrivacySheet } from './components/PrivacySheet';
 import { getRingingCall, getCallStatus } from './services/callSessions';
+import { startNativePush, releaseNativePush, type PushAction } from './services/nativePush';
 import { startNativeCalls, endNativeCalls, releaseNativeCallToken, answerNativeCall, handVideoCallToApp, declineNativeCall, systemCallRinging, hasSystemCallScreen, endNativeAudioCall, setNativeAudioMuted, type NativeCallInfo } from './services/nativeCalls';
 import { NativeCallBar } from './components/NativeCallBar';
 import { enqueueOutbox, drainOutbox, isNetworkFailure, loadOutbox } from './services/outbox';
@@ -2907,7 +2908,7 @@ export default function App() {
     // Invalidate every in-flight auth/bootstrap operation immediately.
     // The UI must never wait for a network round-trip to show the signed-out state.
     authGenerationRef.current += 1;
-    await releaseNativeCallToken();
+    await Promise.all([releaseNativeCallToken(), releaseNativePush()]);
     clearChatAccount();
     locationWatchStopRef.current?.();
     locationWatchStopRef.current = null;
@@ -3562,6 +3563,51 @@ export default function App() {
         if (info.active && info.callId) setIncomingCall((current) => (current?.callId === info.callId ? null : current));
       },
     }, supabaseUserId).then((fn) => { if (cancelled) fn(); else stop = fn; });
+    return () => { cancelled = true; stop(); };
+  }, [isAuthenticated, isSigningOut, supabaseUserId]);
+  // iPhone app: a tap on a notification, or on its Accept / Not now button (on the phone or on a paired Apple Watch).
+  const nativePushActionRef = useRef<(action: PushAction) => void>(() => undefined);
+  nativePushActionRef.current = (push) => {
+    void (async () => {
+      if (push.notificationId) void markNotificationRead(push.notificationId).then(() => notificationRefreshRef.current()).catch(() => {});
+      if (push.action === 'accept' && push.interestId) {
+        const result = await acceptIncomingInterest(push.interestId);
+        if (result.accepted && result.conversation_id) {
+          const route = routeFromPath(`/messages/${result.conversation_id}`);
+          setActiveTab(route.tab);
+          if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+          requestConversationOpen(result.conversation_id);
+          replacePath(`/messages/${result.conversation_id}`);
+          showToast('You are connected. Say hello.');
+          return;
+        }
+        showToast('That Gayze is no longer available.');
+        return;
+      }
+      if (push.action === 'decline' && push.interestId) {
+        showToast(await declineIncomingInterest(push.interestId) ? 'Not now. They are not told.' : 'That Gayze is no longer available.');
+        return;
+      }
+      const path = push.conversationId ? `/messages/${push.conversationId}` : (push.url ?? '/notifications');
+      const route = routeFromPath(path);
+      // A received Gayze waiting for an answer: show its Accept / Decline card.
+      if (push.type === 'gaze' && !route.conversationId) {
+        setActiveTab('swarms');
+        setMessagesSubTab('notifications');
+        window.setTimeout(() => window.dispatchEvent(new CustomEvent('gayze:focus-incoming')), 60);
+        return;
+      }
+      setActiveTab(route.tab);
+      if (route.messagesSubtab) setMessagesSubTab(route.messagesSubtab);
+      if (route.conversationId) requestConversationOpen(route.conversationId);
+      replacePath(path);
+    })();
+  };
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || isSigningOut || !supabaseUserId) return;
+    let stop: () => void = () => undefined;
+    let cancelled = false;
+    void startNativePush((action) => nativePushActionRef.current(action)).then((fn) => { if (cancelled) fn(); else stop = fn; });
     return () => { cancelled = true; stop(); };
   }, [isAuthenticated, isSigningOut, supabaseUserId]);
   // When the call is over (or answered/declined inside the app), take the system call screen down.

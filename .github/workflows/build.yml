@@ -40,6 +40,9 @@ jobs:
       - name: E2EE regression tests
         run: npm run test:e2ee
 
+      - name: Notification tap parsing tests
+        run: npm run test:native-push
+
       - name: Calling and signalling regression tests
         run: npm run test:call-voip && npm run test:call-mailbox && npm run test:native-call
 

@@ -6,7 +6,7 @@ import { callLog, type IncomingCall } from './webrtcService';
  * (lock screen, ringtone, Answer / Decline). Answering opens the app and hands the call to the web layer.
  * Does nothing in the browser or on Android.
  */
-const isIos = (): boolean => {
+export const isIos = (): boolean => {
   if (typeof window === 'undefined') return false;
   const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor;
   return Boolean(cap?.isNativePlatform?.() && cap.getPlatform?.() === 'ios');
