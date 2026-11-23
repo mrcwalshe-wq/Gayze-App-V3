@@ -34,6 +34,9 @@ jobs:
       - name: Database advisor hygiene migration tests
         run: npm run test:advisor-hygiene
 
+      - name: Apple notification push tests
+        run: npm run test:apns
+
       - name: Production build
         run: npm run build
 
