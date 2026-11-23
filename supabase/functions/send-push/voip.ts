@@ -34,16 +34,30 @@ export type VoipResult = 'sent' | 'bad_token' | 'failed';
 
 let cached: { jwt: string; at: number; id: string } | null = null;
 
-export async function sendVoipPush(cfg: ApnsConfig, token: string, environment: 'sandbox' | 'production', call: VoipCall, fetchImpl: typeof fetch = fetch): Promise<VoipResult> {
+/**
+ * The provider token, shared by every kind of push this function sends. Apple refuses a key that makes a new token more than once
+ * every 20 minutes (429 TooManyProviderTokenUpdates), so VoIP and alert pushes must reuse one. `iat` is snapped to a half-hour
+ * boundary so separate function instances end up with the same token.
+ */
+export async function providerJwt(cfg: ApnsConfig, nowMs = Date.now()): Promise<string> {
   const id = `${cfg.keyId}:${cfg.teamId}`;
+  const window = 30 * 60;
+  const iat = Math.floor(nowMs / 1000 / window) * window;
+  if (!cached || cached.id !== id || cached.at !== iat) cached = { jwt: await apnsJwt(cfg.keyPem, cfg.keyId, cfg.teamId, iat), at: iat, id };
+  return cached.jwt;
+}
+/** Apple rejected the provider token (403): build a new one next time. */
+export function forgetProviderJwt(): void { cached = null; }
+
+export async function sendVoipPush(cfg: ApnsConfig, token: string, environment: 'sandbox' | 'production', call: VoipCall, fetchImpl: typeof fetch = fetch): Promise<VoipResult> {
   const now = Date.now();
-  if (!cached || cached.id !== id || now - cached.at > 40 * 60_000) cached = { jwt: await apnsJwt(cfg.keyPem, cfg.keyId, cfg.teamId), at: now, id };
+  const jwt = await providerJwt(cfg, now);
   const host = environment === 'sandbox' ? 'api.sandbox.push.apple.com' : 'api.push.apple.com';
   try {
     const res = await fetchImpl(`https://${host}/3/device/${token}`, {
       method: 'POST',
       headers: {
-        authorization: `bearer ${cached.jwt}`,
+        authorization: `bearer ${jwt}`,
         'apns-push-type': 'voip',
         'apns-topic': cfg.topic,
         'apns-priority': '10',
@@ -57,7 +71,7 @@ export async function sendVoipPush(cfg: ApnsConfig, token: string, environment: 
       const reason = await res.text().catch(() => '');
       if (res.status === 410 || /BadDeviceToken|Unregistered|DeviceTokenNotForTopic/.test(reason)) return 'bad_token';
     }
-    if (res.status === 403) cached = null; // provider token rejected: build a new one next time
+    if (res.status === 403) forgetProviderJwt();
     return 'failed';
   } catch {
     return 'failed';

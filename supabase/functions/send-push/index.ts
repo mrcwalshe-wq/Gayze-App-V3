@@ -13,7 +13,8 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
-import { sendVoipPush } from './voip.ts';
+import { sendVoipPush, type ApnsConfig } from './voip.ts';
+import { alertForNotice, sendAlertPush, type AppleAlert } from './alert.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -35,6 +36,38 @@ function jsonResponse(data: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+/** The Apple push credentials, or null when they are not set (then only Web Push is used). Same key as the VoIP push. */
+function appleConfig(): ApnsConfig | null {
+  const keyPem = Deno.env.get('APNS_KEY_P8') ?? '';
+  const keyId = Deno.env.get('APNS_KEY_ID') ?? '';
+  const teamId = Deno.env.get('APNS_TEAM_ID') ?? '';
+  if (!keyPem || !keyId || !teamId) return null;
+  return { keyPem, keyId, teamId, topic: Deno.env.get('APNS_ALERT_TOPIC') ?? 'com.gayze.app' };
+}
+
+type AppleToken = { token: string; environment: 'sandbox' | 'production' };
+/** The member's installed iPhone apps. Empty when the table does not exist yet or the credentials are not set. */
+async function appleTokensFor(admin: any, userId: string): Promise<AppleToken[]> {
+  if (!appleConfig()) return [];
+  try {
+    const { data, error } = await admin.from('apns_tokens').select('token, environment').eq('user_id', userId);
+    return error || !data ? [] : data;
+  } catch { return []; }
+}
+
+/** Sends one alert to each of the member's iPhones (and so their Apple Watch). Returns how many Apple accepted. */
+async function sendToApple(admin: any, tokens: AppleToken[], alert: AppleAlert | null): Promise<number> {
+  const cfg = appleConfig();
+  if (!cfg || !alert) return 0;
+  let accepted = 0;
+  for (const t of tokens) {
+    const result = await sendAlertPush(cfg, t.token, t.environment, alert);
+    if (result === 'sent') accepted += 1;
+    else if (result === 'bad_token') await admin.from('apns_tokens').delete().eq('token', t.token);
+  }
+  return accepted;
 }
 
 function isValidUuid(id: unknown): id is string {
@@ -205,12 +238,14 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ delivered: 0, reason: 'notifications_disabled' });
       }
 
-      const { data: subs, error: subErr } = await admin
+      const { data: subRows, error: subErr } = await admin
         .from('push_subscriptions')
         .select('endpoint, p256dh, auth')
         .eq('user_id', notice.user_id);
+      const subs = subErr || !subRows ? [] : subRows;
+      const appleTokens = await appleTokensFor(admin, notice.user_id);
 
-      if (subErr || !subs || subs.length === 0) {
+      if (subs.length === 0 && appleTokens.length === 0) {
         return jsonResponse({ delivered: 0, reason: subErr?.message || 'no_subscriptions' });
       }
 
@@ -288,6 +323,10 @@ Deno.serve(async (req: Request) => {
           }
         }
       }
+      // The installed iPhone app (and its Apple Watch) only receive Apple push, never Web Push.
+      const appleDelivered = await sendToApple(admin, appleTokens, alertForNotice(
+        { id: notice.id, user_id: notice.user_id, category: notice.category, event_key: notice.event_key, url: notice.url }, conversationId));
+      delivered += appleDelivered;
 
       if (delivered > 0) {
         await admin
@@ -296,7 +335,7 @@ Deno.serve(async (req: Request) => {
           .eq('id', notice.id);
       }
 
-      return jsonResponse({ delivered });
+      return jsonResponse({ delivered, apple: appleDelivered });
     }
 
     if (body.event === 'connection') {
@@ -417,12 +456,14 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ delivered: 0, reason: 'Notifications are switched off in your settings.' });
     }
 
-    const { data: subs, error: subErr } = await admin
+    const { data: subRows, error: subErr } = await admin
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth')
       .eq('user_id', callerUserId);
+    const subs = subErr || !subRows ? [] : subRows;
+    const appleTokens = await appleTokensFor(admin, callerUserId);
 
-    if (subErr || !subs || subs.length === 0) {
+    if (subs.length === 0 && appleTokens.length === 0) {
       return jsonResponse({ delivered: 0, reason: 'No subscribed device found for your account on the server.' });
     }
 
@@ -449,6 +490,7 @@ Deno.serve(async (req: Request) => {
         }
       }
     }
+    delivered += await sendToApple(admin, appleTokens, { title: payload.title, body: payload.body, data: { type: 'test', url: '/profile' } });
 
     return jsonResponse({ delivered });
   }
