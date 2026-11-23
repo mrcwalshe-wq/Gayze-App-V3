@@ -5,12 +5,13 @@ import CallKit
 import AVFoundation
 import AVKit
 import UIKit
+import UserNotifications
 
 /// Shows an incoming GAYZE call as a real iPhone call: full screen on the lock screen, system ringtone,
 /// Answer / Decline. iOS wakes the app with a VoIP push (PushKit); the app MUST report the call to CallKit
 /// straight away, or iOS stops delivering VoIP pushes to it. Answering opens the app and hands the call id to the web layer.
 @objc(GayzeCallKitPlugin)
-public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDelegate, CXProviderDelegate {
+public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDelegate, CXProviderDelegate, NotificationHandlerProtocol {
     public let identifier = "GayzeCallKitPlugin"
     public let jsName = "GayzeCallKit"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -25,7 +26,8 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         CAPPluginMethod(name: "getAudioRoute", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showRoutePicker", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endCall", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "endAll", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "endAll", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "registerForPush", returnType: CAPPluginReturnPromise)
     ]
 
     private struct Ringing {
@@ -52,6 +54,8 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
     private var nativeCalls: [UUID: NativeAudioCall] = [:]
     private var nativeAudioUsed = false
     private var token: String?
+    /// The token Apple issues for ordinary notifications (a Gayze, a message). Separate from the call (VoIP) token above.
+    private var pushToken: String?
     private var routePicker: AVRoutePickerView?
     /// Asks iOS to keep the app running while a call is ringing or on, so answering from the lock screen is not followed by being suspended.
     private var keepAlive: UIBackgroundTaskIdentifier = .invalid
@@ -94,11 +98,71 @@ public class GayzeCallKitPlugin: CAPPlugin, CAPBridgedPlugin, PKPushRegistryDele
         r.desiredPushTypes = [.voIP]
         registry = r
 
+        // Ordinary notifications: the token Apple issues, and taps on a notification or on its buttons.
+        bridge?.notificationRouter.pushNotificationHandler = self
+        registerPushCategories()
+        NotificationCenter.default.addObserver(forName: .capacitorDidRegisterForRemoteNotifications, object: nil, queue: .main) { [weak self] note in
+            guard let self = self, let data = note.object as? Data else { return }
+            let hex = data.map { String(format: "%02x", $0) }.joined()
+            self.pushToken = hex
+            self.notifyListeners("pushToken", data: ["token": hex, "environment": self.environment, "deviceId": self.deviceId], retainUntilConsumed: true)
+        }
+        NotificationCenter.default.addObserver(forName: .capacitorDidFailToRegisterForRemoteNotifications, object: nil, queue: .main) { [weak self] note in
+            let reason = (note.object as? Error)?.localizedDescription ?? "unknown"
+            self?.notifyListeners("pushError", data: ["message": String(reason.prefix(120))], retainUntilConsumed: true)
+        }
+
         // Tell the web layer when the call audio moves (AirPods connect, car takes over, speaker chosen).
         NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
             self.notifyListeners("audioRoute", data: self.routeInfo())
         }
+    }
+
+    // MARK: Ordinary notifications
+
+    /// The buttons a received Gayze shows on the lock screen and on a paired Apple Watch. Both open the app, which carries them out
+    /// with the signed-in session; answering from the wrist without opening the phone would need the app to act while closed.
+    private func registerPushCategories() {
+        let accept = UNNotificationAction(identifier: "ACCEPT", title: "Accept", options: [.foreground])
+        let notNow = UNNotificationAction(identifier: "NOT_NOW", title: "Not now", options: [.foreground])
+        let gaze = UNNotificationCategory(identifier: "GAYZE_GAZE", actions: [accept, notNow], intentIdentifiers: [], options: [])
+        UNUserNotificationCenter.current().setNotificationCategories([gaze])
+    }
+
+    /// Asks for permission to show notifications (iOS asks once; later calls only report the answer) and registers with Apple.
+    /// The token arrives as a `pushToken` event.
+    @objc func registerForPush(_ call: CAPPluginCall) {
+        registerPushCategories()
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            DispatchQueue.main.async {
+                if granted { UIApplication.shared.registerForRemoteNotifications() }
+                var out: [String: Any] = ["granted": granted]
+                if let token = self.pushToken { out["token"] = token; out["environment"] = self.environment }
+                out["deviceId"] = self.deviceId
+                call.resolve(out)
+            }
+        }
+    }
+
+    /// A notification arrived while the app is open: the app's own screens already show it, so iOS shows nothing on top.
+    public func willPresent(notification: UNNotification) -> UNNotificationPresentationOptions {
+        return []
+    }
+
+    /// The person tapped a notification, or one of its buttons (on the phone or the watch).
+    public func didReceive(response: UNNotificationResponse) {
+        let info = response.notification.request.content.userInfo
+        var data: [String: Any] = [:]
+        for key in ["type", "notificationId", "url", "conversationId", "interestId"] {
+            if let value = info[key] as? String { data[key] = value }
+        }
+        switch response.actionIdentifier {
+        case "ACCEPT": data["action"] = "accept"
+        case "NOT_NOW": data["action"] = "decline"
+        default: data["action"] = "open"
+        }
+        notifyListeners("pushAction", data: data, retainUntilConsumed: true)
     }
 
     /// Where the sound is going right now.

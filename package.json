@@ -46,7 +46,8 @@
     "test:albums": "node --test scripts/privacy-tests/albums.test.mjs && tsx --test scripts/album-tests/crypto.test.ts scripts/album-tests/wire.test.ts",
     "test:call-acceptance": "node --test scripts/call-tests/accepted-gayze-migration.test.mjs scripts/privacy-tests/call-gating.test.mjs",
     "test:advisor-hygiene": "node --test scripts/privacy-tests/advisor-hygiene.test.mjs",
-    "test:apns": "node --test scripts/push-tests/apns-tokens.test.mjs && tsx --test scripts/push-tests/apns-alert.test.ts"
+    "test:apns": "node --test scripts/push-tests/apns-tokens.test.mjs && tsx --test scripts/push-tests/apns-alert.test.ts",
+    "test:native-push": "tsx --test scripts/push-tests/push-action.test.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
