@@ -183,8 +183,18 @@ nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after { conte
 .g-interest-composer__intent-conns span { padding: 6px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .8); background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .12); }
 @keyframes g-intent-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
-.g-send-gayze-button { min-height: 54px; border: 0; border-radius: 999px; animation: none; font-size: 16px;
-  background: linear-gradient(120deg, #6f3cc3, #b24fd8 70%, #c9559b); box-shadow: 0 8px 24px rgba(111, 60, 195, .4), inset 0 1px 0 rgba(255, 255, 255, .25); }
-.g-send-gayze-button::before, .g-send-gayze-button__sparkles { display: none; }
-.g-send-gayze-button__symbol { color: #fff; filter: none; }
+/* Same hero button as the profile sheet: purple to raspberry, lit top edge, amber strip along the bottom, the emblem pattern behind the label. */
+.g-send-gayze-button { position: relative; overflow: hidden; isolation: isolate; min-height: 56px; border: 0; border-radius: var(--pk-r, 14px); animation: none; color: #fff; font-size: 16px; font-weight: 750; letter-spacing: .005em; text-shadow: 0 1px 0 rgba(0, 0, 0, .25);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, 0) 48%), linear-gradient(115deg, #5b2cb8 0%, #8a3fcb 48%, #b8408f 100%);
+  box-shadow: 0 16px 34px rgba(138, 63, 203, .46), 0 5px 14px rgba(184, 64, 143, .34), inset 0 1px 0 rgba(255, 255, 255, .42), inset 0 -1px 0 rgba(0, 0, 0, .3); }
+.g-send-gayze-button::before { content: ''; position: absolute; inset: -40% -10%; z-index: 0; pointer-events: none; filter: none; animation: none;
+  background: url('/brand/gayze-nav-v3.svg') 0 0 / 92px 46px repeat; transform: rotate(-12deg); opacity: .34;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,.55), #000 40%, #000 60%, rgba(0,0,0,.55)); mask-image: linear-gradient(90deg, rgba(0,0,0,.55), #000 40%, #000 60%, rgba(0,0,0,.55)); }
+.g-send-gayze-button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; pointer-events: none; background: linear-gradient(90deg, #6f3cc3, #b24fd8 55%, #c9a24d); }
+.g-send-gayze-button > * { position: relative; z-index: 1; }
+.g-send-gayze-button__sparkles { display: none; }
+.g-send-gayze-button__symbol { box-sizing: content-box; width: 16px; height: 16px; padding: 6px; border-radius: 50%; color: #fff; filter: none; background: rgba(255, 255, 255, .2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+.g-send-gayze-button__symbol svg { width: 16px; height: 16px; }
+.g-send-gayze-button:active:not(:disabled) { transform: scale(.975); filter: brightness(1.08); }
+.g-send-gayze-button:disabled { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { .g-interest-composer__intent-list { animation: none; } .g-interest-composer__intent-toggle svg { transition: none; } }
