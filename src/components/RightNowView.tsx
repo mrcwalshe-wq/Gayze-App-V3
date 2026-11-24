@@ -9,7 +9,7 @@ import { loadOutgoingInterestStatuses } from '../services/supabaseService';
 import L from 'leaflet';
 import { createMapGrid } from './mapGrid';
 import { NearbySheet } from './NearbySheet';
-import { ACTIVITIES, legacyActivityFor } from '../services/intentModel';
+import { ACTIVITIES, CONNECTIONS, activityLabel, cleanActivities, cleanConnections, legacyActivityFor } from '../services/intentModel';
 import { PeopleGrid, type PeopleTile } from './PeopleGrid';
 import { intentThemeMode } from '../services/intentTiming';
 import {
@@ -304,6 +304,8 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
   const [mutualMatchPulse, setMutualMatchPulse] = useState<Pulse | null>(null);
   useEffect(() => { if (mutualMatchPulse) playAppSound('matched'); }, [mutualMatchPulse]);
   const [interestDraftPulse, setInterestDraftPulse] = useState<Pulse | null>(null);
+  const [interestIntentOpen, setInterestIntentOpen] = useState(false);
+  useEffect(() => { setInterestIntentOpen(false); }, [interestDraftPulse?.id]);
   const [interestMessage, setInterestMessage] = useState('');
   const [interestPhotos, setInterestPhotos] = useState<ProfilePhoto[]>([]);
   const [selectedInterestPhotoIds, setSelectedInterestPhotoIds] = useState<Set<string>>(new Set());
@@ -2479,7 +2481,38 @@ export const RightNowView: React.FC<RightNowViewProps> = ({
               <button type="button" onClick={() => setInterestDraftPulse(null)} className="g-icon-btn g-icon-btn--bare !w-11 !h-11 shrink-0" aria-label="Close"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="g-interest-composer__intent"><span className="g-interest-composer__intent-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.8c1.2 4.1 3.3 6.2 7.4 7.4-4.1 1.2-6.2 3.3-7.4 7.4-1.2-4.1-3.3-6.2-7.4-7.4 4.1-1.2 6.2-3.3 7.4-7.4Z" fill="currentColor"/><path d="M19 16.5v4M17 18.5h4M5 2v4M3 4h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg></span><span className="g-interest-composer__intent-copy"><span className="g-interest-composer__intent-label">THEIR CURRENT INTENT</span><span className="g-interest-composer__intent-title">{interestDraftPulse.title || interestDraftPulse.intent || 'Right Now'}</span><span className="g-interest-composer__intent-meta"><i /> Right Now · active intent</span></span><span className="g-interest-composer__intent-chevron" aria-hidden="true">›</span></div>
+              {(() => {
+                const acts = cleanActivities(interestDraftPulse.activities?.length ? interestDraftPulse.activities : legacyActivityFor(interestDraftPulse.intent));
+                const conns = cleanConnections(interestDraftPulse.connections);
+                const first = acts[0] ? activityLabel(acts[0]) : (interestDraftPulse.title || interestDraftPulse.intent || 'Right Now');
+                const summary = acts.length > 1 ? `${first} +${acts.length - 1}` : first;
+                const expandable = acts.length > 1 || conns.length > 0;
+                return (
+                  <div className={`g-interest-composer__intent${interestIntentOpen ? ' is-open' : ''}`}>
+                    <button type="button" className="g-interest-composer__intent-head" aria-expanded={interestIntentOpen} aria-controls="g-interest-intent-list" disabled={!expandable} onClick={() => setInterestIntentOpen((v) => !v)}>
+                      <span className="g-interest-composer__intent-copy">
+                        <span className="g-interest-composer__intent-label">What {interestDraftPulse.peerName} is up for</span>
+                        <span className="g-interest-composer__intent-title">{summary}</span>
+                      </span>
+                      {expandable && <span className="g-interest-composer__intent-toggle">{interestIntentOpen ? 'Hide' : `All ${acts.length + conns.length}`}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg></span>}
+                    </button>
+                    {interestIntentOpen && (
+                      <div id="g-interest-intent-list" className="g-interest-composer__intent-list">
+                        <ul>
+                          {acts.map((id, n) => { const a = ACTIVITIES.find((x) => x.id === id); return (
+                            <li key={id}><span className="g-interest-composer__intent-dot" aria-hidden="true" /><span><strong>{activityLabel(id)}</strong>{a?.hint ? <small>{a.hint}</small> : null}</span>{n === 0 && acts.length > 1 ? <em>Main</em> : null}</li>
+                          ); })}
+                        </ul>
+                        {conns.length > 0 && (
+                          <div className="g-interest-composer__intent-conns" aria-label="Open to">
+                            {conns.map((id) => <span key={id}>{CONNECTIONS.find((c) => c.id === id)?.label ?? id}</span>)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div><label className="text-xs font-semibold text-zinc-300">Add a note <span className="text-zinc-600">(optional)</span></label><textarea value={interestMessage} onChange={(e) => setInterestMessage(e.target.value.slice(0,500))} rows={3} placeholder="Say hi, or why you’re interested…" className="mt-2 w-full resize-none rounded-2xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#C9A24D]/60" /><p className="mt-1 text-right text-[10.5px] text-zinc-600">{interestMessage.length}/500</p></div>
               <div><div className="flex items-center justify-between"><label className="text-xs font-semibold text-zinc-300">Share album photos <span className="text-zinc-600">(optional)</span></label><span className="text-[10px] text-zinc-600">{selectedInterestPhotoIds.size}/6</span></div>
                 {interestPhotos.length ? <div className="g-interest-composer__photos mt-2 grid grid-cols-4 gap-2.5">{interestPhotos.map((photo) => { const selected=selectedInterestPhotoIds.has(photo.id); return <button key={photo.id} type="button" onClick={() => setSelectedInterestPhotoIds(prev => { const next=new Set(prev); if(selected) next.delete(photo.id); else if(next.size<6) next.add(photo.id); return next; })} className={`relative aspect-square rounded-xl overflow-hidden border-2 ${selected ? 'border-[#C9A24D]' : 'border-white/10'}`}><img src={photo.url} alt="" className="w-full h-full object-cover" />{selected && <span className="absolute inset-0 bg-[#6F3CC3]/35 flex items-center justify-center"><Check className="w-5 h-5 text-white" /></span>}</button>; })}</div> : <div className="mt-2 text-xs text-zinc-600 rounded-2xl border border-dashed border-white/10 p-4 text-center">No album photos available.</div>}
