@@ -156,3 +156,35 @@ nav.g-tabbar .g-tabbar__inner .g-tab--discover .g-discover-action::after { conte
 
 /* Call status can now be a short sentence ("Sent Sam a notification…"): keep it to a tidy centred block. */
 .g-call__status { max-width: 30ch; margin-inline: auto; text-align: center; text-wrap: balance; }
+
+/* Send a Gayze: the intent row is a quiet disclosure that opens to everything the person is up for, and Send is the same violet pill as the rest of the app. */
+.g-interest-composer__intent { display: block; min-height: 0; padding: 0; border: 1px solid rgba(255, 255, 255, .12); border-radius: 16px; box-shadow: none; overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .025)); }
+.g-interest-composer__intent.is-open { border-color: rgba(167, 139, 250, .5); }
+.g-interest-composer__intent-head { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 62px; padding: 10px 14px; text-align: left; background: none; border: 0; color: inherit; }
+.g-interest-composer__intent-head:disabled { cursor: default; }
+.g-interest-composer__intent-head:focus-visible { outline: 2px solid rgba(190, 150, 255, .9); outline-offset: -2px; border-radius: 16px; }
+.g-interest-composer__intent-label { font-size: 11.5px; font-weight: 600; letter-spacing: 0; color: rgba(255, 255, 255, .55); }
+.g-interest-composer__intent-title { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+.g-interest-composer__intent-toggle { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; min-height: 32px; padding: 0 10px 0 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #e4d6ff;
+  background: rgba(139, 92, 246, .22); border: 1px solid rgba(167, 139, 250, .4); }
+.g-interest-composer__intent-toggle svg { width: 14px; height: 14px; transition: transform .2s ease; }
+.g-interest-composer__intent.is-open .g-interest-composer__intent-toggle svg { transform: rotate(180deg); }
+.g-interest-composer__intent-list { padding: 2px 14px 14px; border-top: 1px solid rgba(255, 255, 255, .08); animation: g-intent-open .18s ease-out; }
+.g-interest-composer__intent-list ul { list-style: none; margin: 0; padding: 0; }
+.g-interest-composer__intent-list li { display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.g-interest-composer__intent-list li:last-child { border-bottom: 0; }
+.g-interest-composer__intent-list li > span:nth-child(2) { flex: 1; min-width: 0; }
+.g-interest-composer__intent-list strong { display: block; font-size: 14.5px; font-weight: 650; color: #fff; }
+.g-interest-composer__intent-list small { display: block; margin-top: 1px; font-size: 12px; color: rgba(255, 255, 255, .5); }
+.g-interest-composer__intent-list em { font-style: normal; font-size: 11px; font-weight: 700; color: #f3d9a2; padding: 2px 8px; border-radius: 999px; background: rgba(201, 162, 77, .16); }
+.g-interest-composer__intent-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--interest-accent); }
+.g-interest-composer__intent-conns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .08); }
+.g-interest-composer__intent-conns span { padding: 6px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .8); background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .12); }
+@keyframes g-intent-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.g-send-gayze-button { min-height: 54px; border: 0; border-radius: 999px; animation: none; font-size: 16px;
+  background: linear-gradient(120deg, #6f3cc3, #b24fd8 70%, #c9559b); box-shadow: 0 8px 24px rgba(111, 60, 195, .4), inset 0 1px 0 rgba(255, 255, 255, .25); }
+.g-send-gayze-button::before, .g-send-gayze-button__sparkles { display: none; }
+.g-send-gayze-button__symbol { color: #fff; filter: none; }
+@media (prefers-reduced-motion: reduce) { .g-interest-composer__intent-list { animation: none; } .g-interest-composer__intent-toggle svg { transition: none; } }
